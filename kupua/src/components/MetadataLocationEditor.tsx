@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
-import { MetadataEditButton, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
+import { MetadataEditButton, MetadataEditHint, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
 import { PillActionButton } from "./SearchPill";
 
 export const LOCATION_COMPONENTS = [
@@ -16,13 +16,16 @@ const LOCATION_PLURALS: Record<LocationKey, string> = {
 };
 const emptyLocation = () => ({ subLocation: "", city: "", state: "", country: "" });
 
-export function MetadataLocationEditor({ fields, targetIds, available, children, onPrepare }: {
+export function MetadataLocationEditor({ fields, targetIds, available: dataAvailable, children, onPrepare, editable = true, readOnly }: {
   fields: readonly { key: LocationKey; label: string; value: string; mixed: boolean }[];
   targetIds: readonly string[];
   available: boolean;
   children: ReactNode;
   onPrepare?: (intent: MetadataEditIntent) => void;
+  editable?: boolean;
+  readOnly?: ReactNode;
 }) {
+  const available = dataAvailable && editable;
   const [editing, setEditing] = useState(false);
   const [initial, setInitial] = useState(emptyLocation);
   const [draft, setDraft] = useState(emptyLocation);
@@ -47,14 +50,20 @@ export function MetadataLocationEditor({ fields, targetIds, available, children,
     setNotice(`Not sent - Location change prepared for ${targetIds.length} ${targetIds.length === 1 ? "image" : "images"}.`);
   };
   const cancel = () => { setEditing(false); setNotice(""); };
-  const Layout = editing ? MetadataBlock : MetadataRow;
-  return <Layout label="Location" {...(editing ? {} : { fill: true })} action={<MetadataEditButton ref={editRef} label="Location" editing={editing} disabled={!available} onClick={() => {
+  const beginEditing = () => {
     const baseline = emptyLocation();
     for (const field of fields) baseline[field.key] = field.mixed ? "" : field.value;
     setInitial(baseline); setDraft(baseline); setMixed(new Set(fields.filter(field => field.mixed).map(field => field.key)));
     setCleared(new Set()); setNotice(""); setEditing(true);
-  }} />}>
-    {!editing ? children : <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
+  };
+  const Layout = editing ? MetadataBlock : MetadataRow;
+  if (!editable && !editing) return readOnly ?? null;
+  return <Layout label="Location" {...(editing ? {} : { fill: true })} action={<MetadataEditButton ref={editRef} label="Location" editing={editing} disabled={!available} onClick={beginEditing} />}>
+    {!editing ? available && fields.some(field => field.mixed)
+      ? <>{children} <MetadataEditHint label="Location" mixed onClick={beginEditing} /></>
+      : available && fields.every(field => !field.value && !field.mixed)
+      ? <MetadataEditHint label="Location" onClick={beginEditing} /> : children
+      : <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); }
       else if (event.key === "Enter") {

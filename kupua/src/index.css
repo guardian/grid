@@ -40,6 +40,34 @@
   .image-action-full { display: inline; }
   .image-action-short { display: none; }
 }
+@container detail-toolbar (min-width: 750px) {
+  .image-actions[data-surface="detail"] .image-action-short { display: inline; }
+}
+@container detail-toolbar (min-width: 1000px) {
+  .image-actions[data-surface="detail"] .image-action-full { display: inline; }
+  .image-actions[data-surface="detail"] .image-action-short { display: none; }
+}
+
+.status-bar :is(.status-control-label, .status-badge-label, .status-matches-label),
+.status-bar .image-actions[data-surface="search"] > .image-action > :is(.image-action-full, .image-action-short) {
+  display: inline-block;
+  white-space: nowrap;
+}
+.status-bar .image-actions[data-surface="search"] > .image-action > .image-action-short,
+.status-bar:not([data-status-fit="full"]) .image-actions[data-surface="search"] > .image-action > .image-action-full,
+.status-bar:is([data-status-fit="condensed"], [data-status-fit="counts"], [data-status-fit="minimal"]) .status-control-label,
+.status-bar:is([data-status-fit="counts"], [data-status-fit="minimal"]) .status-badge-label,
+.status-bar[data-status-fit="minimal"] .status-matches-label {
+  position: fixed;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.status-bar[data-status-fit="short"] .image-actions[data-surface="search"] > .image-action > .image-action-short {
+  position: static;
+  visibility: visible;
+}
 
 :root { --mobile-edit-control-size: 36px; }
 
@@ -51,9 +79,8 @@
   .metadata-edit-tool:enabled:hover { background: #555; color: white; border-radius: 50%; }
   [data-metadata-field] .metadata-pencil { opacity: 0; }
   [data-metadata-field]:hover .metadata-pencil, [data-metadata-field] .metadata-pencil:focus-visible { opacity: 1; }
-  [data-search-pill]:not([data-accent]):hover, [data-editable-pill] button:enabled:hover { background: #333; color: #ccc; }
-  [data-search-pill][data-partial="true"]:not([data-accent]):hover { background: #555; color: white; }
-  [data-editable-pill][data-coverage="partial"] button:enabled:hover { background: #555; color: white; }
+  [data-search-pill]:not([data-accent]):hover,
+  [data-editable-pill]:not([data-accent]) button:enabled:hover { background: white; color: #717171; --tw-ring-color: #717171; }
   [data-editable-pill][data-accent] button:enabled:hover { background: white; color: var(--color-grid-accent-dark); }
   [data-editable-pill][data-accent][data-coverage="partial"] button:enabled:hover { background: var(--color-grid-accent-dark); color: white; }
 }

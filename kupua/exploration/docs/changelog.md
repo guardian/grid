@@ -24,6 +24,55 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 13 November 2026 - Kahuna-aligned metadata, crop browsing and responsive actions
+
+Aligned single/selection metadata ordering, known-empty and mixed wording, viewer visibility
+and section placement with Kahuna. Source/configured aliases use collapsible Additional
+metadata; Image type and Photoshoot are stacked, Filename follows Uploader, and Modified
+replaces Last modified. Technical dimensions/file size move to Original in the crop rail;
+File type and Image ID remain available in tables rather than metadata panels. Rights
+presentation consistently uses Unknown while preserving server cost and validity semantics.
+
+Ordinary metadata preparation follows per-image edits capability without unmounting open
+drafts when authority is withheld. Mixed Location search controls remain separate from
+edit-all controls. Shared chevrons and neutral-pill hover styling preserve the established
+interaction vocabulary; connected Labels retains its independent execution and receipt owner.
+
+Added desktop Original/full-frame/crop browsing and a compact Crops section. Newest-per-ID
+display filtering does not mutate stored exports or repair backend duplicate projection.
+Image-scoped deferred lists prevent cross-image row accumulation, and mobile work waits for
+an expanded, reached section. Neighbours, fullscreen and detail hidden behind the editor
+omit crop-list/media work. Preview failures follow rendition URLs and never substitute
+Original for a selected export; refreshed URLs can recover from earlier failures.
+
+Saved selection and creation share mandatory/custom/default ratio settings. Crop choices
+replace the current URL/history identity, survive legacy redirects and leave search/position
+fingerprints unchanged; traversal clears the rendition. Full-frame shortcuts cannot escape
+mandatory ratios. Known-invalid batch targets are skipped with count-only information
+feedback and retained per-target reasons. Accepted enrichment and canonical source reach
+the disconnected editor, with shared creation checks and fullscreen-visible cost/restriction
+notices. Withheld preparation preserves the frame; saved lists retain the advertised crops
+relation boundary. History-driven Crop entry exits image fullscreen.
+
+SelectionImageActions and SelectionFab own selection subscriptions; ImageActions and
+ImageActionFab require explicit target context. Detail controls and closed menus no longer
+observe unrelated selection/results/enrichment changes, while selection activation still
+resolves current targets. Session/ratio guards, confirmation and focus remain; same-count
+membership changes close selection menus. Single-target denial messages no longer imply
+an underlying selection. The component guide makes the ownership choice explicit for new controls.
+
+Detail retains action labels to narrower widths independently of search. Search uses one
+measured desktop/compact space budget: optional action/control text yields before badge
+names and match wording, while numbers and essential controls remain. Summary scrolling is
+the insufficient-space fallback. One local ResizeObserver and coalesced frame measure
+existing off-flow labels, with expansion headroom and cleanup rather than polling, duplicate
+controls, store updates or another cache. Existing suites cover ownership, ratio geometry,
+preview recovery, responsive fit, retained numbers, settled modes and scrolling fallback.
+
+These changes do not activate crop saving, returned-export publication, actual downloads,
+embedding or the other disconnected preparation paths. Backend idempotency and the proposed
+unavailable-crop explanation remain separate decisions; existing connected Labels is unchanged.
+
 ### 12 November 2026 - Deployed canonical startup skips legacy infrastructure
 
 Deployed media-api with canonical media now shares the lightweight API startup path:

@@ -117,6 +117,8 @@ legacy-category expansion remains accepted lag.
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
 | [GRID-020](#grid-020) | Metadata override replacement can lose a concurrent edit | Open; source-level contract limitation | Accepted single-operator prototype risk; no new UI gate |
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
+| [GRID-022](#grid-022) | Repeated crop saves regenerate shared assets and append duplicate export identities | Operator-reported UI repeat; source and read-only record inspection confirmed | Independent crop refresh/idempotency decision; local UI filtering is not a backend repair |
+| [GRID-023](#grid-023) | Distinguish unavailable saved crops from an empty crop list | Potential UX improvement; source-backed current behaviour | Preserve existing access policy; explanatory presentation not selected |
 
 <details>
 <summary>Completed bounded repairs and verification: 45 IDs</summary>
@@ -792,30 +794,32 @@ and browse-only repair direction; they do not approve wider API implementation o
 **Crop rights notices and server eligibility are not wired**
 - **Component / owner:** crop presentation and its shared enriched-image handoff from
   detail; human owner-to-confirm.
-- **Current gap:** the mock editor receives raw image data but not standalone detail's
-  own enrichment, shows no Pay/Restricted use/Overquota notice and does not consume
-  server crop eligibility. This is deferred feature work, not a demonstrated write
-  authorization bypass: requests are displayed/logged only and never submitted.
+- **Current state:** detail now hands its accepted enriched image to the editor, including
+  standalone/deep-link ownership. Shared crop access gates preparation using existing
+  validity, capability, deletion, freshness and session facts; no crop-only fetch or polling.
+  Pay/Restricted use/Overquota notices survive fullscreen, and withheld preparation retains
+  the frame. Requests remain displayed/logged only and are never submitted.
 - **Evidence:** [crop handoff](../../src/components/ImageDetail.tsx#L696),
   [mock editor](../../src/components/crop/CropEditor.tsx#L35),
   [Kahuna notices](../../../kahuna/public/js/crop/view.html#L64) and the
   [shared research/review note](hosted-rights-and-capabilities-review.md).
 - **Dependency / sequencing:** [KUP-044](#kup-044)'s image-level shared wiring is now
-  implemented under the operator-approved read-only step 1. Select this crop consumer
-  separately. Use that shared path across search, detail and crop;
+  implemented under the operator-approved read-only step 1. This crop consumer was
+  separately selected for UI wiring. Use that shared path across search, detail and crop;
   do not add a crop-only API fetch, rights store or local permission calculation.
   KUP-045/046 are related, separately selectable shared repairs, not automatic gates.
-- **Acceptance when selected:** reuse server cost/restrictions and reviewed crop
+- **Acceptance:** reuse server cost/restrictions and reviewed crop
   capability, including standalone/deep-link ownership; notices remain visible in
   normal and fullscreen layouts. Do not infer eligibility from cost, nonempty reasons,
   lease tint or EditMetadata alone. Choose explicitly whether ineligible images may
-  still be framed in the read-only mock; the recommendation to allow inspection is
-  not an approved gating decision.
+  still be framed in the read-only mock; the selected UI keeps the existing frame while
+  disabling preparation when the shared creation checks withhold it.
 - **Boundary:** creation/saving/export and all service writes remain out of scope.
   Keep current write guards. Direct-ES approximation is deferred with no added API
   calls. Mock cropping can be committed before this follow-up is selected.
-- **Disposition:** DEFERRED consumer, with image-level common wiring available;
-  no crop implementation or write authorization follows from the shared repair.
+- **Disposition:** RESOLVED at the disconnected UI boundary. Existing detail/editor suites
+  cover notices, canonical source, withheld authority/session and preserved frame. This does
+  not complete live crop creation, export readback/publication or external picking acceptance.
 
 #### KUP-048
 **Table column sizing updates shared state inside a React state updater**
@@ -1041,6 +1045,24 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence / reproduction:** operator reported the corpus missing after local/TEST switching and setup without `--clean` on 11 November. [TEST teardown](../../../dev/script/start.sh#L109), [ES Compose definition](../../../docker-compose.yml#L2), [setup cleanup versus ordinary startup](../../../dev/script/setup.sh#L47). Read-only Docker inspection confirmed no `/usr/share/elasticsearch/data` mount in Grid's replacement container and no image-declared data volume in ES 8.18.3. The teardown was introduced by `b985df7662` (14 October 2022); the later ES8 Compose change updated the image tag, not storage. This is not evidence that losing developer data was an explicit design decision, nor that every historical image behaved identically.
 - **Smallest check / engineer question:** in a disposable local fixture, distinguish container stop/start from removal/recreation and check whether a sentinel document survives. Should `--use-TEST` preserve local data, or is disposable local state intentional? Do not reproduce against a valued corpus or by connecting to shared TEST.
 - **Disposition:** open engineer question; no Grid launcher/storage changes commissioned. Persistence or lifecycle changes require separate approval and would prevent future loss, not recover an already removed writable layer. Original image objects/backups were not assessed. Not a Kupua migration or transport-commit gate.
+
+#### GRID-022
+**Repeated crop saves regenerate shared assets and append duplicate export identities**
+- **Component / owner:** cropper export processing/storage and Thrall export projection; Grid maintainer ownership and refresh policy to confirm.
+- **Trigger / actual:** submit the same source and crop rectangle again. Ordinary crop UI blocks concurrent submission in one form, not a later identical save; a whole-image rectangle becomes a full-frame export. The service reruns source download, crop, metadata embedding, resizing and uploads. Crop IDs and output paths are based on bounds, and uploads overwrite those paths, while Thrall appends another export record without deduplicating by ID.
+- **Evidence / limits:** on 12 November the operator reported creating another full frame through ordinary Kahuna UI for an image already having one. Read-only inspection found repeated full-frame records sharing one ID, specification and asset-path set but different saved times; Kahuna's reconstructed crop list displayed one group. Source: [submission guard](../../../kahuna/public/js/crop/controller.js#L209), [whole-image conversion](../../../cropper/app/model/ExportRequest.scala#L57), [identity](../../../common-lib/src/main/scala/com/gu/mediaservice/model/Crop.scala#L15), [processing and metadata embedding](../../../cropper/app/lib/Crops.scala#L34), [overwrite and bounds grouping](../../../cropper/app/lib/CropStore.scala#L16), [append script and deduplication TODO](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L723). No agent crop submission, live fault exercise, resource-cost measurement or published-content damage was established. The actor does not identify whether a historical save used UI or automation.
+- **Expected / decision:** duplicate search identities should not accumulate. Maintainers must separately decide when an existing export should be reused, have embedded metadata refreshed, or be regenerated because source metadata/output configuration changed. Repeated bounds alone do not prove that all effective inputs are unchanged; metadata-only refresh is not an agreed shortcut. Same-path overwrites mean this is not classified as benign without that review.
+- **Smallest discriminator:** isolated repeated equivalent requests with mocked image processing/storage, plus duplicate export-message delivery into the existing projection suite; check stable identity, admitted processing work and projection cardinality. Include a source-metadata change before selecting reuse semantics. Proposed backend checks, not run.
+- **Disposition:** OPEN, independent backend efficiency/idempotency finding, not a new Kupua browsing gate. Kupua filters repeated display identities locally using the newest save metadata and hides full-frame creation for already-covered images; neither changes stored data nor repairs export processing. Backend repair, asset refresh and live mutations require separate authorization.
+
+#### GRID-023
+**Potential improvement: explain unavailable saved crops instead of implying there are none**
+- **Component / owner:** Kahuna image crop rail and Kupua saved-crop presentation; frontend UX ownership to confirm.
+- **Current behaviour:** Kahuna loads saved crops through the advertised `crops` relation; without it the list does not populate, including a saved-crop deep link. Kupua preserves that boundary. An unavailable list can therefore look like a successful empty list. Missing relation is not itself evidence of a particular user permission failure: server validity also controls whether the relation is advertised.
+- **Evidence / limits:** [governing UI reference](gradually-growing-teeth.kahuna-editing-ui-reference.md#58-cropping-full-frame-and-saved-results), [Kahuna list lookup](../../../kahuna/public/js/image/controller.js#L270), [server crop relation](../../../media-api/app/lib/ImageResponse.scala#L149), [Kupua access boundary](../../src/lib/crop/crop-policy.ts). Source-backed presentation concern and operator request, not a new live-system reproduction or an authorization defect.
+- **Potential improvement:** show a restrained unavailable/disabled explanation distinct from a genuinely empty saved list. Greyed presentation is an option, not an approved design. Do not fetch or reveal withheld exports, infer a specific denial reason without authoritative facts, relax creation/selection policy or add polling.
+- **Smallest acceptance check if selected:** distinguish an admitted empty list from a withheld list and from pending/failed data; keep Original inspectable and preserve the existing deep-link access boundary. Reuse existing detail fixtures without extra permission requests.
+- **Disposition:** POTENTIAL IMPROVEMENT, independently parked; no implementation or policy change authorized by recording it.
 
 #### GRID-020
 **Metadata override replacement can lose a concurrent edit**

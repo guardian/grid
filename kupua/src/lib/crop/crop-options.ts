@@ -119,6 +119,10 @@ export interface CropSettings {
   initialType: string;
 }
 
+export function allowsCropRatio(settings: CropSettings, aspectRatio: unknown): boolean {
+  return settings.lockedType === undefined || aspectRatio === settings.options[0]?.ratioString;
+}
+
 export function getCropSettings(storage: Storage | undefined = sessionCropStorage()): CropSettings {
   const all = getCropOptions(storage);
   const lockedType = validKey(read(storage, CROP_TYPE_KEY), all);

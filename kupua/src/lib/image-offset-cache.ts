@@ -22,6 +22,7 @@ import type { SearchParams, SortValues } from "@/dal";
 import { buildSortClause, parseSortField, DATE_SORT_FIELDS, SORT_FIELD_EXTRACTORS } from "@/dal";
 import { BUFFER_CAPACITY } from "@/constants/tuning";
 import { gridConfig } from "@/lib/grid-config";
+import { URL_DISPLAY_KEYS } from "./url-display-keys";
 
 const PREFIX = "kupua:imgOffset:";
 type RetainedCursor = { searchKey: string; values: SortValues };
@@ -80,7 +81,7 @@ export function buildSearchKey(params: SearchParams | Record<string, unknown>): 
   // whether params come from the URL or from the store.
   const entries = Object.entries(params)
     .filter(([k, v]) =>
-      k !== "image" &&
+      !URL_DISPLAY_KEYS.has(k) &&
       k !== "offset" && k !== "length" &&
       v != null && v !== "")
     .sort(([a], [b]) => a.localeCompare(b));

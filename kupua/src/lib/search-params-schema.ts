@@ -59,6 +59,7 @@ export const searchParamsSchema = z.object({
   /** Currently viewed image ID — when present, image detail overlay is shown.
    *  Named `image` (not `imageId`) to match Grid URL style: `?image=abc123`. */
   image: z.string().optional().catch(undefined),
+  crop: z.string().optional().catch(undefined),
   /** "true" opens the crop editor over the image detail. */
   cropping: z.string().optional().catch(undefined),
   cropType: z.string().optional().catch(undefined),
@@ -174,13 +175,7 @@ export const URL_PARAM_KEYS = Object.keys(
  * store and NOT triggering a new ES search. Changing only these keys should
  * be treated as a no-op by useUrlSearchSync.
  */
-export const URL_DISPLAY_KEYS: ReadonlySet<keyof UrlSearchParams> = new Set([
-  "image",
-  "cropping",
-  "cropType",
-  "customRatio",
-  "defaultCropType",
-]);
+export { URL_DISPLAY_KEYS } from "./url-display-keys";
 
 /**
  * URL params that should appear first in the query string, in this order.

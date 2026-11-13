@@ -18,6 +18,7 @@
  */
 
 import type { Cost } from "@/dal/grid-api/types";
+import { categoryLabel, useCategoryLabel } from "@/lib/category-labels";
 
 export type CostVariant = Cost | "no-rights";
 
@@ -65,12 +66,11 @@ function FlagIcon({ size = 14 }: { size?: number }) {
 // Badge content per variant and size
 // ---------------------------------------------------------------------------
 
-const VARIANT_LABELS: Record<CostVariant, string> = {
+const VARIANT_LABELS: Record<Cost, string> = {
   free: "Free",
   pay: "Pay",
   conditional: "Conditional",
   overquota: "Overquota",
-  "no-rights": "No rights",
 };
 
 /** Icon-only content for sm size (grid cell / table cell). Matches Kahuna exactly. */
@@ -104,12 +104,11 @@ const SM_STYLE: React.CSSProperties = { width: 27, height: 18 };
 // Dynamic tooltip (Kahuna-matching)
 // ---------------------------------------------------------------------------
 
-const VARIANT_TOOLTIPS: Record<CostVariant, string> = {
+const VARIANT_TOOLTIPS: Record<Cost, string> = {
   free: "Free to use",
   pay: "Pay to use",
   conditional: "Restrictions apply",
   overquota: "Quota for images from this supplier has been exceeded!",
-  "no-rights": "No current rights to use this image!",
 };
 
 
@@ -126,7 +125,7 @@ export function buildCostTooltip(
 ): string {
   const prefix = hasActiveAllowLease ? "Leased, but: " : "";
 
-  if (variant === "no-rights") return VARIANT_TOOLTIPS["no-rights"];
+  if (variant === "no-rights") return categoryLabel("");
 
   if (variant === "conditional") {
     return restrictions
@@ -148,14 +147,15 @@ export function CostBadge({
   style,
   children,
 }: CostBadgeProps) {
+  const categoryLabel = useCategoryLabel();
   // sm = icon-only (Kahuna grid cell style); md/lg = text label
-  const label = children ?? (size === "sm" ? VARIANT_ICONS[variant] : VARIANT_LABELS[variant]);
+  const label = children ?? (size === "sm" ? VARIANT_ICONS[variant] : variant === "no-rights" ? categoryLabel("") : VARIANT_LABELS[variant]);
   const bgStyle = leased && variant !== "no-rights" ? LEASED_STYLE : VARIANT_STYLE[variant];
   return (
     <span
       className={`inline-flex items-center justify-center text-white select-none ${SIZE_CLASSES[size]} ${className ?? ""}`}
       style={{ ...bgStyle, ...(size === "sm" ? SM_STYLE : undefined), ...style }}
-      title={tooltip ?? VARIANT_TOOLTIPS[variant]}
+      title={tooltip ?? (variant === "no-rights" ? categoryLabel("") : VARIANT_TOOLTIPS[variant])}
     >
       {label}
     </span>
@@ -179,6 +179,6 @@ export interface CostBadgeFromCostProps {
 export function CostBadgeFromCost({ cost, noRights, hasActiveAllowLease, restrictions, size, className }: CostBadgeFromCostProps) {
   if (!cost && !noRights) return null;
   const variant: CostVariant = noRights ? "no-rights" : (cost as CostVariant);
-  const tooltip = buildCostTooltip(variant, hasActiveAllowLease, restrictions);
+  const tooltip = variant === "no-rights" ? undefined : buildCostTooltip(variant, hasActiveAllowLease, restrictions);
   return <CostBadge variant={variant} size={size} className={className} tooltip={tooltip} leased={hasActiveAllowLease} />;
 }

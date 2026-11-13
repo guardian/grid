@@ -5,15 +5,17 @@ import { _resetMetadataCache, useSelectionStore } from "@/stores/selection-store
 import { useSearchStore } from "@/stores/search-store";
 import { stampImageRead } from "./image-read-freshness";
 import { useImageActionStore } from "@/stores/image-action-store";
+import { applyLegacyCropParams } from "./crop/crop-options";
+import { useToastStore } from "@/stores/toast-store";
 
 const session = vi.hoisted(() => ({ invalidated: false }));
 vi.mock("./grid-api-instance", () => ({ isGridSessionInvalidated: () => session.invalidated }));
-afterEach(() => { session.invalidated = false; });
+afterEach(() => { session.invalidated = false; useToastStore.getState()._clearAll(); });
 
 function target(id: string): ImageActionTarget {
   return { id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, exports: [],
     source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } }, userMetadata: { archived: false } },
-  overlay: { persisted: { value: false, reasons: [] }, actions: [{ name: "delete", href: `https://api.example.test/images/${id}`, method: "DELETE" }],
+  overlay: { valid: true, persisted: { value: false, reasons: [] }, actions: [{ name: "delete", href: `https://api.example.test/images/${id}`, method: "DELETE" }],
     resource: { uri: `https://api.example.test/images/${id}`, links: [
       { rel: "crops", href: `https://crop.example.test/crops/${id}` },
       { rel: "download", href: `https://api.example.test/images/${id}/download` },
@@ -23,6 +25,18 @@ function target(id: string): ImageActionTarget {
 const context = (...targets: ImageActionTarget[]): ImageActionContext => ({ targets, api: true, archive: true });
 
 describe("image action preparation", () => {
+  it("blocks full-frame preparation under an incoming mandatory ratio without blocking defaults", () => {
+    const values = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", { getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) });
+    try {
+      applyLegacyCropParams(new URLSearchParams("defaultCropType=video"));
+      expect(prepareImageAction("full-frame", context(target("ready")))).toBeDefined();
+      applyLegacyCropParams(new URLSearchParams("cropType=video"));
+      expect(prepareImageAction("full-frame", context(target("ready")))).toBeUndefined();
+      expect(describeImageAction("full-frame", context(target("ready"))).reason).toContain("requested crop ratio");
+    } finally { vi.unstubAllGlobals(); }
+  });
   it("bounds disconnected history without reusing retained preview identities", () => {
     const initial = useImageActionStore.getState();
     try {
@@ -73,16 +87,25 @@ describe("image action preparation", () => {
   it("skips existing full frames and denied images while capturing the complete selection", () => {
     const existing = target("existing");
     existing.image!.exports = [{ specification: { type: "full" } }];
+    const covering = target("covering");
+    covering.image!.exports = [{ specification: { type: "crop", bounds: { x: 0, y: 0, width: 1200, height: 800 } } }];
     const denied = target("denied");
     denied.overlay!.resource!.links = [];
+    const invalid = target("invalid");
+    invalid.overlay!.valid = false;
     const ready = target("ready");
-    const prepared = prepareImageAction("full-frame", context(existing, denied, ready))!;
-    expect(prepared.targetIds).toEqual(["existing", "denied", "ready"]);
+    const targets = context(existing, covering, denied, invalid, ready);
+    const prepared = prepareImageAction("full-frame", targets)!;
+    expect(prepared.targetIds).toEqual(["existing", "covering", "denied", "invalid", "ready"]);
     expect(prepared.eligibleIds).toEqual(["ready"]);
     expect(prepared.skipped).toEqual([
-      { id: "existing", reason: "Already has a full frame" }, { id: "denied", reason: "Cannot crop this image" },
+      { id: "existing", reason: "Already has a full frame" }, { id: "covering", reason: "Already has a full frame" },
+      { id: "denied", reason: "Cannot crop this image" },
+      { id: "invalid", reason: "Cannot crop this image" },
     ]);
     expect(prepared.commands).toEqual([{ imageId: "ready", method: "POST", resource: "crop", body: { type: "full", source: "https://api.example.test/images/ready" } }]);
+    useImageActionStore.getState().prepare("full-frame", targets);
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("4 images won't be cropped");
     ready.overlay!.resource!.uri = "https://changed.example.test/";
     expect(prepared.commands[0].body).toEqual({ type: "full", source: "https://api.example.test/images/ready" });
   });
@@ -111,6 +134,19 @@ describe("image action preparation", () => {
     const second = target("second");
     second.image!.exports = [{ specification: { type: "full" } }];
     expect(describeImageAction("full-frame", context(existing, second)).reason).toBe("2: Already has a full frame");
+  });
+
+  it("describes single-image denials without implying an underlying selection", () => {
+    const denied = target("denied");
+    denied.overlay!.actions = [];
+    denied.overlay!.resource!.links = [];
+    expect(describeImageAction("delete", context(denied)).reason).toBe("This image cannot be deleted");
+    expect(describeImageAction("delete", context(target("ready"), denied)).reason).toBe("Not all selected images can be deleted");
+    expect(describeImageAction("download", context(denied)).reason).toBe("This image is not available to download");
+    expect(describeImageAction("download", context(target("ready"), denied)).reason).toBe("Not all selected images are available to download");
+    denied.image!.__availability = "deleted";
+    expect(describeImageAction("delete", context(denied)).reason).toBe("This image is unavailable or deleted");
+    expect(describeImageAction("delete", context(target("ready"), denied)).reason).toBe("One or more selected images are unavailable or deleted");
   });
 
   it("rejects cached service authority after session invalidation but still prepares Share", () => {

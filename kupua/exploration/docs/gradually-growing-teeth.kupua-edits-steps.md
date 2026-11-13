@@ -855,9 +855,9 @@ their operation implementations or authorizing activation.
 | Step / Family | Implemented Now | Still To Do |
 | --- | --- | --- |
 | 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection membership and Library actions prepare Not sent intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
-| 8: Ordinary/configured metadata | Ordinary field controls in the register below, including mixed/clear semantics, Location and segmented dates; preparation only. | Fresh authoritative override merge, commands, outcomes/readback/publication and original/reset behavior; configured-domain schema/bootstrap and typed editors. |
+| 8: Ordinary/configured metadata | Kahuna-aligned order/empty/read-only presentation; capability-gated controls with retained drafts, mixed/clear semantics, Location and segmented dates; preparation only. | Fresh authoritative override merge, commands, outcomes/readback/publication and original/reset behavior; configured-domain schema/bootstrap and typed editors. |
 | 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
-| 13: Full frame / Crop entry | Full-frame preview excludes existing full frames and known ineligible images, preserving captured selection and skip reasons. Normal detail Crop entry shows disabled Cannot crop when unavailable, including its shortcut. | Cropper discovery/submission, notices, export identity/readback and result presentation. |
+| 13: Full frame / Crop entry | Saved-export rail/preview and replace-only crop URLs; shared ratio restrictions; demand-driven mobile lists; enriched eligibility/source/notices in normal, direct and fullscreen editor. Full-frame preparation skips existing/known-ineligible targets with count feedback. All preparation remains Not sent. | Cropper submission/outcomes, returned export identity/readback/publication and canonical result delivery. |
 | 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
 | 16: Photoshoots and syndication | Photoshoot title suggestion/clear preparation only, with its own field identity. | Assignment/removal execution and fan-out, syndication and Photo Sales workflows. |
 | 17: Delete | Target-bound red second-activation confirmation prepares Not sent intent. | Command lifecycle, authoritative confirmation, search gap closure and detail-to-search position preservation. |
@@ -1178,12 +1178,14 @@ accepted subtree-count approximation. Rename/move belongs to step 22, not hidden
 **Can move earlier:** does not require the metadata/rights editors themselves.
 
 **UI checkpoint:** full-frame action preparation and normal detail Crop-entry gating are
-implemented as described above. Submission, crop notices and saved-export presentation
-remain unimplemented; an already-open/deep-linked read-only crop is not a live save path.
+implemented as described above, together with saved-export selection/URLs, shared ratio
+constraints and KUP-047 enriched notices/eligibility. Submission remains unimplemented;
+an already-open/deep-linked read-only crop is not a live save path.
 
 Wire server cost/restriction notices and crop eligibility through the common enriched image,
-including standalone detail and fullscreen. Recommend retaining read-only framing when saving
-is unavailable, but obtain that UX decision explicitly. Complete KUP-047 before live creation.
+including standalone detail and fullscreen. The selected read-only UI retains frames when
+preparation is withheld, using existing facts without polling. KUP-047 is resolved at that
+boundary, not authorization for live creation.
 
 Preserve the existing geometry-to-oriented-original mapping, ratio/custom/default constraints,
 numeric controls, draft/history behavior and small-crop warning. Use canonical media-api source

@@ -14,14 +14,17 @@ import { SettingsMenu } from "@/components/SettingsMenu";
 import { useIsCompact } from "@/hooks/useShell";
 import { useCursorAutoHide } from "@/hooks/useCursorAutoHide";
 import { getFullImageUrl, getThumbnailUrl, getZoomImageUrl } from "@/lib/image-urls";
-import { getCropSettings, getCropSettingsRevision, subscribeCropSettings, SQUARE_KEY, type CropOption } from "@/lib/crop/crop-options";
+import { SQUARE_KEY, type CropOption } from "@/lib/crop/crop-options";
+import { useCropSettings } from "@/hooks/useCropSettings";
 import { flushCropDraft, queueCropDraft, readCropDraft } from "@/lib/crop/crop-draft";
 import { gridConfig } from "@/lib/grid-config";
 import {
   buildCropRequest, cropCoordinateLimits, defaultCropRect, editCropRect, isValidCropRect, MIN_RECOMMENDED_CROP_WIDTH, originalCropSize, toOriginalRect,
   type CropRequest, type Rect,
 } from "@/lib/crop/crop-request";
-import { serviceLink } from "@/lib/grid-api-instance";
+import { isGridSessionInvalidated, serviceLink, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
+import type { EnrichedImage } from "@/lib/derive-enriched-image";
+import { cropAccess } from "@/lib/crop/crop-policy";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { restrictShortcuts } from "@/lib/keyboard-shortcuts";
 import { CropCanvas, type CropCanvasHandle, type CropCanvasState } from "./CropCanvas";
@@ -40,13 +43,19 @@ function initialCircularMask(): boolean {
 
 interface CropEditorProps {
   image: Image;
+  actionImage?: EnrichedImage;
   previewSrc?: string;
   onClose: () => void;
   onHome?: () => void;
 }
 
-export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorProps) {
+export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: CropEditorProps) {
   const isCompact = useIsCompact();
+  const api = import.meta.env.VITE_USE_MEDIA_API === "true";
+  const sessionInvalidated = useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
+  const acceptedImage = actionImage?.id === image.id ? actionImage : undefined;
+  const creationReason = api || actionImage ? cropAccess(acceptedImage, api, sessionInvalidated).creationReason
+    ?? (api && !acceptedImage?.resource?.uri ? "Image source is not ready" : undefined) : undefined;
   const [precisionOpen, setPrecisionOpen] = useState(false);
   const precisionRef = useRef<HTMLButtonElement>(null);
   const precisionId = useId();
@@ -54,8 +63,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   const precisionPanelRef = useRef<HTMLElement>(null);
   const precisionAnimation = useRef<Animation | null>(null);
   const precisionDrag = useRef<{ pointer: number; x: number; y: number; lastY: number; time: number; velocity: number; decided: boolean; tracking: boolean } | null>(null);
-  const revision = useSyncExternalStore(subscribeCropSettings, getCropSettingsRevision);
-  const settings = useMemo(() => getCropSettings(), [revision]);
+  const { settings, revision } = useCropSettings();
   const original = originalCropSize(image);
   const draft = useMemo(() => readCropDraft(image.id, original, settings),
     [image.id, original?.width, original?.height, settings]);
@@ -131,10 +139,12 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   const circle = showCircle ? (circularMask ? "mask" : "guide") : undefined;
 
   useEffect(() => {
+    if (api || acceptedImage?.resource?.uri) return;
     let live = true;
     void serviceLink("image").then((href) => { if (live) setSourceTemplate(href); });
     return () => { live = false; };
-  }, []);
+  }, [api, acceptedImage?.resource?.uri]);
+  const sourceUri = acceptedImage?.resource?.uri ?? sourceTemplate?.replace("{id}", encodeURIComponent(image.id)) ?? `<media-api>/images/${image.id}`;
 
   const src = useMemo(
     () => previewSrc ?? getFullImageUrl(image, {
@@ -201,7 +211,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   const [coordinateDrafts, setCoordinateDrafts] = useState<{ owner: object; values: Partial<Record<keyof Rect, string>> }>();
   const inputDrafts = coordinateDrafts?.owner === owner ? coordinateDrafts.values : {};
   const [canvasState, setCanvasState] = useState<{ owner: object; mediaOwner: object; value: CropCanvasState }>();
-  const [dryRun, setDryRun] = useState<{ state: typeof canvasState; sourceTemplate?: string; request: CropRequest }>();
+  const [dryRun, setDryRun] = useState<{ state: typeof canvasState; source: string; authority?: EnrichedImage; request: CropRequest }>();
   const state = canvasState?.owner === owner ? canvasState.value : undefined;
   const mediaStatus = canvasState?.mediaOwner === mediaOwner ? canvasState.value.status : "loading";
   const rect = original && state?.status === "ready" && state.selection
@@ -351,12 +361,11 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
   }, [settings, revision, image.id, cropKey, state]);
 
   const submit = useCallback(() => {
-    if (!rect || !original || invalidCoordinates || !isValidCropRect(rect, original)) return;
-    const source = sourceTemplate?.replace("{id}", encodeURIComponent(image.id)) ?? `<media-api>/images/${image.id}`;
-    const request = buildCropRequest(source, rect, option);
-    setDryRun({ state: canvasState, sourceTemplate, request });
+    if (creationReason || api && isGridSessionInvalidated() || !rect || !original || invalidCoordinates || !isValidCropRect(rect, original)) return;
+    const request = buildCropRequest(sourceUri, rect, option);
+    setDryRun({ state: canvasState, source: sourceUri, authority: acceptedImage, request });
     console.info("[crop dry run] POST cropper `crop` link", request);
-  }, [rect, original, sourceTemplate, image.id, option, canvasState, invalidCoordinates]);
+  }, [rect, original, sourceUri, acceptedImage, creationReason, api, option, canvasState, invalidCoordinates]);
 
   // Kahuna: Esc cancels, Enter crops. Capture phase keeps detail's own keys out.
   useEffect(() => {
@@ -421,12 +430,13 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
     const match = [...settings.options].reverse().find((o) => o.key.charAt(0).toLowerCase() === letter);
     if (match) selectType(match.key);
   };
-  const canCrop = !!rect && !invalidCoordinates;
+  const canCrop = !creationReason && !!rect && !invalidCoordinates;
   const cropAction = (
     <button
       ref={cropActionRef}
       onClick={submit}
       disabled={!canCrop}
+      title={creationReason}
       className={`group h-11 inline-flex items-center pl-1 pr-0 whitespace-nowrap ${canCrop ? "cursor-pointer" : "cursor-not-allowed"}`}
     >
       <span className={`h-8 inline-flex items-center gap-1.5 px-3 rounded transition-colors ${canCrop ? "bg-grid-accent text-white group-hover:bg-grid-accent-hover" : "bg-grid-accent/30 text-white/40"}`}>
@@ -532,6 +542,16 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
           <div className="detail-settings shrink-0"><SettingsMenu /></div>
         </div>
       </header>
+      {(creationReason || acceptedImage && ["pay", "overquota", "conditional"].includes(acceptedImage.cost)) && <div
+        aria-label="Crop notices" className="shrink-0 border-b border-grid-separator bg-grid-bg px-3 py-1 text-sm flex flex-wrap items-center gap-x-4 gap-y-1 max-h-32 overflow-y-auto">
+        {creationReason && <p role="status">{creationReason}</p>}
+        {acceptedImage?.cost === "pay" && <p>Pay to use</p>}
+        {acceptedImage?.cost === "overquota" && <p>Quota exceeded for this supplier</p>}
+        {acceptedImage?.cost === "conditional" && <details>
+          <summary className="cursor-pointer">Restricted use</summary>
+          {acceptedImage.usageRights?.restrictions && <p className="whitespace-pre-wrap wrap-anywhere">{acceptedImage.usageRights.restrictions}</p>}
+        </details>}
+      </div>}
       <div ref={imageViewportRef} className={`relative flex-1 min-h-0 flex items-center justify-center overflow-hidden ${isFullscreen ? "px-10 pb-10 pt-[50px]" : isCompact ? "p-3" : "p-[26px]"}`}>
         {desktop && isFullscreen && <div className="absolute top-[6px] left-1/2 -translate-x-1/2 z-30 rounded bg-black/80">{viewControls}</div>}
         {isFullscreen && <div className="absolute top-[6px] right-4 z-20 flex items-center gap-1 text-sm">{cropAction}</div>}
@@ -553,7 +573,7 @@ export function CropEditor({ image, previewSrc, onClose, onHome }: CropEditorPro
         <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-col items-end gap-2 pointer-events-none">
           {panHint && isCompact && <ToastNotice category="success" message="Two-finger pan" icon={<CropPanIcon className="size-4 shrink-0 mt-px" />} onDismiss={() => setPanHint(false)} className="w-max max-w-full self-center pointer-events-none select-none" />}
           <SmallCropWarning key={image.id} width={rect?.width} cleared={state?.status === "ready" && state.selection === null} />
-          {rect && !invalidCoordinates && dryRun && dryRun.state === canvasState && dryRun.sourceTemplate === sourceTemplate && (
+          {!creationReason && rect && !invalidCoordinates && dryRun && dryRun.state === canvasState && dryRun.source === sourceUri && dryRun.authority === acceptedImage && (
             <pre className="max-w-md p-3 text-xs bg-black/80 text-white rounded whitespace-pre-wrap pointer-events-auto" data-testid="crop-dry-run">
               {"Not sent — dry run\n"}{JSON.stringify(dryRun.request, null, 2)}
             </pre>

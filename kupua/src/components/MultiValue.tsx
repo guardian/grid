@@ -15,7 +15,7 @@ import type { FieldDefinition } from "@/lib/field-registry";
 const PLURAL_OVERRIDE: Record<string, string> = {
   metadata_byline: "bylines",
   metadata_bylineTitle: "byline titles",
-  metadata_dateTaken: "dates taken",
+  metadata_dateTaken: "dates",
   metadata_imageType: "image types",
   metadata_specialInstructions: "special instructions",
   metadata_suppliersReference: "supplier references",

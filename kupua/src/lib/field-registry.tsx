@@ -415,11 +415,12 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     esSearchPath: "metadata.imageType",
     sortKey: "imageType",
     detailGroup: "imageType", // Own section in detail panel
+    detailLayout: "stacked",
     defaultWidth: 100,
     fieldType: "keyword",
     aggregatable: true,
     multiSelectBehaviour: "reconcile",
-    showWhenEmpty: false,
+    showWhenEmpty: true,
     // S4: only render when gridConfig.imageTypes is configured (Kahuna parity -- decided 2026-05-02)
     visibleWhen: () => (gridConfig.imageTypes?.length ?? 0) > 0,
   },
@@ -482,6 +483,21 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     showWhenEmpty: true,
   },
   {
+    id: "metadata_dateTaken",
+    label: "Taken on",
+    group: "dates",
+    accessor: (img) => img.metadata?.dateTaken,
+    rawValue: (img) => img.metadata?.dateTaken,
+    formatter: formatDate,
+    sortKey: "taken",
+    detailGroup: "core",
+    descByDefault: true,
+    defaultWidth: 150,
+    fieldType: "date",
+    multiSelectBehaviour: "reconcile",
+    showWhenEmpty: true,
+  },
+  {
     id: "metadata_byline",
     label: "By",
     group: "core",
@@ -492,7 +508,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     defaultWidth: 150,
     fieldType: "text",
     multiSelectBehaviour: "reconcile",
-    showWhenEmpty: true,
+    showWhenEmpty: false,
   },
   {
     id: "metadata_credit",
@@ -508,33 +524,6 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     multiSelectBehaviour: "reconcile",
     showWhenEmpty: true,
   },
-  {
-    id: "metadata_copyright",
-    label: "Copyright",
-    group: "core",
-    accessor: (img) => img.metadata?.copyright,
-    cqlKey: "copyright",
-    esSearchPath: "metadata.copyright",
-    defaultWidth: 180,
-    fieldType: "text",
-    multiSelectBehaviour: "reconcile",
-    showWhenEmpty: false,
-  },
-  {
-    id: "metadata_source",
-    label: "Source",
-    group: "core",
-    accessor: (img) => img.metadata?.source,
-    cqlKey: "source",
-    esSearchPath: "metadata.source",
-    sortKey: "source",
-    defaultWidth: 120,
-    fieldType: "keyword",
-    aggregatable: true,
-    multiSelectBehaviour: "reconcile",
-    showWhenEmpty: false,
-  },
-
   // -- Location (composite) -------------------------------------------------
   {
     id: "location",
@@ -630,22 +619,19 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     showWhenEmpty: false,
   },
 
-  // -- Dates ----------------------------------------------------------------
   {
-    id: "metadata_dateTaken",
-    label: "Taken on",
-    group: "dates",
-    accessor: (img) => img.metadata?.dateTaken,
-    rawValue: (img) => img.metadata?.dateTaken,
-    formatter: formatDate,
-    sortKey: "taken",
-    detailGroup: "core", // No section break -- continues from Location
-    descByDefault: true,
-    defaultWidth: 150,
-    fieldType: "date",
+    id: "metadata_copyright",
+    label: "Copyright",
+    group: "core",
+    accessor: (img) => img.metadata?.copyright,
+    cqlKey: "copyright",
+    esSearchPath: "metadata.copyright",
+    defaultWidth: 180,
+    fieldType: "text",
     multiSelectBehaviour: "reconcile",
-    showWhenEmpty: true,
+    showWhenEmpty: false,
   },
+  // -- Dates ----------------------------------------------------------------
   {
     id: "uploadTime",
     label: "Uploaded",
@@ -662,7 +648,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
   },
   {
     id: "lastModified",
-    label: "Last modified",
+    label: "Modified",
     group: "dates",
     accessor: (img) => img.lastModified,
     rawValue: (img) => img.lastModified,
@@ -718,6 +704,19 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     multiSelectBehaviour: "show-if-all-same",
     showWhenEmpty: false,
   },
+  {
+    id: "uploadInfo_filename",
+    label: "Filename",
+    group: "technical",
+    accessor: (img) => img.uploadInfo?.filename,
+    cqlKey: "filename",
+    esSearchPath: "uploadInfo.filename",
+    detailClickable: false,
+    detailGroup: "core",
+    defaultWidth: 180,
+    fieldType: "keyword",
+    multiSelectBehaviour: "always-suppress",
+  },
 
   // -- Lists ----------------------------------------------------------------
   {
@@ -747,6 +746,21 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     fieldType: "list",
     isList: true,
     multiSelectBehaviour: "chip-array",
+    showWhenEmpty: false,
+  },
+  {
+    id: "metadata_source",
+    label: "Source",
+    group: "core",
+    accessor: (img) => img.metadata?.source,
+    cqlKey: "source",
+    esSearchPath: "metadata.source",
+    sortKey: "source",
+    detailGroup: "extended",
+    defaultWidth: 120,
+    fieldType: "keyword",
+    aggregatable: true,
+    multiSelectBehaviour: "reconcile",
     showWhenEmpty: false,
   },
   {
@@ -813,7 +827,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     cqlKey: "label",
     esSearchPath: "userMetadata.labels",
     detailLayout: "stacked",
-    detailGroup: "editorial", // Own section before keywords
+    detailGroup: "labels",
     defaultWidth: 200,
     fieldType: "list",
     isList: true,
@@ -831,6 +845,8 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.userMetadata?.photoshoot?.title,
     cqlKey: "photoshoot",
     esSearchPath: "userMetadata.photoshoot.title",
+    detailLayout: "stacked",
+    detailGroup: "photoshoot",
     defaultWidth: 180,
     defaultHidden: true,
     fieldType: "keyword",
@@ -869,6 +885,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     },
     // Display-only -- not sortable. Use Width / Height columns instead.
     defaultWidth: 120,
+    detailHidden: true,
     fieldType: "integer",
     // always-suppress: W x H composite is not useful across a selection.
     multiSelectBehaviour: "always-suppress",
@@ -925,7 +942,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     },
     defaultWidth: 90,
     defaultHidden: true, // Only shown in details panel
-    detailHidden: false,
+    detailHidden: true,
     fieldType: "integer",
     multiSelectBehaviour: "always-suppress",
   },
@@ -944,24 +961,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     formatter: (v) => v.replace("image/", ""),
     defaultWidth: 90,
     defaultHidden: true,
+    detailHidden: true,
     fieldType: "keyword",
     aggregatable: true,
-    multiSelectBehaviour: "show-if-all-same",
-    showWhenEmpty: false,
-  },
-  {
-    id: "uploadInfo_filename",
-    label: "Filename",
-    group: "technical",
-    accessor: (img) => img.uploadInfo?.filename,
-    cqlKey: "filename",
-    esSearchPath: "uploadInfo.filename",
-    detailClickable: false,
-    defaultWidth: 180,
-    fieldType: "keyword",
-    // always-suppress: filenames are de-facto unique per image; coincidental
-    // matches across a selection are not useful signal. (decided 2026-05-02)
     multiSelectBehaviour: "always-suppress",
+    showWhenEmpty: false,
   },
   {
     id: "imageId",
@@ -970,7 +974,7 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.id,
     defaultWidth: 280,
     defaultHidden: true, // Only shown in details panel
-    detailHidden: false,
+    detailHidden: true,
     fieldType: "keyword",
     multiSelectBehaviour: "always-suppress",
   },

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -25,11 +26,13 @@ import { useCollectionStore } from "@/stores/collection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
-import { SelectionFab } from "./SelectionFab";
+import { ImageActionFab, SelectionFab } from "./SelectionFab";
 import { PanelLayout } from "./PanelLayout";
-import { FullFrameOptions, ImageActions } from "./ImageActions";
+import { FullFrameOptions, ImageActions, SelectionImageActions } from "./ImageActions";
 import { LabelOperationReceipts } from "./LabelEditor";
 import { useImageActionStore } from "@/stores/image-action-store";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
+import * as gridApi from "@/lib/grid-api-instance";
 
 const ticker = gridConfig.tickerDefinitions[0];
 const resultCount = () => screen.getAllByRole("status")[0].textContent;
@@ -188,6 +191,84 @@ describe("StatusBar AI totals", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
     expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
+  });
+
+  it.each([false, true])("keeps explicit action controls independent of unrelated stores, compact=%s", async compact => {
+    shell.compact = compact;
+    const enrichment = useEnrichmentStore.getState();
+    const commits = vi.fn();
+    const target = { id: "detail", image: { id: "detail", uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
+      overlay: { actions: [{ name: "delete", href: "https://api.example.test/images/detail", method: "DELETE" as const }] } };
+    const context = { targets: [target], api: true, archive: true };
+    try {
+      render(<Profiler id="explicit-actions" onRender={commits}>
+        {compact ? <ImageActionFab docked context={context} /> : <>
+          <ImageActions context={context} actions={["delete"]} />
+          <FullFrameOptions context={context} />
+        </>}
+      </Profiler>);
+      if (compact) fireEvent.click(screen.getByRole("button", { name: "Image actions" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      const confirm = screen.getByRole("button", { name: "Confirm delete 1 image" });
+      confirm.focus();
+      await act(async () => {});
+      const settled = commits.mock.calls.length;
+      act(() => useSelectionStore.setState(state => ({ selectedIds: new Set(["unrelated"]),
+        metadataRevision: state.metadataRevision + 1, pendingFetchIds: new Set(["unrelated"]), isRangeWalking: true })));
+      act(() => useSearchStore.setState(state => ({ results: [...state.results] })));
+      act(() => useEnrichmentStore.setState({ data: new Map([["unrelated", { valid: false }]]) }));
+      expect(commits).toHaveBeenCalledTimes(settled);
+      expect(document.activeElement).toBe(confirm);
+      fireEvent.click(confirm);
+      expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["detail"]);
+    } finally { useEnrichmentStore.setState(enrichment, true); }
+  });
+
+  it("keeps selection actions live and rechecks membership at activation", () => {
+    const enrichment = useEnrichmentStore.getState();
+    const archive = vi.spyOn(gridApi, "serviceLink").mockResolvedValue(undefined);
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    try {
+      useSelectionStore.setState({ selectedIds: new Set(["first"]), isRangeWalking: false });
+      render(<SelectionImageActions actions={["share", "delete"]} />);
+      const share = screen.getByRole("button", { name: "Share with URL" });
+      act(() => {
+        useSelectionStore.setState({ selectedIds: new Set(["second"]) });
+        fireEvent.click(share);
+      });
+      expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
+      act(() => useSelectionStore.setState({ isRangeWalking: true }));
+      expect((share as HTMLButtonElement).disabled).toBe(true);
+      act(() => useSelectionStore.setState({ isRangeWalking: false }));
+      expect((share as HTMLButtonElement).disabled).toBe(false);
+      const remove = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
+      expect(remove.disabled).toBe(true);
+      act(() => useSearchStore.setState({ results: [{ id: "second", uploadTime: "", uploadedBy: "", metadata: {},
+        source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } }],
+        imagePositions: new Map([["second", 0]]), bufferOffset: 0 }));
+      act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [
+        { name: "delete", href: "https://api.example.test/images/second", method: "DELETE" as const },
+      ] }]]) }));
+      expect(remove.disabled).toBe(false);
+      act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [] }]]) }));
+      expect(remove.disabled).toBe(true);
+    } finally {
+      archive.mockRestore();
+      vi.unstubAllEnvs();
+      useEnrichmentStore.setState(enrichment, true);
+    }
+  });
+
+  it("closes selection actions when membership changes without changing the count", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["first"]), isRangeWalking: false });
+    render(<SelectionFab />);
+    const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["second"]) }));
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps action taps separate from card dragging in the compact header", () => {

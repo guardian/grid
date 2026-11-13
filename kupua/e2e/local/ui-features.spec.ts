@@ -1633,11 +1633,13 @@ test.describe("KUP-021 media fallback", () => {
     originalImageId = identities.first;
     await page.evaluate(({ first, second }) => {
       const probe = {
-        first, second, targets: new Set([first]), errors: 0, rawRelative: false, resolvedAbsolute: false,
+        first, second, targets: new Set([first]), errors: 0, railErrors: 0, rawRelative: false, resolvedAbsolute: false,
         wrapper: null as Element | null,
         onError: (event: Event) => {
           const image = event.target;
-          if (!(image instanceof HTMLImageElement) || image.getAttribute("fetchpriority") !== "high") return;
+          if (!(image instanceof HTMLImageElement)) return;
+          if (image.closest('[aria-label="Image original and crops select"]')) { probe.railErrors++; return; }
+          if (image.getAttribute("fetchpriority") !== "high") return;
           if (!image.closest("[data-detail-image-id]")) return;
           probe.wrapper ??= image.closest("[data-detail-image-id]");
           probe.errors++;
@@ -1697,7 +1699,11 @@ test.describe("KUP-021 media fallback", () => {
       relative: (window as any).__mediaFallback.rawRelative,
       absolute: (window as any).__mediaFallback.resolvedAbsolute,
     }))).toEqual({ errors: 2, relative: true, absolute: true });
-    expect(fixture.requests.map(path => path.split("/")[2])).toEqual(["thumbnail", "full", "thumbnail"]);
+    expect(await page.evaluate(() => (window as any).__mediaFallback.railErrors)).toBe(1);
+    expect(fixture.requests.filter(path => path.includes("/full/"))).toHaveLength(1);
+    const thumbnailRequests = fixture.requests.filter(path => path.includes("/thumbnail/")).length;
+    expect(thumbnailRequests).toBeGreaterThanOrEqual(2);
+    expect(thumbnailRequests).toBeLessThanOrEqual(3);
     await expect(page.getByText("Image preview not available", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Back to search" })).toBeVisible();
     await page.evaluate(() => (window as any).__mediaFallback.targets.add((window as any).__mediaFallback.second));

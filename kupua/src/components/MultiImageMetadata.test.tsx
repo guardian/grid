@@ -13,6 +13,8 @@ import { ImageMetadata } from "./ImageMetadata";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { MetadataTextEditor } from "./MetadataTextEditor";
+import { CostBadge, CostBadgeFromCost } from "./CostBadge";
+import { useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
 import * as typeahead from "@/lib/typeahead-fields";
 import type { GridCommandResult, LabelCommand } from "@/lib/grid-commands";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
@@ -29,6 +31,7 @@ vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => fixtur
 vi.mock("@/lib/orchestration/search", () => ({ cancelSearchDebounce: fixture.cancelDebounce }));
 
 const partialKeywords = Array.from({ length: 25 }, (_, i) => `partial-${i}`);
+const configuredImageTypes = [...gridConfig.imageTypes];
 let images: Image[];
 let frames: FrameRequestCallback[];
 
@@ -46,16 +49,35 @@ beforeEach(async () => {
     ...image,
     metadata: { ...image.metadata, keywords: i === 0 ? [...partialKeywords, "shared"] : ["shared"] },
   }));
+  useEnrichmentStore.getState().setEnrichment(new Map(images.map(image => [image.id, {
+    resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] },
+  }])));
 });
 afterEach(() => {
   cleanup();
+  gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, ...configuredImageTypes);
   vi.unstubAllEnvs();
   useEnrichmentStore.getState().setEnrichment(new Map());
+  useUsageRightsCatalogue.setState({ categories: null });
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 describe("multi-image cost summary", () => {
+  it("uses Unknown for missing rights across summaries, detail and badges", () => {
+    const unknown = images.map(image => ({ ...image, usageRights: { category: "" } }));
+    render(<><MultiImageMetadata images={unknown} reconciledView={recomputeAll(unknown, RECONCILE_FIELDS)} total={2} />
+      <ImageMetadata image={unknown[0]} /><CostBadgeFromCost noRights cost="pay" size="md" />
+      <CostBadge variant="no-rights" tooltip="Specific warning" /></>);
+    expect(screen.getByText("2 Unknown")).toBeTruthy();
+    expect(screen.queryByText("None")).toBeNull();
+    act(() => useUsageRightsCatalogue.setState({ categories: [{ value: "", name: "Unspecified rights" }] }));
+    expect(screen.getByText("2 Unknown")).toBeTruthy();
+    expect(screen.getAllByText("Unknown").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByTitle("Unknown")).toBeTruthy();
+    expect(screen.getByTitle("Specific warning")).toBeTruthy();
+  });
+
   it("uses server cost read with selected images, below the current search's overlay", () => {
     const [a, b] = images.map((image) => ({ ...image, usageRights: { category: "staff-photographer" } }));
     attachEnrichment(a, { cost: "overquota" });
@@ -69,6 +91,95 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
+  it.each(["single", "multiple"])("keeps Source in collapsible additional metadata and Labels separate in %s panels", context => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const populated = images.map(image => ({ ...image, metadata: { ...image.metadata, source: "Wire source" },
+      userMetadata: { ...image.userMetadata, labels: ["fixture-label"], photoshoot: { title: "Fixture photoshoot" } } }));
+    render(context === "single" ? <ImageMetadata image={populated[0]} />
+      : <MultiImageMetadata images={populated} reconciledView={recomputeAll(populated, RECONCILE_FIELDS)} total={2} />);
+    const additional = screen.getByRole("region", { name: "Additional metadata" });
+    expect(within(additional).queryByRole("button", { name: "Wire source" })).toBeNull();
+    fireEvent.click(within(additional).getByRole("button", { name: "Show additional metadata" }));
+    expect(within(additional).getByRole("button", { name: "Wire source" })).toBeTruthy();
+    fireEvent.click(within(additional).getByRole("button", { name: "Hide additional metadata" }));
+    expect(within(additional).queryByRole("button", { name: "Wire source" })).toBeNull();
+    expect(fieldRow("Labels").parentElement?.contains(fieldRow("Photoshoot"))).toBe(false);
+  });
+
+  it.each(["single", "multiple"])("keeps important empty fields but hides optional empty fields for %s viewers", context => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    useEnrichmentStore.getState().setEnrichment(new Map());
+    gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph");
+    const empty = images.map(image => ({ ...image, metadata: {}, usageRights: { category: "" } }));
+    render(context === "single" ? <ImageMetadata image={empty[0]} />
+      : <MultiImageMetadata images={empty} reconciledView={recomputeAll(empty, RECONCILE_FIELDS)} total={2} />);
+    for (const label of ["Image type", "Title", "Description", "Special instructions", "Taken on", "Credit"]) {
+      expect(within(fieldRow(label)).getByText("Unknown")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: `Edit ${label}` })).toBeNull();
+    }
+    for (const label of ["By", "Copyright", "Location", "People", "Keywords"]) {
+      expect(screen.queryByText(label, { selector: "dt" })).toBeNull();
+    }
+  });
+
+  it.each(["single", "multiple"])("explains editable empty values and further instructions in %s metadata", context => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const empty = images.map(image => ({ ...image, metadata: { usageInstructions: "Upstream restrictions" } }));
+    render(context === "single" ? <ImageMetadata image={empty[0]} />
+      : <MultiImageMetadata images={empty} reconciledView={recomputeAll(empty, RECONCILE_FIELDS)} total={2} />);
+    expect(fieldRow("Title").textContent).toContain("Unknown (click ");
+    expect(fieldRow("Special instructions").textContent).toContain("add further instructions");
+    expect(fieldRow("Special instructions").textContent).not.toContain("Unknown");
+    expect(fieldRow("Location").textContent).toContain("Unknown (click ");
+    fireEvent.click(within(fieldRow("Title")).getByRole("button", { name: "Add Title" }));
+    expect(screen.getByLabelText("Title")).toBeTruthy();
+  });
+
+  it.each(["single", "multiple"])("retains populated metadata when %s edit authority is withdrawn", context => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const populated = images.map(image => ({ ...image, metadata: { credit: "Picture desk", city: "London", peopleInImage: ["A person"] } }));
+    render(context === "single" ? <ImageMetadata image={populated[0]} />
+      : <MultiImageMetadata images={populated} reconciledView={recomputeAll(populated, RECONCILE_FIELDS)} total={2} />);
+    expect(screen.getByRole("button", { name: "Edit Credit" })).toBeTruthy();
+    act(() => useEnrichmentStore.getState().upsertEnrichment(new Map([[populated[0].id, { resource: { links: [] } }]])));
+    expect(screen.queryByRole("button", { name: "Edit Credit" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add person" })).toBeNull();
+    for (const value of ["Picture desk", "London", "A person"]) expect(screen.getByText(value)).toBeTruthy();
+  });
+
+  it.each([
+    { open: "Edit Description", input: "Description", commit: "Commit Description" },
+    { open: "Edit Location", input: "City", commit: "Commit Location" },
+    { open: "Add keyword", input: "New keyword", commit: "Commit new keyword" },
+  ])("retains the $input draft while selected edit authority is withheld", ({ open, input, commit }) => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    render(<MultiImageMetadata images={images} reconciledView={recomputeAll(images, RECONCILE_FIELDS)} total={2} />);
+    fireEvent.click(screen.getByRole("button", { name: open }));
+    const control = screen.getByLabelText(input) as HTMLInputElement | HTMLTextAreaElement;
+    fireEvent.change(control, { target: { value: "Unsent draft" } });
+    const permitted = useEnrichmentStore.getState().data.get(images[0].id)!;
+    act(() => useEnrichmentStore.getState().upsertEnrichment(new Map([[images[0].id, { resource: { links: [] } }]])));
+    expect(screen.getByLabelText(input)).toBe(control);
+    expect(control.value).toBe("Unsent draft");
+    expect(screen.getByRole("button", { name: commit }).hasAttribute("disabled")).toBe(true);
+    act(() => useEnrichmentStore.getState().upsertEnrichment(new Map([[images[0].id, permitted]])));
+    expect(screen.getByLabelText(input)).toBe(control);
+    expect(screen.getByRole("button", { name: commit }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("explains mixed scalar editing without describing unresolved metadata as empty", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const selected = images.map((image, index) => ({ ...image, metadata: { title: index ? "Second title" : "First title" } }));
+    const context = { targetIds: selected.map(image => image.id), targets: new Map() };
+    const { rerender } = render(<MultiImageMetadata images={selected} total={2} labelEditing={context}
+      reconciledView={recomputeAll(selected, RECONCILE_FIELDS)} />);
+    expect(fieldRow("Title").textContent).toContain("Multiple titles (click ");
+    expect(within(fieldRow("Title")).getByText("all", { selector: "strong" })).toBeTruthy();
+    rerender(<MultiImageMetadata images={selected} total={2} labelEditing={{ ...context, pending: true }} reconciledView={null} />);
+    expect(fieldRow("Title").textContent).not.toContain("Unknown");
+    expect(screen.getByRole("button", { name: "Edit Title" }).hasAttribute("disabled")).toBe(true);
+  });
+
   it("preserves the original offset when editing the repeated local hour", () => {
     vi.stubEnv("TZ", "Europe/London");
     expect(new Date("2026-10-25T01:31").getTimezoneOffset()).toBe(-60);
@@ -172,11 +283,15 @@ describe("metadata field preparation", () => {
 
   it("keeps Location input while selected metadata is temporarily pending", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
-    const selected = images.map((image, index) => ({ ...image, metadata: { ...image.metadata, city: index ? "Paris" : "London" } }));
+    const selected = images.map((image, index) => ({ ...image, metadata: { ...image.metadata, city: index ? "Paris" : "London", country: "United Kingdom" } }));
     const view = (pending: boolean) => <MultiImageMetadata images={selected} total={2}
       reconciledView={pending ? null : recomputeAll(selected, RECONCILE_FIELDS)}
       labelEditing={{ targetIds: selected.map(image => image.id), targets: new Map(), pending }} />;
     const { rerender } = render(view(false));
+    expect(within(fieldRow("Location")).getByRole("button", { name: "Edit all Location" })).toBeTruthy();
+    expect(within(fieldRow("Location")).getByText("all", { selector: "strong" })).toBeTruthy();
+    fireEvent.click(within(fieldRow("Location")).getByRole("button", { name: "United Kingdom" }));
+    expect(screen.queryByLabelText("City")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit Location" }));
     expect(screen.getByLabelText("Sublocation").getAttribute("placeholder")).toBe("or place");
     expect(screen.getByLabelText("State").getAttribute("placeholder")).toBe("or region");

@@ -636,7 +636,7 @@ test.describe("S4 -- multi-image Details panel", () => {
         expect(await getSelectionCount(kupua.page)).toBe(initialCount + 1);
         await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
         if (initialCount === 2) {
-          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|Unknown)$/)).toBeVisible();
           await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
         } else {
           await expect(kupua.page.getByText("Selection panel usage", { exact: true })).toBeVisible();
@@ -646,7 +646,7 @@ test.describe("S4 -- multi-image Details panel", () => {
         await kupua.page.waitForFunction(() => (window as any).__kupua_selection_store__.getState().pendingFetchIds.size === 0);
         await expect.poll(() => kupua.page.locator("dl").allTextContents()).toEqual(beforeText);
         if (initialCount === 2) {
-          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+          await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|Unknown)$/)).toBeVisible();
           await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
         }
 
@@ -785,7 +785,7 @@ test.describe("S4 -- multi-image Details panel", () => {
         await expect(kupua.page.getByText("S3 late usage", { exact: true })).toBeVisible();
       } else {
         expect(await kupua.page.evaluate(() => (window as any).__kupua_selection_store__.getState().isReconciling)).toBe(true);
-        await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|no rights)$/)).toBeVisible();
+        await expect(kupua.page.getByText(/^2 (free|restricted|paid|over quota|Unknown)$/)).toBeVisible();
         await expect(kupua.page.getByText("Digital", { exact: true }).locator("..")).toContainText("2/2");
         await expect(kupua.page.getByText("No leases", { exact: true })).not.toBeVisible();
         await expect(kupua.page.getByText("Allow use", { exact: true }).locator("..")).toContainText("All images");
@@ -816,7 +816,8 @@ test.describe("S4 -- multi-image Details panel", () => {
     await expect(
       kupua.page.locator('text=Focus an image to see its metadata'),
     ).not.toBeVisible({ timeout: 5000 });
-    await expect(kupua.page.locator("dt", { hasText: "File type" })).toBeVisible();
+    await expect(kupua.page.locator("dt", { hasText: "Credit" })).toBeVisible();
+    await expect(kupua.page.locator("dt", { hasText: "File type" })).toHaveCount(0);
     // Status bar confirms the count
     const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
     await expect(statusBar).toContainText("2");
@@ -1011,60 +1012,6 @@ test.describe("S4 -- multi-image Details panel", () => {
     ).toBeVisible({ timeout: 3000 });
   });
 
-  test("File type click-to-search uses CQL form (jpeg) not raw MIME (image/jpeg)", async ({ kupua }) => {
-    // Regression: multi-image panel was passing the raw accessor value "image/jpeg"
-    // to ValueLink instead of the formatter output "jpeg", so click produced
-    // fileType:image%2Fjpeg instead of fileType:jpeg.
-    await kupua.startSearch();
-    await clearSelection(kupua.page);
-
-    // Open Details panel
-    await kupua.page.locator('button[aria-label*="Details panel"]').click();
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button[aria-label="Select image"]').click();
-    await cells.nth(1).hover();
-    await cells.nth(1).locator('button[aria-label="Select image"]').click();
-
-    // Wait for source_mimeType to reach all-same (test data is expected to be homogenous)
-    await kupua.page.waitForFunction(
-      () => {
-        const store = (window as any).__kupua_selection_store__;
-        if (!store) return false;
-        const rv = store.getState().reconciledView;
-        if (!rv) return false;
-        const mt = rv.get("source_mimeType");
-        return mt && mt.kind === "all-same";
-      },
-      { timeout: 8000 },
-    );
-
-    // "File type" row should be visible in the details panel
-    const fileTypeRow = kupua.page.locator('dt', { hasText: "File type" });
-    await expect(fileTypeRow).toBeVisible({ timeout: 3000 });
-
-    // The displayed value should be the short form (e.g. "jpeg"), not the raw MIME
-    const fileTypeValue = fileTypeRow.locator('~ dd button');
-    const displayedText = await fileTypeValue.first().textContent();
-    expect(displayedText).not.toContain("image/");
-    expect(displayedText).not.toContain("%2F");
-
-    // Click the value — should navigate to fileType:<short> not fileType:image%2F<short>
-    await fileTypeValue.first().click();
-    await kupua.page.waitForURL((nextUrl: URL) => {
-      const href = nextUrl.href;
-      return href.includes("fileType%3Ajpeg") || href.includes("fileType:jpeg");
-    });
-
-    const url = kupua.page.url();
-    // Must contain "fileType:jpeg" (or similar short form), NOT "fileType:image"
-    // The colon may appear encoded (%3A) or unencoded in the query string.
-    expect(url.includes("fileType%3Ajpeg") || url.includes("fileType:jpeg")).toBe(true);
-    expect(url).not.toContain("image%2F");
-    expect(url).not.toContain("image/");
-  });
 });
 
 // ===========================================================================

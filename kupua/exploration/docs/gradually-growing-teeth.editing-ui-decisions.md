@@ -34,6 +34,8 @@ Text replacements still need deliberate submission; Refine remains live search.
 | Refine | Compact search keeps free text in the bar; structured clauses move to wrapping chips, field picking and a replacement value editor inside the sheet. Changes apply live; Show results closes it. | Reuse task decomposition, not its live-search submission semantics for writes. |
 | Metadata sheets | Selection has a peek/expanded sheet with scrim; detail has an image-first, nonmodal metadata sheet. | A natural editing hub already exists. Do not add an unrelated floating editor over it. |
 | Labels | Search text and add/remove/apply-to-all are separate controls; drafts and receipts have an owner outside selection. Entry uses a full-width input with actions below. | Preserve intent and target ownership when connecting other field families. |
+| Metadata presentation | Kahuna-aligned order, Unknown/mixed wording and viewer visibility; Source/configured aliases in Additional metadata, technical dimensions/file size with Original in the crop rail. | Detail/search-panel familiarity takes priority over retaining the previous shared table column order. |
+| Metadata authority | Ordinary API editors use per-image edits capability; an open draft remains mounted but cannot prepare when authority is withheld. Multi-image preparation requires complete captured targets. | Do not infer authority from field configuration or discard drafts on temporary withholding; Labels retains its separate execution owner. |
 | Table Collections | Optional, default-hidden registry column already exists; currently renders neutral path-ID pills. | This is not a missing field. Improve readability/discoverability rather than inventing another column. |
 | Standard Grid | Collection leaf-name badges with colours/path hover, labels, dates and separate status indicators. | Already has collection presentation, but its clipped strip needs an overflow policy. |
 | Justified / small Grid | Image-only densities omit most informational content; selection/safety presentation remains. | Adding badges changes a deliberate density tradeoff. Keep geometry and zoom continuity stable. |
@@ -208,6 +210,12 @@ Share URL, Full frame, Download, Delete and Library share one action presentatio
 captured-target contract across search and detail. Desktop uses full label, short label
 and icon-only states with narrow overflow; search separators fill the bar and detail
 separators are inset. Deselect stays immediately after the search selection count.
+Detail keeps full and short action labels to narrower toolbar widths than the busier
+search surface; its container-query overrides do not change search or compact menus.
+Search instead shares one measured budget across action/control labels, badge names and
+the word matches, including compact mode. Keep numbers and essential controls; shorten
+optional labels before clipping, retaining summary scrolling when even the smallest mode
+cannot fit. Roomy mobile bars must not hide matches solely because the viewport is narrow.
 The main Crop control is disabled Cannot crop when unavailable; its C shortcut shares
 the guard. The compact full-frame chevron has a Crop full frame tooltip, with no inline
 single-image skip explanation in its dropdown. Delete uses a red second activation tied

@@ -12,24 +12,28 @@ import { useFullscreen } from "@/hooks/useFullscreen";
 import { useToastStore } from "@/stores/toast-store";
 import { clearCropDraft, discardCropDraftOutside } from "@/lib/crop/crop-draft";
 import type { UseBlockerOpts } from "@tanstack/react-router";
+import { deriveImage } from "@/lib/derive-enriched-image";
 
 vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
 });
 
 const fixture = vi.hoisted(() => ({ changes: [] as Array<(state: unknown) => void>, edits: [] as Rect[], sources: [] as string[], zoomEnabled: false, compact: false,
+  aspect: null as number | null,
+  invalidated: false, sessionListeners: new Set<() => void>(),
   onZoomChange: undefined as ((zoomed: boolean) => void) | undefined, resets: 0, panMode: false,
   onAltChange: undefined as ((held: boolean) => void) | undefined,
   initialSelection: undefined as { rect: Rect | null; size: Size } | undefined,
   blocker: undefined as UseBlockerOpts | undefined }));
 vi.mock("@tanstack/react-router", () => ({ useBlocker: (options: UseBlockerOpts) => { fixture.blocker = options; } }));
 vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => fixture.compact, isCompactNow: () => fixture.compact }));
-vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled, initialSelection, onZoomChange, panMode, onAltChange }: { src: string; zoomEnabled?: boolean; onChange: (state: unknown) => void;
+vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, aspect, zoomEnabled, initialSelection, onZoomChange, panMode, onAltChange }: { src: string; aspect: number | null; zoomEnabled?: boolean; onChange: (state: unknown) => void;
   onZoomChange?: (zoomed: boolean) => void; panMode?: boolean;
   onAltChange?: (held: boolean) => void;
   initialSelection?: { rect: Rect | null; size: Size };
   ref?: Ref<{ setSelection: (selection: Rect, coordinateSize: Size) => void; resetView: () => void }> }) => {
   fixture.zoomEnabled = !!zoomEnabled;
+  fixture.aspect = aspect;
   fixture.onZoomChange = onZoomChange;
   fixture.panMode = !!panMode;
   fixture.onAltChange = onAltChange;
@@ -42,7 +46,11 @@ vi.mock("./CropCanvas", () => ({ CropCanvas: ({ onChange, ref, src, zoomEnabled,
   fixture.changes.push(onChange);
   return <div data-testid="canvas" />;
 } }));
-vi.mock("@/lib/grid-api-instance", () => ({ serviceLink: async () => "https://example.invalid/images/{id}" }));
+vi.mock("@/lib/grid-api-instance", () => ({ serviceLink: async () => "https://example.invalid/images/{id}",
+  isGridSessionInvalidated: () => fixture.invalidated, subscribeGridSessionInvalidation: (listener: () => void) => {
+    fixture.sessionListeners.add(listener);
+    return () => { fixture.sessionListeners.delete(listener); };
+  } }));
 vi.mock("@/lib/image-urls", () => ({ getFullImageUrl: (image: Image) => `/preview/${image.id}`, getThumbnailUrl: () => undefined,
   getZoomImageUrl: (image: Image) => `/zoom/${image.id}` }));
 
@@ -52,6 +60,7 @@ const ready = { status: "ready", selection: { x: 10, y: 20, width: 100, height: 
 beforeEach(() => {
   fixture.changes = []; fixture.edits = []; fixture.sources = []; fixture.compact = false; fixture.resets = 0;
   fixture.blocker = undefined;
+  fixture.invalidated = false;
   clearCropDraft(); sessionStorage.clear(); localStorage.clear();
   vi.spyOn(window, "confirm").mockReturnValue(true);
 });
@@ -65,6 +74,44 @@ afterEach(() => {
 function blockDeparture(search: Record<string, string> = { image: "A" }) {
   return fixture.blocker!.shouldBlockFn({ next: { pathname: "/search", search }, action: "BACK" } as never);
 }
+
+it("uses accepted crop authority and source while retaining the frame when preparation is withheld", () => {
+  vi.stubEnv("VITE_USE_MEDIA_API", "true");
+  try {
+    const raw = image("A");
+    const accepted = deriveImage(raw, { valid: true, invalidReasons: {}, cost: "conditional",
+      usageRights: { category: "fixture", restrictions: "Fixture restriction" },
+      resource: { uri: "https://canonical.example.test/images/A", links: [{ rel: "crops", href: "https://crop.example.test/A" }] } });
+    const view = render(<CropEditor image={raw} actionImage={accepted} onClose={() => {}} />);
+    act(() => fixture.changes.at(-1)!(ready));
+    expect(screen.getByText("Restricted use")).toBeTruthy();
+    expect(screen.getByText("Fixture restriction")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Crop" }));
+    expect(screen.getByTestId("crop-dry-run").textContent).toContain("https://canonical.example.test/images/A");
+    const canvas = screen.getByTestId("canvas");
+    const width = screen.getByRole("spinbutton", { name: "Crop width" }) as HTMLInputElement;
+    const originalWidth = width.value;
+    view.rerender(<CropEditor image={raw} actionImage={{ ...accepted, metadataStale: true }} onClose={() => {}} />);
+    expect((screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId("crop-dry-run")).toBeNull();
+    expect(screen.getByTestId("canvas")).toBe(canvas);
+    expect(width.value).toBe(originalWidth);
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(screen.queryByTestId("crop-dry-run")).toBeNull();
+    view.rerender(<CropEditor image={raw} actionImage={{ ...accepted, resource: { ...accepted.resource!, links: [] } }} onClose={() => {}} />);
+    expect((screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement).disabled).toBe(true);
+    view.rerender(<CropEditor image={raw} actionImage={accepted} onClose={() => {}} />);
+    expect((screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(width.value).toBe(originalWidth);
+    act(() => { fixture.invalidated = true; fixture.sessionListeners.forEach(listener => listener()); });
+    expect((screen.getByRole("button", { name: "Crop" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId("crop-dry-run")).toBeNull();
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(screen.queryByTestId("crop-dry-run")).toBeNull();
+    act(() => { fixture.invalidated = false; fixture.sessionListeners.forEach(listener => listener()); });
+    expect(width.value).toBe(originalWidth);
+  } finally { vi.unstubAllEnvs(); }
+});
 
 it("does not warn for default frames, preset changes or view-only zoom", () => {
   const close = vi.fn();
@@ -506,10 +553,15 @@ it("keeps a two-sentence warning while the frame is small, respects dismissal an
   expect(useToastStore.getState().queue).toHaveLength(0);
 });
 
-it("keeps Crop Settings free of results controls and hides it in crop fullscreen", () => {
+it.each([
+  { cost: "pay" as const, notice: "Pay to use" },
+  { cost: "overquota" as const, notice: "Quota exceeded for this supplier" },
+])("keeps $cost notices visible when Settings hides in crop fullscreen", ({ cost, notice }) => {
   let fullscreen: Element | null = null;
   Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => fullscreen });
-  render(<CropEditor image={image("A")} onClose={() => {}} />);
+  const raw = image("A");
+  render(<CropEditor image={raw} actionImage={deriveImage(raw, { cost, valid: true, invalidReasons: {} })} onClose={() => {}} />);
+  expect(screen.getByText(notice)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
   const menu = within(screen.getByRole("menu"));
   expect(menu.queryByRole("button", { name: /full screen/i })).toBeNull();
@@ -519,6 +571,7 @@ it("keeps Crop Settings free of results controls and hides it in crop fullscreen
   expect(screen.queryByRole("menu")).toBeNull();
   act(() => { fullscreen = screen.getByRole("dialog"); document.dispatchEvent(new Event("fullscreenchange")); });
   expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
+  expect(screen.getByText(notice).closest("[hidden]")).toBeNull();
   act(() => { fullscreen = null; document.dispatchEvent(new Event("fullscreenchange")); });
   expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   expect(screen.queryByRole("menu")).toBeNull();
@@ -721,8 +774,12 @@ it("applies incoming legacy restrictions to an already-open editor and invalidat
   act(() => applyLegacyCropParams(new URLSearchParams("cropType=custom&customRatio=custom,3,1")));
   expect(screen.getAllByRole("radio")).toHaveLength(1);
   expect(screen.getByRole("radio", { name: "custom (3:1)" }).getAttribute("aria-checked")).toBe("true");
+  expect(fixture.aspect).toBe(3);
   expect(crop.disabled).toBe(true);
-  act(() => fixture.changes.at(-1)!(ready));
+  const constrained = { ...ready, selection: { x: 10, y: 20, width: 300, height: 100 } };
+  act(() => fixture.changes.at(-1)!(constrained));
+  fireEvent.change(screen.getByRole("spinbutton", { name: "Crop width" }), { target: { value: "900" } });
+  expect((screen.getByRole("spinbutton", { name: "Crop height" }) as HTMLInputElement).value).toBe("300");
   expect(crop.disabled).toBe(false);
   const settledOwner = fixture.changes.at(-1)!;
   fireEvent.click(screen.getByRole("radio", { name: "custom (3:1)" }));
@@ -732,9 +789,9 @@ it("applies incoming legacy restrictions to an already-open editor and invalidat
   expect(crop.disabled).toBe(true);
   fireEvent.click(screen.getByRole("radio", { name: "custom (3:1)" }));
   expect(fixture.changes.at(-1)).not.toBe(settledOwner);
-  act(() => settledOwner(ready));
+  act(() => settledOwner(constrained));
   expect(crop.disabled).toBe(true);
-  act(() => fixture.changes.at(-1)!(ready));
+  act(() => fixture.changes.at(-1)!(constrained));
   expect(crop.disabled).toBe(false);
   act(() => applyLegacyCropParams(new URLSearchParams("customRatio=custom,2,1")));
   expect(screen.getByRole("radio", { name: "custom (2:1)" })).toBeTruthy();

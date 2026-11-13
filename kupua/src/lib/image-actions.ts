@@ -6,9 +6,20 @@ import { getImageReadSequence, isImageMetadataCurrent, resolveImageOverlay } fro
 import { BATCH_POLICY } from "./batch-execution";
 import { humanisePersistedReasons } from "./image-persistence";
 import { isGridSessionInvalidated } from "./grid-api-instance";
+import { getCropSettings, type CropSettings } from "./crop/crop-options";
 
 export type ImageAction = "share" | "full-frame" | "download" | "delete" | "library";
 export const IMAGE_ACTIONS: readonly ImageAction[] = ["share", "full-frame", "download", "delete", "library"];
+
+export function imageHasFullFrame(image: Image): boolean {
+  const dimensions = image.source?.orientedDimensions ?? image.source?.dimensions;
+  return image.exports?.some(crop => {
+    if ((crop.specification?.type ?? crop.type) === "full") return true;
+    const bounds = crop.specification?.bounds as { x: number; y: number; width: number; height: number } | undefined;
+    return Boolean(dimensions && bounds && bounds.x === 0 && bounds.y === 0
+      && bounds.width === dimensions.width && bounds.height === dimensions.height);
+  }) ?? false;
+}
 
 export interface ImageActionTarget {
   id: string;
@@ -22,6 +33,7 @@ export interface ImageActionContext {
   api: boolean;
   archive: boolean | null;
   pending?: boolean;
+  cropSettings?: CropSettings;
 }
 
 export interface ImageActionDescription {
@@ -51,7 +63,7 @@ export interface PreparedImageAction {
 }
 
 export function prepareImageAction(action: ImageAction, context: ImageActionContext): PreparedImageAction | undefined {
-  const description = describeImageAction(action, context);
+  const description = describeImageAction(action, action === "full-frame" ? { ...context, cropSettings: getCropSettings() } : context);
   if (description.reason) return undefined;
   const commands: PreparedImageAction["commands"][number][] = [];
   const eligible = new Set(description.eligibleIds);
@@ -118,12 +130,13 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
   if (action !== "download" && targets.length > BATCH_POLICY.maxTargets) return blocked(`Select at most ${BATCH_POLICY.maxTargets} images`);
   const unavailable = targets.some(target => target.image!.__availability || target.image!.softDeletedMetadata);
   if (action === "full-frame") {
+    if ((context.cropSettings ?? getCropSettings()).lockedType !== undefined) return blocked("Use Crop image for the requested crop ratio");
     if (targets.some(target => !knownUnavailable(target) && !Array.isArray(target.image!.exports))) return blocked("Crop information is not ready");
     const skipped: { id: string; reason: string }[] = [];
     const eligibleIds = targets.filter(target => {
       const reason = target.image!.__availability || target.image!.softDeletedMetadata ? "Image unavailable"
-        : target.image!.exports!.some(crop => crop.specification?.type === "full") ? "Already has a full frame"
-        : !target.overlay!.resource?.uri || !target.overlay!.resource.links.some(link => link.rel === "crops") ? "Cannot crop this image" : undefined;
+        : imageHasFullFrame(target.image!) ? "Already has a full frame"
+        : target.overlay!.valid === false || !target.overlay!.resource?.uri || !target.overlay!.resource.links.some(link => link.rel === "crops") ? "Cannot crop this image" : undefined;
       if (reason) skipped.push({ id: target.id, reason });
       return !reason;
     }).map(target => target.id);
@@ -131,14 +144,14 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
       .map(reason => `${skipped.filter(item => item.reason === reason).length}: ${reason}`).join("; ");
     return { ...result, eligibleIds, skipped, ...(!eligibleIds.length && { reason: skipSummary }) };
   }
-  if (unavailable) return blocked("One or more images are unavailable or deleted");
+  if (unavailable) return blocked(targets.length === 1 ? "This image is unavailable or deleted" : "One or more selected images are unavailable or deleted");
   if (action === "delete") {
     if (targets.some(target => !target.overlay!.actions?.some(command => command.name === "delete" && command.method === "DELETE"))) {
-      return blocked("Not all selected images can be deleted");
+      return blocked(targets.length === 1 ? "This image cannot be deleted" : "Not all selected images can be deleted");
     }
   }
   if (action === "download" && targets.some(target => !target.overlay!.resource?.links.some(link => link.rel === "download"))) {
-    return blocked("Not all selected images are available to download");
+    return blocked(targets.length === 1 ? "This image is not available to download" : "Not all selected images are available to download");
   }
   if (action === "library") {
     if (targets.some(target => !target.overlay!.persisted)) return blocked("Library information is not ready");

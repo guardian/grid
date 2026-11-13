@@ -62,6 +62,10 @@ import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-k
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { ImageCrops, MobileImageCrops, cropAsset, latestCrops } from "@/components/ImageCrops";
+import { useCropSettings } from "@/hooks/useCropSettings";
+import { allowsCropRatio } from "@/lib/crop/crop-options";
+import { cropAccess } from "@/lib/crop/crop-policy";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
 import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -80,8 +84,8 @@ import { getImageAvailability, unavailableImage } from "@/lib/image-read-freshne
 import { useSelectionStore } from "@/stores/selection-store";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { ImageActions, FullFrameOptions } from "./ImageActions";
-import { SelectionFab } from "./SelectionFab";
-import type { ImageActionContext } from "@/lib/image-actions";
+import { ImageActionFab } from "./SelectionFab";
+import { imageHasFullFrame, type ImageActionContext } from "@/lib/image-actions";
 import { isGridSessionInvalidated, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 
 const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
@@ -102,6 +106,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const navigate = useNavigate();
   const router = useRouter();
   const searchParams = useSearch({ from: "/search" });
+  const cropping = searchParams.cropping === "true";
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
   // Mount timestamp — used to suppress stray dblclick events that leak
@@ -169,6 +174,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     // Build the bare-list URL (current URL minus ?image=...)
     const url = new URL(detailUrl);
     url.searchParams.delete("image");
+    url.searchParams.delete("crop");
     url.searchParams.delete("cropping");
     const bareListUrl = url.pathname + url.search;
 
@@ -203,6 +209,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Mobile scroll container — the outer flex-col div that scrolls on narrow screens.
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const isCompact = useIsCompact();
+  const { settings: cropSettings } = useCropSettings();
   const [cardExpanded, setCardExpanded] = useState(false);
   const [actionsCloseSignal, setActionsCloseSignal] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(true);
@@ -349,9 +356,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const image = availability ? null : resolvedImage;
   const actionImage = useEnrichedImage(image ?? undefined, standaloneEnrichment);
   const sessionInvalidated = useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
-  const canCrop = Boolean(image && image.id === imageId && !image.softDeletedMetadata && actionImage?.valid
-    && !actionImage.metadataStale && (import.meta.env.VITE_USE_MEDIA_API !== "true"
-      || !sessionInvalidated && actionImage.resource?.links.some(link => link.rel === "crops")));
+  const cropPolicy = cropAccess(actionImage, import.meta.env.VITE_USE_MEDIA_API === "true", sessionInvalidated);
+  const selectedExport = useMemo(() => !cropping && cropPolicy.canReadExports && searchParams.crop
+    ? latestCrops(image?.exports).find(crop => crop.id === searchParams.crop) : undefined,
+  [cropping, cropPolicy.canReadExports, image?.exports, searchParams.crop]);
+  const selectedCrop = selectedExport && allowsCropRatio(cropSettings, selectedExport.specification?.aspectRatio) ? selectedExport : undefined;
+  const canCrop = Boolean(image && image.id === imageId && !cropPolicy.creationReason);
   const cropOwner = useRef({ imageId, canCrop });
   useLayoutEffect(() => {
     cropOwner.current = { imageId, canCrop };
@@ -387,7 +397,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // it must switch to pushNavigate().
       navigate({
         to: "/search",
-        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id }),
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id, crop: undefined }),
         replace: true,
         state: withCurrentKupuaKey(),
       });
@@ -454,7 +464,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   // Crop editor: its own history entry (Kahuna's crop is a page), so Back leaves it.
   // A deep link (legacy /images/:id/crop) has no entry below to go back to.
-  const cropping = searchParams.cropping === "true";
+  useEffect(() => {
+    if (cropping && isFullscreen) void document.exitFullscreen().catch(() => {});
+  }, [cropping, isFullscreen]);
   const openCrop = useCallback(() => {
     if (!canCrop || import.meta.env.VITE_USE_MEDIA_API === "true" && isGridSessionInvalidated()) return;
     const originLocation = window.location.href;
@@ -511,15 +523,29 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   });
   cancelSwipeRef.current = cancelSwipe;
 
-  const mediaOwner = useMemo(() => ({ imageId }), [imageId]);
+  const selectedCropAsset = useMemo(() => selectedCrop ? cropAsset(selectedCrop, "preview") : undefined, [selectedCrop]);
+  const selectedCropUrl = selectedCropAsset?.secureUrl ?? selectedCropAsset?.file;
+  const imgproxyOpts = useMemo(() => ({ width: window.screen.width, height: window.screen.height,
+    nativeWidth: image?.source?.dimensions?.width, nativeHeight: image?.source?.dimensions?.height }), [image?.id]);
+  const originalFullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
+  const thumbUrl = image ? getThumbnailUrl(image) : undefined;
+  const mediaOwner = useMemo(() => ({ imageId, cropId: selectedCrop?.id }),
+    [imageId, selectedCrop?.id, selectedCrop ? selectedCropUrl : originalFullUrl, selectedCrop ? undefined : thumbUrl]);
   const currentMediaOwnerRef = useRef(mediaOwner);
   currentMediaOwnerRef.current = mediaOwner;
   const [failedMediaOwner, setFailedMediaOwner] = useState<typeof mediaOwner | null>(null);
+  const selectCrop = useCallback((cropId: string | undefined) => {
+    const crop = cropId ? latestCrops(image?.exports).find(crop => crop.id === cropId) : undefined;
+    if (cropId && (!cropPolicy.canReadExports || !crop || !allowsCropRatio(cropSettings, crop.specification?.aspectRatio))) return;
+    setFailedMediaOwner(null);
+    navigate({ to: "/search", search: (prev: Record<string, unknown>) => ({ ...prev, crop: cropId }),
+      replace: true, state: withCurrentKupuaKey() });
+  }, [navigate, image?.exports, cropSettings, cropPolicy.canReadExports]);
   const [isZoomed, setIsZoomed] = useState(false);
   usePinchZoom({
     containerRef: isCompact ? imageSurfaceRef : containerRef,
     imageRef,
-    imageKey: imageId,
+    imageKey: selectedCrop ? `${imageId}:${selectedCrop.id}` : imageId,
     enabled: !!image && failedMediaOwner !== mediaOwner && !cropping && (isFullscreen || isCompact),
     lastSwipeTimeRef,
     scaleRef,
@@ -603,7 +629,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       img.style.willChange = "";
       img.style.transition = "";
     }
-  }, [imageId, scaleRef]);
+  }, [imageId, selectedCrop?.id, scaleRef]);
 
   // ── Zoom-enhanced hi-res loading ───────────────────────────────
   // When the user zooms past 1× in fullscreen, load a higher-resolution
@@ -611,7 +637,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // On zoom-out or image change, cancel the in-flight fetch. StableImg's
   // layoutEffect will revert to the standard-res URL on its next render.
   useEffect(() => {
-    if (!isZoomed || (!isFullscreen && !isCompact) || !image) return;
+    if (!isZoomed || (!isFullscreen && !isCompact) || !image || selectedCrop) return;
     const zoomUrl = getZoomImageUrl(image);
     if (!zoomUrl) return;
     const img = imageRef.current;
@@ -630,7 +656,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       cancelled = true;
       loader.src = ""; // abort in-flight fetch
     };
-  }, [isZoomed, isFullscreen, isCompact, image?.id]);
+  }, [isZoomed, isFullscreen, isCompact, image?.id, selectedCrop?.id]);
 
   // Navigation keyboard shortcuts (arrows, backspace) — these are NOT
   // single-character shortcuts, so they don't go through the shortcut
@@ -698,26 +724,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     };
   }, [toggleFullscreen, image]);
 
-  // Image URL — prefer full-size via imgproxy, fall back to thumbnail.
-  // Request screen-sized image (not window-sized) so a single request covers
-  // both windowed and fullscreen display. Uses detectDpr() — 1× on standard
-  // displays, 1.5× on HiDPI (DPR > 1.3). See image-urls.ts for rationale.
-  // Capped at native resolution to avoid upscaling.
-  // screen.width/height are CSS pixels of the monitor — stable regardless of
-  // window size or fullscreen state. No re-request on resize/fullscreen toggle.
-  const imgproxyOpts = useMemo(
-    () => ({
-      width: window.screen.width,
-      height: window.screen.height,
-      // Native dimensions cap — prevents requesting larger than the original
-      nativeWidth: image?.source?.dimensions?.width,
-      nativeHeight: image?.source?.dimensions?.height,
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally stable per image
-    [image?.id],
-  );
-  const fullUrl = image ? getFullImageUrl(image, imgproxyOpts) : undefined;
-  const thumbUrl = image ? getThumbnailUrl(image) : undefined;
+  const fullUrl = selectedCrop ? selectedCropUrl : originalFullUrl;
 
   // Prev/next image URLs for the swipe carousel.
   // Use full-res AVIF when the prefetch pipeline has fully decoded it
@@ -757,9 +764,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     return getThumbnailUrl(nextImage);
   }, [nextImage?.id, prefetchGen]);
 
-  const imageUrl = failedMediaOwner === mediaOwner ? undefined : (fullUrl ?? thumbUrl);
+  const imageUrl = cropping || failedMediaOwner === mediaOwner ? undefined : selectedCrop ? fullUrl : (fullUrl ?? thumbUrl);
   const displayedAsset = imageRef.current;
-  const cropPreviewSrc = displayedAsset?.complete && displayedAsset.naturalWidth > 0 && thumbUrl
+  const cropPreviewSrc = cropping || selectedCrop ? originalFullUrl ?? thumbUrl : displayedAsset?.complete && displayedAsset.naturalWidth > 0 && thumbUrl
     && displayedAsset.currentSrc === new URL(thumbUrl, window.location.href).href ? thumbUrl : imageUrl;
 
 
@@ -774,6 +781,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, [imageId, image]);
 
   const displayImage = image;
+  const suppressFullFrame = Boolean(cropSettings.lockedType !== undefined || !cropping && !isCompact && !isFullscreen && displayImage && imageHasFullFrame(displayImage));
   const actionContext: ImageActionContext = {
     api: import.meta.env.VITE_USE_MEDIA_API === "true", archive: null,
     targets: [{ id: imageId, image: displayImage?.id === imageId ? displayImage : undefined,
@@ -819,12 +827,15 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     onRevealDrag={() => setDrawerVisible(true)}
     overlay
     scrim={false}
-    headerActions={<SelectionFab docked context={current ? actionContext : {
+    headerActions={<ImageActionFab docked context={current ? actionContext : {
       api: actionContext.api, archive: null, targets: [{ id: detailImage.id, image: detailImage }],
     }} detailsExpanded={cardExpanded} closeSignal={actionsCloseSignal} />}
     onDragStart={current ? () => setActionsCloseSignal(value => value + 1) : undefined}
   >
     {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
+    {current && <AccordionSection sectionId="detail-crops" contentId={`detail-crops-${detailImage.id}`} title="Crops">
+      <MobileImageCrops key={detailImage.id} active={cardExpanded && !cropping} image={detailImage} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} compact onSelect={selectCrop} />
+    </AccordionSection>}
   </BottomSheet>;
   const renderNeighbor = (detailImage: Image, src: string | undefined, slot: "previous" | "next") => <div
     className="absolute inset-0"
@@ -853,7 +864,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   return (
     <div ref={detailWrapperRef} className={`relative flex flex-col flex-1 min-h-0 ${isCompact ? "bg-black" : "bg-grid-bg"}`} data-detail-image-id={resolvedImage?.id}>
       {cropping && <div className="fixed inset-0 z-50 bg-grid-bg" data-testid="crop-backdrop">
-        {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
+        {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} actionImage={actionImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
       </div>}
       {/* Top bar — hidden in fullscreen */}
       {(!isFullscreen || isCompact) && (
@@ -880,7 +891,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                 disabled={!canCrop}
                 aria-label={canCrop ? "Crop image" : "Cannot crop"}
                 title={canCrop ? "Crop image [c]" : "Cannot crop"}
-                className="detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 px-3 text-sm text-grid-text-muted enabled:hover:bg-grid-hover enabled:hover:text-grid-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className={`detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 pl-3 ${suppressFullFrame ? "pr-3" : "pr-1"} text-sm text-grid-text-muted enabled:hover:bg-grid-hover enabled:hover:text-grid-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer`}
               >
                 <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <path d="M6 2v16h16M2 6h16v16" />
@@ -889,7 +900,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   {canCrop ? <>Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span></> : "Cannot crop"}
                 </span>
               </button>
-              {!isCompact && <FullFrameOptions context={actionContext} />}
+              {!isCompact && !suppressFullFrame && <FullFrameOptions context={actionContext} />}
               </div>
               <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>
@@ -918,6 +929,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             : "flex-1 flex min-h-0 overflow-y-auto wide:overflow-clip overscroll-y-contain overscroll-x-none flex-col wide:flex-row touch-pan-y wide:touch-auto"
         }
       >
+        {!cropping && !isFullscreen && !isCompact && displayImage && <aside aria-label="Image original and crops select"
+          className="w-[130px] shrink-0 border-r border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
+          <ImageCrops key={displayImage.id} image={displayImage} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} onSelect={selectCrop} />
+        </aside>}
         {/* Fullscreen container and horizontal page viewport. overflow-clip clips
           neighbouring pages without creating a trackpad scroll container.
           Compact pages contain both the image surface and its metadata card. */}
@@ -935,7 +950,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           <div ref={stripRef} className={`absolute inset-0${touchCapable ? " will-change-transform" : ""}`}>
             {/* Previous image (off-screen left) — used by swipe animation on mobile.
                 Only touch-capable devices need off-screen swipe panels. */}
-              {touchCapable && prevImage && (prevImageUrl || pairedPages) && (
+              {!cropping && touchCapable && prevImage && (prevImageUrl || pairedPages) && (
               renderNeighbor(prevImage, prevImageUrl, "previous")
             )}
 
@@ -970,7 +985,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                     if (currentMediaOwnerRef.current !== mediaOwner || event.currentTarget !== imageRef.current) return;
                     // Mark this image as loaded so side-panel probes can use
                     // full-res instead of thumbnail on future swipes.
-                    if (imageId) markFullResLoaded(imageId);
+                    if (imageId && !selectedCrop) markFullResLoaded(imageId);
                   }}
                   onDoubleClick={
                     // Fullscreen: no dblclick — click-to-zoom handles interaction.
@@ -987,7 +1002,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                     if (currentMediaOwnerRef.current !== mediaOwner || e.currentTarget !== imageRef.current) return;
                     // imgproxy failed — try thumbnail as fallback
                     const target = e.currentTarget;
-                    if (thumbUrl && target.src !== new URL(thumbUrl, window.location.href).href) {
+                    if (!selectedCrop && thumbUrl && target.src !== new URL(thumbUrl, window.location.href).href) {
                       target.src = thumbUrl;
                     } else {
                       // Both imgproxy and thumbnail failed — show text fallback
@@ -1010,7 +1025,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             </div>
 
             {/* Next image (off-screen right) — used by swipe animation on mobile. */}
-            {touchCapable && nextImage && (nextImageUrl || pairedPages) && (
+            {!cropping && touchCapable && nextImage && (nextImageUrl || pairedPages) && (
               renderNeighbor(nextImage, nextImageUrl, "next")
             )}
           </div>

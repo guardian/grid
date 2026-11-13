@@ -41,6 +41,7 @@ import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
 import { labelTargetKey } from "@/stores/label-editor-store";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
+import { findLink } from "@/dal/grid-api/argo";
 
 
 // Pre-computed sections (stable reference -- RECONCILE_FIELDS is a module-level constant).
@@ -84,7 +85,7 @@ function renderLocationGroup(
   reconciledView: ReconciledView | null,
   onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
   total: number,
-  editing?: { targetIds: readonly string[]; available: boolean },
+  editing?: { targetIds: readonly string[]; available: boolean; editable: boolean },
 ): React.ReactNode {
   if (!reconciledView && !(editing && import.meta.env.VITE_USE_MEDIA_API === "true")) return null;
 
@@ -128,6 +129,9 @@ function renderLocationGroup(
           </span>
         ))}
       </span>;
+  const readOnly = !anyNonEmpty && parts.length === 0 ? null : (
+    <MetadataRow key="__location__" label="Location">{content}</MetadataRow>
+  );
   if (editing && import.meta.env.VITE_USE_MEDIA_API === "true") {
     const fields = LOCATION_COMPONENTS.map(component => {
       const rec = reconciledView?.get(component.fieldId);
@@ -137,16 +141,12 @@ function renderLocationGroup(
       const kind = reconciledView?.get(component.fieldId)?.kind;
       return kind === "all-same" || kind === "mixed" || kind === "all-empty";
     });
-    return <MetadataLocationEditor key={`location:${labelTargetKey(editing.targetIds)}`} fields={fields} targetIds={editing.targetIds} available={ready}>
+    return <MetadataLocationEditor key={`location:${labelTargetKey(editing.targetIds)}`} fields={fields} targetIds={editing.targetIds}
+      available={ready} editable={editing.editable} readOnly={readOnly}>
       {ready && parts.length ? content : <Dash />}
     </MetadataLocationEditor>;
   }
-  if (!anyNonEmpty && parts.length === 0) return null;
-  return (
-    <MetadataRow key="__location__" label="Location">
-      {content}
-    </MetadataRow>
-  );
+  return readOnly;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ function renderField(
     if (!field.showWhenEmpty) return null;
     return (
       <Wrapper key={field.id} label={field.label}>
-        <Dash />
+        <span className="text-grid-text-dim">Unknown</span>
       </Wrapper>
     );
   }
@@ -332,12 +332,11 @@ function renderField(
 
 const COST_ORDER: Array<Cost | "no-rights"> = ["free", "conditional", "pay", "overquota", "no-rights"];
 // Labels match Kahuna: count-first, user-facing wording.
-const COST_LABEL: Record<Cost | "no-rights", string> = {
+const COST_LABEL: Record<Cost, string> = {
   free: "free",
   conditional: "restricted",
   pay: "paid",
   overquota: "over quota",
-  "no-rights": "no rights",
 };
 // Base colour for each bucket's pill (Kahuna: free=green, conditional=orange, pay/no_rights/overquota=red)
 const COST_COLOR: Record<Cost | "no-rights", string> = {
@@ -361,6 +360,7 @@ interface MultiImageMetadataProps {
 
 function CostSummarySection({ images }: Pick<MultiImageMetadataProps, "images">) {
   const enrichmentData = useEnrichmentStore((s) => s.data);
+  const categoryLabel = useCategoryLabel();
 
   // Aggregate: count per cost bucket
   const counts = new Map<Cost | "no-rights", number>();
@@ -403,7 +403,7 @@ function CostSummarySection({ images }: Pick<MultiImageMetadataProps, "images">)
             style={{ background: bg }}
             title={showGradient ? `${leased} of ${count} leased` : undefined}
           >
-            {count} {COST_LABEL[bucket]}
+            {count} {bucket === "no-rights" ? categoryLabel("") : COST_LABEL[bucket]}
           </div>
         );
       })}
@@ -500,9 +500,7 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
       <MetadataSection>
         {categoryField && categoryRec && (
           <MetadataBlock label="Rights & restrictions">
-            {renderField(categoryField, categoryRec, onSearch, total) === null ? (
-              <Dash />
-            ) : categoryRec.kind === "all-same" ? (() => {
+            {categoryRec.kind === "all-same" ? (() => {
               const raw = String((categoryRec as { value: unknown }).value);
               return (
                 <ValueLink
@@ -516,7 +514,7 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
             : categoryRec.kind === "mixed" ? (
               <MultiValue field={categoryField} topValues={(categoryRec as { topValues: Array<{ value: unknown; count: number }> }).topValues} total={total} />
             ) : categoryRec.kind === "all-empty" ? (
-              <span className="text-xs text-grid-text-dim">None</span>
+              <span className="text-xs text-grid-text-dim">{categoryLabel("")}</span>
             ) : (
               <Dash />
             )}
@@ -562,6 +560,12 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
   const targetKey = labelTargetKey(ids);
   const loadedIds = new Set(images.map(image => image.id));
   const complete = ids.length === total && ids.every(id => loadedIds.has(id)) && !labelEditing?.pending;
+  const enrichment = useEnrichmentStore(state => state.data);
+  const canEditMetadata = images.length > 0 && images.every(image => {
+    const resource = labelEditing?.targets.get(image.id)?.resource
+      ?? resolveImageOverlay(image, enrichment.get(image.id), attachedEnrichment(image))?.resource;
+    return Boolean(resource && findLink(resource, "edits"));
+  });
   const collectionPaths = new Map(images.flatMap(image => image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : []) ?? []));
   const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
   const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
@@ -577,31 +581,38 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
       <dl>
         <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} />
       {MULTI_SECTIONS.map((sectionFields, si) => (
-        <MetadataSection key={si}>
+        <MetadataSection key={si} additional={sectionFields[0]?.detailGroup === "extended"}>
           {sectionFields.map((field) => {
             if (field.visibleWhen?.() === false) return null;
             const rec = reconciledView?.get(field.id);
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} onSearch={onSearch}
-                available={complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                editable={canEditMetadata}
+                readOnly={renderChipField(field, rec, onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))}
+                available={canEditMetadata && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 values={rec?.kind === "chip-array" ? rec.chips : []}
                 collectionPaths={field.id === "collections" ? collectionPaths : undefined} />;
             }
+            const hideExtraInstructions = field.id === "metadata_specialInstructions" && rec?.kind === "all-empty"
+              && images.some(image => Boolean(image.metadata?.usageInstructions));
             if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids}
-                available={complete && (rec?.kind === "all-same" || rec?.kind === "mixed" || rec?.kind === "all-empty")}
+                editable={canEditMetadata} readOnly={hideExtraInstructions ? null : renderField(field, rec, onSearch, total)}
+                furtherInstructions={field.id === "metadata_specialInstructions" && images.some(image => Boolean(image.metadata?.usageInstructions))}
+                available={canEditMetadata && complete && (rec?.kind === "all-same" || rec?.kind === "mixed" || rec?.kind === "all-empty")}
                 value={rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : ""} mixed={rec?.kind === "mixed"}>
                 {!complete ? <Dash /> : rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
                   : rec?.kind === "all-same" ? renderScalarAllSame(field, rec.value, onSearch) : <Dash />}
               </MetadataTextEditor>;
             }
+            if (hideExtraInstructions) return null;
             return (
             field.id === "labels" && labelEditing && import.meta.env.VITE_USE_MEDIA_API === "true"
               ? <LabelEditor key={field.id} context={labelEditing} resolveContext={resolveLabelEditing} onSearch={onSearch}
                   values={reconciledView?.get(field.id)?.kind === "chip-array"
                     ? (reconciledView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
               : field.id === "__location__"
-              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete })
+              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete, editable: canEditMetadata })
               : field.multiSelectBehaviour === "chip-array"
                 ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))
                 : renderField(field, reconciledView?.get(field.id), onSearch, total));

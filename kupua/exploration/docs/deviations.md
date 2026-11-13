@@ -185,6 +185,16 @@ not Kahuna's. The editor is a dry run on Cropper.js v2 (Kahuna uses v1).
 Trade-off: a deep-linked editor has no detail entry below it, so Cancel replaces the URL
 instead of going back.
 
+Saved-crop choices also replace rather than push history: reload/share retains the rendition,
+but browsing exports does not add Back-button stops or change search position. A mandatory
+ratio suppresses full-frame shortcuts, including preparation, rather than copying Kahuna's
+shortcut escape from ratio constraints. The ordinary editor still permits a compatible
+full-image frame with the requested ratio tag; server friendly-ratio inference is not copied.
+Known-invalid full-frame batch targets are skipped with the existing per-target activity
+details and a count-only information toast. Kahuna attempts them, receives server rejection
+and logs failures to the console. The trade-off is explicit omission rather than doomed work,
+not permission to export an image rejected by the server. Saving remains disconnected.
+
 Legacy custom-ratio dimensions must be complete positive safe integers; malformed numeric
 prefixes are rejected rather than silently truncated as in Kahuna. Explicitly requested hidden
 presets remain selectable instead of leaving the editor with a hidden/unavailable choice.
@@ -196,6 +206,13 @@ with matching Hand feedback. Releasing Alt restores the chosen mode; resize hand
 the frame grip retain their direct editing actions.
 
 ### Compact Phone Shell (31 October 2026)
+
+Search status wording now follows a measured content budget rather than fixed viewport
+breakpoints: retain matches where it fits and shorten optional action/control/badge text
+before clipping. The trade-off is a small local layout measurement on size/content changes,
+not continuous polling or another state framework. Essential controls and numeric content
+remain, with the existing horizontally scrolling summary as the insufficient-space fallback.
+Image-detail label rules remain independent.
 
 When the primary pointer is coarse and either viewport dimension is at most 639px, Kupua
 uses a phone shell: panels become sheets,

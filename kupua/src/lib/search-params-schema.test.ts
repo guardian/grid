@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildSearchKey } from "./image-offset-cache";
 import {
   applySearchContextTransitions,
   canonicalizeSearchParams,
@@ -17,9 +18,10 @@ it("density is neither URL state nor a display-only history key", () => {
 });
 
 it("keeps crop mode and legacy integration options out of the search data state", () => {
-  const params = { cropping: "true", cropType: "custom", customRatio: "custom,3,1", defaultCropType: "square" };
+  const params = { crop: "saved-export", cropping: "true", cropType: "custom", customRatio: "custom,3,1", defaultCropType: "square" };
   expect(searchParamsSchema.parse(params)).toEqual(params);
   expect(Object.keys(params).every(key => URL_DISPLAY_KEYS.has(key as keyof UrlSearchParams))).toBe(true);
+  expect(buildSearchKey({ query: "has:crops", ...params })).toBe(buildSearchKey({ query: "has:crops" }));
 });
 
 describe("hasCollectionFilter", () => {

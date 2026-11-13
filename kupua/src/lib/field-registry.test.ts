@@ -85,6 +85,33 @@ describe("numeric field formatting", () => {
 // Structural invariants
 // ---------------------------------------------------------------------------
 describe("FIELD_REGISTRY structure", () => {
+  it("keeps technical columns available without a technical metadata-panel section", () => {
+    for (const id of ["dimensions", "source_size", "source_mimeType", "imageId"]) {
+      expect(FIELDS_BY_ID.get(id)?.detailHidden).toBe(true);
+      expect(RECONCILE_FIELDS.some(field => field.id === id)).toBe(false);
+    }
+  });
+
+  it("uses the selected metadata prominence, grouping and file order", () => {
+    const ids = FIELD_REGISTRY.map(field => field.id);
+    expect(ids[ids.indexOf("uploadedBy") + 1]).toBe("uploadInfo_filename");
+    expect(FIELDS_BY_ID.get("lastModified")?.label).toBe("Modified");
+    expect(FIELDS_BY_ID.get("metadata_imageType")?.detailLayout).toBe("stacked");
+    expect(FIELDS_BY_ID.get("photoshoot")?.detailLayout).toBe("stacked");
+    expect(FIELDS_BY_ID.get("metadata_source")?.detailGroup).toBe("extended");
+    expect(FIELDS_BY_ID.get("labels")?.detailGroup).not.toBe(FIELDS_BY_ID.get("photoshoot")?.detailGroup ?? FIELDS_BY_ID.get("photoshoot")?.group);
+  });
+
+  it("places Taken immediately after instructions and before attribution across shared views", () => {
+    const ids = FIELD_REGISTRY.map(field => field.id);
+    expect(ids.slice(ids.indexOf("metadata_specialInstructions"), ids.indexOf("metadata_byline") + 1)).toEqual([
+      "metadata_specialInstructions", "metadata_dateTaken", "metadata_byline",
+    ]);
+    expect(ids.filter(id => ["metadata_dateTaken", "metadata_byline", "metadata_credit", "location", "metadata_copyright"].includes(id))).toEqual([
+      "metadata_dateTaken", "metadata_byline", "metadata_credit", "location", "metadata_copyright",
+    ]);
+  });
+
   it("has unique IDs", () => {
     const ids = FIELD_REGISTRY.map((f) => f.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -360,8 +387,4 @@ describe("multiSelectBehaviour coverage", () => {
     expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
   });
 
-  it("source_mimeType is show-if-all-same", () => {
-    const f = FIELD_REGISTRY.find((x) => x.id === "source_mimeType");
-    expect(f?.multiSelectBehaviour).toBe("show-if-all-same");
-  });
 });

@@ -24,6 +24,7 @@ import { createLabelReadback, publishUnavailableImages } from "@/lib/image-publi
 import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
 import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
 import { useImageActionStore } from "@/stores/image-action-store";
+import { applyLegacyCropParams } from "@/lib/crop/crop-options";
 
 vi.hoisted(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
@@ -208,6 +209,7 @@ describe("KUP-004 standalone detail identity", () => {
   }
 
   beforeEach(() => {
+    sessionStorage.clear();
     dataSource = new MockDataSource();
     useSearchStore.setState({ ...initialState, dataSource });
     fixture.resident = [];
@@ -267,10 +269,199 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
   });
 
+  it("shows Original, full frame and crops in a left rail and selects their previews without sending actions", () => {
+    fixture.relativeMedia = true;
+    const image = makeImage("A");
+    image.source = { mimeType: "image/jpeg", dimensions: { width: 6000, height: 4000 }, size: 1048576 };
+    const fullAsset = { mimeType: "image/jpeg", dimensions: { width: 6000, height: 4000 }, secureUrl: "https://assets.example.test/full.jpg" };
+    const cropAsset = { mimeType: "image/jpeg", dimensions: { width: 1600, height: 900 }, secureUrl: "https://assets.example.test/crop.jpg" };
+    image.exports = [
+      { id: "full", specification: { type: "full", bounds: { x: 0, y: 0, width: 6000, height: 4000 } }, master: fullAsset, assets: [fullAsset] },
+      { id: "crop", specification: { type: "crop", aspectRatio: "16:9", bounds: { x: 0, y: 0, width: 1600, height: 900 } }, master: cropAsset, assets: [cropAsset], author: "Fixture Author", date: "2026-11-12T10:00:00Z" },
+    ];
+    fixture.resident = [image];
+    const view = render(<Detail imageId="A" />);
+    const rail = screen.getByRole("complementary", { name: "Image original and crops select" });
+    expect(within(rail).getByRole("region", { name: "Original image" }).textContent).toContain("6000");
+    expect(within(rail).getByRole("region", { name: "Original image" }).textContent).toContain("1.05 MB");
+    expect(within(rail).getByRole("region", { name: "Full frame" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Full frame options" })).toBeNull();
+    expect(within(rail).getByText("video")).toBeTruthy();
+    expect(within(rail).getByText("(16:9)")).toBeTruthy();
+    expect(within(rail).getByTitle(/Cropped by Fixture Author at/)).toBeTruthy();
+    fireEvent.click(within(rail).getByRole("button", { name: "View 1600 by 900 crop" }));
+    fixture.search = fixture.navigate.mock.calls.at(-1)![0].search(fixture.search);
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).toBe(cropAsset.secureUrl);
+    fireEvent.error(screen.getByAltText("Title A"));
+    expect(screen.queryByAltText("Title A")).toBeNull();
+    expect(screen.getByText("Image preview not available")).toBeTruthy();
+    fireEvent.click(within(rail).getByRole("button", { name: "View original image" }));
+    fixture.search = fixture.navigate.mock.calls.at(-1)![0].search(fixture.search);
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).not.toBe(cropAsset.secureUrl);
+    expect(useImageActionStore.getState().prepared).toEqual([]);
+  });
+
+  it("shows the newest repeated crop once without retaining another image's rows", () => {
+    const first = makeImage("A");
+    const second = makeImage("B");
+    const crop = (id: string, width: number) => ({ id, specification: { type: "full" },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width, height: 100 }, secureUrl: `https://assets.example.test/${id}-${width}.jpg` }] });
+    first.exports = [
+      { ...crop("repeated", 100), author: "Earlier author", date: "2026-11-12T10:00:00Z" },
+      { ...crop("repeated", 200), author: "Latest author", date: "2026-11-12T11:00:00Z" },
+    ];
+    second.exports = [crop("new", 300)];
+    fixture.resident = [first, second];
+    const view = render(<Detail imageId="A" />);
+    const fullFrames = () => within(screen.getByRole("complementary", { name: "Image original and crops select" }))
+      .getAllByRole("button", { name: "View full frame" });
+    expect(fullFrames()).toHaveLength(1);
+    expect(screen.getByTitle(/Cropped by Latest author at/)).toBeTruthy();
+    fireEvent.click(fullFrames()[0]);
+    fixture.search = fixture.navigate.mock.calls.at(-1)![0].search(fixture.search);
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).toBe("https://assets.example.test/repeated-200.jpg");
+    for (let step = 0; step < 3; step++) {
+      view.rerender(<Detail imageId="B" />);
+      expect(fullFrames()).toHaveLength(1);
+      expect(screen.queryByText("100 \u00d7 100")).toBeNull();
+      view.rerender(<Detail imageId="A" />);
+      expect(fullFrames()).toHaveLength(1);
+      expect(screen.getByTitle(/Cropped by Latest author at/)).toBeTruthy();
+      expect(screen.queryByText("300 \u00d7 100")).toBeNull();
+    }
+    expect(first.exports).toHaveLength(2);
+  });
+
+  it("applies mandatory ratios to saved crops and full-frame shortcuts, but not default ratios", () => {
+    const image = makeCroppableImage("A");
+    image.exports = ["16:9", "4:3", undefined].map((aspectRatio, index) => ({
+      id: `crop-${index}`, specification: { type: "crop", aspectRatio, bounds: { x: 0, y: 0, width: 1600 + index, height: 900 } },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width: 1600 + index, height: 900 }, secureUrl: `https://assets.example.test/crop-${index}.jpg` }],
+    }));
+    fixture.resident = [image];
+    applyLegacyCropParams(new URLSearchParams("defaultCropType=video"));
+    render(<Detail imageId="A" />);
+    const choices = () => screen.getAllByRole("button", { name: /View .* crop$/ }) as HTMLButtonElement[];
+    expect(choices().every(button => !button.disabled)).toBe(true);
+    act(() => applyLegacyCropParams(new URLSearchParams("cropType=video")));
+    expect(choices().map(button => button.disabled)).toEqual([false, true, true]);
+    expect(choices()[1].title).toBe("16:9 crops only");
+    expect(screen.queryByRole("button", { name: "Full frame options" })).toBeNull();
+    expect((screen.getByRole("button", { name: "View original image" }) as HTMLButtonElement).disabled).toBe(false);
+    act(() => applyLegacyCropParams(new URLSearchParams("cropType=freeform")));
+    expect(choices().map(button => button.disabled)).toEqual([true, true, false]);
+  });
+
+  it("reads a saved crop from the URL and replaces its choice without changing history ownership", () => {
+    const image = makeCroppableImage("A");
+    image.exports = [{ id: "saved", specification: { type: "crop", aspectRatio: "16:9" },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width: 1600, height: 900 }, secureUrl: "https://assets.example.test/saved.jpg" }] }];
+    fixture.resident = [image];
+    fixture.search = { image: "A", crop: "saved", query: "has:crops" };
+    history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list" }, "", "/search?image=A&crop=saved");
+    const savedAssets = image.exports[0].assets;
+    image.exports = [{ ...image.exports[0], assets: [] }];
+    const view = render(<Detail imageId="A" />);
+    expect(screen.queryByAltText("Title A")).toBeNull();
+    expect(screen.getByText("Image preview not available")).toBeTruthy();
+    image.exports = [{ ...image.exports[0], assets: savedAssets }];
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).toBe("https://assets.example.test/saved.jpg");
+    fireEvent.error(screen.getByAltText("Title A"));
+    expect(screen.queryByAltText("Title A")).toBeNull();
+    image.exports = [{ ...image.exports[0], assets: [] }];
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.queryByAltText("Title A")).toBeNull();
+    image.exports = [{ ...image.exports[0], assets: [{ mimeType: "image/jpeg", dimensions: { width: 1600, height: 900 }, secureUrl: "https://assets.example.test/renewed.jpg" }] }];
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).toBe("https://assets.example.test/renewed.jpg");
+    fireEvent.click(screen.getByRole("button", { name: "View original image" }));
+    const options = fixture.navigate.mock.calls.at(-1)?.[0];
+    expect(options.replace).toBe(true);
+    expect(options.state).toMatchObject({ kupuaKey: "detail", _detailOriginKupuaKey: "list" });
+    expect(options.search(fixture.search)).toEqual({ image: "A", crop: undefined, query: "has:crops" });
+    fixture.search = options.search(fixture.search);
+    view.rerender(<Detail imageId="A" />);
+    fireEvent.error(screen.getByAltText("Title A"));
+    expect(screen.queryByAltText("Title A")).toBeNull();
+    fixture.relativeMedia = true;
+    view.rerender(<Detail imageId="A" />);
+    expect(screen.getByAltText("Title A").getAttribute("src")).toBe("/__detail_media/full/A.gif");
+  });
+
+  it("hides full-frame creation for a crop covering the full oriented image", () => {
+    const image = makeCroppableImage("A");
+    image.source = { mimeType: "image/jpeg", dimensions: { width: 600, height: 400 }, orientedDimensions: { width: 400, height: 600 } };
+    image.exports = [{ id: "existing", specification: { type: "crop", bounds: { x: 0, y: 0, width: 400, height: 600 } } }];
+    fixture.resident = [image];
+    render(<Detail imageId="A" />);
+    expect(screen.queryByRole("button", { name: "Full frame options" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Crop image" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("does not mount crop thumbnails for offscreen mobile neighbours", () => {
+    fixture.compact = true;
+    fixture.touchCapable = true;
+    const first = makeImage("A");
+    const second = makeImage("B");
+    first.exports = [{ id: "current-crop", specification: { type: "crop" },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width: 200, height: 100 }, secureUrl: "https://assets.example.test/current.jpg" }] }];
+    const analyse = vi.spyOn(first.exports, "entries");
+    const originalObserver = globalThis.IntersectionObserver;
+    const originalResizeObserver = globalThis.ResizeObserver;
+    let measure: (() => void) | undefined;
+    let measuredRegion: Element | undefined;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) { measure = callback; }
+      observe(element: Element) { measuredRegion = element; }
+      disconnect() {}
+    });
+    let enterViewport: ((entries: { isIntersecting: boolean }[]) => void) | undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: typeof enterViewport) { enterViewport = callback; }
+      observe() {}
+      disconnect = disconnect;
+    });
+    second.exports = [{ id: "neighbour-crop", specification: { type: "crop" },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width: 200, height: 100 }, secureUrl: "https://assets.example.test/neighbour.jpg" }] }];
+    fixture.resident = [first, second];
+    fixture.nextImage = second;
+    render(<Detail imageId="A" />);
+    expect(document.querySelector('[data-detail-page="next"] section[aria-label="Image crops"]')).toBeNull();
+    expect(document.querySelector('img[src="https://assets.example.test/neighbour.jpg"]')).toBeNull();
+    expect(analyse).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Expand Image details" }));
+    expect(analyse).not.toHaveBeenCalled();
+    act(() => enterViewport?.([{ isIntersecting: true }]));
+    expect(analyse).toHaveBeenCalledOnce();
+    const original = screen.getByRole("region", { name: "Original image" });
+    const heading = within(original).getByRole("heading");
+    const thumbnail = within(original).getByRole("button", { name: "View original image" });
+    expect(heading.parentElement).toBe(thumbnail.parentElement);
+    const constraint = document.createElement("div");
+    constraint.style.width = "calc((100% - 0.5rem) / 2)";
+    expect(heading.parentElement?.style.width).toBe(constraint.style.width);
+    vi.spyOn(measuredRegion!, "getBoundingClientRect").mockReturnValue({ height: 320 } as DOMRect);
+    act(() => measure?.());
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Image details" }));
+    expect(screen.queryByRole("region", { name: "Original image", hidden: true })).toBeNull();
+    expect((measuredRegion as HTMLElement).style.minHeight).toBe("320px");
+    expect(disconnect).toHaveBeenCalled();
+    Object.defineProperty(globalThis, "IntersectionObserver", { configurable: true, writable: true, value: originalObserver });
+    Object.defineProperty(globalThis, "ResizeObserver", { configurable: true, writable: true, value: originalResizeObserver });
+  });
+
   it("keeps detail navigation behind an owned action popup and closes it on target change", () => {
     fixture.resident = [makeImage("A"), makeImage("B")];
     const view = render(<Detail imageId="A" />);
+    const chevron = screen.getByRole("button", { name: "Full frame options" }).querySelector("path")!;
+    expect(chevron.getAttribute("d")).toBe("M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z");
     fireEvent.click(screen.getByRole("button", { name: "Full frame options" }));
+    expect(chevron.getAttribute("d")).toBe("M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z");
     expect(fireEvent.keyDown(document, { key: "Backspace" })).toBe(true);
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("true");
     view.rerender(<Detail imageId="B" />);
@@ -753,6 +944,22 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.queryByTestId("crop-backdrop")).toBeNull();
   });
 
+  it("does not expose saved crops through a deep link without the advertised crops relation", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    try {
+      const image = makeImage("A");
+      attachEnrichment(image, { valid: true, invalidReasons: {}, resource: { links: [] } });
+      image.exports = [{ id: "saved", specification: { type: "crop" }, assets: [{ mimeType: "image/jpeg",
+        dimensions: { width: 100, height: 100 }, secureUrl: "https://assets.example.test/withheld.jpg" }] }];
+      fixture.resident = [image];
+      fixture.search = { image: "A", crop: "saved" };
+      render(<Detail imageId="A" />);
+      expect(screen.queryByRole("region", { name: "Image crops" })).toBeNull();
+      expect(screen.getByAltText("Title A").getAttribute("src")).not.toBe("https://assets.example.test/withheld.jpg");
+      expect((screen.getByRole("button", { name: "Cannot crop" }) as HTMLButtonElement).disabled).toBe(true);
+    } finally { vi.unstubAllEnvs(); }
+  });
+
   it("withdraws Crop entry and its shortcut when the session is invalidated", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     try {
@@ -810,6 +1017,29 @@ describe("KUP-004 standalone detail identity", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Cancel crop" }));
     expect(back).toHaveBeenCalledOnce();
     expect(fixture.navigate).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("admits only editor media on a history crop entry, fullscreen=%s", async fullscreen => {
+    const image = makeCroppableImage("A");
+    image.exports = [{ id: "saved", specification: { type: "crop" }, assets: [{ mimeType: "image/jpeg",
+      dimensions: { width: 100, height: 100 }, secureUrl: "https://assets.example.test/saved.jpg" }] }];
+    const analyse = vi.spyOn(image.exports, "entries");
+    fixture.resident = [image];
+    fixture.search = { image: "A", crop: "saved", cropping: "true" };
+    fixture.fullscreen = fullscreen;
+    const exit = vi.fn(async () => {});
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, value: fullscreen ? document.body : null });
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exit });
+    try {
+      render(<Detail imageId="A" />);
+      await screen.findByRole("button", { name: "Cancel crop" });
+      expect(analyse).not.toHaveBeenCalled();
+      expect(fixture.mediaProps).toHaveLength(0);
+      expect(exit).toHaveBeenCalledTimes(fullscreen ? 1 : 0);
+    } finally {
+      Reflect.deleteProperty(document, "fullscreenElement");
+      Reflect.deleteProperty(document, "exitFullscreen");
+    }
   });
 
   it("keeps Crop cancellable while its image is still loading", () => {

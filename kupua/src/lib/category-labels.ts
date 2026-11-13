@@ -10,10 +10,12 @@ import { useUsageRightsCatalogue, type UsageRightsCategory } from "@/lib/usage-r
 const org = gridConfig.staffPhotographerOrganisation;
 
 const FALLBACK_LABELS: Record<string, string> = {
-  "": "Unknown Rights",
+  "": "Unknown",
   "chargeable": "Chargeable supplied/on spec",
   "pay-to-use": "Pay to use",
   "pr-and-third-party": "PR & Third Party",
+  "publisher-photography": `${org} Photography`,
+  "publisher-illustration": `${org} Illustration`,
   "publisher-photographer": `${org} Photographer`,
   "publisher-illustrator": `${org} Illustrator`,
   "agency": "Agency – subscription",
@@ -60,7 +62,7 @@ function serverCategory(value: string): UsageRightsCategory | undefined {
 
 /** Returns the human-friendly label for a category key, or the raw key if unknown. */
 export function categoryLabel(category: string | undefined | null): string {
-  if (category == null) return "None";
+  if (!category) return "Unknown";
   return serverCategory(category)?.name ?? FALLBACK_LABELS[category] ?? category;
 }
 

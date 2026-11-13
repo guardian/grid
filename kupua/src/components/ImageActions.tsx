@@ -6,6 +6,8 @@ import { isGridSessionInvalidated, serviceLink, subscribeGridSessionInvalidation
 import { useImageActionStore } from "@/stores/image-action-store";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useActionPopupPlacement } from "@/hooks/useActionPopupPlacement";
+import { Chevron } from "./Chevron";
+import { useCropSettings } from "@/hooks/useCropSettings";
 import { describeImageAction, IMAGE_ACTIONS, selectionImageActionContext, type ImageAction, type ImageActionContext } from "@/lib/image-actions";
 
 export function ImageActionIcon({ action }: { action: ImageAction }) {
@@ -19,7 +21,9 @@ export function ImageActionIcon({ action }: { action: ImageAction }) {
   return <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={paths[action]} /></svg>;
 }
 
-function ImageActionOptions({ context, actions, label }: { context?: ImageActionContext; actions: readonly ImageAction[]; label: string }) {
+function ImageActionOptions({ context, resolveContext, actions, label }: {
+  context: ImageActionContext; resolveContext?: () => ImageActionContext; actions: readonly ImageAction[]; label: string;
+}) {
   const fullFrame = label === "Full frame options";
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -27,8 +31,7 @@ function ImageActionOptions({ context, actions, label }: { context?: ImageAction
   const popup = useRef<HTMLDivElement>(null);
   const id = useId();
   const placement = useActionPopupPlacement(trigger, popup, open, true);
-  const selectedIds = useSelectionStore(state => state.selectedIds);
-  const targetKey = JSON.stringify(context ? context.targets.map(target => target.id) : [...selectedIds]);
+  const targetKey = JSON.stringify(context.targets.map(target => target.id));
   useEffect(() => { setOpen(false); }, [targetKey]);
   useFocusTrap(popup, open);
   useEffect(() => {
@@ -44,7 +47,8 @@ function ImageActionOptions({ context, actions, label }: { context?: ImageAction
   return <div ref={ref} data-image-action-options data-crop-options={fullFrame || undefined} className={`relative flex shrink-0 ${fullFrame ? "self-center h-11" : "self-stretch"}`}>
     <button ref={trigger} type="button" aria-label={label} title={fullFrame ? "Crop full frame" : label} aria-expanded={open}
       aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} className={`flex ${fullFrame ? "w-[22px] h-11" : "w-8 h-full"} items-center justify-center hover:bg-grid-hover cursor-pointer`}>
-      <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={label === "Full frame options" ? "m7 10 5 5 5-5H7Z" : "M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"} /></svg>
+      {fullFrame ? <Chevron direction={open ? "up" : "down"} />
+        : <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /></svg>}
     </button>
     {open && <div ref={popup} tabIndex={-1} id={id} data-image-action-popup
       onKeyDown={event => {
@@ -53,7 +57,7 @@ function ImageActionOptions({ context, actions, label }: { context?: ImageAction
       }}
       style={{ maxHeight: placement.maxHeight, width: "min(260px, calc(100vw - 16px))", translate: `${placement.shiftX}px 0` }}
       className={`absolute right-0 ${placement.below ? "top-full mt-2" : "bottom-full mb-2"} z-[60] overflow-y-auto border border-grid-separator bg-grid-bg shadow-lg outline-none`}>
-      <ImageActions context={context} actions={actions} expanded showReasons={!fullFrame} onPrepared={() => { setOpen(false); trigger.current?.focus(); }} />
+      <ImageActions context={context} resolveContext={resolveContext} actions={actions} expanded showReasons={!fullFrame} onPrepared={() => { setOpen(false); trigger.current?.focus(); }} />
     </div>}
   </div>;
 }
@@ -62,21 +66,29 @@ export function FullFrameOptions({ context }: { context: ImageActionContext }) {
   return <ImageActionOptions context={context} actions={["full-frame"]} label="Full frame options" />;
 }
 
-export function ImageActions({ context, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true }: {
-  context?: ImageActionContext;
+interface ImageActionsProps {
+  context: ImageActionContext;
+  resolveContext?: () => ImageActionContext;
   actions?: readonly ImageAction[];
   expanded?: boolean;
   onPrepared?: () => void;
   presentation?: "toolbar" | "detail" | "floaty";
   showReasons?: boolean;
-}) {
-  useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
+}
+
+export function SelectionImageActions(props: Omit<ImageActionsProps, "context" | "resolveContext">) {
   useSelectionStore(state => state.selectedIds);
   useSelectionStore(state => state.metadataRevision);
   useSelectionStore(state => state.pendingFetchIds);
   useSelectionStore(state => state.isRangeWalking);
   useSearchStore(state => state.results);
   useEnrichmentStore(state => state.data);
+  return <ImageActions {...props} context={selectionImageActionContext(null)} resolveContext={() => selectionImageActionContext(null)} />;
+}
+
+export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true }: ImageActionsProps) {
+  useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
+  const { settings: cropSettings } = useCropSettings();
   const [archive, setArchive] = useState<boolean | null>(null);
   const [armedDelete, setArmedDelete] = useState<string | null>(null);
   const settledOpacity = useRef(new Map<ImageAction, number>());
@@ -94,7 +106,7 @@ export function ImageActions({ context, actions = IMAGE_ACTIONS, expanded = fals
     void serviceLink("archive").then(link => { if (active) setArchive(Boolean(link)); });
     return () => { active = false; };
   }, []);
-  const current = context ? { ...context, archive } : selectionImageActionContext(archive);
+  const current = { ...context, archive, cropSettings };
   const descriptions = new Map(actions.map(action => [action, describeImageAction(action, current)] as const));
   useLayoutEffect(() => {
     for (const [action, description] of descriptions) {
@@ -110,7 +122,7 @@ export function ImageActions({ context, actions = IMAGE_ACTIONS, expanded = fals
     return () => clearTimeout(timer);
   }, [armedDelete]);
   const activate = (action: ImageAction, trigger: HTMLButtonElement) => {
-    const latest = context ? { ...context, archive } : selectionImageActionContext(archive);
+    const latest = { ...(resolveContext?.() ?? context), archive };
     if (describeImageAction(action, latest).reason) return;
     const latestKey = JSON.stringify(latest.targets.map(target => target.id));
     if (action === "delete" && armedDelete !== latestKey) { setArmedDelete(latestKey); return; }
@@ -143,7 +155,7 @@ export function ImageActions({ context, actions = IMAGE_ACTIONS, expanded = fals
   return <div role="group" aria-label="Image actions" data-surface={!expanded && presentation !== "floaty" ? presentation === "detail" ? "detail" : "search" : undefined}
     className={presentation === "floaty" ? "image-actions image-actions-floaty" : expanded ? "image-actions image-actions-expanded flex flex-col" : "image-actions flex h-full shrink-0"}>
     {inline.map(renderAction)}
-    {overflow.length > 0 && <ImageActionOptions context={context} actions={overflow} label="More image actions" />}
+    {overflow.length > 0 && <ImageActionOptions context={context} resolveContext={resolveContext} actions={overflow} label="More image actions" />}
     {armedDelete === targetKey && <button type="button" aria-label="Cancel deletion" title="Cancel deletion" className="image-action flex items-center justify-center px-2 hover:bg-grid-hover" onClick={() => setArmedDelete(null)}>
       <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m6 4 6 6 6-6 2 2-6 6 6 6-2 2-6-6-6 6-2-2 6-6-6-6 2-2Z" /></svg>
     </button>}

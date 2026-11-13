@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { prepareImageAction, type ImageAction, type ImageActionContext, type PreparedImageAction } from "@/lib/image-actions";
+import { addToast } from "./toast-store";
 
 export interface ImageActionPreview extends PreparedImageAction {
   readonly previewId: number;
@@ -27,6 +28,10 @@ export const useImageActionStore = create<ImageActionState>((set) => ({
       const preview = Object.freeze({ ...intent, previewId, ...(returnFocus && { returnFocus: new WeakRef(returnFocus) }) });
       return { revision: previewId, prepared: [...state.prepared, preview].slice(-20) };
     });
+    if (action === "full-frame" && intent.skipped.length) {
+      const count = intent.skipped.length;
+      addToast({ category: "information", message: `${count} ${count === 1 ? "image won't" : "images won't"} be cropped` });
+    }
     return true;
   },
 }));

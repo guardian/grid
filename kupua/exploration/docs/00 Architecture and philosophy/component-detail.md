@@ -736,9 +736,19 @@ Panel hover can prefetch aggregations when Filters is expanded. Accepting new ar
 selection before `reSearch`; density changes go to the preference store, not the URL. Compact
 uses SelectionFab; desktop keeps inline selection controls even with touch input.
 
-The bar is 36px tall, retaining 38px on coarse pointers. Below 600px wide, tickers collapse to counts; below
-500px, a single density button cycles Justified → Grid → Table. The right-panel toggle is hidden
-in the compact shell, where the right panel appears only as the selection card.
+The bar is 36px tall, retaining 38px on coarse pointers. Below 500px, a single density
+button cycles Justified → Grid → Table. The right-panel toggle is hidden in the compact
+shell, where the right panel appears only as the selection card.
+
+`useStatusBarFit` owns one local space budget for desktop and compact search. It shortens
+action/control labels before badge names and result wording; numbers and essential controls
+remain, with summary scrolling only when the smallest mode cannot fit. One ResizeObserver
+tracks the bar, summary and label sizes, coalescing changes into a one-shot frame. Hidden
+existing labels stay measurable off-flow rather than using display:none; no duplicate controls,
+polling or React render loop is introduced. Expansion reserves extra room to avoid oscillation.
+The observer/frame is released on unmount, and zero-width hidden bars skip measurement.
+Detail keeps its separate named-container rules. This presentation budget never changes
+target ownership, authority, command preparation or drafts.
 
 `ImageActions` shares Share URL, Full frame, Download, Delete and Library controls with
 image detail and the floaty. `image-actions.ts` evaluates operation-specific readiness
@@ -748,6 +758,18 @@ DOM/disclosures and shares panel chrome
 with existing Label receipts. Pending actions remain blocked while retaining only settled
 visual opacity. Full-frame skip counts, Library state and unavailable Crop entry are
 described in the [editing checkpoint](../gradually-growing-teeth.kupua-edits-steps.md#action-hookup-boundary).
+
+When adding an action, first decide whether it follows selection or owns explicit targets.
+`SelectionImageActions` observes membership, metadata readiness, resident results and enrichment,
+and resolves current selection again on activation. `ImageActions` requires an explicit
+`ImageActionContext`; detail supplies only its current image. It does not subscribe to
+selection/results/enrichment itself, but still observes session and crop-setting changes.
+Its optional `resolveContext` is an activation-time refresh supplied by the selection connector,
+not an alternate permission policy. Explicit menus follow their supplied target IDs.
+The compact equivalents are selection-connected `SelectionFab` and context-required
+`ImageActionFab`; their private presentation is shared. Selection menus close on membership
+changes even when counts match. New editors should preserve their own captured draft targets,
+not automatically follow selection or adopt these action controls' permission rules.
 
 AI results display the loaded count with a separate pool total when available; pool metadata is
 not paired with the pre-settlement cached count. Ticker badges use `gridConfig.tickerDefinitions`,
@@ -977,7 +999,12 @@ native fullscreen when possible, while installed apps use their existing window 
 ## Crop Editor (`components/crop/`)
 
 `CropEditor` is lazy-loaded inside detail when `cropping=true`. Crop shows and logs the
-Kahuna-shaped request, never posts it; permission gating and backend writes are not implemented.
+Kahuna-shaped request, never posts it. Detail supplies its accepted enriched image;
+`cropAccess` shares existing creation checks across normal entry and editor preparation.
+The editor consumes canonical source, cost/restrictions, freshness and session state without
+another image/permission fetch. Withheld preparation preserves the frame; accepted updates
+and session invalidation are observed, never polled. Pay/Restricted use/Overquota notices
+remain outside the fullscreen-hidden toolbar. Backend writes are not implemented.
 `CropCanvas` owns one Cropper.js v2 instance per source/alt lifetime, tracks loading/absence,
 cancels callbacks/frames on teardown and preserves natural-pixel selection geometry on resize.
 Native image gestures are disabled; desktop fullscreen supplies controlled pan/zoom without
@@ -991,7 +1018,8 @@ legacy-settings changes invalidate prior selection/output until the canvas repor
 Crop entry uses a fresh history key, retaining both its detail return marker and the detail's
 list origin. Cancel/Back/Forward/reload use those markers; a cold crop link replaces its URL on
 Cancel because it has no separate detail predecessor. Matching crop/detail history transitions
-leave the mounted search buffer untouched. Entering exits image fullscreen first.
+leave the mounted search buffer untouched. Normal and history-driven entry exit image fullscreen.
+Editor mode admits neither hidden detail media nor crop-list preparation.
 The editor focuses/traps its own controls, restricts letter shortcuts to current ratio options,
 leaves native Enter on controls alone and makes background detail controls inert. Native Cropper
 keyboard handling is enabled after connection and disabled at cleanup; cleared selection disables Crop.
@@ -1000,8 +1028,16 @@ Root `beforeLoad` applies `cropType`, `customRatio=label,width,height` and `defa
 cold and SPA entries before redirects. These are display-only URL keys, persisted in per-tab
 `kupua.crop.*` session storage. Settings changes update an already-open editor. Fixed presets,
 the small-width warning and GNM square circle mask/guide follow Kahuna; malformed custom ratios
-are rejected and explicitly requested hidden presets remain selectable. Existing-crop `?crop=id`
-selection and 5:3 warning gutters are not implemented. Numeric inputs edit bounded original-pixel
+are rejected and explicitly requested hidden presets remain selectable. Saved-crop `?crop=id`
+selection replaces the existing history entry, survives legacy redirects and is excluded from
+search/position fingerprints; traversal clears it. The same mandatory ratio constrains saved
+selection and creation, with exact ratio-string matching, including a freeform lock. Default
+ratios do not restrict selection. Original stays inspectable; API saved lists require the
+advertised crops relation even on deep links. Selection failures never substitute Original.
+The deferred, memoized crop rail is image-owned; mobile list work waits for the expanded
+card and first section visibility, while offscreen neighbours/fullscreen omit it. Prepared
+mobile content retains its measured space on collapse. No global export cache is introduced.
+5:3 warning gutters are not implemented. Numeric inputs edit bounded original-pixel
 coordinates; ratio labels collapse at 1294px and below. The small-crop warning is persistent and
 local to the editor, including fullscreen, rather than part of the global toast queue.
 
@@ -1040,6 +1076,22 @@ Rights presentation includes cost, validity, leases and restrictions. `SearchPil
 metadata search helpers turn values into queries, retaining Shift/Alt modifiers. Image resolution
 and selection precedence belong to the calling detail/panel owner, not this renderer.
 
+Registry order follows Kahuna's detail priorities: Special instructions, Taken on, By,
+Credit, Location and Copyright precede the remaining core rows. Modified replaces Last
+modified, and Filename follows Uploader. Shared table ordering follows the same registry;
+that trade-off is intentional. Image type and Photoshoot stack, and Labels has its own
+section. Source, supplier references and configured aliases live in collapsible Additional
+metadata. Dimensions/file size belong to Original in the crop rail; File type and Image ID
+remain table fields rather than metadata-panel rows.
+
+Known-empty important fields use Unknown with actionable add/edit guidance where editable;
+mixed fields keep field-specific disagreement wording and edit-all controls. Viewers omit
+optional empty By, Copyright, Location, People and Keywords, while important descriptive
+fields and configured Image type remain visible. Upstream usage instructions stay read-only
+and do not gain a redundant empty extra-instructions row. Pending/retained rendering is not
+reclassified as a fresh known-empty value. Empty rights labels also use Unknown without
+changing server cost, validity or authorization.
+
 In API mode, the label row uses `LabelEditor` with the same owned enrichment. Shared
 `EditableSearchPill`/`PillActionButton` controls separate value search from addition,
 removal and apply-to-all. Ordinary scalar, Location, People, Keywords, Photoshoot
@@ -1048,6 +1100,11 @@ not invoke the Labels executor or infer permission from a registered field. The 
 current selected IDs and capabilities separately from its retained completed display,
 rechecking that ownership at the action boundary. Pending metadata blocks editing.
 Detail disables outgoing-image controls and supplies its requested-ID-owned overlay.
+Ordinary API editors use each image's edits capability and stay mounted when that capability
+is withheld: closed fields present read-only values, while open target-bound drafts survive
+with preparation disabled. Multi-image preparation additionally requires complete captured
+targets and known reconciliation. Mixed Location value-search controls are siblings of the
+edit-all control rather than nested buttons. Labels keeps its separate command/receipt owner.
 Eligibility counts and target IDs remain internal to admission and receipts; the
 label row does not show a diagnostic summary or Target images disclosure.
 
@@ -1056,7 +1113,7 @@ stacked-plus controls rather than separate button blocks. Icons use shared inlin
 SVG paths in `SearchPill`, not an icon-library dependency. Editing colours follow
 Kahuna: full labels are blue/white and partial labels white/blue. Only the hovered
 enabled segment changes: full labels invert to white/dark blue and partial labels
-to dark blue/white; neutral pills use Keywords' dark fill and a lighter dark hover.
+to dark blue/white; neutral pills hover white with grey text/icons, preserving label accents.
 This deliberately strengthens Kahuna's subtle hover feedback. Enabled action buttons
 use the hand cursor; disabled actions retain the unavailable cursor and do not highlight.
 Read-only neutral metadata pills share that styling; partial outlines are inset so full and

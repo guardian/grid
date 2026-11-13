@@ -466,6 +466,22 @@ Saved originals/full frames/crops appear in detail's left rail with dimensions,
 creator initials and hover attribution. Ratio-constrained pickers can disable
 incompatible crops. Selecting a crop changes the main image and, when configured,
 provides a selected-crop download. Metadata also has a collapsible rendition list.
+
+The saved list is obtained through the image's advertised `crops` relation, then intersected
+with its projected exports. Missing that relation does not populate the list. A saved-crop
+URL selects from this same loaded list; it does not independently fetch an arbitrary export
+or bypass the relation. This is distinct from the normal button's validity check. Whether
+to replace the empty-looking state with a greyed explanation remains a separate UX decision.
+[List and URL lookup](../../../kahuna/public/js/image/controller.js#L270),
+[relation follow](../../../kahuna/public/js/services/api/media-cropper.js#L60).
+
+Batch full-frame requests are attempted without the single-image validity guard. Cropper
+rejects invalid images with `400 invalid-image`; batch tracking logs rejected items and emits
+only successes, rather than showing per-image rejection reasons in this control.
+[Batch](../../../kahuna/public/js/components/gr-batch-export-original-images/gr-batch-export-original-images.js#L47),
+[validation](../../../cropper/app/controllers/CropperController.scala#L169),
+[settlement](../../../kahuna/public/js/util/batch-tracking.js#L48).
+
 [Detail rail](../../../kahuna/public/js/image/view.html#L40),
 [crop item](../../../kahuna/public/js/image/crop.html#L1),
 [rendition list](../../../kahuna/public/js/components/gr-display-crops/gr-display-crops.html#L1).

@@ -66,12 +66,15 @@ describe("usage rights catalogue", () => {
 
 describe("category labels", () => {
   it("use the server's names when loaded, otherwise the local fallback", () => {
-    expect(categoryLabel("")).toBe("Unknown Rights");
+    expect(categoryLabel("")).toBe("Unknown");
     expect(categoryLabel("pay-to-use")).toBe("Pay to use");
     expect(categoryLabel("pr-and-third-party")).toBe("PR & Third Party");
     expect(categoryLabel("publisher-photographer")).toBe("GNM Photographer");
     expect(categoryLabel("unlisted-category")).toBe("unlisted-category");
-    expect(categoryLabel(undefined)).toBe("None");
+    expect(categoryLabel(undefined)).toBe("Unknown");
+    expect(categoryLabel(null)).toBe("Unknown");
+    expect(categoryLabel("publisher-photography")).toBe("GNM Photography");
+    expect(categoryLabel("publisher-illustration")).toBe("GNM Illustration");
 
     useUsageRightsCatalogue.setState({ categories: [
       { value: "publisher-photographer", name: "ACME Photographer", searchAlias: "acme-photographer" },

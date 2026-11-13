@@ -18,7 +18,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useSearch } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
 import { refreshResults } from "@/lib/refresh-results";
@@ -31,7 +31,7 @@ import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useIsCompact } from "@/hooks/useShell";
-import { ImageActions } from "./ImageActions";
+import { SelectionImageActions } from "./ImageActions";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -77,7 +77,79 @@ function useNarrow() {
   return narrow;
 }
 
+const STATUS_FITS = [
+  { key: "full", actions: "full", controls: true, badges: true, matches: true },
+  { key: "short", actions: "short", controls: true, badges: true, matches: true },
+  { key: "icons", actions: "icons", controls: true, badges: true, matches: true },
+  { key: "condensed", actions: "icons", controls: false, badges: true, matches: true },
+  { key: "counts", actions: "icons", controls: false, badges: false, matches: true },
+  { key: "minimal", actions: "icons", controls: false, badges: false, matches: false },
+] as const;
+const STATUS_FIT_GAP = 12;
+const STATUS_EXPANSION_GAP = 20;
+type StatusLabelKind = "controls" | "badges" | "matches" | "full" | "short";
+
+function useStatusBarFit() {
+  const ref = useRef<HTMLDivElement>(null);
+  const update = useRef<(() => void) | null>(null);
+  useLayoutEffect(() => {
+    const bar = ref.current;
+    const summary = bar?.querySelector<HTMLElement>('[data-testid="result-summary"]');
+    const content = summary?.firstElementChild;
+    if (!bar || !summary || !content) return;
+    let frame = 0;
+    let observer: ResizeObserver | undefined;
+    const observed = new Set<Element>();
+    const measure = () => {
+      if (!bar.clientWidth) return;
+      for (const element of observed) {
+        if (!bar.contains(element)) { observer?.unobserve(element); observed.delete(element); }
+      }
+      const labels = [...bar.querySelectorAll<HTMLElement>(
+        '.status-control-label, .status-badge-label, .status-matches-label, .image-actions[data-surface="search"] > .image-action > .image-action-full, .image-actions[data-surface="search"] > .image-action > .image-action-short',
+      )].filter(label => label.parentElement!.getClientRects().length > 0).map(label => {
+        if (!observed.has(label)) { observer?.observe(label); observed.add(label); }
+        const style = getComputedStyle(label);
+        const parent = getComputedStyle(label.parentElement!);
+        const kind: StatusLabelKind = label.classList.contains("status-control-label") ? "controls"
+          : label.classList.contains("status-badge-label") ? "badges"
+          : label.classList.contains("status-matches-label") ? "matches"
+          : label.classList.contains("image-action-full") ? "full" : "short";
+        const width = label.getBoundingClientRect().width + (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0)
+          + (parent.display.includes("flex") ? parseFloat(parent.columnGap) || 0 : 0);
+        return { kind, width, active: style.position !== "fixed" };
+      });
+      const occupied = [...bar.children].filter(child => child !== summary)
+        .reduce((width, child) => width + child.getBoundingClientRect().width, content.getBoundingClientRect().width);
+      const base = occupied - labels.reduce((width, label) => width + (label.active ? label.width : 0), 0);
+      const current = Math.max(0, STATUS_FITS.findIndex(fit => fit.key === bar.dataset.statusFit));
+      const fit = STATUS_FITS.find((fit, index) => {
+        const width = base + labels.reduce((width, label) => width + (
+          (label.kind === "full" || label.kind === "short" ? fit.actions === label.kind : fit[label.kind]) ? label.width : 0
+        ), 0);
+        return width <= bar.clientWidth - (index < current ? STATUS_EXPANSION_GAP : STATUS_FIT_GAP);
+      }) ?? STATUS_FITS[STATUS_FITS.length - 1];
+      if (bar.dataset.statusFit !== fit.key) bar.dataset.statusFit = fit.key;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); });
+    };
+    observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(schedule);
+    for (const element of [bar, summary, content]) observer?.observe(element);
+    update.current = measure;
+    measure();
+    return () => {
+      update.current = null;
+      observer?.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+  useLayoutEffect(() => { update.current?.(); });
+  return ref;
+}
+
 export const StatusBar = memo(function StatusBar() {
+  const barRef = useStatusBarFit();
   const total = useSearchStore((s) => s.total);
   const aiPoolTotal = useSearchStore((s) => s.aiPoolTotal);
   const newCount = useSearchStore((s) => s.newCount);
@@ -153,7 +225,9 @@ export const StatusBar = memo(function StatusBar() {
 
   return (
     <div
-      className="@container flex items-stretch gap-0 h-9 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
+      ref={barRef}
+      data-status-fit="full"
+      className="status-bar @container flex items-stretch gap-0 h-9 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
       data-coarse-pointer={isCoarsePointer ? "true" : undefined}
       data-selection-mode={selectedCount > 0 ? "true" : undefined}
     >
@@ -175,13 +249,14 @@ export const StatusBar = memo(function StatusBar() {
         <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 0v16h4V4H5zm6 0v16h8V4h-8z" />
         </svg>
-        <span className="text-sm hidden @[600px]:inline">Browse</span>
+        <span className="status-control-label text-sm">Browse</span>
       </button>
 
       <div className="w-px bg-grid-separator shrink-0" />
 
       {/* Only the summary scrolls horizontally; layout/panel controls stay reachable. */}
       <div className="min-w-0 flex-1 flex items-center overflow-x-auto hide-scrollbar" data-testid="result-summary">
+      <div className="flex w-max shrink-0 items-center">
       {/* Result count — seeded from sessionStorage across reload.
            Show when settled (storeReady) even if 0; show cached during loading
            only if > 0 (avoids blank-then-number flash on first load). */}
@@ -190,7 +265,7 @@ export const StatusBar = memo(function StatusBar() {
           {displayPool !== null && "Best "}
           {displayTotal.toLocaleString()}
           {displayPool !== null && ` of ${displayPool.toLocaleString()}`}
-          <span className="hidden @[500px]:inline">&nbsp;matches</span>
+          <span className="status-matches-label">&nbsp;matches</span>
         </span>
       )}
 
@@ -238,13 +313,14 @@ export const StatusBar = memo(function StatusBar() {
               aria-pressed={isActive}
               aria-label={`${ticker.value.toLocaleString()} ${ticker.name}`}
             >
-              {ticker.value.toLocaleString()}<span className="hidden @[600px]:inline ml-[0.25em]">{ticker.name}</span>
+              {ticker.value.toLocaleString()}<span className="status-badge-label ml-[0.25em]">{ticker.name}</span>
             </button>
           );
         })}
 
       </div>
 
+      </div>
       </div>
 
        {/* Selection count + clear -- desktop model only.
@@ -253,7 +329,7 @@ export const StatusBar = memo(function StatusBar() {
         <>
           <div className="w-px bg-grid-separator shrink-0" />
           <span role="status" aria-label={`${selectedCount.toLocaleString()} selected`} aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
-            {selectedCount.toLocaleString()}<span className="hidden @[600px]:inline">&nbsp;selected</span>
+            {selectedCount.toLocaleString()}<span className="status-control-label">&nbsp;selected</span>
           </span>
           <div className="w-px bg-grid-separator shrink-0" />
           <button
@@ -267,10 +343,10 @@ export const StatusBar = memo(function StatusBar() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
-            <span className="hidden @[600px]:inline">Deselect</span>
+            <span className="status-control-label">Deselect</span>
           </button>
           <div className="w-px bg-grid-separator shrink-0" />
-          <ImageActions />
+          <SelectionImageActions />
         </>
       )}
 
@@ -322,7 +398,7 @@ export const StatusBar = memo(function StatusBar() {
         aria-label={`${rightVisible ? "Hide" : "Show"} Details panel`}
         aria-pressed={rightVisible}
       >
-        <span className="text-sm hidden @[600px]:inline">Details</span>
+        <span className="status-control-label text-sm">Details</span>
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M21 4a2 2 0 00-2-2H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V4zm-2 0v16h-4V4h4zm-6 0v16H5V4h8z" />
         </svg>

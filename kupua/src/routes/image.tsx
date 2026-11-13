@@ -13,10 +13,10 @@ import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 export const imageRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/images/$imageId",
-  beforeLoad: ({ params }) => {
+  beforeLoad: ({ params, location }) => {
     throw redirect({
       to: "/search",
-      search: { ...DEFAULT_SEARCH, image: params.imageId },
+      search: { ...DEFAULT_SEARCH, image: params.imageId, crop: new URLSearchParams(location.searchStr).get("crop") ?? undefined },
     });
   },
 });
@@ -25,10 +25,10 @@ export const imageRoute = createRoute({
 export const imageCropRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/images/$imageId/crop",
-  beforeLoad: ({ params }) => {
+  beforeLoad: ({ params, location }) => {
     throw redirect({
       to: "/search",
-      search: { ...DEFAULT_SEARCH, image: params.imageId, cropping: "true" },
+      search: { ...DEFAULT_SEARCH, image: params.imageId, cropping: "true", crop: new URLSearchParams(location.searchStr).get("crop") ?? undefined },
     });
   },
 });

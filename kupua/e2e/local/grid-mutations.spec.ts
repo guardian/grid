@@ -64,6 +64,58 @@ test.describe("Unit B isolated continuation", () => {
     await page.unrouteAll({ behavior: "wait" });
   });
 
+  test("saved-crop links replace rendition state without new history or search work", async ({ page }, testInfo) => {
+    await page.route(/\/api\/images\/(?:mget|search-after|window|local-\d+)$/, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      const entities = Array.isArray(body.data) ? body.data : [body];
+      for (const entity of entities) {
+        entity.links.push({ rel: "crops", href: `${origin}/crops/${entity.data.id}` });
+        entity.data.exports = [{ id: "saved", specification: { type: "crop", aspectRatio: "16:9", bounds: { x: 0, y: 0, width: 1600, height: 900 } },
+          assets: [{ mimeType: "image/jpeg", dimensions: { width: 1600, height: 900 }, secureUrl: `${origin}/__publication-media/test-card-f.jpg` }] }];
+      }
+      await route.fulfill({ response, json: body });
+    });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${origin}/__readback?density=grid`);
+    await page.evaluate(async modulePath => {
+      const { router } = await import(modulePath);
+      await router.navigate({ to: "/images/$imageId", params: { imageId: "local-0" }, search: { crop: "saved" } });
+    }, "/src/router.ts");
+    const rail = page.getByRole("complementary", { name: "Image original and crops select" });
+    const saved = rail.getByRole("button", { name: "View 1600 by 900 crop" });
+    await expect(saved).toHaveAttribute("aria-pressed", "true");
+    await expect(page).toHaveURL(/\/search\?.*crop=saved/);
+    const toolbar = page.locator("header.detail-toolbar");
+    const share = toolbar.getByRole("button", { name: "Share with URL" });
+    for (const width of [1280, 1024, 900, 800, 720, 640]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(share.locator(".image-action-full")).toBeVisible({ visible: width >= 1000 });
+      await expect(share.locator(".image-action-short")).toBeVisible({ visible: width >= 750 && width < 1000 });
+      await expect.poll(() => toolbar.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const controls = [...element.children].map(child => child.getBoundingClientRect()).filter(box => box.width > 0);
+        return controls.every((box, index) => box.left >= bounds.left - 1 && box.right <= bounds.right + 1
+          && (index === 0 || box.left >= controls[index - 1].right - 1));
+      })).toBe(true);
+      if (width === 1280 || width === 640) await page.screenshot({ path: testInfo.outputPath(`detail-labels-${width}.png`) });
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const entry = await page.evaluate(() => ({ key: history.state.kupuaKey, length: history.length }));
+    const before = await counts(page);
+    await rail.getByRole("button", { name: "View original image" }).click();
+    await expect(saved).toHaveAttribute("aria-pressed", "false");
+    expect(await page.evaluate(() => new URLSearchParams(location.search).get("crop"))).toBeNull();
+    expect(await page.evaluate(() => ({ key: history.state.kupuaKey, length: history.length }))).toEqual(entry);
+    const after = await counts(page);
+    for (const field of ["pageReads", "rankReads", "mapReads", "countReads", "mgetReads", "fullReads"] as const) expect(after[field]).toBe(before[field]);
+    await saved.click();
+    await expect(saved).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Next image", exact: true }).click();
+    await expect(page.locator("[data-detail-image-id]")).not.toHaveAttribute("data-detail-image-id", "local-0");
+    expect(await page.evaluate(() => new URLSearchParams(location.search).get("crop"))).toBeNull();
+  });
+
   test("disconnected image actions share selection targets and fit desktop and mobile", async ({ page }) => {
     await page.route(`${origin}/api`, route => route.fulfill({ json: { data: {}, links: [
       { rel: "archive", href: "https://metadata.example.test/metadata/{id}/archived" },
@@ -131,6 +183,106 @@ test.describe("Unit B isolated continuation", () => {
     } finally { await touch.detach(); }
     expect((await counts(page)).fakeDispatches).toBe(0);
     expect((await counts(page)).unexpected).toEqual([]);
+  });
+
+  test("status bar budgets labels around badges on desktop and mobile", async ({ page }, testInfo) => {
+    const touch = await page.context().newCDPSession(page);
+    const setStatusCounts = (total: number, badges: boolean, pool: number | null = null) => page.evaluate(async ({ total, badges, pool, modulePath }) => {
+      const { gridConfig } = await import(modulePath);
+      const values: { name: string; value: number }[] = badges ? gridConfig.tickerDefinitions.slice(0, 3)
+        .map((ticker: { name: string }, index: number) => ({ name: ticker.name, value: total < 10 ? index + 1 : 1_234_567 + index })) : [];
+      (window as CommandWindow).__kupua_store__.setState({ total, aiPoolTotal: pool, newCount: 0,
+        tickerCounts: badges ? Object.fromEntries(values.map(({ name, value }) => [name, { value }])) : null });
+      return values;
+    }, { total, badges, pool, modulePath: "/src/lib/grid-config.ts" });
+    try {
+      await page.setViewportSize({ width: 393, height: 852 });
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+      await page.goto(`${origin}/__readback?density=grid`);
+      await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState()._isInitialLoad
+        && !(window as CommandWindow).__kupua_store__.getState().loading);
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      const summary = page.getByTestId("result-summary");
+      const bar = summary.locator("..");
+      const matches = summary.getByText("matches", { exact: true });
+      const controlsFit = () => expect.poll(() => bar.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        return element.scrollWidth <= element.clientWidth + 1 && [...element.children].every(child => {
+          const box = child.getBoundingClientRect();
+          return !box.width || box.left >= bounds.left - 1 && box.right <= bounds.right + 1;
+        });
+      })).toBe(true);
+      const fits = async () => {
+        await expect.poll(() => summary.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+        await controlsFit();
+      };
+      const retainedBadges = async (values: { name: string; value: number }[]) => {
+        await expect(summary.locator("button")).toHaveCount(values.length);
+        for (const { name, value } of values) {
+          const badge = summary.getByRole("button", { name: `${value.toLocaleString()} ${name}`, exact: true });
+          await expect(badge).toBeVisible();
+          await expect(badge).toContainText(value.toLocaleString());
+        }
+      };
+      await setStatusCounts(6, false);
+      await expect(matches).toBeVisible();
+      await fits();
+      await page.screenshot({ path: testInfo.outputPath("status-mobile-roomy.png") });
+      const mobileBadges = await setStatusCounts(6, true);
+      await expect(matches).toBeVisible();
+      await retainedBadges(mobileBadges);
+      await fits();
+      await page.screenshot({ path: testInfo.outputPath("status-mobile-crowded.png") });
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+      await page.setViewportSize({ width: 1163, height: 856 });
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "wide");
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select(
+        Array.from({ length: 6 }, (_, index) => `local-${index}`)));
+      const desktopBadges = await setStatusCounts(99_999_999, true);
+      const actions = bar.locator('.image-actions[data-surface="search"]');
+      const share = actions.getByRole("button", { name: "Share with URL" });
+      await expect(share.locator(".image-action-full")).toBeHidden();
+      await expect(share.locator(".image-action-short")).toBeHidden();
+      await retainedBadges(desktopBadges);
+      await expect(summary.getByRole("status")).toContainText("99,999,999");
+      await fits();
+      await page.screenshot({ path: testInfo.outputPath("status-desktop-crowded.png") });
+      await share.focus();
+      await page.setViewportSize({ width: 1800, height: 856 });
+      await expect(share.locator(".image-action-full")).toBeVisible();
+      await expect(share).toBeFocused();
+      await fits();
+      await page.setViewportSize({ width: 1163, height: 856 });
+      await expect(share.locator(".image-action-full")).toBeHidden();
+      await expect(share.locator(".image-action-short")).toBeHidden();
+      await expect(share).toBeFocused();
+      await fits();
+      const settled = await bar.evaluate(async element => {
+        const modes: (string | null)[] = [];
+        for (let frame = 0; frame < 8; frame++) {
+          await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+          modes.push(element.getAttribute("data-status-fit"));
+        }
+        return new Set(modes).size === 1;
+      });
+      expect(settled).toBe(true);
+      await expect(share).toBeFocused();
+      await page.setViewportSize({ width: 320, height: 852 });
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      const fallbackBadges = await setStatusCounts(200, true, 9_000_000);
+      await retainedBadges(fallbackBadges);
+      await expect(summary.getByRole("status")).toContainText("Best 200 of 9,000,000");
+      await expect.poll(() => summary.evaluate(element => element.scrollWidth - element.clientWidth)).toBeGreaterThan(1);
+      await summary.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+      await expect(summary.locator("button").last()).toBeInViewport();
+      await controlsFit();
+      await expect(bar.getByRole("button", { name: /Browse panel/ })).toBeVisible();
+      await expect(bar.getByRole("button", { name: "Grid view", exact: true })).toBeVisible();
+    } finally {
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+      await touch.detach();
+    }
   });
 
   test("Unit D End reacquires a tail window and Home recovers observed bodies", async ({ page }) => {
@@ -1362,7 +1514,7 @@ async function exerciseLabelEditor(page: Page) {
   });
   await expect.poll(async () => (await snapshot()).receipts[0].items[0].state).toBe("accepted-awaiting-visibility");
   expect((await snapshot()).receipts[0].intent.targetIds).toEqual(["fixture", "other"]);
-  await expect(page.getByRole("button", { name: "Remove news", exact: true })).toBeDisabled();
+  await expect(editor.getByRole("button", { name: "Remove news", exact: true })).toBeDisabled();
   } finally {
     await page.unroute(suggestionsRoute, suggestionsHandler);
   }
@@ -1548,6 +1700,8 @@ async function exerciseBulkEditor(page: Page) {
     await expect(receipt("queued fixture label")).toContainText('"state": "queued"');
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate("fixture"));
     await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", "fixture");
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture
+      .publicationSnapshot("fixture").residentLabels)).toContain("batch fixture label");
     release();
     await expect.poll(async () => JSON.parse((await receipt("batch fixture label").textContent())!).items
       .map((item: { observation: string }) => item.observation)).toEqual(["superseded", "observed"]);
@@ -1842,8 +1996,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
   const imageEntity = (imageId: string) => ({
     uri: `${config.mediaApiUri}/images/${imageId}`,
     links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${imageId}` }],
-    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-01-01T00:00:00Z",
-      metadata: { title: `Fixture ${imageId}`, credit: "Fixture", description: "Synthetic image" },
+    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-01-01T00:00:00Z", uploadedBy: "fixture-uploader",
+      metadata: { title: `Fixture ${imageId}`, credit: "Fixture", description: "Synthetic image", source: "Fixture source" },
       cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + connectedVersion * 1000).toISOString(),
         labels: { data: (connected ? imageId === "fixture" ? connectedLabels : otherLabels.get(imageId) ?? ["news"] : ["news"]).map(data => ({ data })) }, archived: { data: false },
@@ -1919,6 +2073,27 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     expect((await execute()).outcome).toBe("blocked");
     expect(requests.filter((request) => request.origin === authOrigin || (request.origin === metadataOrigin && (request.method !== "GET" || request.path !== "/")))).toEqual([]);
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate("fixture"));
+    await expect(page.getByRole("button", { name: "Edit Taken on", exact: true })).toBeEnabled();
+    const metadataLabels = (await page.locator("dl dt").allTextContents()).map(label => label.trim());
+    expect(metadataLabels.filter(label => ["Special instructions", "Taken on", "By", "Credit", "Location", "Copyright"].includes(label))).toEqual([
+      "Special instructions", "Taken on", "By", "Credit", "Location", "Copyright",
+    ]);
+    for (const name of ["Image type", "Photoshoot"]) {
+      expect(await page.getByRole("button", { name: `Edit ${name}`, exact: true }).evaluate(button => {
+        const heading = button.closest("dt")!;
+        return heading.nextElementSibling!.getBoundingClientRect().top >= heading.getBoundingClientRect().bottom;
+      })).toBe(true);
+    }
+    const additional = page.getByRole("region", { name: "Additional metadata", exact: true });
+    await expect(additional.getByRole("button", { name: "Fixture source", exact: true })).toBeHidden();
+    await additional.getByRole("button", { name: "Show additional metadata", exact: true }).click();
+    const source = additional.getByRole("button", { name: "Fixture source", exact: true });
+    await expect(source).toBeVisible();
+    const creditLeft = await page.getByRole("button", { name: "Edit Credit", exact: true }).evaluate(button =>
+      button.closest("dt")!.nextElementSibling!.getBoundingClientRect().left);
+    expect(await source.evaluate(button => button.closest("dd")!.getBoundingClientRect().left)).toBeGreaterThan(creditLeft);
+    await additional.getByRole("button", { name: "Hide additional metadata", exact: true }).click();
+    await expect(source).toBeHidden();
     const pencilEdges: number[] = [];
     for (const name of ["Title", "Description", "Special instructions", "By", "Credit", "Copyright", "Taken on", "Image type", "Location", "Photoshoot"]) {
       const pencil = page.getByRole("button", { name: `Edit ${name}`, exact: true });
@@ -2038,7 +2213,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       const label = button.closest("dt")!;
       const labelBounds = label.getBoundingClientRect();
       const valueBounds = label.nextElementSibling!.getBoundingClientRect();
-      const readOnlyValues = [...label.closest("dl")!.querySelectorAll(".metadata-row:not([data-metadata-field]) > dd")];
+      const readOnlyValues = [...label.closest("dl")!.querySelectorAll(".metadata-row:not([data-metadata-field]) > dd")]
+        .filter(value => !value.closest('[aria-label="Additional metadata"]') && value.getClientRects().length > 0);
       return labelBounds.right <= valueBounds.left
         && Math.abs(labelBounds.top + labelBounds.height / 2 - valueBounds.top - valueBounds.height / 2) < 1
         && readOnlyValues.length > 0

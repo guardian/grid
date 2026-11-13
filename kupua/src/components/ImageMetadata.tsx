@@ -57,6 +57,7 @@ import type { LabelEditContext } from "@/lib/label-operation";
 import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
+import { findLink } from "@/dal/grid-api/argo";
 
 
 const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
@@ -203,6 +204,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
+  const canEditMetadata = Boolean(enriched?.resource && findLink(enriched.resource, "edits"));
 
   // All cost/validity fields come from deriveImage (ES baseline + API overlay)
   const cost = enriched?.cost ?? "pay";
@@ -401,7 +403,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
 
       {/* Regular metadata fields from field registry */}
       {SECTIONS.map((section, sIdx) => (
-        <MetadataSection key={sIdx}>
+        <MetadataSection key={sIdx} additional={section[0]?.detailGroup === "extended"}>
           {section.map((field) => {
             if (field.visibleWhen?.() === false) return null;
 
@@ -413,43 +415,38 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
+            const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
+            const readOnly = (hasValue || field.showWhenEmpty)
+              && !(field.id === "metadata_specialInstructions" && !hasValue && image.metadata?.usageInstructions)
+              ? <Layout key={field.id} label={field.label}>
+                {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <span className="text-grid-text-dim">Unknown</span>}
+              </Layout> : null;
 
             if (field.id === "location" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataLocationEditor key={`location:${image.id}`} targetIds={[image.id]}
-                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                editable={canEditMetadata} readOnly={readOnly}
+                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}
                 fields={LOCATION_COMPONENTS.map(component => ({ ...component, value: image.metadata?.[component.key] ?? "", mixed: false }))}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
               </MetadataLocationEditor>;
             }
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
-                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                editable={canEditMetadata} readOnly={readOnly}
+                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                 collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;
             }
             if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataTextEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} value={typeof raw === "string" ? raw : ""}
-                available={!editingPending && !labelEditing?.pending && !enriched?.metadataStale}>
+                editable={canEditMetadata} readOnly={readOnly}
+                furtherInstructions={field.id === "metadata_specialInstructions" && Boolean(image.metadata?.usageInstructions)}
+                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
               </MetadataTextEditor>;
             }
 
-            if (!hasValue) {
-              if (!field.showWhenEmpty) return null;
-              const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
-              return (
-                <Layout key={field.id} label={field.label}>
-                  <Dash />
-                </Layout>
-              );
-            }
-
-            const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
-            return (
-              <Layout key={field.id} label={field.label}>
-                <FieldValue field={field} image={image} onSearch={onSearch} />
-              </Layout>
-            );
+            return readOnly;
           })}
         </MetadataSection>
       ))}

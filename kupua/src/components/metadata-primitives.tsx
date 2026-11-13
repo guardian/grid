@@ -9,7 +9,7 @@
  * layout, interactivity, and field-value rendering for known (non-null) values.
  */
 
-import { useCallback } from "react";
+import { useCallback, useId, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { cancelSearchDebounce } from "@/lib/orchestration/search";
@@ -19,6 +19,7 @@ import { beginTraceInteraction } from "@/lib/perceived-trace";
 import type { Image } from "@/types/image";
 import { SearchPill } from "./SearchPill";
 import type { FieldDefinition } from "@/lib/field-registry";
+import { Chevron } from "./Chevron";
 
 // ---------------------------------------------------------------------------
 // useMetadataSearch -- hook for click-to-search on metadata values.
@@ -97,9 +98,25 @@ export function ValueLink({ cqlKey, value, label, onSearch, className }: ValueLi
 
 interface MetadataSectionProps {
   children: React.ReactNode;
+  additional?: boolean;
 }
 
-export function MetadataSection({ children }: MetadataSectionProps) {
+function AdditionalMetadataSection({ children }: { children: React.ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const contentId = useId();
+  return <div role="region" aria-label="Additional metadata" className="py-2.5 border-b border-grid-separator last:border-b-0">
+    <button type="button" className="flex items-center gap-1 text-xs text-grid-text-dim cursor-pointer"
+      aria-expanded={expanded} aria-controls={contentId} onClick={() => setExpanded(value => !value)}>
+      <Chevron direction={expanded ? "down" : "right"} />
+      {expanded ? "Hide" : "Show"} additional metadata
+    </button>
+    <div id={contentId} hidden={!expanded} className="pt-2 [&_.metadata-row>dt]:w-[45%] [&_.metadata-row>dd]:flex-1">
+      {children}
+    </div>
+  </div>;
+}
+
+export function MetadataSection({ children, additional = false }: MetadataSectionProps) {
   // Filter out falsy children (from conditional renders)
   const validChildren = Array.isArray(children)
     ? children.filter(Boolean)
@@ -107,6 +124,7 @@ export function MetadataSection({ children }: MetadataSectionProps) {
       ? [children]
       : [];
   if (validChildren.length === 0) return null;
+  if (additional) return <AdditionalMetadataSection>{validChildren}</AdditionalMetadataSection>;
   return (
     <div className="py-2.5 border-b border-grid-separator last:border-b-0">
       {children}

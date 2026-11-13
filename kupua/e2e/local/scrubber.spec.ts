@@ -1157,8 +1157,8 @@ test.describe("KUP-017 queued density restoration", () => {
             document.querySelector('[aria-label="Image results table"]')!.scrollTop = state.imagePositions.get(identity) * 32 - 160;
             return identity;
           }, origin);
-          const point = await kupua.waitForHitTestedImagePoint({ view: "table", imageId: clickedId });
-          await page.mouse.click(point.x, point.y);
+          await page.getByRole("region", { name: "Image results table", exact: true })
+            .locator(`[data-image-id="${clickedId}"]`).click({ position: { x: 48, y: 16 } });
           await expect.poll(() => kupua.getFocusedImageId()).toBe(clickedId);
           await expect(page.locator(`[data-image-id="${clickedId}"]`)).toHaveAttribute("aria-selected", "true");
         }

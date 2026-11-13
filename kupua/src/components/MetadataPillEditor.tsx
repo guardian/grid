@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { FieldDefinition } from "@/lib/field-registry";
 import { EditableSearchPill, PillActionButton } from "./SearchPill";
 import { FieldAddButton } from "./FieldAddButton";
@@ -9,7 +9,7 @@ import type { MetadataEditIntent } from "./MetadataTextEditor";
 
 export const PILL_EDIT_FIELDS = new Set(["keywords", "collections", "people"]);
 
-export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepare, collectionPaths, available = true }: {
+export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepare, collectionPaths, available: dataAvailable = true, editable = true, readOnly }: {
   field: FieldDefinition;
   targetIds: readonly string[];
   values: readonly { value: string; count: number }[];
@@ -17,7 +17,10 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   onPrepare?: (intent: MetadataEditIntent) => void;
   collectionPaths?: ReadonlyMap<string, readonly string[]>;
   available?: boolean;
+  editable?: boolean;
+  readOnly?: ReactNode;
 }) {
+  const available = dataAvailable && editable;
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [notice, setNotice] = useState("");
@@ -36,6 +39,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     setNotice(`Not sent - ${action === "add" ? "Add" : "Remove"} ${noun} prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`);
   };
   const sorted = [...values].sort((first, second) => second.count - first.count);
+  if (!editable && !adding) return readOnly ?? null;
   return <MetadataBlock ref={header} tabIndex={-1} label={field.label} action={
     <span className={adding ? "invisible" : ""} aria-hidden={adding || undefined}>
       <FieldAddButton ref={addRef} iconOnly label={`Add ${noun}`} disabled={!available || adding} onClick={() => { setAdding(true); setDraft(""); setNotice(""); }} />

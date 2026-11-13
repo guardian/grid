@@ -15,13 +15,28 @@ export interface MetadataEditIntent {
   value: string | MetadataLocationChange;
 }
 
+function MetadataPencil() {
+  return <svg width="16" height="16" className="inline-block align-text-bottom" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z" /></svg>;
+}
+
+export function MetadataEditHint({ label, mixed = false, furtherInstructions = false, children, onClick }: {
+  label: string; mixed?: boolean; furtherInstructions?: boolean; children?: ReactNode; onClick: () => void;
+}) {
+  return <button type="button" onClick={onClick} aria-label={`${mixed ? "Edit all" : "Add"} ${label}`}
+    className={`text-left text-grid-text-dim cursor-pointer${mixed ? " italic" : ""}`}>
+    {mixed ? <>{children} (click <MetadataPencil /> to edit <strong>all</strong>)</>
+      : furtherInstructions ? <>Click <MetadataPencil /> to add further instructions</>
+      : <>Unknown (click <MetadataPencil /> to add)</>}
+  </button>;
+}
+
 export function MetadataEditButton({ label, editing, disabled, onClick, ref }: {
   label: string; editing: boolean; disabled: boolean; onClick: () => void; ref?: React.Ref<HTMLButtonElement>;
 }) {
   return <span className={editing ? "invisible" : ""} aria-hidden={editing || undefined}>
     <button ref={ref} type="button" disabled={disabled || editing} aria-label={`Edit ${label}`} title={`Edit ${label}`}
       className="metadata-edit-tool metadata-pencil" onClick={onClick}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z" /></svg>
+      <MetadataPencil />
     </button>
   </span>;
 }
@@ -52,7 +67,7 @@ function dateTimeIntent(value: string, originalOffset: number | null): string {
   return dateTimeDraft(alternate.toISOString()) === dateTimeDraft(date.toISOString()) ? alternate.toISOString() : date.toISOString();
 }
 
-export function MetadataTextEditor({ field, targetIds, value, mixed = false, children, onPrepare, available = true }: {
+export function MetadataTextEditor({ field, targetIds, value, mixed = false, children, onPrepare, available: dataAvailable = true, furtherInstructions = false, editable = true, readOnly }: {
   field: FieldDefinition;
   targetIds: readonly string[];
   value: string;
@@ -60,7 +75,11 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   children: ReactNode;
   onPrepare?: (intent: MetadataEditIntent) => void;
   available?: boolean;
+  furtherInstructions?: boolean;
+  editable?: boolean;
+  readOnly?: ReactNode;
 }) {
+  const available = dataAvailable && editable;
   const [editing, setEditing] = useState(false);
   const [initial, setInitial] = useState("");
   const [initialMixed, setInitialMixed] = useState(mixed);
@@ -131,10 +150,13 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   };
   const stacked = field.detailLayout === "stacked" || editing && control === "datetime-local";
   const Layout = stacked ? MetadataBlock : MetadataRow;
+  if (!editable && !editing) return readOnly ?? null;
   return <Layout label={field.label} {...(stacked ? {} : { fill: true })} action={
     <MetadataEditButton ref={editRef} label={field.label} editing={editing} disabled={!available} onClick={beginEditing} />
   }>
-    {!editing ? children : <form ref={formRef} className={`metadata-edit-form${multiline ? "" : " metadata-scalar-edit-form"}`} onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
+    {!editing ? available && (mixed || !value) ? <MetadataEditHint label={field.label} mixed={mixed}
+      furtherInstructions={furtherInstructions} onClick={beginEditing}>{children}</MetadataEditHint>
+      : children : <form ref={formRef} className={`metadata-edit-form${multiline ? "" : " metadata-scalar-edit-form"}`} onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancelEditing(); }
       else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); event.stopPropagation(); prepare(); }

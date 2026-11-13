@@ -211,6 +211,7 @@ export const labelEditorFixture = {
     const source = state.results.find(image => image?.id === imageId);
     const selected = useSelectionStore.getState();
     return { resident: source?.metadata.description,
+      residentLabels: source?.userMetadata?.labels,
       selected: selected.metadataCache.get(imageId)?.metadata.description,
       links: useEnrichmentStore.getState().data.get(imageId)?.resource?.links.length,
       selectedIds: [...selected.selectedIds], anchorId: selected.anchorId,

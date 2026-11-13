@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useIsCompact } from "@/hooks/useShell";
-import { ImageActions } from "./ImageActions";
+import { ImageActions, SelectionImageActions } from "./ImageActions";
 import type { ImageActionContext } from "@/lib/image-actions";
 import { useActionPopupPlacement } from "@/hooks/useActionPopupPlacement";
 
@@ -81,11 +81,26 @@ function ActionSurface({ strip, popup, visible, below, shiftX, maxHeight }: {
   </>;
 }
 
-export function SelectionFab({ docked = false, context, detailsExpanded = false, closeSignal = 0 }: {
-  docked?: boolean; context?: ImageActionContext; detailsExpanded?: boolean; closeSignal?: number;
-}) {
-  const selectedCount = useSelectionStore((s) => s.selectedIds.size);
+interface ActionFabProps {
+  docked?: boolean;
+  detailsExpanded?: boolean;
+  closeSignal?: number;
+}
+
+export function SelectionFab(props: ActionFabProps) {
+  const selectedIds = useSelectionStore((s) => s.selectedIds);
   const clearSelection = useSelectionStore((s) => s.clear);
+  return <ActionFab {...props} selectedIds={selectedIds} clearSelection={clearSelection} />;
+}
+
+export function ImageActionFab(props: ActionFabProps & { context: ImageActionContext }) {
+  return <ActionFab {...props} />;
+}
+
+function ActionFab({ docked = false, context, selectedIds, clearSelection, detailsExpanded = false, closeSignal = 0 }: ActionFabProps & {
+  context?: ImageActionContext; selectedIds?: ReadonlySet<string>; clearSelection?: () => void;
+}) {
+  const selectedCount = selectedIds?.size ?? 0;
   const isCompact = useIsCompact();
   const [expanded, setExpanded] = useState(false);
   const [present, setPresent] = useState(false);
@@ -98,7 +113,7 @@ export function SelectionFab({ docked = false, context, detailsExpanded = false,
   const collapsedWidth = 112;
   const expandedWidth = 136;
   const deselectWidth = 64;
-  const targetKey = context ? JSON.stringify(context.targets.map(target => target.id)) : String(selectedCount);
+  const targetKey = JSON.stringify(context ? context.targets.map(target => target.id) : [...selectedIds ?? []]);
   const placement = useActionPopupPlacement(triggerRef, popupRef, expanded, docked && detailsExpanded);
   const close = () => { setExpanded(false); triggerRef.current?.focus({ preventScroll: true }); };
 
@@ -175,7 +190,8 @@ export function SelectionFab({ docked = false, context, detailsExpanded = false,
             }}
             style={{ maxHeight: placement.maxHeight, width: expandedWidth, maxWidth: "calc(100vw - 32px)", translate: `${placement.shiftX}px 0` }}
             className={`selection-fab-options absolute right-0 grid grid-cols-1 overflow-y-auto overscroll-contain outline-none ${placement.below ? "top-full" : "bottom-full"}`}>
-            <ImageActions context={context} expanded presentation="floaty" onPrepared={close} />
+            {context ? <ImageActions context={context} expanded presentation="floaty" onPrepared={close} />
+              : <SelectionImageActions expanded presentation="floaty" onPrepared={close} />}
           </div>
         )}
       </div>

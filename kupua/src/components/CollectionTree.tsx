@@ -20,6 +20,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { findFieldTerm, upsertFieldTerm, removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { formatCount } from "@/lib/format-count";
+import { Chevron } from "./Chevron";
 
 // ---------------------------------------------------------------------------
 // CollectionTree — top-level component
@@ -194,18 +195,7 @@ function CollectionTreeNode({
             onClick={(e) => { e.stopPropagation(); handleToggle(); }}
             aria-label={isExpanded ? "Collapse" : "Expand"}
           >
-            <svg
-              className="w-4 h-4 text-grid-text-dim"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              {isExpanded ? (
-                <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z" />
-              ) : (
-                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
-              )}
-            </svg>
+            <Chevron direction={isExpanded ? "down" : "right"} className="size-4 text-grid-text-dim" />
           </button>
         ) : (
           <span className="w-5 shrink-0" />
