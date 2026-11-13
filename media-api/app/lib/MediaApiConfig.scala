@@ -54,7 +54,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   val metadataUri: String = services.metadataBaseUri
   val imgopsUri: String = services.imgopsBaseUri
   val imgproxyUri: String = services.imgproxyBaseUri
-  val useImgProxy: Boolean = boolean("images.imgproxy.enabled")
+  // This deployment branch exercises imgproxy regardless of the shared stage configuration.
+  val useImgProxy: Boolean = true
   // Optional. Unsigned, clients template their own imgproxy URLs, and anyone who knows an image's S3 key can
   // fetch it from imgproxy - see docs/06-objects-of-interest/03-imgproxy.md for when that matters.
   val imgproxySigning: Option[ImgProxySigning] =
