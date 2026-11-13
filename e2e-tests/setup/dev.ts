@@ -1,9 +1,8 @@
 /**
  * Boots the Grid stack outside Playwright and holds it open until Ctrl-C.
  *
- * Set `GRID_PROXY=true` to also start the bundled Caddy reverse proxy, which
- * serves the https://*.media.<domain> domains for anyone without dev-nginx
- * running locally.
+ * Chekov serves the https://*.media.<domain> domains by default.
+ * Set `GRID_PROXY=false` to use an external dev-nginx instead.
  */
 import {
   CONFIG_DIR,
@@ -11,15 +10,15 @@ import {
   ELASTICSEARCH_PORT,
   LOCALSTACK_PORT,
   OIDC_ISSUER,
-  SERVICE_PORTS,
+  SERVICE_CONFIGS,
 } from './constants.ts';
 import { probeStack, startStack, stopStack } from './stack.ts';
 import type { GridEnvironment } from './state.ts';
 
 function banner(elapsedMs: number): string {
-  const services = Object.keys(SERVICE_PORTS)
+  const services = Object.keys(SERVICE_CONFIGS)
     .sort()
-    .map((service) => `    ${service.padEnd(16)} http://localhost:${SERVICE_PORTS[service]}`)
+    .map((service) => `    ${service.padEnd(16)} http://localhost:${SERVICE_CONFIGS[service].port}`)
     .join('\n');
 
   return [
@@ -77,7 +76,7 @@ async function dev(): Promise<void> {
   }
 
   const startedAt = Date.now();
-  environment = await startStack({ proxy: process.env.GRID_PROXY === 'true' });
+  environment = await startStack({ proxy: process.env.GRID_PROXY !== 'false' });
   console.log(banner(Date.now() - startedAt));
 
   // Hold the process open indefinitely.

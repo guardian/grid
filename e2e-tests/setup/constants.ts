@@ -32,9 +32,6 @@ export const AUTH_STATE_PATH = path.join(REPO_ROOT, 'e2e-tests', 'playwright', '
 export const GRID_IMAGE = process.env.CI ? 'grid-e2e-ci' : 'grid-e2e-dev';
 export const ELASTICSEARCH_IMAGE = 'docker.elastic.co/elasticsearch/elasticsearch:8.18.3';
 export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
-/** Reverse proxy used in CI to stand in for the developer's dev-nginx (see global-setup). */
-export const PROXY_IMAGE = 'caddy:2.8-alpine';
-
 /**
  * imgops: standalone nginx on-the-fly image resizer, built from dev/imgops at setup time.
  * Its nginx.conf proxies to the `localstack` alias on 4566, so it shares the stack network.
@@ -56,21 +53,27 @@ export const LOCALSTACK_PORT = 4566;
 /** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
 export const GRID_ALIAS = 'grid-e2e-ci';
 
-/** service -> http port, from e2e-tests/images/entrypoint.ci.sh. */
-export const SERVICE_PORTS: Record<string, number> = {
-  'media-api': 9001,
-  thrall: 9002,
-  'image-loader': 9003,
-  kahuna: 9005,
-  cropper: 9006,
-  'metadata-editor': 9007,
-  collections: 9010,
-  auth: 9011,
-  leases: 9012,
+export type ServiceConfig = {
+  port: number;
+  primaryHostname: string;
+  additionalHostnames: string[];
 };
 
-export const KAHUNA_PORT = SERVICE_PORTS.kahuna;
-export const MEDIA_API_PORT = SERVICE_PORTS['media-api'];
+/** Service hostnames and HTTP ports, matching e2e-tests/images/entrypoint.ci.sh. */
+export const SERVICE_CONFIGS: Record<string, ServiceConfig> = {
+  'media-api': { port: 9001, primaryHostname: 'api.media', additionalHostnames: [] },
+  thrall: { port: 9002, primaryHostname: 'thrall.media', additionalHostnames: [] },
+  'image-loader': { port: 9003, primaryHostname: 'loader.media', additionalHostnames: ['loader-projection.media'] },
+  kahuna: { port: 9005, primaryHostname: 'media', additionalHostnames: [] },
+  cropper: { port: 9006, primaryHostname: 'cropper.media', additionalHostnames: [] },
+  'metadata-editor': { port: 9007, primaryHostname: 'media-metadata', additionalHostnames: [] },
+  collections: { port: 9010, primaryHostname: 'media-collections', additionalHostnames: [] },
+  auth: { port: 9011, primaryHostname: 'media-auth', additionalHostnames: [] },
+  leases: { port: 9012, primaryHostname: 'media-leases', additionalHostnames: [] },
+};
+
+export const KAHUNA_PORT = SERVICE_CONFIGS.kahuna.port;
+export const MEDIA_API_PORT = SERVICE_CONFIGS['media-api'].port;
 
 /**
  * Generated per-service config, bind-mounted into the app container.

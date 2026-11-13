@@ -42,14 +42,12 @@ import {
   OIDC_IMAGE,
   OIDC_ISSUER,
   OIDC_PORT,
-  PROXY_IMAGE,
   REGION,
   REPO_ROOT,
-  SERVICE_PORTS,
+  SERVICE_CONFIGS,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
-import { generateTls } from './tls.ts';
-import type { GridTls } from './tls.ts';
+import { CHEKOV_HOSTS, gridRouteLabels, prepareChekov, registerChekovAliases, s3BucketHosts, startChekov } from './chekov.ts';
 import { reportTo, runTasks } from './progress.ts';
 import type { ListrTask } from './progress.ts';
 import {
@@ -81,8 +79,7 @@ const LOCALSTACK_SERVICES = [
 
 export interface StartStackOptions {
   /**
-   * Start the bundled Caddy reverse proxy instead of relying on the developer's
-   * dev-nginx. Defaults to true under CI, which has no dev-nginx.
+  * Start Chekov instead of relying on the developer's dev-nginx. Defaults to true.
    */
   proxy?: boolean;
   /** Seed Elasticsearch with the image fixtures (and S3 with their files). Defaults to true. */
@@ -121,104 +118,10 @@ interface StoppableStack {
 interface BootContext extends StoppableStack {
   coreStackProps?: StackProps;
   authStackProps?: StackProps;
-  /** CA/leaf cert the proxy serves and the Grid container trusts, generated at config time. */
-  tls?: GridTls;
+  caRoot?: string;
+  chekov?: StartedTestContainer;
   /** Rejects as soon as the Grid services container dies, so readiness waits fail fast. */
   gridCrashed?: Promise<never>;
-}
-
-/** Paths inside the proxy container for the leaf cert/key generated in `generateTls`. */
-const CADDY_CERT_PATH = '/etc/caddy/certs/tls.crt';
-const CADDY_KEY_PATH = '/etc/caddy/certs/tls.key';
-
-/** The app-service and S3-vanity hosts the proxy serves, keyed to their upstreams. */
-function proxiedServices(coreStackProps: Record<string, string>): {
-  appServices: Record<string, number>;
-  imageBuckets: Record<string, string>;
-} {
-  return {
-    appServices: {
-      [`media.${DOMAIN}`]: SERVICE_PORTS.kahuna,
-      [`api.media.${DOMAIN}`]: SERVICE_PORTS['media-api'],
-      [`loader.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
-      [`loader-projection.media.${DOMAIN}`]: SERVICE_PORTS['image-loader'],
-      [`cropper.media.${DOMAIN}`]: SERVICE_PORTS.cropper,
-      [`thrall.media.${DOMAIN}`]: SERVICE_PORTS.thrall,
-      [`media-metadata.${DOMAIN}`]: SERVICE_PORTS['metadata-editor'],
-      [`media-collections.${DOMAIN}`]: SERVICE_PORTS.collections,
-      [`media-leases.${DOMAIN}`]: SERVICE_PORTS.leases,
-      [`media-auth.${DOMAIN}`]: SERVICE_PORTS.auth,
-    },
-    // S3 vanity domains that omit the bucket -> localstack, with the bucket prepended.
-    imageBuckets: {
-      [`images.media.${DOMAIN}`]: coreStackProps.ImageBucket,
-      [`public.media.${DOMAIN}`]: coreStackProps.ImageOriginBucket,
-    },
-  };
-}
-
-/**
- * Every hostname the proxy serves. Used both for the leaf cert's SAN and as the proxy
- * container's network aliases, so the Grid container resolves these domains to the proxy
- * (instead of the Guardian wildcard's 127.0.0.1) and its service-to-service HTTPS calls reach it.
- */
-function proxiedHosts(coreStackProps: Record<string, string>): string[] {
-  const { appServices, imageBuckets } = proxiedServices(coreStackProps);
-  return [
-    ...Object.keys(appServices),
-    ...Object.keys(imageBuckets),
-    `localstack.media.${DOMAIN}`,
-    `media-imgops.${DOMAIN}`,
-  ];
-}
-
-/**
- * Build a Caddyfile that reproduces the dev-nginx subdomain routing: each Grid service
- * domain (https://<prefix>.media.<domain>) reverse-proxies to the grid-e2e-ci container on
- * its in-container port, and the S3 vanity domains proxy to localstack (prepending the
- * real bucket to the path). Every site serves the pre-generated leaf cert whose CA the Grid
- * container trusts, so service-to-service HTTPS calls (not just the browser) succeed.
- *
- * Example output:
- *
- * media.local.dev-gutools.co.uk {
- *         tls /etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
- *         reverse_proxy grid-e2e-ci:9005
- * }
- *
- * images.media.local.dev-gutools.co.uk {
- *         tls /etc/caddy/certs/tls.crt /etc/caddy/certs/tls.key
- *         rewrite * /grid-dev-core-imagebucket-2b34bef1{uri}
- *         reverse_proxy localstack:4566
- * }
- */
-function buildCaddyfile(coreStackProps: Record<string, string>): string {
-  const { appServices, imageBuckets } = proxiedServices(coreStackProps);
-  const tls = `tls ${CADDY_CERT_PATH} ${CADDY_KEY_PATH}`;
-
-  const blocks: string[] = [];
-
-  for (const [siteHost, port] of Object.entries(appServices)) {
-    blocks.push(`${siteHost} {\n\t${tls}\n\treverse_proxy ${GRID_ALIAS}:${port}\n}`);
-  }
-
-  for (const [siteHost, bucket] of Object.entries(imageBuckets)) {
-    blocks.push(
-      `${siteHost} {\n\t${tls}\n\trewrite * /${bucket}{uri}\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
-    );
-  }
-
-  // Thumbnails / direct S3 access already include the bucket in the path.
-  blocks.push(
-    `localstack.media.${DOMAIN} {\n\t${tls}\n\treverse_proxy ${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}\n}`,
-  );
-
-  // On-the-fly image resizing (optimised / full-screen views) -> the imgops container.
-  blocks.push(
-    `media-imgops.${DOMAIN} {\n\t${tls}\n\treverse_proxy ${IMGOPS_ALIAS}:80\n}`,
-  );
-
-  return `${blocks.join('\n\n')}\n`;
 }
 
 /**
@@ -237,6 +140,7 @@ process.on('exit', () => {
 
 function elasticsearchContainer(network: StartedNetwork): GenericContainer {
   return new GenericContainer(ELASTICSEARCH_IMAGE)
+    .withName('grid-elasticsearch')
     .withNetwork(network)
     .withNetworkAliases(ELASTICSEARCH_ALIAS)
     .withLabels({ [ROLE_LABEL]: 'Elasticsearch' })
@@ -256,9 +160,7 @@ function localstackContainer(network: StartedNetwork): LocalstackContainer {
   return new LocalstackContainer(LOCALSTACK_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(LOCALSTACK_ALIAS)
-    .withLabels({ [ROLE_LABEL]: 'LocalStack' })
-    // Pin to the fixed host port dev-nginx expects for the S3 vanity domains
-    // (images.media / public.media / localstack.media -> 4566).
+    .withLabels({ [ROLE_LABEL]: 'LocalStack', 'devcontainer.hostname': 'grid-localstack', 'devcontainer.application.port': String(LOCALSTACK_PORT) })
     .withExposedPorts({ container: LOCALSTACK_PORT, host: LOCALSTACK_PORT })
     .withEnvironment({
       SERVICES: LOCALSTACK_SERVICES,
@@ -280,7 +182,7 @@ function imgopsContainer(image: GenericContainer, network: StartedNetwork): Gene
   return image
     .withNetwork(network)
     .withNetworkAliases(IMGOPS_ALIAS)
-    .withLabels({ [ROLE_LABEL]: 'imgops' })
+    .withLabels({ [ROLE_LABEL]: 'imgops', 'devcontainer.hostname': 'grid-imgops', 'devcontainer.application.port': '80' })
     .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
     .withExposedPorts({ container: 80, host: IMGOPS_PORT })
     .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
@@ -329,13 +231,15 @@ function gridContainer(
   network: StartedNetwork,
   configDir: string,
   startupTimeoutMs: number,
+  proxyHosts: string[],
 ): GenericContainer {
   const container = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
     .withNetworkAliases(GRID_ALIAS)
-    .withLabels({ [ROLE_LABEL]: 'the Grid services' })
+    .withExtraHosts(proxyHosts.map((host) => ({ host, ipAddress: 'host-gateway' })))
+    .withLabels({ [ROLE_LABEL]: 'the Grid services', ...gridRouteLabels() })
     .withExposedPorts(
-      ...Object.values(SERVICE_PORTS).map((port) => ({ container: port, host: port })),
+      ...Object.values(SERVICE_CONFIGS).map(({ port }) => ({ container: port, host: port })),
     )
     .withBindMounts([
       // Services read config from ~/.grid; /etc/grid is honoured too. Mount both.
@@ -408,32 +312,6 @@ function oidcContainer(image: GenericContainer, network: StartedNetwork): Generi
     ])
     .withExposedPorts({ container: OIDC_PORT, host: OIDC_PORT })
     .withWaitStrategy(Wait.forLogMessage(/local oidc provider listening/))
-    .withStartupTimeout(60_000);
-}
-
-/**
- * The Caddy proxy replays the dev-nginx subdomain routing and terminates TLS with the
- * pre-generated leaf cert, published on the https port the domains resolve to. It also takes
- * every proxied host as a network alias, so the Grid container (on the same network) resolves
- * those domains to the proxy and its service-to-service HTTPS calls route through it.
- */
-function proxyContainer(
-  network: StartedNetwork,
-  caddyfile: string,
-  hosts: string[],
-  tls: GridTls,
-): GenericContainer {
-  return new GenericContainer(PROXY_IMAGE)
-    .withNetwork(network)
-    .withNetworkAliases(...hosts)
-    .withLabels({ [ROLE_LABEL]: 'the reverse proxy' })
-    .withExposedPorts({ container: 443, host: 443 })
-    .withCopyContentToContainer([
-      { content: caddyfile, target: '/etc/caddy/Caddyfile' },
-      { content: tls.certPem, target: CADDY_CERT_PATH },
-      { content: tls.keyPem, target: CADDY_KEY_PATH },
-    ])
-    .withWaitStrategy(Wait.forListeningPorts())
     .withStartupTimeout(60_000);
 }
 
@@ -518,7 +396,7 @@ function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
 
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
-  const { proxy = !!process.env.CI, seed = true } = options;
+  const { proxy = true, seed = true } = options;
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
@@ -582,12 +460,19 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
         fs.mkdirSync(CONFIG_DIR, { recursive: true });
         ctx.configDir = CONFIG_DIR;
         ownedConfigDir = CONFIG_DIR;
-        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!, ctx.authStackProps!);
+        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!, ctx.authStackProps!, proxy);
 
-        // Generate the proxy's cert and the CA the Grid container trusts (see entrypoint.common.sh).
-        // The CA lands in the config dir, which is mounted into the Grid container at boot.
-        ctx.tls = generateTls(proxiedHosts(ctx.coreStackProps!));
-        fs.writeFileSync(path.join(CONFIG_DIR, 'ca.crt'), ctx.tls.caCertPem);
+        if (proxy) {
+          ctx.caRoot = prepareChekov(CONFIG_DIR);
+        }
+      },
+    },
+    {
+      title: 'Start Chekov reverse proxy',
+      skip: () => !proxy && 'using external dev-nginx',
+      task: async (ctx) => {
+        ctx.chekov = await startChekov(ctx.network!, ctx.caRoot!);
+        ctx.containers.push(ctx.chekov);
       },
     },
     {
@@ -597,7 +482,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs).start();
+              const proxyHosts = proxy ? [...CHEKOV_HOSTS, ...s3BucketHosts(ctx.coreStackProps!)] : [];
+              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, proxyHosts).start();
               ctx.containers.push(started);
               // A clean boot never awaits this, so sink it to avoid an unhandled rejection
               // when the container finally stops during teardown.
@@ -610,7 +496,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             task: (ctx, services) => {
               const crashed = ctx.gridCrashed!;
               const readiness: ListrTask<BootContext>[] = [
-                ...Object.entries(SERVICE_PORTS).map(([service, port]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
+                ...Object.entries(SERVICE_CONFIGS).map(([service, { port }]): { title: string, task: ListrTaskFn<BootContext, any, any> } => ({
                   title: service,
                   task: (_, serviceTask) =>
                     failFastOnCrash(
@@ -635,7 +521,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                   task: (_, seedTask) => {
                     const report = reportTo(seedTask);
                     return failFastOnCrash(
-                      waitForHealthy(SERVICE_PORTS.collections, 'management/healthcheck', startupTimeoutMs, report)
+                      waitForHealthy(SERVICE_CONFIGS.collections.port, 'management/healthcheck', startupTimeoutMs, report)
                         .then(() => seedCollections(report)),
                       crashed,
                     );
@@ -698,15 +584,10 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
         ),
     },
     {
-      title: 'Start reverse proxy',
+      title: 'Register Chekov routes',
+      skip: () => !proxy && 'using external dev-nginx',
       task: async (ctx) => {
-        const caddy = await proxyContainer(
-          ctx.network!,
-          buildCaddyfile(ctx.coreStackProps!),
-          proxiedHosts(ctx.coreStackProps!),
-          ctx.tls!,
-        ).start();
-        ctx.containers.push(caddy);
+        await registerChekovAliases(ctx.chekov!, ctx.coreStackProps!);
       },
     },
   ];
@@ -749,7 +630,7 @@ const isServiceHealthy = (path: string) => async (port: number): Promise<{ port:
  */
 export async function probeStack(): Promise<{ state: StackProbe; healthy: number[]; ports: number[] }> {
   const healthchecks = [
-    ...Object.values(SERVICE_PORTS).map(isServiceHealthy('management/healthcheck')),
+    ...Object.values(SERVICE_CONFIGS).map(({ port }) => isServiceHealthy('management/healthcheck')(port)),
     isServiceHealthy('.well-known/openid-configuration')(OIDC_PORT),
     isServiceHealthy('_cluster/health')(ELASTICSEARCH_PORT),
     isServiceHealthy('_localstack/health')(LOCALSTACK_PORT),
