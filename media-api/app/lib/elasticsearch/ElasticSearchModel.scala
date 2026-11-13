@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
+import play.api.libs.json.{JsArray, JsBoolean, JsDefined, JsNull, JsNumber, JsObject, JsString, JsUndefined, JsValue, Json, OWrites}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -560,12 +560,22 @@ object SearchParamsBody {
       else ob
     }
 
+    val idScope: Either[String, Option[List[String]]] = body \ "ids" match {
+      case _: JsUndefined => Right(None)
+      case JsDefined(JsArray(values)) if values.nonEmpty && values.forall(_.asOpt[String].exists(_.nonEmpty)) =>
+        Right(Some(values.map(_.as[String]).toList))
+      case _ => Left("ids must be a non-empty array of non-empty strings")
+    }
+
     val query = str("q")
-    Parser.runResult(query.getOrElse("")).map { structuredQuery =>
+    for {
+      ids <- idScope
+      structuredQuery <- Parser.runResult(query.getOrElse(""))
+    } yield
       SearchParams(
         query             = query,
         structuredQuery   = structuredQuery,
-        ids               = str("ids").map(_.split(",").toList),
+        ids               = ids,
         offset            = (body \ "offset").asOpt[Int].getOrElse(0),
         length            = (body \ "length").asOpt[Int].getOrElse(10),
         orderBy           = orderBy,
@@ -598,7 +608,6 @@ object SearchParamsBody {
         useAISearch       = None,
         vecWeight         = str("vecWeight").flatMap(SearchParams.parseBoundedDoubleFromQuery),
       )
-    }
   }
 }
 

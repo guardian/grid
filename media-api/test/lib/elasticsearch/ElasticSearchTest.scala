@@ -27,7 +27,7 @@ import org.scalatestplus.mockito.MockitoSugar
 import play.api.Configuration
 import play.api.inject.ApplicationLifecycle
 import play.api.http.HttpEntity
-import play.api.libs.json.{JsLookupResult, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
+import play.api.libs.json.{JsArray, JsLookupResult, JsNull, JsNumber, JsObject, JsString, JsValue, Json}
 import play.api.mvc.{AnyContent, Result}
 import play.api.mvc.Security.AuthenticatedRequest
 import play.api.test.FakeRequest
@@ -1198,7 +1198,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
     def withImages(fixtures: Seq[Image])(check: JsObject => Unit): Unit = {
       whenReady(saveImages(fixtures).flatMap(_ => client.execute(refreshIndex(index))), timeout, interval) { _ =>
-        try check(Json.obj("ids" -> fixtures.map(_.id).mkString(","), "length" -> 100, "countAll" -> true))
+        try check(Json.obj("ids" -> fixtures.map(_.id), "length" -> 100, "countAll" -> true))
         finally {
           whenReady(Future.sequence(fixtures.map(image => client.execute(deleteById(index, image.id))))
             .flatMap(_ => client.execute(refreshIndex(index))), timeout, interval)(_ => ())
@@ -1227,6 +1227,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val queryParams = body.fields.map { case (name, value) =>
         name -> (value match {
           case JsString(text) => text
+          case JsArray(ids) if name == "ids" => ids.map(_.as[String]).mkString(",")
           case other => Json.stringify(other)
         })
       }
@@ -1618,7 +1619,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             val body = bodyOf(recorded("search-after-ids-lookup-last-used").head)
             val walked = walk(body)
             samples(walked).foreach { k =>
-              page(respond("/images/search-after", body ++ Json.obj("ids" -> walked(k)._1))) shouldBe Seq(walked(k))
+              page(respond("/images/search-after", body ++ Json.obj("ids" -> Seq(walked(k)._1)))) shouldBe Seq(walked(k))
             }
           }
         }
@@ -1706,7 +1707,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
             val inScope = walk(body ++ sorted).map(_._1).toSet
             val walkedImages = fixtures.filter(image => inScope(image.id))
             walkedImages should not be empty
-            val json = respond("/images/aggregations", body ++ Json.obj("ids" -> fixtures.map(_.id).mkString(",")))
+            val json = respond("/images/aggregations", body ++ Json.obj("ids" -> fixtures.map(_.id)))
             def counts(field: String): Map[String, Long] = (json \ "fields" \ field \ "buckets").as[Seq[JsValue]]
               .map(b => (b \ "key").as[String] -> (b \ "count").as[Long]).toMap
 
@@ -2302,7 +2303,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
 
       it("reports tickers with no matching images as zero, without sub-counts") {
         withImages(countFixtures) { _ =>
-          val (_, counted) = countVia(ESWithTickers, Json.obj("ids" -> "count-plain"))
+          val (_, counted) = countVia(ESWithTickers, Json.obj("ids" -> Seq("count-plain")))
 
           (counted \ "total").as[Long] shouldBe 1L
           (ticker(counted, "GNM-owned") \ "value").as[Long] shouldBe 0L
@@ -2526,17 +2527,19 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
       }
 
-      it("never widens an explicitly empty ID list to the whole scope: it fails, as D3 does") {
+      it("refuses an empty or malformed ID list instead of widening it to the whole scope") {
         withImages(aggFixtures) { _ =>
           val request = fields("metadata.credit" -> 10) ++ Json.obj("isFilters" -> Json.arr("under-quota"))
           val controller = imageQueryControllerFor(uploader, ES, writer, privileged = true)
-          val emptyIds = Json.obj("ids" -> "")
-          whenReady(controller.aggregateImages().apply(FakeRequest("POST", "/images/aggregations").withBody(request ++ emptyIds)).failed,
-            timeout, interval)(_ shouldBe a[com.gu.mediaservice.lib.elasticsearch.ElasticSearchError])
-          whenReady(controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
-            .withBody(emptyIds ++ Json.obj("sort" -> newestFirst))).failed,
-            timeout, interval)(_ shouldBe a[com.gu.mediaservice.lib.elasticsearch.ElasticSearchError])
+          Seq(Json.arr(), Json.arr(""), Json.arr("a", 7), JsString(""), JsString("a,b"), JsNull).foreach { ids =>
+            val result = controller.searchAfterImages().apply(FakeRequest("POST", "/images/search-after")
+              .withBody(Json.obj("ids" -> ids, "sort" -> newestFirst)))
+            whenReady(result, timeout, interval)(r => withClue(ids)(r.header.status shouldBe 422))
+          }
+          aggregate(request ++ Json.obj("ids" -> Json.arr()))._1 shouldBe 422
 
+          val (_, scoped) = aggregate(request ++ Json.obj("ids" -> aggFixtures.map(_.id)))
+          filterCount(scoped, "under-quota") should be <= aggFixtures.size.toLong
           val (_, whole) = aggregate(request)
           filterCount(whole, "under-quota") shouldBe d3Total(Json.obj())
           filterCount(whole, "under-quota") should be > aggFixtures.size.toLong
@@ -3321,7 +3324,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           (buckets \ "buckets").as[Seq[JsObject]].map(_.keys) should contain only Set("key", "count", "startPosition")
           (buckets \ "pitId").toOption shouldBe None
 
-          val nothing = Json.obj("sort" -> newest, "ids" -> "profile-absent")
+          val nothing = Json.obj("sort" -> newest, "ids" -> Seq("profile-absent"))
           postProfile(controller, nothing ++ Json.obj("operation" -> "scalar-anchor", "field" -> "uploadTime", "percentile" -> 50)) shouldBe
             (200, Json.obj("value" -> JsNull))
           postProfile(controller, nothing ++ Json.obj("operation" -> "date-stats", "field" -> "uploadTime")) shouldBe
@@ -3481,7 +3484,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
 
         it("returns an empty page with no continuation when nothing is admitted") {
-          keywordPage(Json.obj("ids" -> "profile-absent"), creditAsc, "metadata.credit", Json.obj("includeCoveredCount" -> true)) shouldBe
+          keywordPage(Json.obj("ids" -> Seq("profile-absent")), creditAsc, "metadata.credit", Json.obj("includeCoveredCount" -> true)) shouldBe
             Json.obj("buckets" -> Json.arr(), "after" -> JsNull, "coveredCount" -> 0)
         }
 
