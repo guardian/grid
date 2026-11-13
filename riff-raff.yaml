@@ -106,7 +106,7 @@ deployments:
         ImgProxyAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: investigations-discourse-arm
+          Recipe: media-docker-arm
 
   elasticsearch-ami-update:
     type: ami-cloudformation-parameter
