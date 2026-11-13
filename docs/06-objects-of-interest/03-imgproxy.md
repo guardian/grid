@@ -42,12 +42,16 @@ Media-api:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `images.imgproxy.enabled` | `false` | Use imgproxy instead of imgops for display images |
-| `images.imgproxy.baseUri` | `https://<imgproxy host>` | imgproxy's public URL |
+| `images.imgproxy.baseUri` | `<imgops base URI>/imgproxy` | imgproxy's public URL; override for a dedicated host |
 | `images.imgproxy.key`, `images.imgproxy.salt` | unset | Hex-encoded signing key and salt; set both to sign URLs. Must match imgproxy's `IMGPROXY_KEY` and `IMGPROXY_SALT` |
 | `images.imgproxy.signedUrlTtl` | unset | Signed only: how long signed URLs are valid for, e.g. `"10 minutes"` (see [Expiry](#expiry)) |
 | `images.imgproxy.signedSizes` | `["1920x1080", "2560x1440"]` | Signed only: the `WIDTHxHEIGHT` boxes to sign a URL for |
 
 imgproxy:
+
+When using the default `/imgproxy` path, route `/imgproxy/*` to imgproxy and set
+`IMGPROXY_PATH_PREFIX=/imgproxy`. Existing imgops paths are unchanged. Local development
+uses its dedicated imgproxy host instead.
 
 | Setting | Value | Why |
 |---------|-------|-----|

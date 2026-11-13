@@ -70,7 +70,7 @@ class Services(
   val cropperBaseUri     = baseUri(cropperHost)
   val metadataBaseUri    = baseUri(metadataHost)
   val imgopsBaseUri      = imgopsBaseUriOverride.getOrElse(baseUri(imgopsHost))
-  val imgproxyBaseUri    = imgproxyBaseUriOverride.getOrElse(baseUri(imgproxyHost))
+  val imgproxyBaseUri    = imgproxyBaseUriOverride.getOrElse(s"${imgopsBaseUri.stripSuffix("/")}/imgproxy")
   val usageBaseUri       = baseUri(usageHost)
   val collectionsBaseUri = baseUri(collectionsHost)
   val leasesBaseUri      = baseUri(leasesHost)

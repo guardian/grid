@@ -72,6 +72,13 @@ class ImgProxyUrlBuilderTest extends AnyFunSuiteLike {
       s"$baseUri/${docsSigning.sign(path)}$path"
   }
 
+  test("a base URI path prefixes signed URLs without becoming part of the signature") {
+    val path = s"/rs:fit:100:200/$orientation/$encodedSource"
+
+    ImgProxyUrlBuilder.fixedUri(s"$baseUri/imgproxy", sourceUri, width = 100, height = 200, signing = Some(docsSigning)) shouldBe
+      s"$baseUri/imgproxy/${docsSigning.sign(path)}$path"
+  }
+
   test("fixedUri adds a clockwise rotation, normalised into 0-359") {
     ImgProxyUrlBuilder.fixedUri(baseUri, sourceUri, width = 100, height = 200, rotationDegrees = 90) shouldBe
       s"$baseUri/insecure/rs:fit:100:200/$orientation/rot:90/$encodedSource"
