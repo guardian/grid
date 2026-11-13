@@ -21,7 +21,13 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageMetrics = new UsageMetrics(config, actorSystem, applicationLifecycle)
   val usageNotifier = new UsageNotifier(config, usageTable)
   val usageGroupStream = new UsageGroupStream()(executionContext)
-  val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
+  val usageRecorder = new UsageRecorder(
+    usageMetrics,
+    usageTable,
+    usageNotifier,
+    usageGroupStream,
+    actorSystem.scheduler
+  )
   val notifications = new Notifications(config)
 
   usageRecorder.start()
@@ -32,9 +38,9 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
     Some(reader)
   } else None
 
-  context.lifecycle.addStopHook(() => {
+  context.lifecycle.addStopHook(() =>
     crierReader.map(_.stop()).getOrElse(Future.successful(())).flatMap(_ => usageRecorder.stop()).map(_ => ())
-  })
+  )
 
   val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageGroupStream, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)

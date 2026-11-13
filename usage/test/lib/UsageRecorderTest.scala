@@ -8,7 +8,7 @@ import org.apache.pekko.stream.SystemMaterializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink}
 import org.joda.time.DateTime
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{never, timeout, verify, when}
+import org.mockito.Mockito.{after, never, timeout, verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
@@ -30,7 +30,8 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
 
   private def withRecorder(
     usageGroup: UsageGroup,
-    dbUsages: Set[MediaUsage]
+    dbUsages: Set[MediaUsage],
+    notificationDelay: FiniteDuration = Duration.Zero
   )(test: RecorderFixture => Unit): Unit = {
     val actorSystem = ActorSystem("usage-recorder-test")
     implicit val materializer = SystemMaterializer(actorSystem).materializer
@@ -45,7 +46,14 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(usageTable.matchUsageGroup(WithLogMarker(logMarker, usageGroup)))
       .thenReturn(Future.successful(WithLogMarker(logMarker, dbUsages)))
     val usageGroupStream = new UsageGroupStream
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
+    val recorder = new UsageRecorder(
+      usageMetrics,
+      usageTable,
+      usageNotifier,
+      usageGroupStream,
+      actorSystem.scheduler,
+      notificationDelay
+    )
 
     try {
       test(RecorderFixture(logMarker, usageGroupStream, usageTable, usageNotifier, usageMetrics, recorder))
@@ -56,7 +64,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
   }
 
   test("the recorder consumes usage groups from the shared Pekko ingress") {
-    val actorSystem = ActorSystem("usage-recorder-test")
+    val actorSystem = ActorSystem("usage-recorder-ingress-test")
     implicit val materializer = SystemMaterializer(actorSystem).materializer
     implicit val executionContext = actorSystem.dispatcher
     implicit val logMarker: MarkerMap = MarkerMap("test" -> "usage-recorder")
@@ -65,9 +73,8 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     val crierGroup = UsageGroup(Set(crierUsage), "group-crier", DateTime.now())
     val apiGroup = UsageGroup(Set(apiUsage), "group-api", DateTime.now())
     val usageTable = mock[UsageTable]
-    val usageMetrics = mock[UsageMetrics]
     val usageNotifier = mock[UsageNotifier]
-
+    val usageMetrics = mock[UsageMetrics]
     when(usageNotifier.build(any[String])(any[LogMarker]))
       .thenReturn(Future.successful(UsageNotice("", JsArray())))
     when(usageNotifier.send(any[WithLogMarker[UsageNotice]])).thenReturn(logMarker)
@@ -79,7 +86,14 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(usageTable.create(apiUsage)).thenReturn(Future.successful(Json.obj()))
 
     val usageGroupStream = new UsageGroupStream
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, usageGroupStream)
+    val recorder = new UsageRecorder(
+      usageMetrics,
+      usageTable,
+      usageNotifier,
+      usageGroupStream,
+      actorSystem.scheduler,
+      Duration.Zero
+    )
     recorder.start()
 
     try {
@@ -94,7 +108,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  test("the shared ingress rejects offers after it is completed") {
+  test("the queue rejects offers after completion") {
     val actorSystem = ActorSystem("usage-group-stream-test")
     implicit val materializer = SystemMaterializer(actorSystem).materializer
     implicit val executionContext = actorSystem.dispatcher
@@ -166,38 +180,83 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  test("a failed database write increments the recorder error metric") {
-    val usage = mediaUsage("media-failed", "usage-failed", "group-failed")
-    val group = UsageGroup(Set(usage), "group-failed", DateTime.parse("2026-11-01T12:00:00Z"))
+  test("a failed write does not suppress notices for successful sibling writes") {
+    val failedUsage = mediaUsage("media-failed", "usage-failed", "group-failure")
+    val successfulUsage = mediaUsage("media-success", "usage-success", "group-failure")
+    val group = UsageGroup(Set(failedUsage, successfulUsage), "group-failure", DateTime.now())
     val failure = new IllegalStateException("DynamoDB unavailable")
 
     withRecorder(group, Set.empty) { fixture =>
-      when(fixture.usageTable.create(usage)(fixture.logMarker)).thenReturn(Future.failed(failure))
+      implicit val logMarker = fixture.logMarker
+      when(fixture.usageTable.create(failedUsage)).thenReturn(Future.failed(failure))
+      when(fixture.usageTable.create(successfulUsage)).thenReturn(Future.successful(Json.obj()))
       fixture.recorder.start()
 
-      Await.result(fixture.usageGroupStream.publish(WithLogMarker(fixture.logMarker, group)), 5.seconds)
+      Await.result(fixture.usageGroupStream.publish(WithLogMarker(logMarker, group)), 5.seconds)
 
-      verify(fixture.usageMetrics, timeout(5000)).incrementErrors
+      verify(fixture.usageNotifier, timeout(5000)).build(successfulUsage.mediaId)(logMarker)
+      verify(fixture.usageNotifier, never()).build(failedUsage.mediaId)(logMarker)
+      verify(fixture.usageMetrics).incrementErrors
     }
   }
 
-  test("the recorder delays usage notices after writing updates") {
+  test("the recorder stops retrying after five failed group matches and continues with later groups") {
+    val retryGroup = UsageGroup(Set.empty, "group-retry", DateTime.now())
+    val usage = mediaUsage("media-after-retry")
+    val succeedingGroup = UsageGroup(Set(usage), "group-after-retry", DateTime.now())
+    val retryFailure = new IllegalStateException("DynamoDB unavailable")
+
+    withRecorder(succeedingGroup, Set.empty) { fixture =>
+      implicit val logMarker = fixture.logMarker
+      when(fixture.usageTable.matchUsageGroup(WithLogMarker(logMarker, retryGroup)))
+        .thenReturn(
+          Future.failed(retryFailure),
+          Future.failed(retryFailure),
+          Future.failed(retryFailure),
+          Future.failed(retryFailure),
+          Future.failed(retryFailure)
+        )
+      when(fixture.usageTable.create(usage)).thenReturn(Future.successful(Json.obj()))
+      fixture.recorder.start()
+
+      Await.result(fixture.usageGroupStream.publish(WithLogMarker(logMarker, retryGroup)), 5.seconds)
+      Await.result(fixture.usageGroupStream.publish(WithLogMarker(logMarker, succeedingGroup)), 5.seconds)
+
+      verify(fixture.usageTable, timeout(5000).times(5)).matchUsageGroup(WithLogMarker(logMarker, retryGroup))
+      verify(fixture.usageTable, timeout(5000)).create(usage)
+      verify(fixture.usageMetrics, org.mockito.Mockito.times(5)).incrementErrors
+    }
+  }
+
+  test("the recorder drains delayed notifications before stop completes") {
     val usage = mediaUsage("media-delayed", "usage-delayed", "group-delayed")
     val group = UsageGroup(Set(usage), "group-delayed", DateTime.now())
     val notice = UsageNotice("media-delayed", JsArray())
 
-    withRecorder(group, Set.empty) { fixture =>
+    withRecorder(group, Set.empty, notificationDelay = 1.second) { fixture =>
       implicit val logMarker = fixture.logMarker
       when(fixture.usageTable.create(usage)).thenReturn(Future.successful(Json.obj()))
       when(fixture.usageNotifier.build(usage.mediaId)(logMarker)).thenReturn(Future.successful(notice))
       when(fixture.usageNotifier.send(WithLogMarker(logMarker, notice))).thenReturn(logMarker)
       fixture.recorder.start()
-
-      val startedAt = System.nanoTime()
       Await.result(fixture.usageGroupStream.publish(WithLogMarker(logMarker, group)), 5.seconds)
-      verify(fixture.usageNotifier, org.mockito.Mockito.after(1000).never()).build(usage.mediaId)(logMarker)
-      verify(fixture.usageNotifier, timeout(7000)).send(WithLogMarker(logMarker, notice))
-      (System.nanoTime() - startedAt).nanos should be >= 4500.millis
+
+      val stopped = fixture.recorder.stop()
+      stopped.isCompleted shouldBe false
+      Await.result(stopped, 5.seconds)
+
+      verify(fixture.usageNotifier).send(WithLogMarker(logMarker, notice))
+    }
+  }
+
+  test("empty usage groups skip the notification delay") {
+    val group = UsageGroup(Set.empty, "group-empty", DateTime.now())
+
+    withRecorder(group, Set.empty, notificationDelay = 5.seconds) { fixture =>
+      fixture.recorder.start()
+      Await.result(fixture.usageGroupStream.publish(WithLogMarker(fixture.logMarker, group)), 5.seconds)
+
+      Await.result(fixture.recorder.stop(), 2.seconds)
     }
   }
 

@@ -18,9 +18,8 @@ class UsageGroupStream(implicit executionContext: ExecutionContext) {
 
   def source: Source[WithLogMarker[UsageGroup], SourceQueueWithComplete[WithLogMarker[UsageGroup]]] = sourceQueue
 
-  private[lib] def attachQueue(sourceQueue: SourceQueueWithComplete[WithLogMarker[UsageGroup]]): Unit = {
+  private[lib] def attachQueue(sourceQueue: SourceQueueWithComplete[WithLogMarker[UsageGroup]]): Unit =
     require(queue.trySuccess(sourceQueue), "Usage group queue has already been materialized")
-  }
 
   def publish(usageGroup: WithLogMarker[UsageGroup]): Future[Done] = synchronized {
     if (completion.isDefined) Future.failed(new IllegalStateException("Usage group queue is closing"))

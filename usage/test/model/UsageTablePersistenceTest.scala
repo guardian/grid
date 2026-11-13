@@ -2,7 +2,7 @@ package model
 
 import com.gu.mediaservice.lib.logging.MarkerMap
 import com.gu.mediaservice.model.usage._
-import lib.{UsageEffectTestSupport, WithLogMarker}
+import lib.WithLogMarker
 import org.joda.time.DateTime
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
@@ -18,6 +18,8 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.{AttributeValue, ReturnValue, UpdateItemRequest, UpdateItemResponse}
 
 import java.util.Collections
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 
 class UsageTablePersistenceTest extends AnyFunSuite with Matchers with MockitoSugar {
@@ -58,7 +60,7 @@ class UsageTablePersistenceTest extends AnyFunSuite with Matchers with MockitoSu
     val table = usageTable(mock[DynamoDbClient], enhancedTable)
     val group = UsageGroup(Set.empty, "group-1", mediaUsage.lastModified)
 
-    UsageEffectTestSupport.await(table.matchUsageGroup(WithLogMarker(logMarker, group)))
+    Await.result(table.matchUsageGroup(WithLogMarker(logMarker, group)), 5.seconds)
 
     val request = ArgumentCaptor.forClass(classOf[QueryEnhancedRequest])
     verify(enhancedTable).query(request.capture())
@@ -83,9 +85,9 @@ class UsageTablePersistenceTest extends AnyFunSuite with Matchers with MockitoSu
     val table = usageTable(dbClient, enhancedTable)
 
     val results = List(
-      UsageEffectTestSupport.await(table.create(mediaUsage)),
-      UsageEffectTestSupport.await(table.update(mediaUsage)),
-      UsageEffectTestSupport.await(table.markAsRemoved(mediaUsage))
+      Await.result(table.create(mediaUsage), 5.seconds),
+      Await.result(table.update(mediaUsage), 5.seconds),
+      Await.result(table.markAsRemoved(mediaUsage), 5.seconds)
     )
 
     results shouldBe List(
