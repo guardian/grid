@@ -3,7 +3,6 @@ import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, KeyStore}
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.typesafe.scalalogging.StrictLogging
-import org.slf4j.Marker
 import play.api.Configuration
 import play.api.libs.typedmap.{TypedKey, TypedMap}
 import play.api.libs.ws.WSRequest
@@ -33,13 +32,13 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
   def keyStore: KeyStore = keyStorePlaceholder.getOrElse(throw new IllegalStateException("Not initialised"))
 
   /**
-    * Establish the authentication status of the given request header. This can return an authenticated user or a number
-    * of reasons why a user is not authenticated.
-    *
-    * @param request The request header containing cookies and other request headers that can be used to establish the
-    *           authentication status of a request.
-    * @return An authentication status expressing whether the
-    */
+   * Establish the authentication status of the given request header. This can return an authenticated user or a number
+   * of reasons why a user is not authenticated.
+   *
+   * @param request The request header containing cookies and other request headers that can be used to establish the
+   *                authentication status of a request.
+   * @return An authentication status expressing whether the
+   */
   override def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus = {
     request.headers.get(ApiKeyAuthenticationProvider.apiKeyHeaderName) match {
       case Some(_) if !enabled => NotAuthorised("API key access is disabled")
@@ -58,10 +57,10 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
               // valid api key which doesn't have access
               NotAuthorised(s"API key ${apiKey.identity} valid but not authorised for this request")
             }
-          // provided api key not known
+            // provided api key not known
           case None => Invalid("API key not valid")
         }
-      // no api key found
+        // no api key found
       case None => NotAuthenticated
     }
   }

@@ -1,8 +1,8 @@
 package com.gu.mediaservice.lib.guardian.auth
 
-import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions._
-import com.gu.mediaservice.lib.auth.SimplePermission
+import com.gu.mediaservice.lib.auth.{ApiAccessor, PermissionTier, SimplePermission}
 import com.gu.mediaservice.lib.auth.provider.{AuthorisationProvider, AuthorisationProviderResources}
 import com.gu.mediaservice.lib.aws.S3Ops
 import com.gu.mediaservice.lib.config.CommonConfig
@@ -46,6 +46,7 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
   override def hasPermissionTo(permissionContext: SimplePermission, principal: Principal): Boolean = {
     def hasPermission(permission: PermissionDefinition): Boolean = {
       principal match {
+        case MachinePrincipal(ApiAccessor(_, PermissionTier(permissionsList)), _) => permissionsList.contains(permission.name)
         case UserPrincipal(_, _, email, _) => permissions.hasPermission(permission, email)
         case _ => false
       }

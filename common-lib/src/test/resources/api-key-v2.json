@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "name": "name",
+  "principalType": "developer",
+  "permissions": [
+    "permission1",
+    "permission2"
+  ],
+  "expiresAt": "2027-02-01T00:00:00Z"
+}

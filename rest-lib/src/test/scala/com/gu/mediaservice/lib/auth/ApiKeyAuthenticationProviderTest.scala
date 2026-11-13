@@ -44,6 +44,7 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
       override def lookupIdentity(key: String): Option[ApiAccessor] = {
         key match {
           case "key-chuckle" => Some(ApiAccessor("brothers", Internal))
+          case "key-permissioned" => Some(ApiAccessor("tiered", PermissionTier(List("blah"))))
           case "key-limited" => Some(ApiAccessor("locked-down", ReadOnly))
           case _ => None
         }
@@ -78,6 +79,16 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
       inside(status) {
         case Authenticated(MachinePrincipal(apiAccessor, attributes)) =>
           apiAccessor shouldBe ApiAccessor("brothers", Internal)
+          attributes.contains(ApiKeyAuthenticationProvider.ApiKeyHeader) shouldBe true
+          attributes.get(ApiKeyAuthenticationProvider.ApiKeyHeader) shouldBe Some(testHeader)
+      }
+    }
+    "should return Authenticated if the key is valid and maintain permissions if there" in {
+      val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-permissioned"
+      val status = provider.authenticateRequest(FakeRequest().withHeaders(testHeader))
+      inside(status) {
+        case Authenticated(MachinePrincipal(apiAccessor, attributes)) =>
+          apiAccessor shouldBe ApiAccessor("tiered", PermissionTier(List("blah")))
           attributes.contains(ApiKeyAuthenticationProvider.ApiKeyHeader) shouldBe true
           attributes.get(ApiKeyAuthenticationProvider.ApiKeyHeader) shouldBe Some(testHeader)
       }

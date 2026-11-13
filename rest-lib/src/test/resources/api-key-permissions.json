@@ -1,0 +1,16 @@
+{
+  "api-key-with-perms": {
+    "name": "machine-dev",
+    "permissions": [
+      "EditMetadata$"
+    ]
+  },
+  "api-key-no-perms": {
+    "name": "machine-readonly",
+    "permissions": []
+  },
+  "api-key-internal": {
+    "name": "machine-internal",
+    "permissions": []
+  }
+}

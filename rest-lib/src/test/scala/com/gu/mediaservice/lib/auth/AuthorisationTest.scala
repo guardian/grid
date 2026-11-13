@@ -14,6 +14,7 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
   private val dave = UserPrincipal("Dave", "Bowman", "dave")
   private val internalMachine = MachinePrincipal(ApiAccessor("hal", Internal))
   private val roMachine = MachinePrincipal(ApiAccessor("machine", ReadOnly))
+  private val machineWithEditPermission = MachinePrincipal(ApiAccessor("machine", PermissionTier(List("blah"))))
   private val syndicationMachine = MachinePrincipal(ApiAccessor("machine", Syndication))
   private val editMetadata = Permissions.EditMetadata
 
@@ -24,6 +25,13 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
       val auth = new Authorisation(mockProvider, executionContext)
       val filter = auth.hasPermissionTo(editMetadata)
       filter(dave) shouldBe true
+    }
+    "delegates to provider when a machine principal is presented with a permission tier" in {
+      val mockProvider = mock[AuthorisationProvider]
+      (mockProvider.hasPermissionTo _).expects(editMetadata, *).returns(true).once()
+      val auth = new Authorisation(mockProvider, executionContext)
+      val filter = auth.hasPermissionTo(editMetadata)
+      filter(machineWithEditPermission) shouldBe true
     }
     "shortcuts when a machine principal is presented with an internal tier" - {
       val mockProvider = mock[AuthorisationProvider]
