@@ -120,3 +120,21 @@ jobs:
           e2e-tests/cucumber-report/
         retention-days: 14
         if-no-files-found: ignore
+    - name: Upload testcontainers log
+      id: testcontainers-log
+      uses: actions/upload-artifact@v7
+      if: ${{ failure() }}
+      with:
+        name: testcontainers-log
+        path: e2e-tests/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    # Annotations show on the job page, which doesn't list the run's artifacts.
+    - name: Show testcontainers debug log
+      if: ${{ failure() && steps.testcontainers-log.outputs.artifact-url != '' }}
+      env:
+        ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
+      run: |
+        echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
+        cat logs/testcontainers.log
+

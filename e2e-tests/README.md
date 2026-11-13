@@ -79,10 +79,17 @@ npm run test:report           # Playwright: http://localhost:9323
 npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
-CI also adds GitHub failure annotations. Both reports and their captured attachments
-are uploaded together as `e2e-report`, retained for 14 days after successful or failed
-runs, excluding cancelled runs. Failures before report generation may leave no reports
-to upload.
+Testcontainers' debug output (image builds, pulls, and container logs until the stack is
+up) is written to `logs/testcontainers.log` on every run. Check it first when the stack
+fails to boot, for example with an opaque `Failed to build image`. Set
+`DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
+whole run.
+
+CI also adds GitHub failure annotations. Both reports and their captured attachments are
+uploaded together as `e2e-report`, retained for 14 days after successful or failed runs,
+excluding cancelled runs. Failures before report generation may leave no reports to
+upload. Failed runs also upload the debug log as `testcontainers-log`, linked from an
+annotation on the job page.
 
 ### Feature library
 
