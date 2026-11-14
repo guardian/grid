@@ -1,0 +1,107 @@
+/**
+ * Build a HistorySnapshot from current app state.
+ *
+ * Called synchronously by markPushSnapshot() BEFORE navigate(). The
+ * store is still showing pre-edit state at this point — this is
+ * load-bearing for debounced typing: the first-keystroke push captures
+ * the predecessor (pre-edit state), not the keystroke just typed.
+ * DO NOT reorder this read to after navigate().
+ */
+
+import type { HistorySnapshot } from "@/lib/history-snapshot";
+import { useSearchStore } from "@/stores/search-store";
+import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
+import { getViewportAnchorId } from "@/hooks/useDataWindow";
+import { buildSearchKey } from "@/lib/image-offset-cache";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
+import { getLayoutGeometry, getItemLayoutRow } from "@/lib/scroll-geometry-ref";
+import { isTwoTierFromTotal } from "@/lib/two-tier";
+
+/**
+ * Build a snapshot of the current scroll/focus position.
+ *
+ * Anchor selection:
+ * | Mode            | Anchor                                    |
+ * |-----------------|-------------------------------------------|
+ * | Click-to-focus  | Focused image (falls back to viewport)    |
+ * | Click-to-open   | Viewport-centre image (phantom anchor)    |
+ *
+ * In click-to-focus mode, the explicitly focused image is the best anchor
+ * because it represents what the user was working with. If the user hasn't
+ * focused anything (e.g. just scrolled), we fall back to viewport-centre
+ * same as click-to-open mode.
+ */
+export function buildHistorySnapshot(): HistorySnapshot {
+  const { params, focusedImageId, imagePositions, bufferOffset, newCountSince, newCount } =
+    useSearchStore.getState();
+
+  // --- searchKey ---
+  const searchKey = buildSearchKey({ ...params });
+
+  // --- anchor selection ---
+  let anchorImageId: string | null = null;
+  let anchorIsPhantom = false;
+
+  const focusMode = getEffectiveFocusMode();
+  if (focusMode === "explicit") {
+    // Click-to-focus mode: use the explicitly focused image.
+    anchorImageId = focusedImageId;
+  }
+
+  // Fallback to viewport-centre image (phantom anchor) when:
+  // - click-to-open mode (always)
+  // - click-to-focus mode with no focused image
+  if (!anchorImageId) {
+    anchorImageId = getViewportAnchorId();
+    anchorIsPhantom = !!anchorImageId;
+  }
+
+  // --- anchor offset ---
+  let anchorOffset = 0;
+
+  if (anchorImageId) {
+    const globalIdx = imagePositions.get(anchorImageId);
+    if (globalIdx !== undefined) {
+      anchorOffset = globalIdx;
+    }
+  }
+
+  // --- viewportRatio: where the anchor sits within the visible viewport ---
+  // Must use the same coordinate system as useScrollEffects Effect #9 (the
+  // consumer): logical row tops from getItemLayoutRow.
+  // Earlier this used DOM getBoundingClientRect which includes container
+  // padding (e.g. pt-1 = 4px), causing a 4px/cycle drift when the ratio
+  // round-tripped through history placement in Effect #9.
+  let viewportRatio: number | null = null;
+  let viewportHeaderRatio: number | undefined;
+  const scrollContainer = getScrollContainer();
+  if (anchorImageId && scrollContainer && imagePositions.has(anchorImageId)) {
+    const { total } = useSearchStore.getState();
+    const isTwoTier = isTwoTierFromTotal(total);
+    const virtualizerIdx = isTwoTier ? anchorOffset : anchorOffset - bufferOffset;
+
+    // Read geometry from the shared ref (registered by useScrollEffects on
+    // mount and whenever columns change). Replaces the previous approach of
+    // sniffing the scroll container's aria-label to determine table vs grid.
+    const geometry = getLayoutGeometry();
+    const rowTop = getItemLayoutRow(geometry, virtualizerIdx).top;
+    viewportRatio =
+      scrollContainer.clientHeight > 0
+        ? (rowTop - scrollContainer.scrollTop) / scrollContainer.clientHeight
+        : null;
+    if (scrollContainer.clientHeight > 0) {
+      viewportHeaderRatio = (geometry.headerOffset ?? 0) / scrollContainer.clientHeight;
+    }
+  }
+
+  return {
+    searchKey,
+    anchorImageId,
+    anchorIsPhantom,
+    anchorOffset,
+    viewportRatio,
+    ...(viewportHeaderRatio !== undefined && { viewportHeaderRatio }),
+    newCountSince,
+    newCount,
+  };
+}

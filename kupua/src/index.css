@@ -1,0 +1,758 @@
+@import "tailwindcss";
+
+.chrome-fade { opacity: 1; visibility: visible; transition: opacity 180ms ease, visibility 0s linear 0s; }
+.chrome-fade[data-visible="false"] { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms ease, visibility 0s linear 180ms; }
+@starting-style { .chrome-fade { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .chrome-fade { transition: none !important; } }
+
+.image-action { min-height: 35px; }
+.image-actions[data-surface="search"] > * + * { border-left: 1px solid var(--color-grid-separator); }
+.image-actions[data-surface="detail"] { height: 44px; align-self: center; }
+.image-actions[data-surface="detail"] > * { position: relative; }
+.image-actions[data-surface="detail"] > * + *::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 1px; background: var(--color-grid-separator); }
+.image-action-full, .image-action-short { display: none; }
+.image-actions-expanded .image-action { min-height: 44px; justify-content: flex-start; text-align: left; }
+.image-actions-expanded .image-action > span { display: inline; }
+.selection-fab-shadow, .selection-fab-glass { position: absolute; pointer-events: none; }
+.selection-fab-shadow { overflow: visible; }
+.selection-fab-glass { overflow: hidden; background: rgb(98 98 98 / 85%); }
+.selection-fab-glass > svg { width: 100%; height: 100%; fill: none; stroke: #ffffff45; stroke-width: 2; }
+.selection-fab-trigger { position: relative; border-radius: 24px; }
+.selection-fab-options { padding: 6px; gap: 2px; z-index: 1; }
+.selection-fab[data-side="above"] .selection-fab-options { transform-origin: right bottom; animation: selection-fab-unfold 180ms ease-out; }
+.selection-fab[data-side="below"] .selection-fab-options { transform-origin: right top; animation: selection-fab-unfold 180ms ease-out; }
+.image-actions-floaty { display: contents; }
+.image-actions-floaty .image-action, .selection-fab-detail { min-height: 40px; padding: 6px 10px; gap: 10px; border-radius: 12px; font-size: 13px; line-height: 18px; text-align: left; color: white; justify-content: flex-start; }
+.image-actions-floaty .image-action { flex-direction: row; }
+.image-actions-floaty .image-action > span { display: inline; }
+.image-actions-floaty .image-action:enabled:hover, .selection-fab-detail:hover { background-color: #ffffff18; }
+.image-actions-floaty .image-action:focus-visible, .selection-fab-detail:focus-visible { outline: 2px solid white; outline-offset: -3px; }
+@keyframes selection-fab-unfold { from { opacity: 0; transform: scale(.94, .8); } to { opacity: 1; transform: scale(1); } }
+.selection-fab-options[data-closing] { pointer-events: none; animation: selection-fab-fold 160ms ease-in forwards !important; }
+@keyframes selection-fab-fold { to { opacity: 0; transform: scale(.96, .85); } }
+@media (prefers-reduced-motion: reduce) {
+  .selection-fab-trigger { transition: none; }
+  .selection-fab-options, .selection-fab-options[data-closing] { animation: none !important; }
+}
+:root[data-shell="compact"] .image-activity { max-width: calc(100vw - 13rem); }
+@container (min-width: 1000px) { .image-action-short { display: inline; } }
+@container (min-width: 1500px) {
+  .image-action-full { display: inline; }
+  .image-action-short { display: none; }
+}
+@container detail-toolbar (min-width: 750px) {
+  .image-actions[data-surface="detail"] .image-action-short { display: inline; }
+}
+@container detail-toolbar (min-width: 1000px) {
+  .image-actions[data-surface="detail"] .image-action-full { display: inline; }
+  .image-actions[data-surface="detail"] .image-action-short { display: none; }
+}
+
+.status-bar :is(.status-control-label, .status-badge-label, .status-matches-label),
+.status-bar .image-actions[data-surface="search"] > .image-action > :is(.image-action-full, .image-action-short) {
+  display: inline-block;
+  white-space: nowrap;
+}
+.status-bar .image-actions[data-surface="search"] > .image-action > .image-action-short,
+.status-bar:not([data-status-fit="full"]) .image-actions[data-surface="search"] > .image-action > .image-action-full,
+.status-bar:is([data-status-fit="condensed"], [data-status-fit="counts"], [data-status-fit="minimal"]) .status-control-label,
+.status-bar:is([data-status-fit="counts"], [data-status-fit="minimal"]) .status-badge-label,
+.status-bar[data-status-fit="minimal"] .status-matches-label {
+  position: fixed;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.status-bar[data-status-fit="short"] .image-actions[data-surface="search"] > .image-action > .image-action-short {
+  position: static;
+  visibility: visible;
+}
+
+:root { --mobile-edit-control-size: 36px; }
+
+[data-editable-pill] > button { position: relative; }
+[data-editable-pill] > button::after { content: ""; position: absolute; right: 0; top: 25%; bottom: 25%; width: 1px; background: currentColor; opacity: .18; pointer-events: none; }
+[data-editable-pill] > button:last-child::after { right: auto; left: 0; }
+[data-editable-pill] > span { overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) {
+  .metadata-edit-tool:enabled:hover { background: #555; color: white; border-radius: 50%; }
+  [data-metadata-field] .metadata-pencil { opacity: 0; }
+  [data-metadata-field]:hover .metadata-pencil, [data-metadata-field] .metadata-pencil:focus-visible { opacity: 1; }
+  [data-search-pill]:not([data-accent]):hover,
+  [data-editable-pill]:not([data-accent]) button:enabled:hover { background: white; color: #717171; --tw-ring-color: #717171; }
+  [data-editable-pill][data-accent] button:enabled:hover { background: white; color: var(--color-grid-accent-dark); }
+  [data-editable-pill][data-accent][data-coverage="partial"] button:enabled:hover { background: var(--color-grid-accent-dark); color: white; }
+}
+.metadata-add-tool { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; color: var(--color-grid-text); }
+.metadata-add-plus { display: none; }
+@media (hover: hover) and (pointer: fine) { .metadata-add-tool:enabled:hover { color: white; } }
+@media (pointer: coarse) {
+  .metadata-add-tool { width: var(--mobile-edit-control-size); height: var(--mobile-edit-control-size); border: 1px dashed var(--color-grid-border); border-radius: 50%; }
+  .metadata-add-tool .metadata-add-box { display: none; }
+  .metadata-add-plus { display: block; }
+}
+@media (pointer: coarse) {
+  [data-editable-pill] > button { width: var(--mobile-edit-control-size); }
+  button[data-search-pill]:not([data-accent]) { min-height: var(--mobile-edit-control-size); }
+}
+@media (pointer: coarse) and (min-width: 640px) {
+  [data-bottom-sheet] { left: auto; right: 12px; width: min(480px, calc(100% - 24px)); }
+}
+
+.metadata-edit-tool { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; }
+.metadata-edit-form { min-width: 0; padding: 3px; }
+.metadata-row > dt { min-width: 6em; }
+.metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { padding-right: 0; }
+.metadata-edit-form > input, .metadata-edit-form > textarea, .metadata-edit-form > select { display: block; width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
+.metadata-edit-form > input:focus, .metadata-edit-form > textarea:focus, .metadata-edit-form > select:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-edit-form > textarea { min-height: 96px; resize: vertical; }
+.metadata-edit-form > input::placeholder, .metadata-edit-form > textarea::placeholder, .metadata-edit-form > select[data-mixed] { font-style: italic; }
+.metadata-edit-form > select option { font-style: normal; }
+.metadata-date-entry { display: flex; align-items: stretch; gap: 6px; }
+.metadata-date-segments { position: relative; display: flex; flex: 1; align-items: center; min-width: 0; height: 36px; padding: 0 7px; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; }
+.metadata-date-segments:focus-within { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-date-part { display: inline-flex; align-items: center; min-width: 0; }
+.metadata-date-part input { width: 2.2ch; min-width: 0; height: 28px; padding: 0; border: 0; background: transparent; outline: 0; text-align: center; font-variant-numeric: tabular-nums; }
+.metadata-date-year input { width: 4.2ch; }
+.metadata-date-fraction input { width: 3.2ch; }
+.metadata-date-part input[data-selected] { background: var(--color-grid-accent-dark); color: white; }
+.metadata-date-separator { flex: 0 0 auto; color: var(--color-grid-text-dim); white-space: pre; }
+.metadata-date-year .metadata-date-separator { padding: 0 3px; }
+.metadata-date-placeholder { position: absolute; inset: 2px; display: flex; align-items: center; padding: 0 6px; border: 0; border-radius: 2px; background: #444; color: var(--color-grid-text-dim); font-style: italic; cursor: text; }
+.metadata-date-picker { position: relative; flex: 0 0 36px; }
+.metadata-date-calendar { width: 36px; height: 36px; border: 1px solid var(--color-grid-border); border-radius: 3px; }
+.metadata-date-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; bottom: 0; right: 0; }
+.metadata-location-fields { display: grid; gap: 8px; }
+.metadata-location-row { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 6px; }
+.metadata-location-fields input { width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
+.metadata-location-fields input[data-mixed]::placeholder { font-style: italic; }
+.metadata-location-fields input:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+.metadata-edit-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 5px; }
+.metadata-edit-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border: 0; padding: 0; margin: 0; font-size: 11px; }
+.metadata-edit-modes label { position: relative; cursor: pointer; }
+.metadata-edit-modes input { position: absolute; opacity: 0; }
+.metadata-edit-modes label > span { display: flex; align-items: center; min-height: 24px; padding: 3px 5px; border-bottom: 2px solid transparent; }
+.metadata-edit-modes > button { cursor: pointer; min-height: 24px; padding: 3px 5px; border-bottom: 2px solid transparent; }
+.metadata-edit-modes > button[aria-pressed="true"] { border-color: var(--color-grid-accent); background: #515151; }
+.metadata-edit-modes input:checked + span { border-color: var(--color-grid-accent); background: #515151; }
+.metadata-edit-modes input:focus-visible + span { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
+@media (pointer: coarse) {
+  .metadata-row:has(> dd > .metadata-scalar-edit-form) { flex-direction: column; }
+  .metadata-row:has(> dd > .metadata-scalar-edit-form) > dt, .metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { width: 100%; align-self: stretch; }
+  .metadata-scalar-edit-form > input, .metadata-scalar-edit-form > select { height: var(--mobile-edit-control-size); }
+  .metadata-edit-tool { width: var(--mobile-edit-control-size); height: var(--mobile-edit-control-size); }
+  .metadata-edit-modes label > span { min-height: var(--mobile-edit-control-size); }
+  .metadata-edit-modes > button { min-height: var(--mobile-edit-control-size); }
+}
+
+/* Shell variants: data-shell is set by hooks/useShell.ts (narrow viewport or compact-layout pref). */
+@custom-variant compact (&:where([data-shell="compact"] *));
+@custom-variant wide (&:where([data-shell="wide"] *));
+
+@layer base {
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* No browser pull-to-reload: the results have their own pull-to-refresh. */
+html, body { overscroll-behavior-y: none; }
+
+/* Installed phones reserve the middle of the cutout band, not a full-width blank strip. */
+:root[data-shell="compact"][data-app-cutout="true"] .results-toolbar {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px 44px;
+  grid-template-rows: max(44px, env(safe-area-inset-top, 0px)) 36px;
+  gap: 0;
+  height: auto;
+  padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+
+  .results-home {
+    grid-area: 1 / 1;
+    margin: 0;
+  }
+
+  .results-filters {
+    grid-area: 1 / 3;
+    width: 44px;
+    height: 44px;
+    margin: 0;
+  }
+
+  .results-settings {
+    grid-area: 1 / 4;
+
+    > div { margin: 0; }
+  }
+
+  .results-query {
+    grid-area: 2 / 1 / 3 / -1;
+    max-width: none;
+    margin: 0 12px;
+    translate: 0 -2px;
+  }
+}
+
+:root[data-shell="compact"] {
+  --detail-back-width: 32px;
+
+  .detail-navigation > .w-px { display: none; }
+  .detail-back {
+    width: var(--detail-back-width);
+    min-width: var(--detail-back-width);
+    padding: 0;
+    > span { display: none; }
+  }
+  .detail-position { padding-inline: 6px; }
+  .crop-view-controls { flex: none; min-width: 0; justify-content: flex-start; }
+}
+
+:root[data-shell="compact"][data-app-cutout="true"] :is(.detail-toolbar, .crop-toolbar:not([hidden])) {
+  display: grid;
+  grid-template-columns: 44px var(--detail-back-width) minmax(0, 1fr) 44px 44px;
+  grid-template-rows: max(44px, env(safe-area-inset-top, 0px));
+  gap: 0;
+  height: auto;
+  padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
+
+  .detail-navigation { display: contents; }
+  > .w-px, .detail-navigation > .w-px, > span.flex-1 { display: none; }
+  .detail-home { grid-area: 1 / 1; }
+  .detail-back { grid-area: 1 / 2; min-width: 0; padding: 0; }
+  .detail-position { grid-area: 1 / 3; justify-self: start; min-width: 0; padding: 0; }
+  .detail-crop { grid-area: 1 / 4; min-width: 0; padding: 0; }
+  .detail-back > span, .detail-crop > span { display: none; }
+  .detail-settings {
+    grid-area: 1 / 5;
+    > div { margin: 0; }
+  }
+}
+
+:root[data-shell="compact"][data-app-cutout="true"] .crop-toolbar:not([hidden]) {
+  grid-template-columns: 44px var(--detail-back-width) minmax(0, 1fr) 64px 44px;
+
+  .crop-toolbar-actions { display: contents; }
+  .crop-view-controls {
+    grid-area: 1 / 3;
+    display: flex;
+    justify-self: start;
+    min-width: 0;
+  }
+  .crop-toolbar-actions > button {
+    grid-area: 1 / 4;
+    justify-self: stretch;
+    padding: 0;
+
+    > span { justify-content: center; gap: 4px; padding-inline: 6px; }
+  }
+}
+
+/*
+ * Grid colour palette — extracted from kahuna/public/stylesheets/main.css.
+ * Registered as Tailwind theme tokens so they can be used as utility classes
+ * (e.g. bg-grid-bg, text-grid-accent, border-grid-border).
+ */
+@theme {
+  /* Backgrounds */
+  --color-grid-bg: #333333;
+  --color-grid-cell: #393939;
+  --color-grid-cell-hover: #555555;
+  --color-grid-hover: #666666;
+
+  /* Text */
+  --color-grid-text: #cccccc;
+  --color-grid-text-bright: #ffffff;
+  --color-grid-text-muted: #cfcfcf;
+  --color-grid-text-dim: #8a8a8a;
+
+  /* Borders / separators */
+  --color-grid-border: #999999;
+  --color-grid-separator: #565656;
+
+  /* Accent (links, buttons, focus) */
+  --color-grid-accent: #00adee;
+  --color-grid-accent-hover: #008fc5;
+  --color-grid-accent-dark: #005689;
+  --color-grid-accent-light: #5e9ed6;
+
+  /* Semantic */
+  --color-grid-error: #ed5935;
+  --color-grid-warning: #ffbc01;
+  --color-grid-success: #228b22;
+
+  /* Cost semantic colours — replicate Kahuna 1:1 (muscle memory for editors) */
+  --color-grid-cost-free: teal;
+  --color-grid-cost-pay: #e63a1e;
+  --color-grid-cost-conditional: orange;
+  --color-grid-cost-overquota: red;
+  /* Leased override — teal badge bg when active allow-use lease present */
+  --color-grid-cost-leased: teal;
+  /* no-rights shares the pay colour */
+  --color-grid-cost-no-rights: #e63a1e;
+
+  /*
+   * Override Tailwind's default --font-sans so every element inherits
+   * Open Sans automatically.  Tailwind 4 applies --font-sans to html
+   * via its base layer, so this is the single source of truth for the
+   * app's body font — no need for a separate body { font-family } rule.
+   *
+   * Fallbacks: ui-sans-serif → system-ui → sans-serif cover the rare
+   * case where Open Sans hasn't loaded yet or a glyph is missing.
+   */
+  --font-sans: 'Open Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* text-xs: 13px — compact data text (table body cells, grid cell descriptions).
+     text-sm: 14px (Tailwind default) — UI chrome (toolbar, filters, menus, labels).
+     text-2xs: 12px — dimmed secondary metadata (grid cell dates). */
+  --text-xs: 0.8125rem;
+  --text-2xs: 0.75rem;
+  --text-2xs--line-height: calc(1 / 0.75);
+}
+
+/*
+ * ── Animation prototypes (throwaway exploration) ──────────────────────────
+ * Two subtle animations for communicating state to the user:
+ *
+ *  .anim-arriving  — new images sliding into view at the top.
+ *                    Gentle slide-down + fade-in over 0.8s.
+ *
+ *  .anim-focus-here — "you're looking here because of focus".
+ *                     Soft ring pulse that plays twice then stops.
+ */
+
+@keyframes kupua-arrive {
+  0% {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+  100% {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Unfocused cell: one pulse from nothing, back to nothing. */
+@keyframes kupua-focus-pulse-unfocused {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 173, 238, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(0, 173, 238, 0.35);
+  }
+}
+
+.anim-arriving {
+  animation: kupua-arrive 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.anim-focus-here-unfocused {
+  animation: kupua-focus-pulse-unfocused 1.2s ease-in-out;
+}
+
+/* Toast slide-up + fade-in */
+@keyframes kupua-toast-in {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+/* Compact-shell side sheets and scrim */
+@keyframes kupua-sheet-in-left { from { translate: -100% 0; } to { translate: 0 0; } }
+@keyframes kupua-sheet-in-right { from { translate: 100% 0; } to { translate: 0 0; } }
+@keyframes kupua-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kupua-sheet-in-up { from { translate: 0 24px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+.anim-sheet-up { animation: kupua-sheet-in-up 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-sheet-left { animation: kupua-sheet-in-left 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-sheet-right { animation: kupua-sheet-in-right 0.25s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.anim-scrim { animation: kupua-scrim-in 0.25s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-sheet-left, .anim-sheet-right, .anim-scrim, .anim-fab-item { animation: none; }
+}
+
+/* Selection floaty: actions rise out of the pill */
+body[data-drag-selecting] .selection-fab { opacity: 0; pointer-events: none; }
+@keyframes kupua-fab-item-in {
+  from { opacity: 0; translate: 0 12px; scale: 0.9; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+.anim-fab-item {
+  transform-origin: bottom right;
+  animation: kupua-fab-item-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+ * ── Selection tickbox visibility ─────────────────────────────────────────
+ *
+ * Tickbox components render in every grid cell / table row but are hidden
+ * by default. Two CSS rules make them visible:
+ *
+ * 1. Fine-pointer hover: show the tickbox when the cursor enters a cell
+ *    (hover-to-select affordance). Only for `pointer: fine` devices —
+ *    on coarse-pointer (touch), tickbox entry is via long-press (S5).
+ *
+ * 2. Selection mode: `data-selection-mode="true"` on the grid/table
+ *    container makes all tickboxes visible simultaneously via a single
+ *    attribute change — no per-cell React re-render (CSS-only mode flip).
+ *
+ * The two rules are deliberately additive; being in selection mode AND
+ * hovering a cell still shows one tickbox (no visual conflict).
+ */
+
+/* Hidden by default */
+.tap-feedback {
+  transition: background-color 120ms ease-out;
+}
+
+.tap-feedback:active,
+.tap-feedback[data-pressed] {
+  background-color: color-mix(in srgb, var(--color-grid-accent) 18%, var(--color-grid-hover));
+  transition-duration: 0ms;
+}
+
+[data-graphic-reveal] {
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+.graphic-preview[data-touch-reveal] .graphic-thumbnail {
+  filter: blur(16px);
+}
+
+.graphic-preview[data-touch-reveal] .graphic-warning {
+  opacity: 1;
+}
+
+.graphic-preview[data-revealed] .graphic-thumbnail {
+  filter: none;
+}
+
+.graphic-preview[data-revealed] .graphic-warning {
+  opacity: 0;
+}
+
+.tickbox {
+  display: none;
+}
+
+/* Fine pointer: show on cell/row hover when not in selection mode */
+@media (pointer: fine) {
+  [data-grid-cell]:hover .tickbox {
+    display: flex;
+  }
+  [role="row"]:hover .tickbox {
+    display: flex;
+  }
+}
+
+/* Selection mode: always show */
+@media (any-pointer: coarse) {
+  :root[data-shell="wide"] .tickbox {
+    display: flex;
+  }
+}
+
+[data-selection-mode="true"] .tickbox {
+  display: flex;
+}
+
+/*
+ * ── Selected cell / row overlay ──────────────────────────────────────────
+ *
+ * CSS-only via :has() — zero extra React subscriptions. The Tickbox
+ * already sets aria-checked on selection; :has() on the ancestor
+ * cell/row picks it up the moment the DOM attribute changes.
+ *
+ * Grid: inset ring + blue tint on the cell.
+ * Table: blue row background tint.
+ */
+[data-grid-cell]:has(.tickbox[aria-checked="true"]) {
+  background-color: rgba(0, 173, 238, 0.18) !important;
+}
+/* Ring as an overlay so edge-to-edge (image-only) thumbnails can't paint over it. */
+[data-grid-cell]:has(.tickbox[aria-checked="true"])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(0, 173, 238, 0.7);
+  pointer-events: none;
+}
+
+[data-table-root] [role="row"]:has(.tickbox[aria-checked="true"]) {
+  background-color: rgba(0, 173, 238, 0.12) !important;
+}
+
+/*
+ * Dark scrollbars — Firefox respects color-scheme natively; Chrome (121+)
+ * additionally needs scrollbar-color for explicit thumb/track colours.
+ */
+html {
+  color-scheme: dark;
+  scrollbar-color: #666 #333;
+  overflow-x: hidden;
+}
+
+/*
+ * ── Touch long-press: suppress callout, text selection, image save menu ──
+ *
+ * On mobile:
+ *   -webkit-touch-callout: none -- iOS Safari: suppresses the "Save image /
+ *     Copy" popover on long-press of images and links inside the cell.
+ *   user-select: none -- Android/iOS: prevents the text selection handles
+ *     from appearing on sustained hold over description/date text.
+ *
+ * The <img> inside each cell gets pointer-events:none via Tailwind
+ * (pointer-events-none class on the img element). This makes the long-press
+ * target the parent div instead of the img, so Android Chrome's
+ * "Save image as" context menu is never triggered (it only fires when the
+ * direct target is an <img>). Desktop right-click is unaffected because
+ * pointer-events:none only blocks pointer input to the img, not to the cell.
+ */
+[data-grid-cell] {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+
+/*
+ * Suppress focus outlines on mouse/touch click — only show them for
+ * keyboard navigation (:focus-visible). This is the accessibility-approved
+ * pattern: keyboard and screen-reader users still get a visible ring;
+ * mouse users never see the stray outline that appears after clicking a
+ * button and then pressing a key.
+ */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/*
+ * Shared component classes — use these on popup menus and their items
+ * so new dropdowns/context menus automatically match existing ones.
+ *
+ *   .popup-menu    — the floating container (bg, border, shadow, z-index)
+ *   .popup-item    — a clickable row inside the menu (text, hover, padding)
+ *
+ * Usage:
+ *   <div className="popup-menu">
+ *     <div className="popup-item" onClick={…}>Option</div>
+ *   </div>
+ */
+@layer components {
+  .popup-menu {
+    @apply py-1 bg-grid-bg border border-grid-border rounded shadow-lg z-50;
+  }
+  .popup-item {
+    @apply flex items-center gap-2 px-3 py-1 text-sm text-grid-text
+           hover:bg-grid-hover/50 cursor-pointer whitespace-nowrap select-none;
+  }
+
+  /*
+   * Hide native scrollbars — keeps the container scrollable (wheel, touch,
+   * keyboard) but removes the visual scrollbar. The custom Scrubber component
+   * provides the visual position indicator instead.
+   *
+   * `contain: strict` is critical for Firefox scroll performance. Without it,
+   * Gecko recalculates layout for the entire page whenever virtualizer items
+   * are repositioned during scroll. `strict` (= size + layout + paint + style)
+   * tells the browser this subtree is fully independent. The element's size
+   * comes from the flex parent, not content, so `size` containment is safe.
+   * (cf. Immich's #asset-grid uses the same pattern.)
+   */
+  .hide-scrollbar {
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE / Edge legacy */
+    contain: strict;
+    &::-webkit-scrollbar {
+      display: none;                 /* Chrome / Safari / Opera */
+    }
+  }
+
+  /**
+   * Hide only the vertical scrollbar — preserves horizontal scrollbar.
+   * Used by the table view which needs horizontal scroll for wide columns
+   * but replaces the vertical scrollbar with the custom scrubber.
+   *
+   * Modern Chrome (v121+) supports `scrollbar-width`, which disables the
+   * `::-webkit-scrollbar` pseudo-element model — making per-axis hiding
+   * impossible via CSS alone. Firefox never supported per-axis control.
+   *
+   * Strategy: hide ALL native scrollbars. The vertical scrollbar is replaced
+   * by the Scrubber component. The horizontal scrollbar is replaced by a
+   * synced proxy <div> rendered by the table (see ImageTable's scrollbar
+   * sync logic). This works identically in Chrome, Firefox, and Safari.
+   */
+  .hide-scrollbar-y {
+    scrollbar-width: none;           /* Firefox + Chrome 121+ */
+    -ms-overflow-style: none;        /* IE / Edge legacy */
+    contain: strict;
+    &::-webkit-scrollbar {
+      display: none;                 /* Safari / older Chrome */
+    }
+  }
+}
+
+/*
+ * Open Sans — self-hosted, copied from kahuna/public/stylesheets/fonts/.
+ * Files are variable font woff2 (v34, SemiCondensed 87.5%).
+ * Declared with font-weight range 300 800 so the full variable axis is
+ * available. Kahuna's original declarations used discrete 400/700 weights
+ * (Google Fonts CSS default) pointing to the same files — not wrong, but
+ * wasteful and prevents intermediate weights.
+ */
+
+/* italic */
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-cyrillic-ext_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWtE6FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-cyrillic_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWvU6FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-greek-ext_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWtU6FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-greek_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWuk6FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0370-03FF;
+}
+/* hebrew */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-hebrew_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWu06FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-vietnamese_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWtk6FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-latin-ext_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWt06FxZCJgvAQ.woff2") format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: italic;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-italic-latin_memtYaGs126MiZpBA-UFUIcVXSCEkx2cmqvX8mqWuU6FxZCJgg.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* normal */
+/* cyrillic-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-cyrillic-ext_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSKmu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* cyrillic */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-cyrillic_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSumu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* greek-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-greek-ext_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSOmu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* greek */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-greek_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSymu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0370-03FF;
+}
+/* hebrew */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-hebrew_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTS2mu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+}
+/* vietnamese */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-vietnamese_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSCmu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-latin-ext_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTSGmu0SC55K5gw.woff2") format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300 800;
+  font-stretch: 87.5%;
+  src: url("/fonts/open-sans-v34-regular-latin_memvYaGs126MiZpBA-UvWbX2vVnXBbObjwSVTS-mu0SC55I.woff2") format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+

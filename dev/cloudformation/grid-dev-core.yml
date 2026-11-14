@@ -34,6 +34,7 @@ Resources:
               - PUT
             AllowedOrigins:
               - "https://media.local.dev-gutools.co.uk"
+              - "https://kupua.media.local.dev-gutools.co.uk"
       NotificationConfiguration:
         QueueConfigurations:
           - Event: "s3:ObjectCreated:*"

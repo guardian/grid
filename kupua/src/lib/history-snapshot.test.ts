@@ -1,0 +1,170 @@
+// @vitest-environment jsdom
+// SessionStorageSnapshotStore needs a real Storage. Node only exposes sessionStorage as a
+// global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
+import { describe, it, expect, beforeEach } from "vitest";
+import { MapSnapshotStore, SessionStorageSnapshotStore, restoreArrivalState } from "./history-snapshot";
+import type { HistorySnapshot } from "./history-snapshot";
+
+// ---------------------------------------------------------------------------
+// Fixture
+// ---------------------------------------------------------------------------
+
+function makeSnap(overrides?: Partial<HistorySnapshot>): HistorySnapshot {
+  return {
+    searchKey: '["nonFree","true"]',
+    anchorImageId: "img-001",
+    anchorIsPhantom: false,
+    anchorOffset: 42,
+    viewportRatio: 0.35,
+    newCountSince: null,
+    ...overrides,
+  };
+}
+
+// ===========================================================================
+// MapSnapshotStore
+// ===========================================================================
+
+describe("MapSnapshotStore", () => {
+  let store: MapSnapshotStore;
+
+  beforeEach(() => {
+    store = new MapSnapshotStore();
+  });
+
+  it("get returns undefined for unknown key", () => {
+    expect(store.get("missing")).toBeUndefined();
+  });
+
+  it("set then get returns the snapshot", () => {
+    const snap = makeSnap();
+    store.set("key-1", snap);
+    expect(store.get("key-1")).toEqual(snap);
+  });
+
+  it("delete removes the entry", () => {
+    store.set("key-1", makeSnap());
+    store.delete("key-1");
+    expect(store.get("key-1")).toBeUndefined();
+  });
+
+  it("overwrites an existing entry", () => {
+    store.set("key-1", makeSnap({ anchorOffset: 10 }));
+    store.set("key-1", makeSnap({ anchorOffset: 99 }));
+    expect(store.get("key-1")?.anchorOffset).toBe(99);
+    expect(store.size).toBe(1);
+  });
+
+  it("evicts the oldest entry when over LRU cap", () => {
+    // Fill to capacity + 1
+    for (let i = 0; i <= 50; i++) {
+      store.set(`key-${i}`, makeSnap({ anchorOffset: i }));
+    }
+    // key-0 should have been evicted (it was the oldest)
+    expect(store.get("key-0")).toBeUndefined();
+    // key-1 should still exist
+    expect(store.get("key-1")).toBeDefined();
+    expect(store.size).toBe(50);
+  });
+
+  it("get promotes entry to most-recently-used", () => {
+    // Fill to capacity
+    for (let i = 0; i < 50; i++) {
+      store.set(`key-${i}`, makeSnap({ anchorOffset: i }));
+    }
+    // Touch key-0 (the oldest) to promote it
+    store.get("key-0");
+    // Add one more — should evict key-1 (now the oldest), not key-0
+    store.set("key-new", makeSnap());
+    expect(store.get("key-0")).toBeDefined();
+    expect(store.get("key-1")).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// SessionStorageSnapshotStore
+// ===========================================================================
+
+describe("SessionStorageSnapshotStore", () => {
+  let store: SessionStorageSnapshotStore;
+
+  beforeEach(() => {
+    sessionStorage.clear();
+    store = new SessionStorageSnapshotStore();
+  });
+
+  // Without the jsdom docblock these tests pass on Node >=25 (which exposes
+  // sessionStorage globally) and fail on the Node 20/22 the project supports.
+  // This makes that misconfiguration fail the same way everywhere.
+  it("runs in a DOM environment rather than relying on Node globals", () => {
+    expect(typeof window).toBe("object");
+  });
+
+  it("get returns undefined for unknown key", () => {
+    expect(store.get("missing")).toBeUndefined();
+  });
+
+  it("set then get round-trips through JSON", () => {
+    const boundary = "2026-04-26T10:00:00.000Z";
+    const later = "2026-04-26T11:00:00.000Z";
+    const snap = makeSnap({ newCountSince: boundary, newCount: 134, anchorImageId: null });
+    store.set("key-1", snap);
+    const retrieved = store.get("key-1");
+    expect(retrieved).toEqual(snap);
+    expect(restoreArrivalState(retrieved, snap.searchKey)).toEqual({ frozenUntil: boundary, frozenNewCount: 134 });
+    expect(restoreArrivalState(retrieved, "other-query")).toEqual({});
+    expect(restoreArrivalState(undefined, snap.searchKey)).toEqual({});
+    expect(restoreArrivalState(makeSnap(), snap.searchKey)).toEqual({});
+    expect(restoreArrivalState(makeSnap(), snap.searchKey, { searchKey: snap.searchKey, newCountSince: later, newCount: 2 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 2 });
+    expect(restoreArrivalState({ ...snap, newCountSince: "invalid" }, snap.searchKey)).toEqual({});
+    for (const newCount of [undefined, -1, NaN, Infinity, 0.5]) {
+      expect(restoreArrivalState({ ...snap, newCount }, snap.searchKey)).toEqual({ frozenUntil: boundary, frozenNewCount: 0 });
+    }
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: snap.searchKey, newCountSince: boundary, newCount: 135 }))
+      .toEqual({ frozenUntil: boundary, frozenNewCount: 135 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: snap.searchKey, newCountSince: later, newCount: 2 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 2 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: "other-query", newCountSince: later, newCount: 99 }))
+      .toEqual({ frozenUntil: later, frozenNewCount: 0 });
+    expect(restoreArrivalState(retrieved, snap.searchKey, { searchKey: "other-query", newCountSince: boundary, newCount: 99 }))
+      .toEqual({ frozenUntil: boundary, frozenNewCount: 134 });
+  });
+
+  it("delete removes the entry", () => {
+    store.set("key-1", makeSnap());
+    store.delete("key-1");
+    expect(store.get("key-1")).toBeUndefined();
+    expect(sessionStorage.getItem("kupua:histSnap:key-1")).toBeNull();
+  });
+
+  it("handles corrupt JSON gracefully", () => {
+    sessionStorage.setItem("kupua:histSnap:corrupt", "not-json{{{");
+    store = new SessionStorageSnapshotStore(); // rebuild order
+    expect(store.get("corrupt")).toBeUndefined();
+    // Entry should have been cleaned up
+    expect(sessionStorage.getItem("kupua:histSnap:corrupt")).toBeNull();
+  });
+
+  it("evicts oldest entry when over LRU cap", () => {
+    for (let i = 0; i <= 50; i++) {
+      store.set(`key-${i}`, makeSnap({ anchorOffset: i }));
+    }
+    expect(store.get("key-0")).toBeUndefined();
+    expect(sessionStorage.getItem("kupua:histSnap:key-0")).toBeNull();
+    expect(store.get("key-1")).toBeDefined();
+    expect(store.size).toBe(50);
+  });
+
+  it("reconstructs order from existing sessionStorage on construction", () => {
+    // Pre-populate sessionStorage
+    sessionStorage.setItem(
+      "kupua:histSnap:existing-key",
+      JSON.stringify(makeSnap()),
+    );
+    // Create a new store instance — should find the existing entry
+    const newStore = new SessionStorageSnapshotStore();
+    expect(newStore.get("existing-key")).toBeDefined();
+    expect(newStore.size).toBe(1);
+  });
+});

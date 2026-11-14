@@ -1,0 +1,54 @@
+.mode-toggle { display:flex; gap:14px; margin:0 0 10px; border-bottom:1px solid var(--line); }
+.mode-toggle a { padding:5px 2px; font-size:12px; text-decoration:none; color:var(--text); border-bottom:2px solid transparent; }
+.mode-toggle a[aria-current=page] { color:#fff; border-color:var(--accent); }
+.engineering-header.history-mode #selection,
+.engineering-header.history-mode #context,
+.engineering-header.history-mode #pair-details,
+.engineering-header.history-mode #trust { display:none; }
+.history-view svg[data-chart] { width:100%; height:auto; display:block; overflow:visible; }
+.history-view .axis { stroke:#737373; stroke-width:1; }
+.history-view .tick { font-size:9px; fill:var(--muted); }
+.history-view .tick.ref { fill:var(--warning); }
+.history-view .tick.zero { fill:#fff; font-weight:700; }
+.history-view .reference { stroke:var(--warning); stroke-dasharray:3 3; stroke-width:1; }
+.history-view .contract { stroke:#aaa; stroke-dasharray:2 3; stroke-width:1; }
+.history-view .contract-label { fill:#ddd; }
+.history-view .series { stroke-width:1.6; }
+.history-view .glyph { font-size:13px; font-weight:700; }
+.history-view .hpt:focus { outline:none; }
+html[data-keyboard-focus] .history-view .hpt:focus-visible rect { stroke:#fff; stroke-width:1; }
+.history-view .role-current { fill:none; stroke:#fff; stroke-width:2; }
+.history-view .role-baseline { fill:none; stroke:#fff; stroke-width:1.6; stroke-dasharray:3 2; }
+.history-view .role-label { font-size:10px; font-weight:700; fill:#fff; }
+.history-heading { flex-wrap:wrap; font-size:11px; }
+.history-heading h3 { margin-right:auto; }
+.history-heading .hdelta { display:block; width:100%; text-align:right; color:var(--text); }
+.history-heading .hdelta.muted { color:var(--muted); }
+.history-selection { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:12px; margin-bottom:8px; }
+.history-selection .note { grid-column:1/-1; margin:0; font-size:11px; }
+.history-kind { grid-column:1/-1; font-size:13px; margin:4px 0 0; }
+.history-controls label { flex:0 1 240px; }
+.history-kind small { font-size:11px; font-weight:normal; color:var(--muted); }
+.role-pill small { color:var(--muted); }
+.role-pill .pill { font-size:10px; }
+.history-envs { display:flex; flex-wrap:wrap; gap:4px 16px; border:1px solid var(--line); padding:4px 10px 6px; margin:0 0 4px; font-size:12px; }
+.history-envs legend { font-size:11px; color:var(--muted); padding:0 4px; }
+.history-envs label { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--text); }
+.history-envs small { color:var(--muted); }
+.swatch { width:14px; height:14px; vertical-align:middle; }
+.history-key .swatch { width:16px; height:16px; }
+.history-metric .small-multiples { gap:18px; }
+.history-facts { display:grid; grid-template-columns:150px minmax(0,1fr); gap:3px 12px; font-size:12px; margin:0 0 8px; }
+.history-facts dt { color:var(--muted); }
+.history-facts dd { margin:0; overflow-wrap:anywhere; }
+.history-actions { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; font-size:12px; }
+.button-link { border:1px solid #888; border-radius:3px; padding:4px 9px; }
+.history-table { min-width:820px; }
+.history-table th:first-child { width:230px; }
+.history-table td>small { margin-left:0; }
+.inline-control { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
+.inline-control select { width:auto; padding:3px 6px; font-size:12px; }
+@media(max-width:760px) {
+  .history-selection { grid-template-columns:1fr; }
+  .history-facts { grid-template-columns:1fr; }
+}

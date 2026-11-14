@@ -1,0 +1,51 @@
+/**
+ * Visual regression baselines — screenshot tests at 0.1% pixel tolerance.
+ *
+ * These catch accidental layout breaks during any future work.
+ * The first run creates baseline PNGs (committed to git). Subsequent
+ * runs compare against the committed baselines.
+ *
+ * Run with --update-snapshots to regenerate baselines:
+ *   npx playwright test e2e/local/visual-baseline.spec.ts --update-snapshots
+ */
+
+import { test, expect } from "../shared/helpers";
+
+// Pin to explicit focus mode — openDetailForNthItem uses dblclick which sets
+// focus in explicit mode; screenshots should be consistent across default changes.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
+test.describe("Visual regression baselines", () => {
+  test("grid view baseline", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await expect(page).toHaveScreenshot("grid-view.png", {
+      maxDiffPixelRatio: 0.001,
+    });
+  });
+
+  test("table view baseline", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await expect(page).toHaveScreenshot("table-view.png", {
+      maxDiffPixelRatio: 0.001,
+    });
+  });
+
+  test("image detail baseline", async ({ kupua, page }) => {
+    await kupua.startSearch();
+    await kupua.openDetailForNthItem(0);
+    await expect(page).toHaveScreenshot("image-detail.png", {
+      maxDiffPixelRatio: 0.001,
+    });
+  });
+
+  test("search with query baseline", async ({ kupua, page }) => {
+    await kupua.startSearch("query=test&orderBy=-taken");
+    await expect(page).toHaveScreenshot("search-query.png", {
+      maxDiffPixelRatio: 0.001,
+    });
+  });
+});
+

@@ -1,0 +1,597 @@
+/**
+ * Focus preservation across search context changes.
+ *
+ * Verifies the "Never Lost" principle: when the user changes query/filters
+ * while an image is focused, the focused image survives in the new results
+ * (if it exists there) and the view scrolls to it.
+ *
+ * Run:
+ *   npx playwright test e2e/local/focus-preservation.spec.ts
+ *   npx playwright test e2e/local/focus-preservation.spec.ts --headed
+ */
+
+import { test, expect, waitForFixtureSetup } from "../shared/helpers";
+
+// Pin to explicit focus mode — these tests validate focus-ring behaviour,
+// sort-around-focus, and neighbour fallback which are explicit-mode features.
+test.beforeEach(async ({ kupua }) => {
+  await kupua.ensureExplicitMode();
+});
+
+/**
+ * Navigate within the SPA without a full page reload.
+ * Uses TanStack Router's navigate() via the exposed router instance.
+ * This simulates a user-initiated navigation (pushState) — NOT a
+ * browser back/forward (popstate). The distinction matters because
+ * useUrlSearchSync skips focus-preservation on popstate navigations.
+ */
+async function spaNavigate(page: import("@playwright/test").Page, path: string) {
+  await page.evaluate((p) => {
+    const router = (window as any).__kupua_router__;
+    if (!router) throw new Error("Router not exposed on window");
+    const markUserNav = (window as any).__kupua_markUserNav__;
+    if (markUserNav) markUserNav();
+    const url = new URL(p, window.location.origin);
+    const search: Record<string, string> = {};
+    url.searchParams.forEach((v, k) => { search[k] = v; });
+    router.navigate({ to: url.pathname, search });
+  }, path);
+}
+
+async function waitForViewportAnchorWithCredit(page: import("@playwright/test").Page) {
+  const anchorHandle = await page.waitForFunction(() => {
+    const store = (window as any).__kupua_store__;
+    const getAnchor = (window as any).__kupua_getViewportAnchorId__;
+    if (!store || typeof getAnchor !== "function") return false;
+    const state = store.getState();
+    const anchorId = getAnchor();
+    const image = state.results.find((candidate: any) => candidate?.id === anchorId);
+    return anchorId && image?.metadata?.credit
+      ? { id: anchorId, credit: image.metadata.credit }
+      : false;
+  }, { timeout: 10_000 });
+  return await anchorHandle.jsonValue() as { id: string; credit: string };
+}
+
+test.describe("AI continuity L39", () => {
+  test.afterEach(async ({ page }) => {
+    await page.evaluate(async () => {
+      const fixture = (window as any).__aiContinuity;
+      if (!fixture) return;
+      try {
+        await fixture.work;
+      } finally {
+        window.fetch = fixture.originalFetch;
+        (window as any).__kupua_store__.setState({ dataSource: fixture.originalSource, results: [], total: 0,
+          imagePositions: new Map(), _searchContinuity: null });
+        delete (window as any).__aiContinuity;
+      }
+    });
+  });
+
+  for (const transport of ["direct-ES", "media-api"] as const) {
+    for (const view of ["grid", "table"] as const) {
+      test(`${transport} ${view}: AI exit preserves browsed centre without remembered detail focus`, async ({ kupua, page }) => {
+        await page.route("**/bedrock/health", route => route.fulfill({ json: { available: true } }));
+        await page.route("**/*", route => route.request().resourceType() === "image"
+          ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
+          : route.fallback());
+        await kupua.startSearch("", view);
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          const lifecycle = (window as any).__kupua_getSearchLifecycle__();
+          return !state.loading && lifecycle.started === lifecycle.settled;
+        });
+        const setup = await page.evaluateHandle(transport => {
+          const job = { complete: false, error: null as string | null, pending: undefined as Promise<void> | undefined };
+          job.pending = (async () => {
+            const store = (window as any).__kupua_store__;
+            const configPath = "/src/dal/es-config.ts";
+            if (!(await import(configPath)).IS_LOCAL_ES) throw new Error("AI continuity fixture requires local ES");
+            const mockPath = "/src/dal/mock-data-source.ts";
+            const esPath = "/src/dal/es-adapter.ts";
+            const apiPath = "/src/dal/api-data-source.ts";
+            const prefsPath = "/src/stores/ui-prefs-store.ts";
+            (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("phantom");
+            const source = new (await import(mockPath)).MockDataSource(800);
+            const adapter = transport === "media-api" ? new (await import(apiPath)).ApiDataSource()
+              : new (await import(esPath)).ElasticsearchDataSource();
+            adapter.countWithTickers = source.countWithTickers.bind(source);
+            source.searchByAi = adapter.searchByAi.bind(adapter);
+            const hits = (await source.getByIds(Array.from({ length: 80 }, (_, index) => `img-${400 + index}`))).reverse();
+            if ((window as any).__kupua_store__ !== store) throw new Error("AI fixture imports replaced the mounted store");
+            const originalFetch = window.fetch;
+            const fixture = { originalSource: store.getState().dataSource, originalFetch,
+              aiRequests: 0, targetId: null as string | null, targetTop: 0, work: null as Promise<void> | null };
+            (window as any).__aiContinuity = fixture;
+            window.fetch = async (input, init) => {
+              const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.origin);
+              if (url.pathname === "/bedrock/embed") return Response.json({ embedding: Array(256).fill(0) });
+              const aiRead = url.pathname === "/api/images" && url.searchParams.get("useAISearch") === "true"
+                || url.pathname.startsWith("/es/") && init?.body && JSON.parse(String(init.body)).knn;
+              if (aiRead) {
+                fixture.aiRequests++;
+                return Response.json(transport === "media-api"
+                  ? { data: hits.map((image: any) => ({ data: { ...image, cost: "free", valid: true } })), total: 800 }
+                  : { hits: { hits: hits.map((image: any, index: number) => ({ _id: image.id, _source: image, _score: 80 - index })) } });
+              }
+              return originalFetch(input, init);
+            };
+            store.setState({ dataSource: source, focusedImageId: null });
+            fixture.work = store.getState().search();
+            await fixture.work;
+          })();
+          job.pending.then(() => { job.complete = true; }, (error) => { job.error = String(error); });
+          return job;
+        }, transport);
+        await waitForFixtureSetup(page, setup);
+        await page.waitForFunction(() => (window as any).__kupua_store__.getState().results.length === 800);
+        await page.getByRole("button", { name: "Enable AI image search", exact: true }).click();
+        await page.getByRole("searchbox", { name: "AI image search query" }).fill("fixture continuity");
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return state.params.aiQuery === "fixture continuity" && state.total === 80 && !state.loading;
+        });
+        const container = page.locator(`[aria-label="Image results ${view}"]`);
+        await container.hover();
+        await page.mouse.wheel(0, 1000);
+        await expect.poll(() => container.evaluate(element => element.scrollTop)).toBeGreaterThan(500);
+        await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const source = await page.evaluate(() => {
+          const store = (window as any).__kupua_store__.getState();
+          const fixture = (window as any).__aiContinuity;
+          fixture.targetId = (window as any).__kupua_getViewportAnchorId__();
+          const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+          const cell = container.querySelector(`[data-image-id="${CSS.escape(fixture.targetId)}"]`)!;
+          fixture.targetTop = cell.getBoundingClientRect().top - container.getBoundingClientRect().top;
+          return { focused: store.focusedImageId, aiIndex: store.imagePositions.get(fixture.targetId),
+            remembered: fixture.targetId !== null, requests: fixture.aiRequests };
+        });
+        expect(source.focused).toBeNull();
+        expect(source.remembered).toBe(true);
+        expect(source.aiIndex).toBeGreaterThan(8);
+        expect(source.aiIndex).toBeLessThan(72);
+        expect(source.requests).toBe(1);
+        await page.getByRole("button", { name: "Disable AI image search", exact: true }).click();
+        await page.waitForFunction(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return !state.params.aiQuery && !state.loading && state.total === 800 && state._searchContinuity?.phase === "placed";
+        });
+        await expect.poll(() => page.evaluate(() => {
+          const fixture = (window as any).__aiContinuity;
+          const container = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"]')!;
+          const cell = container.querySelector(`[data-image-id="${CSS.escape(fixture.targetId)}"]`);
+          return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - fixture.targetTop) : 10000;
+        })).toBeLessThanOrEqual(2);
+        expect(await page.evaluate(() => {
+          const state = (window as any).__kupua_store__.getState();
+          return { focused: state.focusedImageId, total: state.total, loading: state.loading,
+            requests: (window as any).__aiContinuity.aiRequests,
+            selected: (window as any).__kupua_selection_store__.getState().selectedIds.size };
+        })).toEqual({ focused: null, total: 800, loading: false, requests: 1, selected: 0 });
+        await kupua.assertPositionsConsistent();
+      });
+    }
+  }
+});
+
+test.describe("Focus survives search context change", () => {
+  test("focus preserved when query changes and image is in new results", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Focus the 3rd image
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Read the focused image's credit from the store so we can search for it
+    const credit = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const idx = s.imagePositions.get(s.focusedImageId);
+      if (idx == null) return null;
+      const img = s.results[idx - s.bufferOffset];
+      return img?.metadata?.credit ?? null;
+    });
+    expect(credit).not.toBeNull();
+
+    // Change the query via SPA navigation — no full page reload
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${credit}"`)}`,
+    );
+
+    // Wait for sort-around-focus / focus-preservation to complete
+    await kupua.waitForSortAroundFocus();
+
+    // Focus should be preserved on the same image
+    const focusAfter = await kupua.getFocusedImageId();
+    expect(focusAfter).toBe(focusedId);
+
+    // The image should be in the buffer
+    const inBuffer = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().results.some((r: any) => r?.id === id);
+    }, focusedId);
+    expect(inBuffer).toBe(true);
+  });
+
+  test("focus cleared when query changes and image is NOT in new results", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Focus the 3rd image
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Search for a query that almost certainly excludes this image
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent("xyzzy_no_match_42")}`,
+    );
+
+    // Wait for search to complete — the find-and-focus will fail, then
+    // fallback first-page results are shown (which may be empty for
+    // a nonsense query, or it falls back to showing what it can).
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      { timeout: 10_000 },
+    );
+
+    // Focus should be cleared
+    const focusAfter = await kupua.getFocusedImageId();
+    expect(focusAfter).toBeNull();
+  });
+});
+
+test.describe("Neighbour fallback", () => {
+  test("focuses nearest neighbour when focused image drops out of results", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Focus the 3rd image
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Find the focused image's credit and a different credit from a neighbour.
+    // We'll search for the neighbour's credit — this excludes the focused
+    // image (different credit) but includes the neighbour in results.
+    const creditInfo = await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      const s = store.getState();
+      const idx = s.imagePositions.get(s.focusedImageId);
+      if (idx == null) return null;
+      const focusedImg = s.results[idx - s.bufferOffset];
+      const focusedCredit = focusedImg?.metadata?.credit ?? null;
+      if (!focusedCredit) return null;
+
+      // Scan neighbours for one with a DIFFERENT credit
+      for (let d = 1; d <= 20; d++) {
+        for (const offset of [d, -d]) {
+          const localIdx = (idx - s.bufferOffset) + offset;
+          if (localIdx < 0 || localIdx >= s.results.length) continue;
+          const img = s.results[localIdx];
+          const c = img?.metadata?.credit;
+          if (c && c !== focusedCredit) {
+            return { focusedCredit, altCredit: c, neighbourId: img.id };
+          }
+        }
+      }
+      return null;
+    });
+    expect(creditInfo).not.toBeNull();
+    expect(creditInfo!.altCredit).not.toBe(creditInfo!.focusedCredit);
+
+    // Search for the alternate credit — the focused image (different credit)
+    // drops out, but the neighbour (same credit) survives in new results.
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${creditInfo!.altCredit}"`)}`,
+    );
+
+    // Wait for focus-preservation + neighbour fallback to complete
+    await kupua.waitForSortAroundFocus();
+
+    const focusAfter = await kupua.getFocusedImageId();
+    expect(focusAfter).toBe(creditInfo!.neighbourId);
+
+    const placement = await kupua.page.evaluate((expectedId) => {
+      const state = (window as any).__kupua_store__?.getState();
+      const container = document.querySelector(
+        '[aria-label="Image results grid"], [aria-label="Image results table"]',
+      );
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(expectedId)}"]`);
+      if (!state || !container || !cell) return null;
+      const containerRect = container.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      return {
+        inBuffer: state.results.some((image: any) => image?.id === expectedId),
+        visible: cellRect.bottom > containerRect.top
+          && cellRect.top < containerRect.bottom
+          && cellRect.right > containerRect.left
+          && cellRect.left < containerRect.right,
+      };
+    }, creditInfo!.neighbourId);
+    expect(placement).toEqual({ inBuffer: true, visible: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Arrow snap-back after distant seek
+// ---------------------------------------------------------------------------
+
+test.describe("Arrow snap-back after seek", () => {
+  test("arrow key snaps back to focused image and moves focus", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Focus the 5th image (gives some room for delta)
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Verify the focused image is in the buffer
+    const inBufferBefore = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferBefore).toBe(true);
+
+    // Seek far away via scrubber — focused image should leave the buffer
+    await kupua.dragScrubberTo(0.9);
+
+    const inBufferAfterSeek = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferAfterSeek).toBe(false);
+
+    // Focus should still be set (durable)
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Press ArrowDown — should snap back to focused image + move focus
+    await kupua.page.keyboard.press("ArrowDown");
+
+    // Wait for snap-back seek to complete
+    await kupua.waitForSortAroundFocus();
+
+    // The original focused image should now be back in the buffer
+    const inBufferAfterSnap = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusedId);
+    expect(inBufferAfterSnap).toBe(true);
+
+    // Focus should have moved to a DIFFERENT image (the delta was applied)
+    const focusAfterSnap = await kupua.getFocusedImageId();
+    expect(focusAfterSnap).not.toBeNull();
+    expect(focusAfterSnap).not.toBe(focusedId);
+
+    // The new focused image should be in the buffer
+    const newFocusInBuffer = await kupua.page.evaluate((id) => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().imagePositions.has(id);
+    }, focusAfterSnap);
+    expect(newFocusInBuffer).toBe(true);
+  });
+
+  test("snap-back works then normal arrow navigation continues", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Focus the 5th image
+    await kupua.focusNthItem(4);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Seek far away
+    await kupua.dragScrubberTo(0.9);
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+
+    // Snap back with ArrowDown
+    await kupua.page.keyboard.press("ArrowDown");
+    await kupua.waitForSortAroundFocus();
+
+    const focusAfterFirst = await kupua.getFocusedImageId();
+    expect(focusAfterFirst).not.toBe(focusedId);
+
+    // Now press ArrowDown again — should move focus normally (no seek)
+    await kupua.page.keyboard.press("ArrowDown");
+  await expect.poll(() => kupua.getFocusedImageId()).not.toBe(focusAfterFirst);
+
+    const focusAfterSecond = await kupua.getFocusedImageId();
+    expect(focusAfterSecond).not.toBeNull();
+    expect(focusAfterSecond).not.toBe(focusAfterFirst);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phantom focus promotion (Session 4)
+// ---------------------------------------------------------------------------
+
+test.describe("Phantom focus promotion", () => {
+  test("viewport anchor is the rendered image nearest the usable table centre", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+    await kupua.switchToTable();
+    await kupua.page.evaluate(() => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]');
+      if (!container) throw new Error("Table scroll container not found");
+      container.scrollTop = 347.5;
+      container.dispatchEvent(new Event("scroll"));
+    });
+    await kupua.page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+
+    const measurement = await kupua.page.evaluate(() => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]');
+      const header = container?.querySelector<HTMLElement>('[data-table-header]');
+      if (!container || !header) return null;
+      const containerRect = container.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const usableTop = Math.max(containerRect.top, headerRect.bottom);
+      const usableCentre = usableTop + (containerRect.bottom - usableTop) / 2;
+      const candidates = Array.from(container.querySelectorAll<HTMLElement>('[data-image-id]'))
+        .map((element, order) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            id: element.dataset.imageId ?? "",
+            order,
+            distance: Math.abs((rect.top + rect.bottom) / 2 - usableCentre),
+            intersects: rect.bottom > usableTop && rect.top < containerRect.bottom,
+          };
+        })
+        .filter(({ id, intersects }) => id && intersects)
+        .sort((a, b) => a.distance - b.distance || a.order - b.order);
+      const getter = (window as any).__kupua_getViewportAnchorId__ as (() => string | null) | undefined;
+      return {
+        expectedId: candidates[0]?.id ?? null,
+        expectedSignedDistance: candidates[0]
+          ? candidates[0].distance / (containerRect.bottom - usableTop)
+          : null,
+        actualId: getter?.() ?? null,
+      };
+    });
+
+    expect(measurement).not.toBeNull();
+    expect(measurement!.expectedId).not.toBeNull();
+    expect(measurement!.expectedSignedDistance).toBeLessThan(0.1);
+    expect(measurement!.actualId).toBe(measurement!.expectedId);
+  });
+
+  test("viewport anchor preserves position without focus ring", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // No click — no explicit focus. Scroll down to build a viewport anchor.
+    await kupua.scrollBy(1500);
+
+    // Confirm no explicit focus yet
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Query for the app-elected anchor's own credit so the target is known to
+    // survive while still exercising phantom position preservation.
+    const anchor = await waitForViewportAnchorWithCredit(kupua.page);
+
+    // Change query — the viewport anchor should be used for position
+    // preservation but NOT promoted to explicit focus
+    await spaNavigate(
+      kupua.page,
+      `/search?nonFree=true&query=${encodeURIComponent(`credit:"${anchor.credit}"`)}`,
+    );
+
+    // Wait for search to complete
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return s.sortAroundFocusStatus === null && !s.loading;
+      },
+      { timeout: 10_000 },
+    );
+
+    // focusedImageId must remain null — no focus ring should appear
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    const placement = await kupua.page.evaluate(async (anchorId) => {
+      const container = document.querySelector(
+        '[aria-label="Image results grid"], [aria-label="Image results table"]',
+      );
+      const cell = document.querySelector(`[data-image-id="${CSS.escape(anchorId)}"]`);
+      if (!container || !cell) return null;
+      const first = cell.getBoundingClientRect();
+      const viewport = container.getBoundingClientRect();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      const second = cell.getBoundingClientRect();
+      return {
+        visible: second.bottom > viewport.top
+          && second.top < viewport.bottom
+          && second.right > viewport.left
+          && second.left < viewport.right,
+        stable: Math.abs(first.top - second.top) <= 1
+          && Math.abs(first.left - second.left) <= 1,
+      };
+    }, anchor.id);
+    expect(placement).toEqual({ visible: true, stable: true });
+  });
+
+  test("position NOT preserved across sort-only change without explicit focus", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Scroll down — build a viewport anchor
+    await kupua.scrollBy(1500);
+  await expect.poll(() => kupua.getScrollTop()).toBeGreaterThan(0);
+
+    // Confirm no explicit focus
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    // Record scrollTop before sort change
+    const scrollBefore = await kupua.getScrollTop();
+    expect(scrollBefore).toBeGreaterThan(0);
+
+    // Change only sort order — this should reset to top (relaxation)
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=uploadTime`);
+
+    // Wait for this navigation's search to complete at the top.
+    await kupua.page.waitForFunction(
+      () => {
+        const store = (window as any).__kupua_store__;
+        if (!store) return false;
+        const s = store.getState();
+        return new URL(window.location.href).searchParams.get("orderBy") === "uploadTime"
+          && s.params.orderBy === "uploadTime"
+          && s.bufferOffset === 0
+          && s.sortAroundFocusStatus === null
+          && !s.loading;
+      },
+      undefined,
+      { timeout: 10_000 },
+    );
+
+    // Buffer offset should be 0 (reset to top)
+    expect(await kupua.page.evaluate(() => {
+      const store = (window as any).__kupua_store__;
+      return store.getState().bufferOffset;
+    })).toBe(0);
+
+    // Focus should still be null
+    expect(await kupua.getFocusedImageId()).toBeNull();
+  });
+
+  test("explicit focus still takes precedence over phantom for sort change", async ({
+    kupua,
+  }) => {
+    await kupua.startSearch();
+
+    // Set explicit focus
+    await kupua.focusNthItem(2);
+    const focusedId = await kupua.getFocusedImageId();
+    expect(focusedId).not.toBeNull();
+
+    // Change sort order — explicit focus should be preserved (no relaxation)
+    await spaNavigate(kupua.page, `/search?nonFree=true&orderBy=uploadTime`);
+    await kupua.waitForSortAroundFocus();
+
+    // Focus should be preserved on the same image
+    expect(await kupua.getFocusedImageId()).toBe(focusedId);
+  });
+});

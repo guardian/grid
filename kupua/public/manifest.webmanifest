@@ -1,0 +1,16 @@
+{
+  "name": "Grid",
+  "short_name": "Grid",
+  "start_url": "/search",
+  "scope": "/",
+  "display": "fullscreen",
+  "theme_color": "#333333",
+  "background_color": "#333333",
+  "icons": [
+    {
+      "src": "images/grid-favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
