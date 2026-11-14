@@ -49,6 +49,22 @@ describe("getGridSessionPermissions", () => {
     vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "https://auth.example.test");
   });
 
+  it("shares one human session read with recent-upload identity and invalidates both projections", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(sessionRoot()).mockResolvedValueOnce(Response.json({ data: { user: {
+      email: "uploader@example.invalid", name: "Fixture", permissions: { canUpload: true },
+    } } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const session = await import("./grid-api-instance");
+    const identity = (session as unknown as { getGridSessionIdentity: () => Promise<string | null> }).getGridSessionIdentity;
+    expect(typeof identity).toBe("function");
+    expect(await Promise.all([identity(), session.getGridSessionPermissions()])).toEqual(["uploader@example.invalid", { canUpload: true }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    session.invalidateGridSession();
+    expect(await identity()).toBeNull();
+    expect(await session.getGridSessionPermissions()).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reads the discovered session once on demand and retains only explicit permission facts", async () => {
     let release!: (response: Response) => void;
     const fetchMock = vi.fn()

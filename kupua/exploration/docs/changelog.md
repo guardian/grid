@@ -24,6 +24,38 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 14 November 2026 - Local upload batches, entry and navigation
+
+Added permission-aware multi-file picker/drop on Search and Upload, excluding Grid
+and in-page image drags. Later submissions create distinct batches. Short local
+references, a small current/retained selector and persistent expandable activity
+separate file attempts, canonical images, processing and attention outcomes from
+returning to the original Search context.
+The selector retains a readable minimum width as compact toolbars wrap.
+
+Allowlisted tab-session descriptors retain known membership/revision and lightweight
+receipts, not bytes, capabilities, authority or image bodies. Reload marks unfinished
+attempts interrupted without resuming observation or replaying submissions. Explicit
+storage budgets, in-page history fallback, visible retention failures and protection
+for settled but unretained work avoid silently deleting older targets. A storage-only
+retry preserves the distinction from read-only status reconciliation and uploads.
+
+My recent uploads uses a narrow in-memory human identity projection over the shared
+session read, mapped to existing uploadedBy search. Missing identity fails closed;
+history/cursor keys contain no identity. Stable recent-route qualification preserves
+Back/Forward and detail traversal across reload. Recent sorting keeps library
+selection dormant, routing no longer logs serialized query payloads, and batch IDs
+reuse the existing insecure-context-safe UUID mint.
+
+Job-owned images default to submitted-filename order through bounded ID-scoped
+search pages, with consistent count/rank/key qualification and explicit server sorts.
+Raw mget can include lifecycle-excluded members that search omits; using it against
+a search count could prematurely complete a buffer and hide a later live image.
+Retained membership is not rewritten by omission. Existing density/detail/crop,
+first-child URL synchronization and captured operation targets remain shared.
+Forms, metadata applicators, durable batches and backend same-name isolation remain
+separately owned; U3's queued receipts and deployment-policy limits are unchanged.
+
 ### 14 November 2026 - Real upload transport and route-independent jobs
 
 Added configured direct-load and signed-upload contracts behind a separate,
@@ -66,12 +98,11 @@ Hello, Joshua without changing preferences, shortcuts or admission behavior.
 
 Local development adds a kupua.media nginx mapping for Vite and its exact frontend
 origin to the LocalStack ingest CORS template, preserving existing methods, headers
-and Kahuna access. Shared TEST storage policy is unchanged. The mixed-topology
-storage-CSP experiment, controller wiring and regression cases are retained as an
-unapplied patch linked from Architecture 09; active hosting keeps inherited
-connect-src and its existing WebAssembly allowance. Full batch entry/navigation,
-form density, post-upload metadata and deployed TEST acceptance remain separately
-owned; local evidence does not establish shared-environment rollout approval.
+and Kahuna access. Shared TEST storage policy is unchanged. Active hosting keeps
+inherited connect-src and its existing WebAssembly allowance, without a special
+mixed-topology storage allowance. Full batch entry/navigation,
+form density, post-upload metadata and broader rollout approval remain separately
+owned rather than following from one-file ingestion.
 
 ### 14 November 2026 - Route-safe Upload browsing
 

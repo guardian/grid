@@ -38,6 +38,335 @@ test.describe("U3 isolated uploads", () => {
     }
   });
 
+  test("U4 Search picker and drops create distinct batches while internal image drags create no upload", async ({ page }) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing");
+      Object.defineProperty(crypto, "randomUUID", { configurable: true, value: undefined });
+    });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.goto(`${origin}/__continuation?density=grid`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Upload", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    expect(await page.locator('input[type="file"][multiple]').count()).toBe(1);
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: "z.jpg", mimeType: "image/jpeg", buffer: Buffer.from("first fixture") },
+      { name: "a.jpg", mimeType: "image/jpeg", buffer: Buffer.from("second fixture") },
+    ]);
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
+    const first = new URL(page.url()).searchParams.get("batch");
+    expect(first).toMatch(/^local-/);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await new KupuaHelpers(page).waitForResults();
+    const drop = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(["third fixture"], "next.jpg", { type: "image/jpeg" }));
+      return transfer;
+    });
+    try {
+      await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
+      await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(3);
+      const second = new URL(page.url()).searchParams.get("batch");
+      expect(second).toMatch(/^local-/);
+      expect(second).not.toBe(first);
+      await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
+      await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
+      expect(new URL(page.url()).searchParams.get("batch")).not.toBe(second);
+      expect(new URL(page.url()).searchParams.get("batch")).not.toBe(first);
+      await page.getByRole("button", { name: "Search", exact: true }).click();
+      await new KupuaHelpers(page).waitForResults();
+      const image = page.locator("[data-image-id]").first();
+      await image.dispatchEvent("dragstart", { dataTransfer: drop });
+      await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
+      await image.dispatchEvent("dragend", { dataTransfer: drop });
+      expect(new URL(page.url()).pathname).toBe("/search");
+      expect(await page.evaluate(async () => {
+        const jobsPath = "/src/stores/upload-jobs-store.ts";
+        return (await import(jobsPath)).useUploadJobsStore.getState().batches.length;
+      })).toBe(3);
+      expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
+    } finally { await drop.dispose(); }
+  });
+
+  test("U4 retained batch URLs survive reload beyond five choices without resuming jobs", async ({ page }) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    expect(await page.getByRole("combobox", { name: "Upload batch", exact: true }).count()).toBe(0);
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    expect(await page.getByRole("combobox", { name: "Upload batch", exact: true }).count()).toBe(1);
+    const ids = await page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      const jobs = await import(jobsPath);
+      return Array.from({ length: 7 }, (_, index) => jobs.submitUploadFiles([new File([`synthetic ${index}`], `file-${index}.jpg`)]));
+    });
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(7);
+    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
+    await expect.poll(() => page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      return (await import(jobsPath)).useUploadJobsStore.getState().batches.every((batch: any) => batch.attempts[0].phase === "complete");
+    })).toBe(true);
+    await expect(page.getByRole("combobox", { name: "Upload batch", exact: true }).locator("option")).toHaveCount(6);
+    await page.goto(`${origin}/upload?batch=${ids[0]}`);
+    const selector = page.getByRole("combobox", { name: "Upload batch", exact: true });
+    await expect(selector).toHaveValue(ids[0]!);
+    await expect(page.locator("[data-image-id]").first()).toBeVisible();
+    await page.reload();
+    await expect(selector).toHaveValue(ids[0]!);
+    await expect(page.locator("[data-image-id]").first()).toBeVisible();
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(7);
+    await page.goto(`${origin}/upload?batch=local-missing&image=${"f".repeat(40)}`);
+    await expect(page.getByText("This local batch is unavailable in this tab.", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(7);
+  });
+
+  test.describe("compact mixed batches", () => {
+    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test("U4 mixed files keep filename order, duplicate outcomes and compact detail/crop return", async ({ page }, testInfo) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, maxFileBytes: 20 } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: "z-original.jpg", mimeType: "image/jpeg", buffer: Buffer.from("one") },
+      { name: "a-first.jpg", mimeType: "image/jpeg", buffer: Buffer.from("two") },
+      { name: "m-duplicate.jpg", mimeType: "image/jpeg", buffer: Buffer.from("one") },
+      { name: "bad.jpg", mimeType: "image/jpeg", buffer: Buffer.from("unsupported") },
+      { name: "oversized.jpg", mimeType: "image/jpeg", buffer: Buffer.from("x".repeat(21)) },
+    ]);
+    const batch = new URL(page.url()).searchParams.get("batch")!;
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
+    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
+    await expect(page.getByText("Upload activity: 5 files; 2 images available", { exact: true })).toBeVisible();
+    const firstId = "ad782ecdac770fc6eb9a62e44f90873fb97fb26b";
+    const secondId = "fe05bcdcdc4928012781a5f1a2a77cbb5398e106";
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await expect.poll(() => table.locator("[data-image-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-image-id")))).toEqual([firstId, secondId]);
+    await expect(page.getByRole("button", { name: "Sort by: Submitted filename", exact: true })).toBeVisible();
+    await page.getByText(/Upload activity:/).click();
+    const outcomes = page.locator("[data-upload-attempt]");
+    expect(await outcomes.locator(":scope > span:first-child").allTextContents()).toEqual(["a-first.jpg", "bad.jpg", "m-duplicate.jpg", "oversized.jpg", "z-original.jpg"]);
+    await expect(page.getByText("Same canonical image as another file", { exact: true })).toBeVisible();
+    await expect(page.getByText("File exceeds the configured upload size limit.", { exact: true })).toBeVisible();
+    await page.getByText(/Upload activity:/).click();
+    await page.getByRole("button", { name: "Sort by: Submitted filename", exact: true }).click();
+    await page.getByRole("option", { name: "Uploaded", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Sort by: Uploaded", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Sort by: Uploaded", exact: true }).click();
+    await page.getByRole("option", { name: "Submitted filename", exact: true }).click();
+    await expect.poll(() => table.locator("[data-image-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-image-id")))).toEqual([firstId, secondId]);
+    await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+    expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect((await page.getByRole("combobox", { name: "Upload batch", exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(180);
+    await page.screenshot({ path: testInfo.outputPath("u4-batch-compact.png") });
+    await table.locator(`[data-image-id="${firstId}"]`).tap();
+    await expect(page.locator(`[data-detail-image-id="${firstId}"]`)).toBeVisible();
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    const crop = page.getByRole("dialog", { name: "Crop image", exact: true });
+    await expect(crop).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
+    await crop.getByRole("button", { name: "Back to image", exact: true }).click();
+    await page.goBack();
+    await expect(table).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
+  });
+  });
+
+  test("U4 recent uploads retain position across Search and never widen after identity loss", async ({ page }) => {
+    const escaped: string[] = [];
+    const consoleMessages: string[] = [];
+    page.on("console", message => consoleMessages.push(message.text()));
+    await page.route("**/*", route => {
+      if (new URL(route.request().url()).origin === origin) return route.continue();
+      escaped.push(new URL(route.request().url()).origin);
+      return route.abort();
+    });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10_000 } });
+    const bodies: Record<string, unknown>[] = [];
+    page.on("request", request => {
+      if (request.method() === "POST" && /\/api\/images\/(search-after|window|count|keys|rank)$/.test(request.url())) bodies.push(request.postDataJSON());
+    });
+    await page.goto(`${origin}/upload`);
+    const kupua = new KupuaHelpers(page);
+    await kupua.waitForResults();
+    await page.getByRole("button", { name: "Table view", exact: true }).click();
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await expect(table).toBeVisible();
+    expect(bodies.length).toBeGreaterThan(0);
+    expect(bodies.every(body => body.uploadedBy === "uploader@example.invalid" && !body.free && body.q === "")).toBe(true);
+    expect(consoleMessages.join("\n").includes("uploader@example.invalid")).toBe(false);
+    await table.evaluate(element => { element.scrollTop = 650; });
+    const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    await page.mouse.click(point.x, point.y);
+    const anchor = await table.locator(`[data-image-id="${point.imageId}"]`).evaluate(element => element.getBoundingClientRect().top);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await kupua.waitForResults();
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveValue("");
+    await expect.poll(async () => {
+      const row = table.locator(`[data-image-id="${point.imageId}"]`);
+      return await row.count() ? Math.abs(await row.evaluate(element => element.getBoundingClientRect().top) - anchor) : null;
+    }).toBeLessThan(1);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await kupua.waitForResults();
+    await page.reload();
+    await kupua.waitForResults();
+    await page.goBack();
+    await expect.poll(async () => {
+      const row = table.locator(`[data-image-id="${point.imageId}"]`);
+      return await row.count() ? Math.abs(await row.evaluate(element => element.getBoundingClientRect().top) - anchor) : null;
+    }).toBeLessThan(1);
+    await kupua.seekTo(0.55);
+    const deep = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    await table.locator(`[data-image-id="${deep.imageId}"]`).dblclick();
+    await expect(page.locator(`[data-detail-image-id="${deep.imageId}"]`)).toBeVisible();
+    await page.reload();
+    await expect(page.locator(`[data-detail-image-id="${deep.imageId}"]`)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Next image", exact: true })).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => page.locator("[data-detail-image-id]").getAttribute("data-detail-image-id")).not.toBe(deep.imageId);
+    await page.goBack();
+    await expect(table).toBeVisible();
+    expect(await page.evaluate(() => Object.keys(sessionStorage).map(key => sessionStorage.getItem(key)).join("").includes("uploader@example.invalid"))).toBe(false);
+    await page.evaluate(async () => {
+      const sessionPath = "/src/lib/grid-api-instance.ts";
+      (await import(sessionPath)).invalidateGridSession();
+    });
+    await expect(page.getByText("My recent uploads are unavailable. Reload after signing in to a human account.", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-image-id]")).toHaveCount(0);
+    await page.request.post(`${origin}/__upload-control`, { data: { identityAvailable: false } });
+    bodies.length = 0;
+    await page.reload();
+    await expect(page.getByText("My recent uploads are unavailable. Reload after signing in to a human account.", { exact: true })).toBeVisible();
+    expect(bodies).toEqual([]);
+    expect(escaped).toEqual([]);
+  });
+
+  test("U4 interrupted jobs stay idle after reload and quota recovery only retries local storage", async ({ page }) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.locator('input[type="file"]').setInputFiles({ name: "pending.jpg", mimeType: "image/jpeg", buffer: Buffer.from("pending") });
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
+    const acceptUnload = (dialog: Dialog) => dialog.type() === "beforeunload" ? dialog.accept() : dialog.dismiss();
+    page.on("dialog", acceptUnload);
+    try { await page.reload(); } finally { page.off("dialog", acceptUnload); }
+    await page.getByText(/Upload activity:/).click();
+    await expect(page.getByText("Interrupted; not resumed", { exact: true })).toBeVisible();
+    const afterReload = (await (await page.request.get(`${origin}/__upload-control`)).json()).statusReads;
+    await page.waitForTimeout(2_200);
+    const idle = await (await page.request.get(`${origin}/__upload-control`)).json();
+    expect(idle.statusReads).toBe(afterReload);
+    expect(idle.writes).toBe(1);
+    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
+    await page.getByRole("button", { name: "Check status", exact: true }).click();
+    await expect(page.getByText("Known image", { exact: true })).toBeVisible();
+    const restore = await page.evaluateHandle(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key.startsWith("kupua:uploadBatch:")) throw new DOMException("Synthetic quota", "QuotaExceededError");
+        original.call(this, key, value);
+      };
+      return () => { Storage.prototype.setItem = original; };
+    });
+    try {
+      await page.locator('input[type="file"]').setInputFiles({ name: "quota.jpg", mimeType: "image/jpeg", buffer: Buffer.from("quota") });
+      const warning = page.getByText(/This batch has changes that could not be retained/);
+      await expect(warning).toBeVisible();
+      await expect(page.getByText("Upload activity: 1 file; 1 image available", { exact: true })).toBeVisible();
+      await restore.evaluate(restoreStorage => restoreStorage());
+      await page.getByRole("button", { name: "Try local storage again", exact: true }).click();
+      await expect(warning).toHaveCount(0);
+      expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
+    } finally { await restore.evaluate(restoreStorage => restoreStorage()); await restore.dispose(); }
+  });
+
+  test("U4 compiled-hosted batches use direct services and retain reload and detail history", async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
+    const outDir = testInfo.outputPath("hosted-u4");
+    const nodeEnv = process.env.NODE_ENV;
+    try {
+      process.env.NODE_ENV = "production";
+      await build({ configFile: resolve("vite.config.ts"), mode: "hosted",
+        define: { "import.meta.env.VITE_HOSTED": '"true"', "import.meta.env.VITE_USE_MEDIA_API": '"true"', "import.meta.env.DEV": "false", "import.meta.env.PROD": "true" },
+        build: { outDir, emptyOutDir: true },
+      });
+    } finally { if (nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = nodeEnv; }
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+    const appOrigin = "https://app.example.test";
+    const apiOrigin = "https://api.example.test";
+    const authOrigin = "https://auth.example.test";
+    const loaderOrigin = "https://loader.example.test";
+    const config = { mediaApiUri: apiOrigin, gridConfig: { upload: { transport: "direct" } } };
+    const escaped: string[] = [];
+    const cors = { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "content-type" };
+    await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
+    await page.route("**/*", async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.origin === appOrigin && ["/", "/search", "/upload"].includes(url.pathname)) {
+        const html = (await readFile(resolve(outDir, "index.html"), "utf8")).replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify(config)}</script>`);
+        return route.fulfill({ contentType: "text/html", body: html, headers: {
+          "Content-Security-Policy": `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ${apiOrigin} ${authOrigin} ${loaderOrigin}`,
+        } });
+      }
+      if (url.origin === appOrigin && url.pathname.startsWith("/assets/kupua/")) {
+        const file = resolve(outDir, url.pathname.slice("/assets/kupua/".length));
+        if (!file.startsWith(`${outDir}/`)) return route.abort();
+        const contentType = extname(file) === ".css" ? "text/css" : extname(file) === ".wasm" ? "application/wasm" : extname(file) === ".svg" ? "image/svg+xml" : "text/javascript";
+        return route.fulfill({ body: await readFile(file), contentType });
+      }
+      const prefix = url.origin === apiOrigin ? "/api" : url.origin === authOrigin ? "/grid-auth" : url.origin === loaderOrigin ? "/grid-loader" : undefined;
+      if (prefix !== undefined || url.origin === appOrigin && url.pathname.startsWith("/__publication-media/")) {
+        if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+        const response = await route.fetch({ url: `${origin}${prefix ?? ""}${url.pathname}${url.search}` });
+        return route.fulfill({ response, headers: { ...response.headers(), ...cors } });
+      }
+      escaped.push(`${url.origin}${url.pathname}`);
+      return route.abort();
+    });
+    await page.goto(`${appOrigin}/search?nonFree=true`);
+    await expect(page.locator("[data-image-id]").first()).toBeVisible();
+    expect(await page.evaluate(() => "__kupua_store__" in window)).toBe(false);
+    await page.getByRole("button", { name: "Table view", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toBeEnabled();
+    await page.locator('input[type="file"]').setInputFiles([
+      { name: "z.jpg", mimeType: "image/jpeg", buffer: Buffer.from("one") },
+      { name: "a.jpg", mimeType: "image/jpeg", buffer: Buffer.from("two") },
+    ]);
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
+    const batch = new URL(page.url()).searchParams.get("batch")!;
+    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
+    await expect(page.getByText("Upload activity: 2 files; 2 images available", { exact: true })).toBeVisible();
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await expect(table.locator("[data-image-id]")).toHaveCount(2);
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveValue(batch);
+    await expect(table.locator("[data-image-id]")).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath("u4-batch-hosted-desktop.png") });
+    await page.getByText(/Upload activity:/).click();
+    await page.locator("[data-upload-attempt]").first().getByRole("button", { name: "Open image", exact: true }).click();
+    await expect(page.locator("[data-detail-image-id]")).toBeVisible();
+    await page.goBack();
+    await expect(table).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
+    await page.goForward();
+    await expect(page.locator("[data-detail-image-id]")).toBeVisible();
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
+    expect(escaped).toEqual([]);
+  });
+
   test("upload opt-in, route-independent completion and activity detail preserve admission and history", async ({ page }, testInfo) => {
     const escaped: string[] = [];
     await page.route("**/*", route => {
@@ -59,7 +388,7 @@ test.describe("U3 isolated uploads", () => {
       const routerPath = "/src/router.ts";
       await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
     });
-    await expect(page.getByRole("button", { name: "Upload one file", exact: true })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toBeDisabled();
     await page.evaluate(async () => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
       (await import(jobsPath)).submitUploadFiles([new File(["synthetic"], "blocked.jpg")]);
@@ -75,7 +404,7 @@ test.describe("U3 isolated uploads", () => {
     await dialog.getByRole("checkbox", { name: "Allow editing", exact: true }).uncheck();
     await dialog.getByRole("checkbox", { name: "Allow real uploads", exact: true }).check();
     await Promise.all([page.waitForEvent("load"), dialog.getByRole("button", { name: "Apply and reload", exact: true }).click()]);
-    await expect(page.getByRole("button", { name: "Upload one file", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toBeEnabled();
     expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
     expect(await page.evaluate(() => (window as CommandWindow).commandFixture.gridLabelEditingEnabled())).toBe(false);
     await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -102,19 +431,19 @@ test.describe("U3 isolated uploads", () => {
     await uploadSummary.click();
     await page.getByRole("button", { name: "Search", exact: true }).click();
     await expect(page).toHaveURL(/\/search/);
-    await expect.poll(() => page.evaluate(async () => {
+    await expect.poll(() => page.evaluate(async batchId => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
-      return (await import(jobsPath)).useUploadJobsStore.getState().batches[0].attempts[0].submission?.outcome;
-    })).toBe("accepted");
-    await page.evaluate(async () => {
+      return (await import(jobsPath)).useUploadJobsStore.getState().batches.find((item: any) => item.id === batchId)?.attempts[0].submission?.outcome;
+    }, batch)).toBe("accepted");
+    await page.evaluate(async batchId => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
       const { useUploadJobsStore } = await import(jobsPath) as typeof import("../../src/stores/upload-jobs-store");
-      useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => ({ ...batch,
+      useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => batch.id !== batchId ? batch : ({ ...batch,
         attempts: batch.attempts.map(attempt => ({ ...attempt,
           submission: { ...attempt.submission, outcome: "accepted", stage: "queued", queued: "rejected" },
         })),
       })) }));
-    });
+    }, batch);
     const queuedReceipt = page.getByText("Queued update rejected; file transfer acknowledged", { exact: true });
     await expect(queuedReceipt).toBeVisible();
     await expect(page.getByText("Upload receipt", { exact: true })).toHaveCount(0);
@@ -203,6 +532,32 @@ test.describe("Unit B isolated continuation", () => {
     await page.evaluate(() => (window as Partial<CommandWindow>).editorFixture?.disposeReadback()).catch(() => {});
     await page.goto("about:blank");
     await page.unrouteAll({ behavior: "wait" });
+  });
+
+  test("U4 submitted order reaches the last live member when an earlier retained image is search-excluded but mget-readable", async ({ page }) => {
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 201 } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "hide-from-search", ids: ["local-0"] } });
+    const mget = await (await page.request.post(`${origin}/api/images/mget`, { data: { ids: ["local-0"] } })).json();
+    expect(mget.data[0].data.id).toBe("local-0");
+    await page.evaluate(async () => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const routerPath = "/src/router.ts";
+      const { uploadBatchMembership } = await import(contextPath);
+      uploadBatchMembership.getState().set("local-lifecycle", Array.from({ length: 201 }, (_, index) => `local-${index}`), undefined, true);
+      await (await import(routerPath)).router.navigate({ to: "/upload", search: { batch: "local-lifecycle" } });
+    });
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await expect(table.locator('[data-image-id="local-1"]')).toBeVisible();
+    await expect(table.locator('[data-image-id="local-0"]')).toHaveCount(0);
+    await page.keyboard.press("End");
+    await expect(table.locator('[data-image-id="local-200"]')).toBeInViewport();
+    expect(await page.evaluate(async () => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      return (await import(contextPath)).uploadBatchMembership.getState().batches.get("local-lifecycle").ids.length;
+    })).toBe(201);
+    expect((await counts(page)).unexpected).toEqual([]);
   });
 
   test("U1 API browsing returns between filtered search, batch, densities, detail and crop without selection leakage", async ({ page }) => {
@@ -454,7 +809,7 @@ test.describe("Unit B isolated continuation", () => {
         await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
       }
       await page.getByRole("button", { name: "Recent uploads", exact: true }).click();
-      await expect(page.getByText("Recent uploads are not connected yet.", { exact: true })).toBeVisible();
+      await expect(page.getByText("My recent uploads are unavailable. Reload after signing in to a human account.", { exact: true })).toBeVisible();
       expect(await page.evaluate(() => (window as any).__u1Admission.calls)).toBe(calls);
     } finally {
       await page.evaluate(() => { (window as any).__u1Admission?.dispose(); delete (window as any).__u1Admission; });

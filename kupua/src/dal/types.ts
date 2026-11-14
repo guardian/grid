@@ -25,7 +25,8 @@ import type { EnrichmentFields } from "@/stores/enrichment-store";
 export type SortValues = (string | number | null)[];
 
 export interface SearchParams {
-  imageScope?: { key: string; revision: number; ids: readonly string[] };
+  imageScope?: { key: string; revision: number; ids: readonly string[]; submittedOrder?: boolean };
+  recentUploadScope?: { key: string; uploadedBy: string };
 
   // --- Params that appear in kahuna's URL (search.results state) ---
 

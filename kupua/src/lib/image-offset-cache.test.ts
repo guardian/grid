@@ -50,6 +50,13 @@ const SPARSE_IMAGE: Image = {
 // buildSearchKey
 // ---------------------------------------------------------------------------
 describe("buildSearchKey", () => {
+  it("qualifies recent uploads without storing the authenticated identity in fingerprints", () => {
+    const key = buildSearchKey({ nonFree: "true", recentUploadScope: { key: "recent:page-one", uploadedBy: "uploader@example.invalid" } });
+    expect(key).not.toContain("uploader@example.invalid");
+    expect(key).toContain("recent:page-one");
+    expect(key).not.toBe(buildSearchKey({ nonFree: "true", recentUploadScope: { key: "recent:page-two", uploadedBy: "other@example.invalid" } }));
+  });
+
   it("distinguishes local batch identity and membership revision with identical sorting", () => {
     const params = { orderBy: "-uploadTime", imageScope: { key: "upload:local-one", revision: 1, ids: ["image"] } };
     expect(buildSearchKey(params)).not.toBe(buildSearchKey({ ...params, imageScope: { ...params.imageScope, key: "upload:local-two" } }));

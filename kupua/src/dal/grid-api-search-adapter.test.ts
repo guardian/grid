@@ -33,6 +33,15 @@ import type { SearchAfterResult } from "./types";
 describe("local image scope reads", () => {
   const imageScope = { key: "upload:local-one", revision: 2, ids: ["one", "two"] };
 
+  it("maps the authenticated recent-upload scope to the existing uploader filter only", () => {
+    const body = buildReadBody({ nonFree: "true", recentUploadScope: { key: "recent:opaque", uploadedBy: "uploader@example.invalid" } });
+    expect(body.uploadedBy).toBe("uploader@example.invalid");
+    expect(body.q).toBe("");
+    expect(body).not.toHaveProperty("free");
+    expect(body).not.toHaveProperty("recentUploadScope");
+    expect(body).not.toHaveProperty("ids");
+  });
+
   it("sends canonical membership without the local reference or revision", () => {
     const body = buildReadBody({ imageScope, nonFree: "true" });
     expect(body.ids).toEqual(["one", "two"]);

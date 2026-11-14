@@ -54,14 +54,14 @@ import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
-import { initGridApi } from "@/lib/grid-api-instance";
+import { getGridSessionIdentity, initGridApi, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import type { Image } from "@/types/image";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
 import type { LabelEditContext } from "@/lib/label-operation";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
 import { useIsCompact } from "@/hooks/useShell";
-import { UploadEntry } from "@/components/UploadActivity";
+import { UploadBatchSelector, UploadEntry } from "@/components/UploadActivity";
 import { SettingsMenu } from "@/components/SettingsMenu";
 
 export const searchRoute = createRoute({
@@ -80,10 +80,22 @@ export const uploadRoute = createRoute({
 
 function UploadPage() {
   const { batch } = uploadRoute.useSearch();
+  const [identity, setIdentity] = useState<string | null>();
+  useEffect(() => subscribeGridSessionInvalidation(() => setIdentity(null)), []);
+  useEffect(() => {
+    if (!UPLOAD_BROWSING_ENABLED || batch) return;
+    let disposed = false;
+    setIdentity(undefined);
+    void getGridSessionIdentity().then(value => { if (!disposed) setIdentity(value); });
+    return () => { disposed = true; };
+  }, [batch]);
   const membership = uploadBatchMembership(state => batch ? state.batches.get(batch) : undefined);
-  const imageScope = useMemo(() => (UPLOAD_BROWSING_ENABLED ? membership : undefined)
-    ?? { key: `upload:${batch ?? "recent"}`, revision: 0, ids: [] }, [membership, batch]);
-  return <BrowsingContext value={{ path: "/upload", imageScope }}><SearchPage /></BrowsingContext>;
+  const recentUploadScope = useMemo(() => !batch && identity ? { key: "upload:recent", uploadedBy: identity } : undefined, [batch, identity]);
+  const imageScope = useMemo(() => UPLOAD_BROWSING_ENABLED && recentUploadScope ? undefined : (UPLOAD_BROWSING_ENABLED ? membership : undefined)
+    ?? { key: `upload:${batch ?? "recent-unavailable"}`, revision: 0, ids: [] }, [membership, batch, recentUploadScope]);
+  return <BrowsingContext value={{ path: "/upload", imageScope, recentUploadScope,
+    ...(!batch && !recentUploadScope ? { recentStatus: identity === undefined ? "loading" : "unavailable" } as const : {}),
+  }}><SearchPage /></BrowsingContext>;
 }
 
 function BrowsingSync() {
@@ -93,18 +105,18 @@ function BrowsingSync() {
 
 function SearchPage() {
   const { image, batch } = useBrowsingSearch();
-  const { path, imageScope } = useBrowsingContext();
+  const { path, imageScope, recentUploadScope, recentStatus } = useBrowsingContext();
   const upload = path === "/upload";
   const navigate = useNavigate();
-  const engineScope = useSearchStore(state => state.params.imageScope);
-  const admitted = engineScope?.key === imageScope?.key;
+  const engineScope = useSearchStore(state => state.params.imageScope?.key ?? state.params.recentUploadScope?.key);
+  const admitted = engineScope === (imageScope?.key ?? recentUploadScope?.key);
   const density = useUiPrefsStore((state) => state.density);
   const measuredPrototype = useMeasuredPrototype(state => import.meta.env.DEV && state.enabled);
   const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
   const handleRange = useRangeSelection();
-  const showImageDetail = !!image && (!upload || !!imageScope?.ids.includes(image));
+  const showImageDetail = !!image && (!upload || !!recentUploadScope || !!imageScope?.ids.includes(image));
   const isGrid = density !== "table";
 
   // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
@@ -212,6 +224,7 @@ function SearchPage() {
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
+      if (store.params.imageScope?.submittedOrder && !store.params.orderBy) return null;
       return interpolateNullZoneSortLabel(
         store.params.orderBy,
         globalPosition,
@@ -231,7 +244,8 @@ function SearchPage() {
   // Fires for both keyword sorts (composite agg) and date sorts (date_histogram).
   const fetchSortDistribution = useSearchStore((s) => s.fetchSortDistribution);
   const fetchNullZoneDistribution = useSearchStore((s) => s.fetchNullZoneDistribution);
-  const hasDistributableSort = !!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy);
+  const submittedOrder = !!searchParams.imageScope?.submittedOrder && !orderBy;
+  const hasDistributableSort = !submittedOrder && (!!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy));
   const onScrubberInteraction = useCallback(() => {
     if (hasDistributableSort) fetchSortDistribution();
   }, [hasDistributableSort, fetchSortDistribution]);
@@ -252,7 +266,7 @@ function SearchPage() {
   // Without distribution in seek mode: empty (linear extrapolation is unreliable).
   // Null-zone aware: includes boundary tick + uploadTime-based ticks in the null zone.
   const allDataInBuffer = total <= bufferLength;
-  const ticksEnabled = allDataInBuffer || sortDistribution !== null;
+  const ticksEnabled = !submittedOrder && (allDataInBuffer || sortDistribution !== null);
   const tickResults = ticksEnabled && resolveDateSortInfo(orderBy) &&
     (sortDistribution?.buckets.length ?? 0) < 2 ? results : null;
   const tickBufferOffset = tickResults ? bufferOffset : 0;
@@ -305,9 +319,9 @@ function SearchPage() {
         // trap silently swallows ImageDetail's Backspace/arrow shortcuts.
         inert={showImageDetail || undefined}
       >
-        {upload ? <header className="flex items-center gap-3 border-b border-grid-separator px-3 py-2 text-grid-text">
+        {upload ? <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-grid-separator px-3 py-2 text-grid-text">
           <h1 className="text-base font-medium">Upload</h1>
-          {batch && <span className="min-w-0 flex-1 truncate text-sm text-grid-text-muted">{batch}</span>}
+          {UPLOAD_BROWSING_ENABLED && <UploadBatchSelector batch={batch} />}
           {UPLOAD_BROWSING_ENABLED && <SearchFilters.Sort alwaysVisible />}
           {UPLOAD_BROWSING_ENABLED && <UploadEntry />}
           <SettingsMenu />
@@ -348,7 +362,8 @@ function SearchPage() {
           {!admitted ? <div role="status" className="p-6 text-grid-text-muted">Loading...</div>
             : upload && !UPLOAD_BROWSING_ENABLED ? <div role="status" className="p-6 text-grid-text-muted">Upload requires media-api mode.</div>
             : upload && imageScope?.ids.length === 0 ? <div role="status" className="p-6 text-grid-text-muted">
-            <p>{imageScope.revision > 0 ? "This batch has no available images yet." : batch ? "This local batch is unavailable in this tab." : "Recent uploads are not connected yet."}</p>
+            <p>{batch ? imageScope.revision > 0 ? "This batch has no available images yet." : "This local batch is unavailable in this tab."
+              : recentStatus === "loading" ? "Loading my recent uploads..." : "My recent uploads are unavailable. Reload after signing in to a human account."}</p>
             {batch && imageScope.revision === 0 && <button type="button" className="mt-3 cursor-pointer underline" onClick={() => navigate({ to: "/upload", search: {} })}>Recent uploads</button>}
           </div> : density === "justified" ? measuredPrototype && !upload ? <MeasuredGrid handleRange={handleRange} /> : <JustifiedGrid handleRange={handleRange} />
             : isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
@@ -362,7 +377,7 @@ function SearchPage() {
       {/* Image detail overlay — rendered when image is in URL.
           Must be AFTER FullscreenPreview so its `f` shortcut wins the
           keyboard shortcut stack (most-recently-registered = top). */}
-      {admitted && showImageDetail && (!upload || imageScope!.ids.includes(image)) && <ImageDetail imageId={image} gridContainerRef={gridContainerRef} />}
+      {admitted && showImageDetail && <ImageDetail imageId={image} gridContainerRef={gridContainerRef} />}
     </>
   );
 }

@@ -29,8 +29,9 @@ export function captureBrowsingDeparture(location: {
   pathname: string; search: Record<string, unknown>; state: object;
 }): void {
   if (location.pathname !== "/search" && location.pathname !== "/upload") return;
-  const scopeKey = location.pathname === "/upload" ? `upload:${location.search.batch ?? "recent"}` : undefined;
-  if (useSearchStore.getState().params.imageScope?.key !== scopeKey) return;
+  const params = useSearchStore.getState().params;
+  const scopeKey = location.pathname === "/upload" ? location.search.batch ? `upload:${location.search.batch}` : params.recentUploadScope?.key ?? "upload:recent-unavailable" : undefined;
+  if ((params.imageScope?.key ?? params.recentUploadScope?.key) !== scopeKey) return;
   const key = (location.state as { kupuaKey?: string }).kupuaKey;
   if (key) snapshotStore.set(key, buildHistorySnapshot());
   departures.set(location.pathname, { search: location.search, key, density: useUiPrefsStore.getState().density });

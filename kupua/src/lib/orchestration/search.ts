@@ -242,7 +242,6 @@ export function resetScrollAndFocusSearch(opts?: { skipEagerScroll?: boolean; is
  *  useUrlSearchSync and reset-to-home orchestration. */
 export let _prevParamsSerialized = "";
 export function setPrevParamsSerialized(s: string) {
-  devLog("[setPrevParams]", s);
   _prevParamsSerialized = s;
 }
 

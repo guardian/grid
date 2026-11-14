@@ -90,7 +90,7 @@ function cleanParams(
 
 export function useUrlSearchSync() {
   const routeSearch = useBrowsingSearch();
-  const { path, imageScope } = useBrowsingContext();
+  const { path, imageScope, recentUploadScope } = useBrowsingContext();
   // Router matches retain extra keys. Preserve known-key order for existing navigation dedup.
   const searchParams = useMemo(() => Object.fromEntries(
     Object.entries(routeSearch).filter(([key]) => Object.hasOwn(searchParamsSchema.shape, key))
@@ -169,13 +169,14 @@ export function useUrlSearchSync() {
     // Serialize to compare — avoids infinite loops from object identity changes.
     // Strip display-only keys (e.g. image) — they live in the URL but don't
     // affect ES queries. Changing only a display key should NOT trigger a search.
-    const searchOnly: Record<string, unknown> & SearchParams = { ...Object.fromEntries(
+    const searchOnly: Record<string, unknown> & SearchParams = { ...(path === "/upload" ? { orderBy: searchParams.orderBy } : Object.fromEntries(
       Object.entries(searchParams).filter(
         ([k]) => !URL_DISPLAY_KEYS.has(k as keyof UrlSearchParams)
       )
-    ), ...(imageScope ? { nonFree: "true", imageScope } : {}) };
-    const previousScope = useSearchStore.getState().params.imageScope;
-    const contextChanged = previousScope?.key !== imageScope?.key;
+    )), ...(path === "/upload" ? { nonFree: "true", imageScope, recentUploadScope } : {}) };
+    const previousParams = useSearchStore.getState().params;
+    const previousScope = previousParams.imageScope;
+    const contextChanged = (previousScope?.key ?? previousParams.recentUploadScope?.key) !== (imageScope?.key ?? recentUploadScope?.key);
     const membershipChanged = !contextChanged && previousScope?.revision !== imageScope?.revision;
     if (contextChanged) restoreBrowsingDensity(path);
     const serialized = JSON.stringify(searchOnly);
@@ -258,7 +259,7 @@ export function useUrlSearchSync() {
     // navigate through this code path, so a single check covers both.
     // User sort-only and native detail-origin changes are excluded;
     // density never changes the URL. Other history destinations restore.
-    if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !contextChanged && !imageScope) {
+    if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !contextChanged && path === "/search") {
       const isUrlNavigation = _prevParamsSerialized !== "" && !isSortOnly;
       if (isUrlNavigation) {
         useSelectionStore.getState().clear();
@@ -310,7 +311,7 @@ export function useUrlSearchSync() {
       const kupuaKey = getCurrentKupuaKey();
       const snapshot = qualifyBrowsingSnapshot(kupuaKey ? snapshotStore.get(kupuaKey) : undefined, searchOnly);
       continuity = historySearchContinuity(snapshot, searchOnly);
-      if (!searchOnly.aiQuery && !imageScope) {
+      if (!searchOnly.aiQuery && path === "/search") {
         const current = useSearchStore.getState();
         arrivalState = restoreArrivalState(snapshot, buildSearchKey(searchOnly), {
           searchKey: buildSearchKey(current.params),
@@ -340,7 +341,7 @@ export function useUrlSearchSync() {
     const reset = Object.fromEntries(
       searchKeys.map((k) => [k, undefined])
     );
-    setParams({ ...reset, imageScope, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
+    setParams({ ...reset, imageScope, recentUploadScope, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
     if (contextChanged) useSearchStore.setState({ results: [], total: 0, bufferOffset: 0,
       imagePositions: new Map(), focusedImageId: null, _focusedImageKnownOffset: null, startCursor: null, endCursor: null });
 
@@ -366,7 +367,7 @@ export function useUrlSearchSync() {
     // means no matching debounce ever fires to clear it), and every future
     // debounced query from the CQL editor is silently dropped.
     setExternalQuery(null);
-  }, [searchParams, routeSearch.batch, path, imageScope, location, observedEntryKey, setParams, search, navigate]);
+  }, [searchParams, routeSearch.batch, path, imageScope, recentUploadScope, location, observedEntryKey, setParams, search, navigate]);
 }
 
 /**

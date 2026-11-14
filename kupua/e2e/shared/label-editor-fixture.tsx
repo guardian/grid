@@ -64,7 +64,7 @@ async function readbackControl(body: Record<string, unknown>) {
 function renderReadbackControls() {
   root.render(<LabelEditorContext value={store}>
     <style>{`body { display: flex; flex-direction: column; height: 100dvh; margin: 0; }
-      #root { flex: 1; min-height: 0; } #root > .h-dvh { height: 100%; }
+      #root { flex: 1; min-height: 0; } #root > .h-dvh, #root > [data-upload-dropzone] > .h-dvh { height: 100%; }
       #a3-fixture-controls { order: -1; height: 32px; flex: none; }`}</style>
     <section aria-label="A3 synthetic readback" className="flex h-full items-center gap-3 overflow-x-auto whitespace-nowrap bg-black px-3 text-xs text-white [&>button]:shrink-0">
       <span>{continuation ? "Unit B synthetic continuation" : "A3 synthetic readback"}</span>
@@ -88,7 +88,7 @@ export const labelEditorFixture = {
     const density = new URLSearchParams(location.search).get("density");
     if (density === "grid" || density === "table" || density === "justified") useUiPrefsStore.getState().setDensity(density);
     useUiPrefsStore.setState({ blurGraphicImages: false, focusMode: "explicit" });
-    history.replaceState(null, "", continuation
+    if (location.pathname !== "/upload") history.replaceState(null, "", continuation
       ? new URLSearchParams(location.search).has("tail") ? "/search?nonFree=true&query=label%3Areviewed" : "/search?nonFree=true&query=-label%3Areviewed"
       : "/search?nonFree=true");
     useSelectionStore.getState().clear();

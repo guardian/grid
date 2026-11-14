@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { uploadBatchMembership } from "@/lib/browsing-context";
+import { loadUploadBatches, saveUploadBatch, useLocalPersistenceStore } from "@/lib/local-batch-storage";
+import { mintKupuaKey } from "@/lib/orchestration/history-key";
 import { observeGridUpload, observeUploadedImage, submitGridUpload, type UploadSubmission } from "@/lib/upload-commands";
 
-export type UploadPhase = "waiting" | "preparing" | "transferring" | "processing" | "visibility" | "complete" | "failed" | "blocked" | "uncertain";
+export type UploadPhase = "waiting" | "preparing" | "transferring" | "processing" | "visibility" | "complete" | "failed" | "blocked" | "uncertain" | "interrupted";
 export type UploadAttempt = {
   id: string;
   name: string;
@@ -11,10 +13,11 @@ export type UploadAttempt = {
   statusId?: string;
   imageId?: string;
   processingComplete?: boolean;
+  interrupted?: boolean;
   submission?: UploadSubmission;
   message?: string;
 };
-export type UploadBatch = { id: string; attempts: readonly UploadAttempt[] };
+export type UploadBatch = { id: string; createdAt: number; restored?: boolean; attempts: readonly UploadAttempt[] };
 export const useUploadJobsStore = create<{ batches: readonly UploadBatch[] }>(() => ({ batches: [] }));
 const files = new Map<string, File>();
 const requests = new Map<string, AbortController>();
@@ -35,12 +38,6 @@ function update(id: string, patch: Partial<UploadAttempt>): void {
   refreshLifecycle();
 }
 
-function publishMembership(): void {
-  for (const batch of useUploadJobsStore.getState().batches) {
-    uploadBatchMembership.getState().set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []));
-  }
-}
-
 function warnBeforeUnload(event: BeforeUnloadEvent): void {
   if (!hasActiveWork()) return;
   event.preventDefault();
@@ -48,8 +45,16 @@ function warnBeforeUnload(event: BeforeUnloadEvent): void {
 }
 
 function hasActiveWork(): boolean {
-  return useUploadJobsStore.getState().batches.some(batch => batch.attempts.some(attempt =>
+  const issues = useLocalPersistenceStore.getState().batchIssues;
+  return useUploadJobsStore.getState().batches.some(batch => !!issues[batch.id] || batch.attempts.some(attempt =>
     ["waiting", "preparing", "transferring", "processing", "visibility"].includes(attempt.phase)));
+}
+
+export function retainUploadBatches(): void {
+  for (const batch of useUploadJobsStore.getState().batches) {
+    saveUploadBatch(batch, uploadBatchMembership.getState().batches.get(batch.id)!.revision);
+  }
+  refreshLifecycle();
 }
 
 function refreshLifecycle(): void {
@@ -70,14 +75,13 @@ function ownLifecycle(): void {
 
 export function submitUploadFiles(submitted: readonly File[]): string | undefined {
   if (!submitted.length) return undefined;
-  const id = `local-${crypto.randomUUID()}`;
+  const id = `local-${mintKupuaKey()}`;
   const attempts = submitted.map(file => {
-    const attemptId = crypto.randomUUID();
+    const attemptId = mintKupuaKey();
     files.set(attemptId, file);
     return { id: attemptId, name: file.name, size: file.size, phase: "waiting" as const };
   }).sort((first, second) => first.name.localeCompare(second.name));
-  useUploadJobsStore.setState(state => ({ batches: [...state.batches, { id, attempts }] }));
-  uploadBatchMembership.getState().set(id, []);
+  useUploadJobsStore.setState(state => ({ batches: [...state.batches, { id, createdAt: Date.now(), attempts }] }));
   ownLifecycle();
   void transferNext();
   return id;
@@ -140,7 +144,6 @@ async function observeAttempt(id: string): Promise<void> {
     if (result.outcome === "visible") {
       update(id, { phase: "complete", imageId: attempt.statusId, message: undefined });
       observation.delete(id);
-      publishMembership();
     } else if (result.outcome === "failed") {
       update(id, { phase: "failed", message: "The loader reports processing failed." });
       observation.delete(id);
@@ -167,7 +170,7 @@ async function observeAttempt(id: string): Promise<void> {
 export function checkUploadAttempt(id: string): void {
   const attempt = attemptById(id);
   if (!attempt?.statusId || requests.has(id) || files.has(id) || observation.has(id)) return;
-  update(id, { phase: attempt.processingComplete ? "visibility" : "processing", message: undefined });
+  update(id, { phase: attempt.processingComplete ? "visibility" : "processing", interrupted: false, message: undefined });
   observation.set(id, { due: Date.now(), deadline: Date.now() + OBSERVE_FOR });
   scheduleObservation();
 }
@@ -180,7 +183,7 @@ export function disposeUploadJobs(): void {
   files.clear();
   useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => ({ ...batch,
     attempts: batch.attempts.map(attempt => ["waiting", "preparing", "transferring", "processing", "visibility"].includes(attempt.phase)
-      ? { ...attempt, phase: "uncertain", message: "This page was interrupted. No upload will be replayed." } : attempt),
+      ? { ...attempt, phase: "uncertain", interrupted: true, message: "This page was interrupted. No upload will be replayed." } : attempt),
   })) }));
   if (lifecycleOwned) {
     window.removeEventListener("beforeunload", warnBeforeUnload);
@@ -188,3 +191,18 @@ export function disposeUploadJobs(): void {
     lifecycleOwned = false;
   }
 }
+
+const retainedBatches = loadUploadBatches();
+for (const batch of retainedBatches) {
+  uploadBatchMembership.getState().set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []), batch.revision, true);
+}
+useUploadJobsStore.setState({ batches: retainedBatches });
+useUploadJobsStore.subscribe((state, previous) => {
+  if (state.batches === previous.batches) return;
+  for (const batch of state.batches) {
+    if (previous.batches.includes(batch)) continue;
+    const membership = uploadBatchMembership.getState();
+    membership.set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []), undefined, true);
+    saveUploadBatch(batch, uploadBatchMembership.getState().batches.get(batch.id)!.revision);
+  }
+});

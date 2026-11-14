@@ -8,6 +8,8 @@
  * See: exploration/docs/00 Architecture and philosophy/04-browser-history-architecture.md
  */
 
+import { HISTORY_STORAGE_BUDGET, useLocalPersistenceStore } from "./local-batch-storage";
+
 // ---------------------------------------------------------------------------
 // Snapshot shape
 // ---------------------------------------------------------------------------
@@ -132,6 +134,7 @@ export class MapSnapshotStore implements SnapshotStore {
 const SS_PREFIX = "kupua:histSnap:";
 
 export class SessionStorageSnapshotStore implements SnapshotStore {
+  private _memory = new MapSnapshotStore();
   /**
    * Track insertion order for LRU eviction. sessionStorage has no
    * iteration-order guarantee, so we maintain our own queue.
@@ -154,6 +157,14 @@ export class SessionStorageSnapshotStore implements SnapshotStore {
   }
 
   get(key: string): HistorySnapshot | undefined {
+    const memory = this._memory.get(key);
+    if (memory) {
+      if (this._order.includes(key)) {
+        this._order = this._order.filter(previous => previous !== key);
+        this._order.push(key);
+      }
+      return memory;
+    }
     try {
       const raw = sessionStorage.getItem(SS_PREFIX + key);
       if (raw === null) return undefined;
@@ -161,6 +172,7 @@ export class SessionStorageSnapshotStore implements SnapshotStore {
       // Move to end of LRU queue.
       this._order = this._order.filter((k) => k !== key);
       this._order.push(key);
+      this._memory.set(key, parsed);
       return parsed;
     } catch {
       // Corrupt entry — remove it.
@@ -170,8 +182,15 @@ export class SessionStorageSnapshotStore implements SnapshotStore {
   }
 
   set(key: string, snap: HistorySnapshot): void {
+    this._memory.set(key, snap);
     try {
-      sessionStorage.setItem(SS_PREFIX + key, JSON.stringify(snap));
+      const raw = JSON.stringify(snap);
+      let bytes = 2 * (SS_PREFIX.length + key.length + raw.length);
+      for (const previous of this._order) {
+        if (previous !== key) bytes += 2 * (SS_PREFIX.length + previous.length + (sessionStorage.getItem(SS_PREFIX + previous)?.length ?? 0));
+      }
+      if (bytes > HISTORY_STORAGE_BUDGET) throw new Error("History storage budget exhausted");
+      sessionStorage.setItem(SS_PREFIX + key, raw);
       // Update LRU order.
       this._order = this._order.filter((k) => k !== key);
       this._order.push(key);
@@ -179,15 +198,17 @@ export class SessionStorageSnapshotStore implements SnapshotStore {
       while (this._order.length > LRU_CAP) {
         const oldest = this._order.shift();
         if (oldest) {
+          this._memory.delete(oldest);
           try { sessionStorage.removeItem(SS_PREFIX + oldest); } catch { /* ignore */ }
         }
       }
     } catch {
-      // sessionStorage full or blocked — ignore.
+      useLocalPersistenceStore.setState({ historyIssue: "Some browsing positions could not be retained for reload. In-page navigation remains available; older saved targets were not cleared." });
     }
   }
 
   delete(key: string): void {
+    this._memory.delete(key);
     try { sessionStorage.removeItem(SS_PREFIX + key); } catch { /* ignore */ }
     this._order = this._order.filter((k) => k !== key);
   }

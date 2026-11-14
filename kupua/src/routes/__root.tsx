@@ -14,7 +14,7 @@ import { useAppCutout, useIsCompact } from "@/hooks/useShell";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { applyLegacyCropParams } from "@/lib/crop/crop-options";
-import { UploadActivity } from "@/components/UploadActivity";
+import { UploadActivity, UploadDropzone } from "@/components/UploadActivity";
 
 export const rootRoute = createRootRoute({
   beforeLoad: ({ location }) => {
@@ -31,14 +31,14 @@ function RootLayout() {
     && !(state.location.search as { image?: string }).image });
   useAppCutout(compact);
   return (
-    <div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
+    <UploadDropzone><div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
       <UploadActivity />
       <ErrorBoundary>
         <Outlet />
       </ErrorBoundary>
       <ToastContainer />
       <LabelOperationReceipts hidden={compact && selected && expanded && inlineActivity} />
-    </div>
+    </div></UploadDropzone>
   );
 }
 

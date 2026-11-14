@@ -44,6 +44,46 @@ const queryCases = [
 ];
 
 describe("API query forwarding", () => {
+  it("pages submitted membership in filename order with bounded hydration, missing members and qualified local cursors", async () => {
+    const ids = Array.from({ length: 500 }, (_, index) => index.toString(16).padStart(40, "0"));
+    const available = ids.filter((_, index) => index !== 2);
+    const searchable = available.filter(id => id !== ids[0]);
+    const calls = stubMediaApi({
+      "/images/mget": body => ({ data: (body.ids as string[]).filter(id => available.includes(id)).reverse().map(entity) }),
+      "/images/count": body => ({ total: (body.ids as string[]).filter(id => searchable.includes(id)).length }),
+      "/images/keys": () => ({ keys: [...searchable].reverse().map(id => ({ id, sortValues: [1, id] })), after: null }),
+      "/images/search-after": body => {
+        const matches = searchable.filter(id => (body.ids as string[]).includes(id));
+        const page = [...matches].reverse().slice(0, Number(body.length ?? 200));
+        return { data: page.map(entity), total: matches.length, sortValues: page.map(id => [1, id]) };
+      },
+    });
+    const dataSource = new ApiDataSource();
+    const scope = { nonFree: "true", length: 200, imageScope: { key: "upload:local-ordered", revision: 3, ids, submittedOrder: true } };
+    const first = await dataSource.searchAfter(scope, null);
+    expect(first.hits.slice(0, 4).map(image => image.id)).toEqual([ids[1], ids[3], ids[4], ids[5]]);
+    expect(first.hits).toHaveLength(200);
+    expect(first.total).toBe(498);
+    const second = await dataSource.searchAfter(scope, first.sortValues.at(-1)!);
+    expect(second.hits[0].id).toBe(searchable[200]);
+    const backward = await dataSource.searchAfter(scope, second.sortValues[0], null, undefined, true);
+    expect(backward.hits.map(image => image.id)).toEqual(first.hits.map(image => image.id));
+    const offset = await dataSource.searchAfter({ ...scope, offset: 350, length: 3 }, null);
+    expect(offset.hits.map(image => image.id)).toEqual(searchable.slice(350, 353));
+    expect(await dataSource.countBefore(scope, second.sortValues[0])).toBe(200);
+    const probe = await dataSource.searchAfter({ ...scope, ids: ids[450], length: 1 }, null);
+    expect(probe.sortValues).toEqual([[450, ids[450]]]);
+    const positions = await dataSource.fetchPositionIndex(scope, new AbortController().signal);
+    expect(positions?.ids).toEqual(searchable);
+    const hydration = calls.filter(call => call.path === "/images/search-after");
+    expect(hydration.length).toBeGreaterThan(0);
+    expect(hydration.every(call => (call.body.ids as string[]).length <= 200)).toBe(true);
+    expect(scope.imageScope.ids).toHaveLength(500);
+    await dataSource.searchAfter({ ...scope, orderBy: "-uploadTime" }, null);
+    expect(calls.at(-1)?.body.orderBy).toBe("-uploadTime");
+    expect((calls.at(-1)?.body.ids as string[]).length).toBe(500);
+  });
+
   it.each(queryCases)("leaves server admission in charge of q=%j across all query-bearing POST routes", async (query) => {
     const page = { data: [], total: 0, sortValues: [], offset: 1, rawHitCount: 0 };
     const calls = stubMediaApi({

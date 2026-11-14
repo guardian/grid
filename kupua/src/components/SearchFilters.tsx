@@ -20,6 +20,7 @@ import { beginTraceInteraction } from "@/lib/perceived-trace";
 
 /** Sortable fields for the dropdown — derived from the field registry. */
 const SORTABLE_FIELDS = SORT_DROPDOWN_OPTIONS;
+const SUBMITTED_FILENAME_SORT = "__submittedFilename";
 
 export function isAiSortOptionEnabled(field: string): boolean {
   return field === "relevance" || field === "uploadTime";
@@ -79,7 +80,8 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
-  const orderBy = params.orderBy ?? "-uploadTime";
+  const submittedOrderAvailable = !!params.imageScope?.submittedOrder;
+  const orderBy = params.orderBy ?? (submittedOrderAvailable ? SUBMITTED_FILENAME_SORT : "-uploadTime");
   const { field: sortField, desc: sortDesc } = parsePrimarySort(orderBy);
 
   // When AI query is active, prepend a "Relevance" option and treat
@@ -87,8 +89,8 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
   const hasAiChip = !!params.aiQuery;
   const effectiveSortableFields = hasAiChip
     ? [{ label: "Relevance", value: "relevance" }, ...SORTABLE_FIELDS]
-    : SORTABLE_FIELDS;
-  const defaultSort = hasAiChip ? "-relevance" : "-uploadTime";
+    : submittedOrderAvailable ? [{ label: "Submitted filename", value: SUBMITTED_FILENAME_SORT }, ...SORTABLE_FIELDS] : SORTABLE_FIELDS;
+  const defaultSort = hasAiChip ? "-relevance" : submittedOrderAvailable ? SUBMITTED_FILENAME_SORT : "-uploadTime";
 
   const currentLabel =
     effectiveSortableFields.find((f) => f.value === sortField)?.label ?? sortField;
@@ -100,7 +102,9 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
       if (hasAiChip && !isAiSortOptionEnabled(value)) return;
       const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
       beginTraceInteraction(action, { sort: value, focusedId: focusedImageId });
-      if (value === sortField) {
+      if (value === SUBMITTED_FILENAME_SORT) {
+        updateSearch({ orderBy: undefined });
+      } else if (value === sortField) {
         const newPrimary = sortDesc ? value : `-${value}`;
         updateSearch({ orderBy: newPrimary });
       } else {
@@ -193,10 +197,11 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
            at w-4 h-4 (16px) to match the sort field button's text-sm line height,
            keeping both button borders aligned within ~1px. */}
       <button
+        disabled={sortField === SUBMITTED_FILENAME_SORT}
         onClick={handleToggleDirection}
-        aria-label={sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
+        aria-label={sortField === SUBMITTED_FILENAME_SORT ? "Submitted filename order" : sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
         className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer select-none"
-        title={sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
+        title={sortField === SUBMITTED_FILENAME_SORT ? "Submitted filename order" : sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           {sortDesc

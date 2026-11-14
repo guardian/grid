@@ -14,18 +14,18 @@ const sessionPermissionsSchema = z.object({
   canUpload: z.boolean().optional(),
   canDelete: z.boolean().optional(),
 });
-const sessionSchema = z.object({ data: z.object({ user: z.object({ permissions: sessionPermissionsSchema }) }) });
+const sessionSchema = z.object({ data: z.object({ user: z.object({ permissions: sessionPermissionsSchema, email: z.unknown().optional() }) }) });
 
 export type GridSessionPermissions = z.infer<typeof sessionPermissionsSchema>;
 
-let sessionPermissionsRead: Promise<GridSessionPermissions | null> | undefined;
+let sessionRead: Promise<{ permissions: GridSessionPermissions; identity: string | null } | null> | undefined;
 let sessionInvalidated = false;
 const sessionInvalidationListeners = new Set<() => void>();
 
 export function invalidateGridSession(): void {
   if (sessionInvalidated) return;
   sessionInvalidated = true;
-  sessionPermissionsRead = Promise.resolve(null);
+  sessionRead = Promise.resolve(null);
   for (const listener of sessionInvalidationListeners) listener();
 }
 
@@ -65,10 +65,15 @@ export async function getGridServiceOrigin(service: "metadata" | "auth" | "loade
 
 export function getGridSessionPermissions(): Promise<GridSessionPermissions | null> {
   if (import.meta.env.VITE_USE_MEDIA_API !== "true" || sessionInvalidated) return Promise.resolve(null);
-  return sessionPermissionsRead ??= readSessionPermissions();
+  return (sessionRead ??= readSession()).then(session => sessionInvalidated ? null : session?.permissions ?? null);
 }
 
-async function readSessionPermissions(): Promise<GridSessionPermissions | null> {
+export function getGridSessionIdentity(): Promise<string | null> {
+  if (import.meta.env.VITE_USE_MEDIA_API !== "true" || sessionInvalidated) return Promise.resolve(null);
+  return (sessionRead ??= readSession()).then(session => sessionInvalidated ? null : session?.identity ?? null);
+}
+
+async function readSession(): Promise<{ permissions: GridSessionPermissions; identity: string | null } | null> {
   try {
     const origin = await getGridServiceOrigin("auth");
     const href = await serviceLink("session");
@@ -78,7 +83,9 @@ async function readSessionPermissions(): Promise<GridSessionPermissions | null> 
     if (response.status === 401 || response.status === 419) invalidateGridSession();
     if (!response.ok) return null;
     const session = sessionSchema.safeParse(await response.json());
-    return session.success && !sessionInvalidated ? session.data.data.user.permissions : null;
+    if (!session.success || sessionInvalidated) return null;
+    const identity = z.email().safeParse(session.data.data.user.email);
+    return { permissions: session.data.data.user.permissions, identity: identity.success ? identity.data : null };
   } catch {
     return null;
   }

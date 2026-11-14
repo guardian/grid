@@ -34,8 +34,9 @@ already-returned fields are not datasource fallback.
 `connect-src`. Its only active policy transformation adds the existing
 `'wasm-unsafe-eval'` allowance to `script-src` for Justified layout; it does not
 grant JavaScript eval. Upload storage must already be permitted by the inherited
-policy. Transport and optional byte-limit injection remain active independently
-of the [unapplied storage-CSP patch](#mixed-localtest-uploads-and-preserved-csp-patch).
+policy. Transport and optional byte-limit injection do not add browser permissions.
+The [deployed TEST upload trial](#local-and-deployed-upload-boundaries) succeeded
+with this inherited connection policy.
 
 Local Kahuna serves the last hosted bundle built from the local checkout, including
 any uncommitted source at build time. It does not use Vite or the normal `kupua/dist`
@@ -49,7 +50,7 @@ Kahuna supplies the initial API address and site settings, not editing gates or 
 addresses. `/kupua/on`, building the bundle and choosing a TEST data source do not
 themselves enable editing.
 
-### Mixed local/TEST uploads and preserved CSP patch
+### Local and deployed upload boundaries
 
 Local Grid with local ES/LocalStack has real hosted and Vite upload witnesses,
 including route-away completion and duplicate handling. That does not establish
@@ -58,7 +59,25 @@ with TEST loader, storage and backing ES. The operator also reported that ordina
 Kahuna could not upload in that setup. This is not evidence that local-to-TEST
 uploads can never work, or a commitment that Kupua will support them differently.
 
-The 14 November 2026 mixed-topology trial exposed two independent barriers:
+On 14 November 2026, the operator uploaded one image through deployed TEST Kupua.
+The page's inherited CSP already allowed TEST ingest storage; API, loader and
+session reads succeeded with upload permission, uploads enabled and editing off.
+Preparation and storage PUT returned 200. The queued update returned the known
+400 described by [GRID-024](../bug-backlog.md#grid-024), but processing completed
+and the matching canonical image became readable and indexed with exact-ID count
+one. Processing and visibility completed after navigation to Search; the byte
+transfer had already been acknowledged before departure. Activity showed one file
+and one available image, with the original queued rejection collapsed in receipt
+history. No metadata write or automatic retry was observed. No extra storage CSP
+allowance or shared TEST bucket CORS change was needed.
+
+This is a representative one-file deployed ingestion witness, not bulk/mobile,
+durable-recovery or broad editorial rollout certification. Batch/thumbnail rendering
+was verified in the local trials, not independently reopened in this deployed trial.
+The Search arrival ticker remains a separate poller, not the upload success signal;
+its completion nudge is a [deferred follow-up](../gradually-growing-teeth.upload-workplan.md#prompt-arrival-ticker-checks-after-upload-completion).
+
+The earlier mixed local/TEST trials exposed two independent barriers:
 
 - Grid's launcher overlays TEST app-specific Kahuna and media-api configuration,
   but not TEST common configuration. Effective host upload settings can therefore
@@ -67,8 +86,8 @@ The 14 November 2026 mixed-topology trial exposed two independent barriers:
   Do not copy TEST queue/failure-bucket settings into shared local common
   configuration merely to align the host's upload destination. Any temporary
   app-specific override must be removed or restored after its trial.
-- With the experimental CSP correction active, preparation succeeded but S3
-  rejected the browser preflight. Credential-free PUT preflights requesting
+- Independently of the local document policy, S3 rejected the browser preflight.
+  Credential-free PUT preflights requesting
   `content-type` and `x-amz-meta-media-id` returned 403 for both
   `https://media.local.dev-gutools.co.uk` and
   `https://kupua.media.local.dev-gutools.co.uk`; the deployed TEST origin returned
@@ -77,43 +96,12 @@ The 14 November 2026 mixed-topology trial exposed two independent barriers:
   No TEST bucket CORS change was made. A failed browser transfer is uncertain,
   not proof of rollback or permission to replay it.
 
-The configured-storage-origin correction is preserved in
-[hosted-upload-storage-csp.patch](../patches/hosted-upload-storage-csp.patch),
-**not applied to the application**. The patch contains the KupuaPage helper,
-Kupua-only controller wiring and two Scala regression cases. It derives one exact
-origin from the effective browser-facing presigning endpoint, or otherwise the
-selected upload bucket and region. It preserves other policy directives and adds
-neither a wildcard nor a hardcoded TEST bucket. The existing WebAssembly allowance
-and required upload-settings injection are already in the baseline, not dependent
-on applying this patch. No build or startup script applies the patch automatically.
-
-Ordinary deployed TEST Kahuna's enforced response policy was inspected read-only
-and already included an explicit regional TEST ingest S3 origin. Its browser origin
-also passed the storage preflight. This supports deploying Kupua without the extra
-storage allowance; it is not deployed Kupua upload acceptance or an exact comparison
-with the stopped local host's effective destination. Verify the actual deployed
-Kupua response and readable/indexed image availability after deployment. Do not add
-the patch merely because an upload fails: first establish an actual CSP block.
-
 If engineers select mixed-topology support, review destination configuration,
-loader authentication/CORS and storage CORS as well as this patch. Applying it is
-a separately approved change to three files outside Kupua; it does not authorize
-TEST policy changes or uploads. With that approval, check from the repository root:
-
-```sh
-git apply --check kupua/exploration/docs/patches/hosted-upload-storage-csp.patch
-git apply kupua/exploration/docs/patches/hosted-upload-storage-csp.patch
-set -o pipefail; npm --prefix kupua run test:hosted-config 2>&1 | tee "$TMPDIR/kupua-hosted-config.txt"
-```
-
-Check the current source before application, especially after merging main. If
-reversing an otherwise unchanged application of the patch, first use
-`git apply --reverse --check`, then `git apply --reverse` with the same patch path;
-do not overwrite later edits to make it fit. Local hosted testing also requires
-the operator to restart the Scala host and load a fresh document for its new CSP.
-Vite does not inherit Kahuna's document CSP, but both local origins still require
-their own storage CORS allowance. No proxy or weakened browser security substitutes
-for those policies. Deployed TEST acceptance remains pending.
+loader authentication/CORS, the local document policy and storage CORS together.
+Such work needs explicit authorization; the successful deployed trial is not
+permission to change shared policies or perform more uploads. Vite does not inherit
+Kahuna's document CSP, but both local origins still require their own storage CORS
+allowance. No proxy or weakened browser security substitutes for those boundaries.
 
 ### Startup decision map
 
@@ -274,8 +262,18 @@ checkbox. **Apply and reload** saves `kupua-allow-editing` and
 preference is captured at startup, not rechecked as a live switch. Other same-origin
 tabs pick it up on their next reload; different frontend origins are independent.
 `/kupua/on` is a path, not another storage area. Changing backing data at an unchanged
-frontend origin retains the preference. Drafts and receipts survive SPA navigation,
-not reloads. No automatic replay or durable operation system is introduced.
+frontend origin retains the preference. Editing drafts/receipts remain in-page.
+Upload separately retains allowlisted tab-session descriptors with known canonical
+members and lightweight attempt outcomes; reload marks unfinished work interrupted,
+without retaining bytes, capabilities or authority. No automatic replay or durable
+operation system is introduced.
+
+Search/Upload file entry, local batch selection, recent-library browsing and recovery
+use the same client owners in Vite and compiled hosted builds. They require no
+Vite-only globals, new host setting or CSP allowance. The existing upload opt-in,
+service discovery, current session and server authorization still govern ingestion;
+recent-library reads do not enable mutations. Local compiled coverage is not a new
+deployed U4 trial or permission for shared-system work.
 
 Upload additionally requires the optional allowlisted `gridConfig.upload` topology
 and limit projection, the advertised loader contract and upload permission. The
@@ -283,10 +281,11 @@ laptop TEST-settings projection supplies this without retaining bucket names;
 it does not verify that a local loader uses those TEST settings. Kahuna's separately
 approved hosted configuration producer now supplies transport and optional byte
 limit too, without bucket names or capabilities. Local hosted uploads have passed;
-deployed TEST upload acceptance remains pending. The
-[mixed-topology section](#mixed-localtest-uploads-and-preserved-csp-patch) records
-why laptop-to-TEST trials are blocked and keeps the optional CSP patch separate
-from active hosting. See the [upload transport contract](../../../src/dal/grid-api/README.md#upload-transport-and-jobs).
+a representative deployed TEST upload has also reached readable/indexed availability
+while processing continued on Search. The
+[topology section](#local-and-deployed-upload-boundaries) separates that evidence
+from blocked laptop-to-TEST trials and broader unverified workflows. See the
+[upload transport contract](../../../src/dal/grid-api/README.md#upload-transport-and-jobs).
 
 This is temporary, removable scaffolding. The eventual API-backed app has editing
 available according to server permissions and resource capabilities, with no rollout

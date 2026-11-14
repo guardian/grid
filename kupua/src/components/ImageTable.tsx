@@ -1010,7 +1010,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Column header click to sort
   const handleSort = useCallback(
     (field: string) => {
-      const orderBy = searchParams.orderBy ?? "-uploadTime";
+      const orderBy = searchParams.orderBy ?? (searchParams.imageScope?.submittedOrder ? "" : "-uploadTime");
       const primary = orderBy.split(",", 1)[0].trim();
 
       const primaryBare = primary.startsWith("-")
@@ -1024,7 +1024,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         updateSearch({ orderBy: defaultSortFor(field) });
       }
     },
-    [searchParams.orderBy, updateSearch]
+    [searchParams.orderBy, searchParams.imageScope?.submittedOrder, updateSearch]
   );
 
   /**
@@ -1057,7 +1057,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const sortableFields = REGISTRY_SORTABLE_FIELDS;
 
   // Parse the primary sort from the orderBy param.
-  const orderBy = searchParams.orderBy ?? "-uploadTime";
+  const orderBy = searchParams.orderBy ?? (searchParams.imageScope?.submittedOrder ? "" : "-uploadTime");
   const primarySort = orderBy.split(",", 1)[0].trim();
   const primaryBare = primarySort.startsWith("-")
     ? primarySort.slice(1)

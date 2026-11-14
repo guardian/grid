@@ -42,7 +42,7 @@ including Table's usable-height adjustment and missing-target/supersession guard
 
 ### Search and Upload Return
 
-The media-api-only, fixture-backed `/upload?batch=local-<id>` route uses the same browsing engine
+The media-api-only `/upload?batch=local-<id>` route uses the same browsing engine
 and existing detail/crop display parameters. [Browsing navigation](../../../src/lib/browsing-navigation.ts)
 captures departure from search or Upload in the router's `onBeforeNavigate`,
 before the source route disposes its geometry. Each context retains only its URL,
@@ -86,8 +86,20 @@ This ordering constraint does not change native entry or detail-origin policy.
 Missing local membership, including a URL containing `image`, displays unavailable
 with explicit Search/Recent uploads alternatives. Known-empty membership is distinct;
 neither may issue a library-wide query or open an unrelated singleton detail.
-`/upload` is currently an unavailable recent-uploads destination, not an all-users
-query. Local membership and return descriptors are not durable recovery, jobs or drafts.
+`/upload` without a batch is an authenticated recent-library query, not submission
+history. Its identity-free route key stays stable across reload; the current human
+identity is read again and applied only at the API boundary. Loading or unavailable
+identity uses a different empty scope, not all-users admission. No authenticated
+identity is stored in history/cursor fingerprints or logged. Both Upload scopes
+keep library selection dormant, including sort continuity.
+
+Tab-session batch descriptors restore known members/revision and lightweight
+attempt outcomes. They do not resume transfers, observation or metadata operations;
+unfinished attempts remain interrupted until an explicit read-only check. Five
+selector choices are a display policy, not descriptor deletion. Missing/older URLs
+remain distinct from returning to the captured Search context. Cross-context
+departure descriptors remain in-page URL/density/snapshot references, not a second
+buffer or durable workspace.
 
 ### Startup Default Admission
 
@@ -337,6 +349,14 @@ Two implementations, selected by `PERSIST_HISTORY_SNAPSHOTS_FOR_RELOAD` (default
   which the browser persists per entry, so the lookup key is stable across reload.
 
 Call sites are oblivious to which is in use.
+
+Persisted snapshots share a deliberate budget with local Upload recovery: 1 MiB
+for history, with the existing 50-entry LRU, and 2 MiB for batch descriptors.
+Membership/revision fingerprints remain complete; lightweight snapshot references
+were not introduced. A rejected history write remains available through the bounded
+in-memory store and exposes a reload-retention warning. It does not clear older
+saved snapshots or batch records. Descriptor failures separately protect unsaved
+local work and offer a storage-only retry. Quota is not a batch/file count limit.
 
 ### Capture
 

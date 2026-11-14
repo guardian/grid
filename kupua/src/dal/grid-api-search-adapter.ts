@@ -142,7 +142,8 @@ export function buildReadBody(params: SearchParams): Record<string, unknown> {
   if (params.takenUntil) body.takenUntil = params.takenUntil;
   if (params.modifiedSince) body.modifiedSince = params.modifiedSince;
   if (params.modifiedUntil) body.modifiedUntil = params.modifiedUntil;
-  if (params.uploadedBy) body.uploadedBy = params.uploadedBy;
+  const uploadedBy = params.recentUploadScope?.uploadedBy ?? params.uploadedBy;
+  if (uploadedBy) body.uploadedBy = uploadedBy;
   if (params.imageScope) {
     if (params.imageScope.ids.length === 0) throw new Error("Empty image scope must be admitted without a read");
     const probe = params.ids?.split(",").map(id => id.trim());

@@ -5,7 +5,8 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { returnToBrowsing } from "@/lib/browsing-navigation";
-import { uploadBatchMembership, UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
+import { UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
+import { UploadEntry } from "./UploadActivity";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
@@ -33,7 +34,6 @@ import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
-  const hasUploadBatch = uploadBatchMembership(state => state.batches.size > 0);
   const updateSearch = useUpdateSearchParams();
   const navigate = useNavigate();
   const router = useRouter();
@@ -291,12 +291,12 @@ export function SearchBar() {
         <img src={`${import.meta.env.BASE_URL}images/grid-logo.svg`} alt="Grid" className="w-8 h-8" />
       </a>
 
-      {hasUploadBatch && UPLOAD_BROWSING_ENABLED && <button type="button" aria-label="Upload" title="Upload" className="shrink-0 p-2 hover:bg-grid-hover cursor-pointer"
+      {UPLOAD_BROWSING_ENABLED && <><button type="button" aria-label="Upload" title="Upload" className="shrink-0 p-2 hover:bg-grid-hover cursor-pointer"
         onClick={() => returnToBrowsing(navigate, "/upload")}>
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-          <path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5" />
+          <path d="M4 4h16v16H4zM8 8h8M8 12h8M8 16h5" />
         </svg>
-      </button>}
+      </button><UploadEntry /></>}
 
       {/* CQL search input with chips — grows to fill available space.
            Layout mirrors kahuna: [magnifier] [query (flex-1 overflow-hidden)] [clear ✕].

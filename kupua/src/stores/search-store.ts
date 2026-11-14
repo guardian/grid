@@ -970,7 +970,7 @@ function nullZoneDistCacheKey(params: SearchParams): string {
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
-  if (get().params.imageScope) return;
+  if (get().params.imageScope || get().params.recentUploadScope) return;
   const gen = ++_newImagesPollGeneration;
   const baselineTickerCounts = get().tickerCounts;
   let requestSequence = 0;
@@ -3467,7 +3467,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         }
         skipBackwardFetch = true; // At the absolute end — nothing beyond to fetch
         exactOffset = true; // Offset is known-exact (reverse from end)
-      } else if (fetchStart < DEEP_SEEK_THRESHOLD) {
+      } else if (fetchStart < DEEP_SEEK_THRESHOLD || params.imageScope?.submittedOrder && !params.orderBy) {
         // ---------------------------------------------------------------
         // Shallow seek — from/size is fast at small offsets (<10k)
         // ---------------------------------------------------------------

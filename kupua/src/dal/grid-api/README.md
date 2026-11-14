@@ -73,19 +73,22 @@ command waiting indefinitely. Failures are not retried.
 
 `getGridSessionPermissions()` reads the discovered auth `session` relation on demand,
 only in API mode. Concurrent/repeated callers share one page-lifetime result, including
-quiet `null` absence after failure. Only the user's optional boolean `showPaid`,
-`canUpload` and `canDelete` fields survive validation; identities and unknown fields
-are discarded. Non-user principals are unavailable for this hosted-user helper.
-Missing flags remain unknown, not false or permission grants. No current UI/startup
-caller is added, no read defaults change, and direct-ES mode makes no session request.
+quiet `null` absence after failure. The permission projection returns only the user's
+optional boolean `showPaid`, `canUpload` and `canDelete` fields. The separate
+`getGridSessionIdentity()` projection returns a validated human email for the
+recent-library query, sharing that same read and invalidation boundary. Identity
+stays in memory: it is neither logged nor put in URLs, descriptors or history keys.
+Non-user principals have no identity projection. Missing flags remain unknown,
+not false or permission grants. Upload entry reflects permission; recent browsing
+does not require the mutation opt-in. Direct-ES mode makes no session request.
 The session relation must match the configured auth origin and exact `/session`
 path. Local reads use `/grid-auth/session`; hosted reads use the validated direct
 origin. Redirects are refused. Missing origin configuration yields quiet absence.
 `invalidateGridSession()` clears the snapshot and latches it unavailable until
 reload; an already pending response cannot restore it. Commands invoke this on
 401/419. Account changes and reauthentication require a full page reload, not a
-second call to the cached reader. No identity is retained to detect account changes
-in other tabs, and no background refresh is introduced.
+second call to the cached reader. There is no persisted identity, cross-tab account
+change detection or background refresh.
 This is a display/preparation snapshot, not fresh authorization for a write;
 it neither grants edit access nor overrides an uploader's per-image `edits` link.
 
@@ -140,8 +143,7 @@ of the local loader's configuration. The separately approved Kahuna configuratio
 producer supplies the same allowlisted transport and optional limit to real hosted
 Kupua. It does not expose bucket names or capabilities, enable the upload gate or
 verify the discovered destinations. Active hosting inherits Kahuna's `connect-src`;
-the optional mixed-topology storage allowance remains an
-[unapplied patch](../../../exploration/docs/patches/hosted-upload-storage-csp.patch).
+deployed TEST uploads succeeded with its existing storage-origin allowance.
 
 The advertised loader root must expose the exact prepare/load/status contracts.
 Direct loading POSTs octet-stream bytes with only the encoded filename query;
@@ -178,19 +180,49 @@ Automatic read observation ends after five minutes or an unavailable status read
 reload/tab closure, but ordinary in-app navigation does not stop jobs or prompt.
 Page interruption aborts owned requests, releases files/timers/listeners and retains
 uncertainty for a surviving page; late responses cannot silently resume its job.
-No byte resume, durable job restoration or descriptor persistence is promised.
-U4 owns lightweight recovery/storage. WebCrypto hashes a whole file in memory, one
+Reload restores only allowlisted local descriptors, never owned requests, timers,
+file bytes or mutation authority. Unfinished attempts remain interrupted until an
+explicit read-only status check; they are not resumed. WebCrypto hashes a whole file in memory, one
 at a time; no large-file memory/performance claim follows from the fixture checks.
 If a direct-load response is lost before returning an identity, the retained uncertain
 attempt has no status target; the client does not guess one or replay the upload.
 
-`/upload` provides a minimal one-file entry and global activity with existing batch
-and image display. Full picker/drop/batch navigation and recent uploads remain U4;
-form density and post-upload metadata/preset writes remain U2/U5-U7. Activity and
-image counts are separate. B2's shared backend status/pending-object identities are
+Search and Upload provide permission-aware multi-file picker/drop entry. Each
+submission owns a distinct short local batch reference; internal Grid and in-page
+image drags do not submit files. A small selector shows five recent batches plus
+outstanding work and the selected older record. Search return is separate from
+batch selection. The persistent activity band expands file-level outcomes and
+keeps file counts distinct from unique canonical images. Form density and
+post-upload metadata/preset writes remain U2/U5-U7. B2's shared backend status/pending-object identities are
 not repaired: local witnesses prove attempt retention, not concurrent server isolation.
 Upload activity occupies a top shell band so retained bottom image-action activity
 remains reachable with its original targets; neither owner adopts the other's scope.
+
+[`local-batch-storage.ts`](../../lib/local-batch-storage.ts) persists tab-session
+descriptors: submitted names/sizes, attempt and batch IDs, canonical/status IDs,
+membership revision and lightweight outcomes. It retains no bytes, capabilities,
+credentials, grants or complete images. Descriptors have a 2 MiB budget; history
+snapshots have 1 MiB and their existing 50-entry LRU. Full membership fingerprints
+remain qualified by revision; no snapshot-reference redesign was needed. A failed
+descriptor write keeps work in memory, warns and protects page closure, without
+deleting older records. **Try local storage again** only retries persistence.
+Failed history writes retain in-page navigation and warn about reload limits.
+Missing records and known-empty batches never become library reads.
+
+Job-owned batches default to submitted-filename order. `ApiDataSource` hydrates
+bounded ID chunks through existing ordered search reads, restores submission order
+and uses matching count/key qualification for ranks, offsets and position maps.
+Raw mget is not interchangeable here: it can return lifecycle-excluded images
+that ordinary search omits. Omission never rewrites retained membership; a failed
+read remains a failure. Explicit library sorts retain their existing server path.
+
+`/upload` without `batch` is **My recent uploads**, an authenticated `uploadedBy`
+query with paid/free images and no inherited library filters. It is not submission
+history and has no batch applicator scope. `recentUploadScope` keeps identity only
+in memory; the mapper sends the existing `uploadedBy` field. A stable identity-free
+route key supports history/reload, whose targets are resolved through the current
+authenticated query. Loading or unavailable identity admits an empty scope, never
+all users. Both batch and recent browsing keep library selection dormant.
 
 After accepted transfer and verified canonical readability/indexed visibility,
 non-acknowledged queued outcomes become collapsed Upload receipt history alongside
@@ -200,14 +232,18 @@ defect; the client still sends the queued request and never replays it automatic
 
 Actual local Grid/ES/LocalStack uploads passed in Vite and Kahuna-hosted Kupua,
 including larger-file route-away completion, duplicate canonical membership and
-inspectable queued rejection after availability. These are representative signed
-transport witnesses, not deployed TEST, bulk or durable-recovery acceptance.
+inspectable queued rejection after availability. A representative operator-run
+deployed TEST upload also reached matching canonical readability and exact-ID
+indexed count one after processing continued on Search. Its storage transfer had
+already been acknowledged before leaving Upload, and the known queued rejection
+remained collapsed in receipt history. No metadata write or automatic retry was
+observed. These are signed one-file transport witnesses, not bulk or durable-recovery
+acceptance; the deployed batch/thumbnail was not separately reopened.
 Laptop-to-TEST storage preflight rejects both local frontend origins; no shared
-TEST CORS change was made. Deployed TEST Kahuna's inspected policy and storage
-preflight permit its deployed origin, but Kupua upload acceptance after branch
-deployment remains pending. See the
-[hosting guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#mixed-localtest-uploads-and-preserved-csp-patch)
-for the topology boundary and preserved experiment, and the
+TEST CORS change or additional hosted storage CSP allowance was needed for the
+successful deployed trial. See the
+[hosting guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#local-and-deployed-upload-boundaries)
+for the topology boundary, and the
 [U3 workplan](../../../exploration/docs/gradually-growing-teeth.upload-workplan.md#actual-upload-evidence-and-deployment-checkpoint)
 for exact evidence and validation limits. Further real trials still require fresh
 destination/file permission and C1/C4 disposition. Verify loader, storage, status,

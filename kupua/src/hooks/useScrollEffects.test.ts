@@ -3599,6 +3599,20 @@ describe("P1 non-uniform resident continuity", () => {
     expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
   });
 
+  it("recent-upload sort ignores dormant library selection without clearing it", () => {
+    const [focused, selected] = useSearchStore.getState().results.filter((image): image is Image => !!image);
+    const selectedIds = new Set([selected.id]);
+    useUiPrefsStore.setState({ focusMode: "explicit" });
+    useSelectionStore.setState({ selectedIds, anchorId: selected.id });
+    useSearchStore.setState({ focusedImageId: focused.id, params: { nonFree: "true",
+      recentUploadScope: { key: "upload:recent", uploadedBy: "uploader@example.invalid" },
+    } });
+    const continuity = searchContinuity.captureSearchContinuity(true, null, grid);
+    expect(continuity.targetId).toBe(focused.id);
+    expect(continuity.focus).toBe("target");
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+  });
+
   it.each(["explicit", "phantom"] as const)("selected sort retains distinct focus in %s mode", async (focusMode) => {
     useUiPrefsStore.setState({ focusMode });
     useSearchStore.getState().setFocusedImageId("img-40");

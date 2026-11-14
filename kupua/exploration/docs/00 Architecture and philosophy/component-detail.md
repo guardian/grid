@@ -54,8 +54,9 @@ revisioned in-memory batch membership shared by fixtures and completed jobs.
 departure capture and existing snapshot/density restoration. Upload omits the
 search toolbar, selection controls and list panels; shared Grid/Table/Justified,
 detail and crop navigate within the admitted route. It mounts no second engine.
-Empty/missing membership cannot become a library query. Real recent uploads,
-persisted descriptors and form density are not connected; the
+Empty/missing membership cannot become a library query. Job-owned batches default
+to submitted-filename order through bounded, search-qualified ID pages in the same
+API datasource; explicit library sorts stay server-owned. The
 [Upload workplan](../gradually-growing-teeth.upload-workplan.md#u1-route-safe-browsing-and-scope-admission)
 owns those boundaries.
 
@@ -66,16 +67,26 @@ routes and rows. One transfer/hash and one observation request are active at a t
 settled files are released. Canonical readability plus exact ID-scoped indexed count
 visibility are required before IDs publish into the same U1 membership
 registry, deduplicated without discarding attempts. `components/UploadActivity.tsx`
-provides U3's minimal one-file entry and global activity; it is not U4's picker/drop,
-recent-uploads, persistence or full batch navigation. Startup upload admission is
+provides multi-file entry on Search/Upload, external-file drop with internal-drag
+exclusion, short-reference batch selection and compact persistent activity with
+expandable file outcomes. Later submissions create separate batches. A minimum
+selector width keeps short batch references readable as compact toolbars wrap. The selector
+shows five recent choices plus outstanding/current older work, without deleting
+older URLs. `lib/local-batch-storage.ts` persists allowlisted tab-local descriptors,
+not files, grants or images. Reload restores known members and interrupted attempts;
+storage failure is visible and protects unretained work. Retrying local storage is
+not an upload retry. Recent uploads uses an identity-scoped library query, not batch
+or submission history. Form density and metadata applicators remain U2/U5.
+Startup upload admission is
 independent of metadata editing. Once accepted transfer reaches readable/indexed
 availability, non-acknowledged queued outcomes move into collapsed receipt history;
 the original outcome remains inspectable, not acknowledged retroactively. The
 [upload contract](../../../src/dal/grid-api/README.md#upload-transport-and-jobs)
-owns target validation, interruption and no-replay semantics. Local hosted/Vite
-upload witnesses passed; the
+owns target validation, interruption and no-replay semantics. Representative local
+hosted/Vite and deployed TEST uploads reached readable/indexed identity; deployed
+processing completed after navigation to Search. The
 [U3 evidence boundary](../gradually-growing-teeth.upload-workplan.md#actual-upload-evidence-and-deployment-checkpoint)
-separates those from blocked laptop-to-TEST and pending deployed TEST acceptance.
+separates those results from blocked laptop-to-TEST and broader unverified workflows.
 
 Upload is API-only under the existing startup mode. Direct-ES visits show an
 unavailable state and admit empty membership to cancel old work without reads;
@@ -213,9 +224,12 @@ Signed-rendition renewal, downloads and editing remain separate authorized work.
 **User-session permissions:** `getGridSessionPermissions()` in
 [grid-api-instance.ts](../../../src/lib/grid-api-instance.ts) follows the discovered auth `session`
 link on demand in API mode. It retains only optional boolean `showPaid`, `canUpload` and
-`canDelete` facts, not identity data. Concurrent and later calls share one page-lifetime result,
+`canDelete` facts. A separate `getGridSessionIdentity()` projection validates the
+human email for recent uploads, without logging or persisting it. Both projections
+share one page-lifetime read and invalidation boundary,
 including quiet `null` after failure, invalid data or a non-user principal. Missing flags stay
-unknown. Direct-ES mode issues no request; no current UI/startup consumer is connected.
+unknown. Upload entry reflects permission; recent browsing reads identity when needed.
+Direct-ES mode issues no request.
 This snapshot is separate from per-image capabilities: it neither grants edit access nor removes
 an uploader's advertised edit access. It is not fresh authorization for a save. Its discovered
 session URI must match the configured auth origin and exact path; local requests use the auth
@@ -725,8 +739,9 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 
 Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce,
 `AiSearchInput` (gated by the selected mode's AI capability), Clear, split `SearchFilters` and
-`SettingsMenu`, plus an Upload return entry when local membership exists. Real
-file-entry controls remain U4 work. URL synchronization is route-owned, not mounted
+`SettingsMenu`, plus separate Upload navigation and permission-aware multi-file
+entry in API mode. Search also accepts external file drops; internal image drags
+remain drag/navigation interactions, not ingestion. URL synchronization is route-owned, not mounted
 by SearchBar. Manages CQL input generation for stale-debounce detection. AI text changes
 propagate to the URL via `updateSearch({ aiQuery })` with 600ms debounce. Pending debounce is
 cancelled on unmount. Clear and Home remain separate operations; Home resets the whole context.

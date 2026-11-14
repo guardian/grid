@@ -50,6 +50,11 @@ or start another command in its terminal before completion.
 Terminal tool calls can reuse the active terminal: do not launch them in parallel with E2E.
 Finish unit/build/typechecks first; inspect a running suite through its saved log with `read_file`.
 
+Compiled-hosted fixtures must build in production even when their test process
+also owns a Vite development server. Scope and restore `NODE_ENV` around that build;
+verify DEV-only globals are absent. Use exported fixture APIs or real controls,
+not Vite module imports, for compiled workflows.
+
 Vite servers created inside a test must use their own `cacheDir`, preferably
 `testInfo.outputPath("vite-cache")`. Sharing `node_modules/.vite` with the main
 runner server lets fixture dependency optimization remove modules that concurrent
@@ -264,6 +269,7 @@ including foreground/source verification, native zoom and sensitive-data handlin
 | [mobile selections](local/selections-mobile.spec.ts) | Touch selection and mobile interactions |
 | [phantom focus](local/phantom-focus.spec.ts) | Click-to-open and hidden-focus behaviour |
 | [collections](local/collections.spec.ts) | Collection navigation and context |
+| [Grid mutations](local/grid-mutations.spec.ts) | Command admission/publication, API continuation, local upload entry/recovery, scoped batch/recent navigation and compiled-hosted contracts |
 | [CQL quoting](local/cql-search-quoting.spec.ts) | Query construction and quoting |
 | [toast](local/toast.spec.ts) | Toast presentation and lifetime |
 | [visual baselines](local/visual-baseline.spec.ts) | Screenshot comparisons |

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 // SessionStorageSnapshotStore needs a real Storage. Node only exposes sessionStorage as a
 // global from v25; kupua supports ^20.19 || >=22.12, where these tests would otherwise fail.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { MapSnapshotStore, SessionStorageSnapshotStore, restoreArrivalState } from "./history-snapshot";
 import type { HistorySnapshot } from "./history-snapshot";
+import { HISTORY_STORAGE_BUDGET, useLocalPersistenceStore } from "./local-batch-storage";
 
 // ---------------------------------------------------------------------------
 // Fixture
@@ -100,6 +101,30 @@ describe("SessionStorageSnapshotStore", () => {
     expect(typeof window).toBe("object");
   });
 
+  it("retains in-page history and reports quota failure without deleting older targets", () => {
+    store.set("older", makeSnap());
+    const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("Quota", "QuotaExceededError"); });
+    const latest = makeSnap({ anchorImageId: "latest" });
+    try {
+      store.set("latest", latest);
+      expect(store.get("latest")).toEqual(latest);
+      expect(useLocalPersistenceStore.getState().historyIssue).toBeTruthy();
+    } finally { write.mockRestore(); }
+    expect(new SessionStorageSnapshotStore().get("older")).toEqual(makeSnap());
+    expect(new SessionStorageSnapshotStore().get("latest")).toBeUndefined();
+  });
+
+  it("refuses an over-budget snapshot without erasing retained history or batch descriptors", () => {
+    store.set("older", makeSnap());
+    sessionStorage.setItem("kupua:uploadBatch:local-retained", "retained descriptor");
+    const latest = makeSnap({ searchKey: "x".repeat(HISTORY_STORAGE_BUDGET) });
+    store.set("large", latest);
+    expect(store.get("large")?.searchKey.length).toBe(latest.searchKey.length);
+    expect(sessionStorage.getItem("kupua:histSnap:large") === null).toBe(true);
+    expect(new SessionStorageSnapshotStore().get("older")).toEqual(makeSnap());
+    expect(sessionStorage.getItem("kupua:uploadBatch:local-retained")).toBe("retained descriptor");
+  });
+
   it("get returns undefined for unknown key", () => {
     expect(store.get("missing")).toBeUndefined();
   });
@@ -154,6 +179,9 @@ describe("SessionStorageSnapshotStore", () => {
     expect(sessionStorage.getItem("kupua:histSnap:key-0")).toBeNull();
     expect(store.get("key-1")).toBeDefined();
     expect(store.size).toBe(50);
+    store.set("extra", makeSnap());
+    expect(store.get("key-1")).toBeDefined();
+    expect(store.get("key-2")).toBeUndefined();
   });
 
   it("reconstructs order from existing sessionStorage on construction", () => {

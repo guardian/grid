@@ -30,7 +30,9 @@ import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { chooseDateHistogramInterval, sortValuesStrictlyAfter } from "./es-adapter";
 import { apiGetByIds, apiGetImage, apiImageWindow, apiSearchAfter, apiSearchByAi, buildReadBody, postImageRead, SearchAfterApiError } from "./grid-api-search-adapter";
-import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
+import { MAX_RESULT_WINDOW, PAGE_SIZE, RANGE_CHUNK_SIZE } from "@/constants/tuning";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
+import type { Image } from "@/types/image";
 
 /** media-api's window refuses start offsets at or above this; deeper positions use cursor reads. */
 export const API_WINDOW_OFFSET_LIMIT = 10_000;
@@ -152,6 +154,7 @@ export class ApiDataSource implements ImageDataSource {
     reverse?: boolean,
     seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
+    if (params.imageScope?.submittedOrder && !params.orderBy) return this.submittedPage(params, searchAfterValues, signal, reverse);
     // media-api PIT support is dormant: openPit() returns null, so no PIT is ever sent.
     return !searchAfterValues && !reverse && !seekToEnd && (params.offset ?? 0) > 0
       ? apiImageWindow(params, signal)
@@ -159,8 +162,65 @@ export class ApiDataSource implements ImageDataSource {
   }
 
   async countBefore(params: SearchParams, sortValues: SortValues, signal?: AbortSignal): Promise<number> {
+    if (params.imageScope?.submittedOrder && !params.orderBy) {
+      const position = params.imageScope.ids.indexOf(String(sortValues.at(-1)).replace(/\u0000$/, ""));
+      if (position <= 0) return 0;
+      return this.count({ ...params, ids: undefined, imageScope: { ...params.imageScope, ids: params.imageScope.ids.slice(0, position) } }, signal);
+    }
     const json = await postImageRead("/images/rank", { ...buildReadBody(params), sortValues }, signal) as { rank: number };
     return json.rank;
+  }
+
+  private async submittedPage(params: SearchParams, cursor: SortValues | null, signal?: AbortSignal, reverse = false): Promise<SearchAfterResult> {
+    const started = Date.now();
+    const scope = params.imageScope!;
+    const probe = params.ids ? new Set(params.ids.split(",")) : undefined;
+    const members = probe ? scope.ids.filter(id => probe.has(id)) : scope.ids;
+    if (!members.length) return { hits: [], total: 0, sortValues: [] };
+    const total = await this.count({ ...params, ids: undefined, imageScope: { ...scope, ids: members } }, signal);
+    const length = params.length ?? PAGE_SIZE;
+    let position = reverse ? members.length : 0;
+    if (cursor) {
+      const cursorId = String(cursor.at(-1));
+      const member = members.indexOf(cursorId.replace(/\u0000$/, ""));
+      if (member < 0) return { hits: [], total, sortValues: [] };
+      position = member + (reverse ? cursorId.endsWith("\u0000") ? 1 : 0 : 1);
+    } else if ((params.offset ?? 0) > 0) {
+      const skip = reverse ? Math.max(0, total - params.offset!) : Math.min(total, params.offset!);
+      if (total === members.length) position = skip;
+      else {
+        let lower = 0;
+        let upper = members.length;
+        while (lower < upper) {
+          const middle = Math.ceil((lower + upper) / 2);
+          const before = await this.count({ ...params, ids: undefined, imageScope: { ...scope, ids: members.slice(0, middle) } }, signal);
+          if (before <= skip) lower = middle; else upper = middle - 1;
+        }
+        position = lower;
+      }
+    }
+    const hits: Image[] = [];
+    const enrichment = new Map<string, EnrichmentFields>();
+    while (hits.length < length && (reverse ? position > 0 : position < members.length)) {
+      signal?.throwIfAborted();
+      const size = Math.min(PAGE_SIZE, length - hits.length);
+      const chunk = reverse ? members.slice(Math.max(0, position - size), position).reverse() : members.slice(position, position + size);
+      position += reverse ? -chunk.length : chunk.length;
+      const page = await apiSearchAfter({ ...params, ids: undefined, offset: undefined, length: chunk.length,
+        imageScope: { ...scope, ids: chunk }, trackTotalHits: false,
+      }, null, signal, false, false);
+      const images = new Map(page.hits.map(image => [image.id, image]));
+      for (const id of chunk) {
+        const image = images.get(id);
+        if (image) {
+          hits.push(image);
+          const fields = page.enrichment?.get(id);
+          if (fields) enrichment.set(id, fields);
+        }
+      }
+    }
+    if (reverse) hits.reverse();
+    return { hits, total, sortValues: hits.map(image => [scope.ids.indexOf(image.id), image.id]), enrichment, fetchDuration: Date.now() - started };
   }
 
   async estimateSortValue(
@@ -328,6 +388,11 @@ export class ApiDataSource implements ImageDataSource {
       return null;
     }
     if (signal.aborted || ids.length === 0) return null;
+    if (params.imageScope?.submittedOrder && !params.orderBy) {
+      const available = new Set(ids);
+      const ordered = params.imageScope.ids.filter(id => available.has(id));
+      return { length: ordered.length, ids: ordered, sortValues: ordered.map(id => [params.imageScope!.ids.indexOf(id), id]) };
+    }
     return { length: ids.length, ids, sortValues };
   }
 

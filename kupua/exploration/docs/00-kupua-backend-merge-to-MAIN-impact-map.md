@@ -22,13 +22,12 @@ tests before making any claim; old branch commits are not the review boundary.
   Existing-root service discovery replaces former metadata/auth injection; independent
   default-off editing/upload startup preferences do not grant server authority.
   The existing Kupua-only WebAssembly script allowance remains; active hosting
-  preserves inherited `connect-src` without an upload-storage addition. The
-  [experimental storage-CSP patch](patches/hosted-upload-storage-csp.patch) is an
-  unapplied documentation artifact, not controller behavior or a deployment
-  requirement. Reassess this disclosure if it is applied. Ordinary Kahuna policy
+  preserves inherited `connect-src` without an upload-storage addition. Ordinary
+  Kahuna policy
   generation (`KahunaConfig`), editing, stage/iframe boundaries, authorization
   and service CORS/CSRF remain unchanged.
-  Distinguish recorded local hosted trials from blocked/pending TEST acceptance;
+  Distinguish representative local and deployed TEST ingestion success from blocked
+  laptop-to-TEST trials and broader unverified workflows;
   source/fixture tests do not certify every deployment's effective configuration.
 - **Local Kupua development routing and upload CORS:**
   [the nginx template](../../../dev/nginx-mappings.yml.template) maps `kupua.media`

@@ -84,6 +84,7 @@ export function buildSearchKey(params: SearchParams | Record<string, unknown>): 
       !URL_DISPLAY_KEYS.has(k) &&
       k !== "offset" && k !== "length" && k !== "batch" &&
       v != null && v !== "")
+    .map(([key, value]) => [key, key === "recentUploadScope" ? { key: (value as NonNullable<SearchParams["recentUploadScope"]>).key } : value])
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(entries);
 }

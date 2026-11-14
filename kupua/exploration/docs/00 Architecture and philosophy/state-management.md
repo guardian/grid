@@ -54,22 +54,42 @@ an explicit unavailable state with Search as an alternative; it makes no batch
 page/count reads. Its return affordance is hidden there. Existing direct-ES search
 and the adapter remain unchanged; the Upload workplan forbids extending that path.
 
-Upload's fixture-facing `uploadBatchMembership` holds immutable canonical-ID
-membership snapshots independently of the route. `set(batch, ids)` deduplicates
-IDs and advances the revision when membership changes. `SearchParams.imageScope`
-carries its key, revision and typed IDs; the browser URL carries only `batch`.
-This is not the selection store, an image cache, authority or a job owner.
-Membership is currently in memory only: reload can make a batch unavailable.
-Jobs, outcomes, drafts and descriptor persistence remain separately owned future work.
+`uploadBatchMembership` holds immutable canonical-ID snapshots independently of
+the route. Job-owned membership deduplicates IDs in submitted-filename order and
+advances its revision on change. `SearchParams.imageScope` carries key, revision,
+typed IDs and local ordering policy; only IDs reach the server. The URL carries a
+short `batch`, not membership. This is not selection, an image cache or authority.
+[Upload jobs](../../../src/stores/upload-jobs-store.ts) own attempts and active
+resources. [Local descriptors](../../../src/lib/local-batch-storage.ts) restore
+known members/revision and lightweight outcomes, never files, requests, credentials,
+capabilities or image bodies. Unfinished work restores interrupted, without replay.
 
 Resolved batches clear unrelated search filters and admit paid/free images.
-Missing batches and disconnected recent uploads admit explicit empty scopes;
+Missing batches and unavailable recent identity admit explicit empty scopes;
 known-empty batches publish empty results after existing cancellation, without
 page/count reads. Nonempty Upload scopes use media-api POST ID filters, including the
 intersection with singleton cursor probes. Local keys/revisions never reach the
 server. Query keys distinguish scopes and revisions, and existing request
 generations/signals reject obsolete results. Membership revisions, not library
 arrival polling, own batch growth.
+
+Filename-order pages use bounded ID-scoped search reads, not raw mget: count,
+page, rank and key membership must agree on ordinary search lifecycle exclusions.
+Unreadable/excluded members remain in the descriptor without fake image records;
+read failures are not inferred absence. Explicit server sorts remain available.
+
+Recent uploads uses the shared session's narrow in-memory human identity, projected
+to the existing `uploadedBy` API field with no inherited filters or free-only cap.
+Its stable `recentUploadScope` route key omits the identity from persisted history
+and cursor fingerprints. Reload obtains the current identity again; loss or
+invalidation cancels admission instead of widening the query. Recent results are
+library uploads, not a local batch or future metadata-arrow target set.
+
+Descriptors use a 2 MiB tab-session budget; history uses 1 MiB and its existing
+50-entry LRU. Five visible choices do not delete descriptors. Persistence failure
+retains in-page state, reports the reload limit and protects unretained batch work
+even after transfer settles. Explicit local-storage retry never submits bytes or
+restarts observation. These are local recovery limits, not durable job storage.
 
 Same-batch revision admission keeps the current viewport mounted so continuity
 can be captured before publication; only a different context blocks the old view.
