@@ -1310,7 +1310,7 @@ describe("API mode: routing and counting", () => {
         expect(state()).toMatchObject({ pitId, newCount: 134, newCountSince: frozenUntil, total: 0, loading: false });
         expect(direct.openPit).toHaveBeenCalledOnce();
         expect(direct.searchAfter).toHaveBeenCalledWith(expect.objectContaining({ until: frozenUntil }), null, null, expect.any(AbortSignal));
-        expect(direct.countWithTickers).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ until: frozenUntil }));
+        expect(direct.countWithTickers).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ until: frozenUntil }), expect.any(AbortSignal));
       }
     } finally {
       useSearchStore.setState({ dataSource: Object.assign(corpus, { searchByAi: undefined }), params: { aiQuery: "poll-cleanup" }, pitId: null });

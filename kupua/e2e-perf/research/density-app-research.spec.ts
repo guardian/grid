@@ -15,7 +15,7 @@ import * as densityDrivers from "../density-browser";
 import type { ImageBox, JustifiedLayout } from "../../src/lib/justified-layout";
 import type { LayoutRow } from "../../src/lib/scroll-geometry-ref";
 
-test("U2 measured comparison with Justified in the indexed tier", async ({ context }, info) => {
+test("U2 real form comparison with Justified in the indexed tier", async ({ context }, info) => {
   await installB2AcceptanceRoutes(context, true);
   const page = await context.newPage();
   try {
@@ -29,9 +29,12 @@ test("U2 measured comparison with Justified in the indexed tier", async ({ conte
       await store.getState().search();
       await document.fonts.ready;
     });
-    const order = info.repeatEachIndex % 2 ? ["measured", "justified"] as const : ["justified", "measured"] as const;
+    const order = info.repeatEachIndex % 2 ? ["form", "justified"] as const : ["justified", "form"] as const;
     for (const density of order) {
-      await page.evaluate(enabled => (window as any).__kupua_measured__.enable(enabled), density === "measured");
+      await page.evaluate(async density => {
+        const path = "/src/stores/ui-prefs-store.ts";
+        (await import(path)).useUiPrefsStore.setState({ density });
+      }, density);
       await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
       await page.evaluate(async () => { await (window as any).__kupua_store__.getState().seek(30000); });
       await waitForDensityMaintenanceCooldown(page);
@@ -53,11 +56,11 @@ test("U2 measured comparison with Justified in the indexed tier", async ({ conte
         const state = (window as any).__kupua_store__.getState();
         return { rows: layout.rowCount, measured: layout.measurements?.size ?? null, loaded: state.results.length };
       });
-      if (density === "measured") {
+      if (density === "form") {
         expect(geometry.rows).toBeLessThanOrEqual(geometry.loaded + 2);
         expect(geometry.measured).toBeLessThanOrEqual(geometry.loaded);
       }
-      console.log(JSON.stringify({ fixture: "U2-indexed-density-comparison", density, repetition: info.repeatEachIndex + 1,
+      console.log(JSON.stringify({ fixture: "U2-real-form-indexed-density-comparison", density, repetition: info.repeatEachIndex + 1,
         total: 65000, viewport: page.viewportSize(), geometry, frames: intervals.length,
         frameP95Ms: intervals[Math.ceil(intervals.length * 0.95) - 1], worstFrameMs: intervals.at(-1),
         achievedPxPerSecond: motion.drivenDistancePx / motion.drivenDurationMs * 1000,
@@ -215,7 +218,7 @@ async function installPublicationRoutes(context: BrowserContext, retainRows: boo
         const items = "const virtualItems = virtualizer.getVirtualItems();";
         expect(source.split(hook)).toHaveLength(2);
         expect(source.split(items)).toHaveLength(2);
-        const view = component === "ImageTable" ? '"table"' : 'justified ? "justified" : "grid"';
+        const view = component === "ImageTable" ? '"table"' : 'variableLayout ? "justified" : "grid"';
         const rowForIndex = component === "ImageTable" ? "index => index"
           : "index => justifiedLayout?.getItemRow(index).index ?? getItemLayoutRow(fixedGeometry, index).index";
         if (retainRows) {
@@ -232,7 +235,7 @@ async function installPublicationRoutes(context: BrowserContext, retainRows: boo
         if (stableKeys && component === "ImageGrid") {
           const options = "const virtualizer = useVirtualizer({";
           const rowKey = "virtualRow.key";
-          const cellKey = "justified ? imageIdx : getItemColumn(fixedGeometry, imageIdx)";
+          const cellKey = "variableLayout ? imageIdx : getItemColumn(fixedGeometry, imageIdx)";
           const rowClass = 'className: "absolute left-0 right-0 flex",';
           expect(source.split(options)).toHaveLength(2);
           expect(source.split(rowKey)).toHaveLength(2);
@@ -247,7 +250,7 @@ async function installPublicationRoutes(context: BrowserContext, retainRows: boo
               justifiedLayout.window.width, row.__retentionPackedStart]);
           };\n${options}`)
             .replace(rowKey, "__retentionRowKey(virtualRow.index)")
-            .replace(cellKey, 'justified ? (image?.id ?? "fixture-placeholder:" + imageIdx) : getItemColumn(fixedGeometry, imageIdx)')
+            .replace(cellKey, 'variableLayout ? (image?.id ?? "fixture-placeholder:" + imageIdx) : getItemColumn(fixedGeometry, imageIdx)')
             .replace(rowClass, `${rowClass}\n"data-retention-row-key": __retentionRowKey(virtualRow.index),`);
           if (stableThumbnailKey) {
             const innerKey = /animationClass\s*\?\s*image\.id\s*:\s*(?:undefined|void 0)/g;

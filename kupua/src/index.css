@@ -1,5 +1,43 @@
 @import "tailwindcss";
 
+.form-density-item {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  background: var(--color-grid-cell);
+  border-bottom: 1px solid var(--color-grid-separator);
+  container-type: inline-size;
+}
+
+.metadata-form-field {
+  position: relative;
+  padding: 6px 0;
+}
+
+.form-density-item .leading-snug,
+.form-density-item .text-xs { line-height: 18px; }
+
+.metadata-form-field :is(input, textarea, select) {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-grid-border);
+  border-radius: 3px;
+  background: var(--color-grid-bg);
+  color: var(--color-grid-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.metadata-form-field textarea { resize: vertical; }
+.metadata-form-field :is(input, textarea):read-only { border-color: transparent; }
+.metadata-form-field :is(input, textarea, select):focus-visible { outline: 2px solid var(--color-grid-accent); outline-offset: 1px; }
+
+@media (max-width: 679px) {
+  .form-density-item { grid-template-columns: minmax(0, 1fr); }
+}
+
 .chrome-fade { opacity: 1; visibility: visible; transition: opacity 180ms ease, visibility 0s linear 0s; }
 .chrome-fade[data-visible="false"] { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms ease, visibility 0s linear 180ms; }
 @starting-style { .chrome-fade { opacity: 0; } }

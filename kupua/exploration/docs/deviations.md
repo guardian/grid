@@ -32,6 +32,23 @@ explicit unavailable state without querying batch membership or falling back to
 library results; ordinary search is left alone pending separately selected retirement.
 API browser witnesses reuse the existing isolated API fixture and real client mapper.
 
+### Virtualized Upload Forms
+
+Kupua's image-and-fields presentation is a genuine, initially Upload-only density
+over the shared bounded browsing window, rather than Kahuna's instantiated job-editor
+list. Pending attempts remain activity, not fake image rows. Sparse per-image/field
+drafts survive cell/density/route disposal in memory, with a reload warning rather
+than durable draft storage. Explicit image entry keeps text selection and editing
+separate from thumbnail activation; one neighbouring form on either side of the
+focused loaded item preserves native Tab order without rendering the intervening list.
+
+Upload has its own session density preference and defaults to Form; Search retains
+its existing choices. Passive membership maintenance preserves placement without
+navigation feedback and waits for an in-flight browse read before admitting its
+latest revision. The trade-off is bounded arrival-display latency, not delayed job
+membership or uploads. U2 fields retain Not sent drafts; efficient saves, propagation
+and the remaining command families still belong to U5-U7, not disconnected parity.
+
 ### Recent Uploads in the Shared Browser
 
 Kahuna shows a newest-50 recent-upload preview and links to all uploads in Search.

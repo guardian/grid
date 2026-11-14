@@ -7,7 +7,7 @@ import { buildSearchKey } from "@/lib/image-offset-cache";
 import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
 import { consumeUserInitiatedFlag, markPushSnapshot } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
-import { availableDensity, useUiPrefsStore, type Density } from "@/stores/ui-prefs-store";
+import { useUiPrefsStore, type Density } from "@/stores/ui-prefs-store";
 import { useSearchStore } from "@/stores/search-store";
 
 const departures = new Map<BrowsingPath, { search: Record<string, unknown>; key?: string; density: Density }>();
@@ -49,6 +49,11 @@ export function returnToBrowsing(navigate: NavigateFn, path: BrowsingPath): void
 
 export function restoreBrowsingDensity(path: BrowsingPath): void {
   const state = useUiPrefsStore.getState();
-  const density = availableDensity(path === "/upload" ? "upload" : "search", departures.get(path)?.density ?? state.density);
-  if (density !== state.density) state.setDensity(density);
+  state.setDensityContext(path === "/upload" ? "upload" : "search", departures.get(path)?.density);
+}
+
+export function admitBrowsingDensityContext(path: BrowsingPath): void {
+  const state = useUiPrefsStore.getState();
+  const context = path === "/upload" ? "upload" : "search";
+  if (state.densityContext !== context) state.setDensityContext(context, state.density);
 }

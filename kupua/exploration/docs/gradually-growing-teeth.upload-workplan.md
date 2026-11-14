@@ -507,7 +507,8 @@ Update one line when a unit's state changes; this is not a session diary.
 | U1 | complete: route/scope foundation 13 November, API-only boundary 14 November; full unit/E2E/build/type gates pass; fixture-backed browsing only, no real Upload or recovery claim |
 | U3 | representative one-file ingestion/job checks complete 14 November: local hosted/Vite and deployed TEST succeeded with readable/indexed canonical identity; processing completed on Search; laptop-to-TEST remains blocked by storage CORS; broader batch/editor/recovery work remains separate |
 | U4 | complete locally 14 November: multi-file entry, retained/recent navigation and explicit recovery over one engine; final full unit/E2E/build/type gates pass; no U2/U5 or durable/server-side batch guarantee |
-| U2, U5-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
+| U2 | complete locally 14 November: real Upload Form density, sparse retained drafts and passive-arrival integration; cold-review repairs and final full gates pass; no new saves, live-upload or real-editor performance claim |
+| U5-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**
 The deployed trial used the inherited hosting policy and existing TEST storage
@@ -965,6 +966,72 @@ small-array mock. No full-library UI exposure or catalogue-sized measurement.
 for the entire buffer, fixed-height clipping of required fields, or a second scroll
 engine. A failed proof calls for revising the local adapter, not abandoning the
 genuine-density requirement without operator agreement.
+
+#### Implemented U2 Boundary and Limits
+
+Upload now defaults to Form alongside Grid, Table and Justified, with an independent
+tab-session preference. Search does not expose Form; Home and cross-context return
+retain destination preferences. The renderer reuses the measured browsing host and
+registry metadata, with natural heights, explicit image/detail entry and one-column
+compact presentation. No second image cache, per-form singleton read or browsing
+engine was added. The [component guide](00%20Architecture%20and%20philosophy/component-detail.md#form-density-componentsmeasuredgridtsx)
+owns the field and measurement mechanics.
+
+Shared controlled text/suggestion inputs edit sparse image/field drafts outside
+cells, preserving native selection/IME/Tab and required Description/Credit guidance.
+Existing explicit editors keep their preparation workflow. Capability, stale and
+unavailable states remain authoritative. Drafts survive density, eviction and in-app
+context changes without changing canonical images. They are Not sent and warn before
+reload/closure, but are not persisted. Dates, rights, leases, lists and other unconnected
+families remain read-only in Form. U5 owns new saving, filename fallback, presets and
+batch arrows; U6/U7 and detail/crop retain their separately owned operation limits.
+
+Geometry stays bounded to loaded identities plus estimated head/tail spans. Anchor
+election from committed geometry prevents a changed neighbour from stealing field
+correction. Integral extents avoid cumulative native-scroll rounding without clipping
+content. The focused form and its immediate loaded neighbours preserve native Tab
+adjacency without rendering the intervening range. Compensation remains shared.
+
+Authoritative membership/activity still publishes immediately after readable/indexed
+admission. Membership-only browsing waits for an in-flight read, then admits the
+latest revision without a timer/cache; explicit navigation remains immediate. Passive
+continuity preserves active-field/interior position without phantom navigation feedback.
+Batch discovery reuses the page's authoritative total rather than also fetching ticker
+counts. Per-upload visibility checks, consistent lifecycle eligibility, failures and
+stale guards remain; upload concurrency and replay policy are unchanged.
+
+Cold GPT-6.1 Sol reviews identified a Tab skip outside overscan and Home writing
+Search density choices into Upload's preference. Both were reproduced in the existing
+API journey and repaired. A further source review found no confirmed production defect
+but identified weak IME and compact-suggestion witnesses. Strengthened checks cover
+Chromium composition spanning held arrivals, both selection endpoints and committed
+text, plus touch suggestion choice in a reduced keyboard-sized viewport. This is not
+physical-phone/OS-keyboard or cross-browser certification.
+
+**Final validation, 14 November:** full units passed **3,891 tests across 116 files**;
+the complete local E2E rerun passed **610/610 with retries disabled**, including all
+eleven U2 journeys, compiled-hosted Form/detail return and unchanged visual baselines.
+Normal `build`, isolated `build:hosted -- --outDir node_modules/.cache/u2-hosted`,
+`typecheck:e2e` and `typecheck:perf` passed. Commands ran sequentially from repo root
+with foreground pipefail/tee output and frozen source/configuration. Scoped editor
+diagnostics are clean. Desktop compiled-hosted, compact form and reduced-viewport
+suggestion captures were reviewed; all media/data in these witnesses is synthetic.
+
+The earlier full unit run exposed a Home race from waking all URL synchronization
+on loading changes; completion wake-up was narrowed to actually deferred membership
+work. The first full E2E run passed 609/610: its touch-refresh witness expected the
+removed redundant count. The fixture's generic page counter also excludes ID-scoped
+reads, so the retained assertion observes the actual scoped POST, successful 80-image
+settlement, unchanged count traffic and dormant selection. That case and the full
+suite then passed without retries. No behavior assertion or geometry tolerance was
+weakened. Existing suites gained six units and two composed browser journeys; the
+nine prototype geometry journeys now exercise the real renderer rather than duplicate
+stand-in coverage. These are current-source gates, not inherited U4 results.
+
+No dependency, backend/transport change, live upload, infrastructure change or
+performance workload was used. The prototype comparison remains historical stand-in
+evidence. The adapted research driver names the real Form workload separately; it
+does not supply a new result or require repeating the campaign.
 
 ### U3. Real Upload Transport and Route-Independent Jobs
 
@@ -1626,16 +1693,16 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | ID | Evidence and opportunity | Boundary |
 | --- | --- | --- |
 | R1 | The shared Grid/Table/detail/scroll consumers previously knew `/search` directly, and URL-level `ids=""` was dropped as unrestricted. | **U1 implementation:** a narrow [browsing context](../../src/lib/browsing-context.tsx), typed internal membership scope, fail-closed empty admission and route-aware shared consumers remove the coupling needed here. Upload is API-only; the direct-ES adapter is unchanged. Library CSV share links remain supported; batch IDs never become CSV browser URLs. Wider router/store cleanup remains deferred; no universal workspace framework or direct-ES Upload parity work. |
-| R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx#L86) combines draft state, intent preparation and rendering; single/multi/form consumers need some common behaviour. | U2/U5 may extract the necessary controlled field/draft boundary. Do not rewrite all metadata presentation or unify unlike command families just for symmetry. |
+| R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx) combined local drafts, preparation and rendering; Form needs controlled inputs without repeated autofocus. **U2 follow-on observation:** `MetadataFormField` reads an external image/field draft, while the panel's `beginEditing` seeds component-local state from its canonical value. Opening detail therefore does not show an unsent Form draft, though returning to Form retains it. | **U2:** shared controlled text/suggestion rendering and sparse image/field Form drafts in [metadata-drafts-store](../../src/stores/metadata-drafts-store.ts); existing explicit editors retain their workflow. **Candidate for U5:** an explicit single-image draft handoff could let someone start a description in Form and finish it in detail without seeing two competing values. Benefit: continuity of editing intent, in addition to shared commands. Cost/risk: different autosave/explicit-commit interactions, cancel semantics, stale authority and distinguishing single-image intent from multi-image overwrite/prepend/append operations. Trigger: U5 is selected and both surfaces are connected, with the handoff behavior explicitly chosen. Do not infer approval to merge every editor store or silently publish drafts as canonical data. |
 | R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) described obsolete hybrid/proxy/graceful-absence assumptions. | **Corrected in U3:** comments now describe explicit API routing, independently validated satellites, failure versus empty data and the actual site-settings owner. No working transport policy was changed to match obsolete commentary, and no broad cleanup was undertaken. |
 | R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | **U4:** extended the existing [API/label fixture](../../e2e/shared/label-editor-plugin.ts), including multiple canonical uploads and lifecycle qualification; compiled-hosted traffic reuses it rather than another API engine. Its initial Upload URL is preserved and production build environment isolated. Benefit: real mapper/control coverage without duplicate transport scaffolding. Wider unit stand-in extraction remains deferred until a contract change requires coordinated edits; it is not a new U4 gate or testing framework. |
 | R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
 | R6 | Justified's total-row invalidation and [indexed estimated-block construction](../../src/lib/windowed-justified-layout.ts) scale with result extent. U2-proto's deterministic dependency probe established this, not measured frame-time harm. | **Resolved for measured forms** by [bounded spans](../../src/lib/windowed-measured-layout.ts) after operator approval. Reducing Justified's indexed relayout work could help, but changing its packing/navigation representation is higher-risk work. Pursue only if a profile attributes material cost to that construction; the unequal-throughput U2 comparison is not that evidence. No automatic Justified rewrite. |
 | R7 | [exerciseBulkEditor](../../e2e/local/grid-mutations.spec.ts#L1707) expected `[superseded, observed]` but received `[observed, observed]`, first locally and later compiled-hosted. The isolated tracked-source control failed earlier at [exerciseObservedEditor](../../e2e/local/grid-mutations.spec.ts#L1569), not the same assertion. The selected follow-up passed both command cases, both owning specs (75 cases) and a fresh full suite (596 cases), without retries or a product fix. | Retain as an unexplained intermittent, not a currently reproduced defect or claimed repair. A new assertion verifies observation is pending before releasing the held request; it does not weaken the expected receipt pair. If this recurs, distinguish an ineffective request hold from publication/read ordering using that invariant. No inheritance or U2 causality is established. |
 | R8 | An earlier full run's mobile double-tap case failed during [module interception](../../e2e/local/selections-mobile.spec.ts#L39) with `route.fetch: read ECONNRESET`; app startup then lacked its store. It subsequently passed unchanged in isolation, the selected two-spec investigation and the fresh 596-case full run, all without retries. | Retain as an unexplained fixture/server transport intermittent; investigate module-request lifetime if it recurs. The latest full gate is green, but no causal repair is claimed. This is not evidence of a gesture regression or permission to add retries, weaken readiness assertions, or alter product transport behavior. |
-| R9 | The prototype deliberately reuses [ImageGrid's lifecycle](../../src/components/ImageGrid.tsx#L528), but `justified` now also means measured cells, with explicit exclusions in [zoom subscription](../../src/components/ImageGrid.tsx#L649) and [gesture setup](../../src/components/ImageGrid.tsx#L940), plus form-specific rendering branches. Shared browsing ownership and thumbnail-specific policies still live in one component. | Before U2 adds real form rendering, separate only the necessary layout/cell/gesture policies from the existing browsing host. Benefit: new form behavior need not inherit or bypass thumbnail-only behavior, without copying the lifecycle. Moderate-to-high regression risk across density, selection, navigation and media admission; retain their witnesses. Coordinate with R1's route adapter, but do not create a new engine/store factory or refactor unrelated Grid rendering now. |
-| R10 | [Measured geometry](../../src/lib/windowed-measured-layout.ts#L53) maps items to bounded virtual rows, while its [spatial interface](../../src/lib/windowed-measured-layout.ts#L77) uses logical item rows. Both return `LayoutRow` with a numeric `index`; [navigation's `virtualizerCount`](../../src/hooks/useListNavigation.ts#L71) is also named/documented as a row count although callers supply the logical item extent. Confusing these domains caused the indexed boundary-arrow defect fixed in U2-proto. | Before grouped/side-by-side forms or another geometry consumer, name and document logical items, spatial rows and virtual rows explicitly at the adapter boundary; use distinguishing types where they prevent this demonstrated mismatch. Benefit: fewer accidental whole-span scroll targets and count errors. Moderate cross-consumer cost; preserve the boundary-arrow and tall-page witnesses. No universal coordinate-branding project or change to history/anchor policy. |
-| R11 | The [research transforms](../../e2e-perf/research/density-app-research.spec.ts#L222) require literal import text, and [row/cell-key transforms](../../e2e-perf/research/density-app-research.spec.ts#L235) require exact source substrings and occurrence counts. U2 integration had to preserve those source shapes even though they are not application behavior. | When those experiments are next maintained, replace the relevant fragile text rewrites with a test-only AST transform or an existing explicit hook. Benefit: behavior-preserving production edits need not preserve incidental spelling/import layout for research. Moderate validation cost and risk of changing what an experiment measures; retain fail-closed checks and controlled variants. No new hot-path instrumentation, dependency or wholesale research-framework rewrite merely for this prototype. |
+| R9 | The prototype reused [ImageGrid](../../src/components/ImageGrid.tsx) but conflated variable geometry with Justified thumbnail behavior. Real forms also exposed changed-neighbour measurement anchoring and native Tab skipping outside overscan. | **U2:** variable-row policy is named separately; the renderer composes explicit image entry with independent form content. Committed-geometry anchoring and immediate loaded focus neighbours repair the demonstrated placement/Tab defects. Benefit: shared browsing without thumbnail input policies or copied lifecycle. Cost/risk remains shared navigation/media behavior, covered by retained witnesses. Wider host extraction stays deferred until another necessary consumer exposes real duplication. |
+| R10 | [Measured geometry](../../src/lib/windowed-measured-layout.ts) maps logical items to bounded virtual rows, while its spatial interface uses logical rows. Confusing these domains caused the prototype's boundary-arrow defect. | **U2:** the touched host names `logicalItemCount` separately from virtual `rowCount`; navigation's existing parameter documents its logical extent. Boundary-arrow and tall-page witnesses remain. Benefit: clearer adapter domains without a shared API rewrite. Distinguishing types/grouped-row redesign stays deferred until a concrete additional adapter needs it; no universal coordinate-branding project. |
+| R11 | The [research transforms](../../e2e-perf/research/density-app-research.spec.ts) rely on literal import/cell-key text and occurrence counts, not application behavior. | **U2:** adapted the touched host-policy references and gave the real Form comparison a distinct workload/record name. Fail-closed checks and compiler validation remain; no campaign ran. Production naming is not retained solely for text matching. AST/hook replacement remains a deferred maintenance improvement if another integration repeatedly breaks these transforms; benefit is less incidental coupling, cost/risk is experiment-equivalence validation. No instrumentation, dependency or framework rebuild. |
 | R12 | **Operator report, U0b:** scrolling down while files are uploading loses orientation about remaining activity; even an experienced user cannot confidently predict which processing files an arrow will affect. **Source:** [job list](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L1) puts the remaining count at the section heading and creates editors only after images arrive; [metadata arrows](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L106) reach existing editable recipients, not future arrivals. This is not a new live-upload witness. | **U4 implemented:** compact persistent batch orientation, short references, processing/attention counts and expandable filename-ordered file outcomes, distinct from unique canonical-image counts. Startup compact and compiled-hosted controls have owning browser witnesses. **U5 still owns metadata-arrow scope**, target counts and exclusions; no applicator or pending-arrival intent was built. Benefit: visible activity without returning to the top; cost/risk remains phone space, status accessibility and unlike outcome lifetimes. An in-app completion/attention notice is still a deferred hypothesis, triggered by demonstrated repeated-batch need, not permission for browser notifications or background guarantees. |
 | R13 | **U0b source fact:** pending files have no current editor and do not inherit a metadata-arrow click. **Decision:** first-version arrows capture known canonical images with explicit exclusions. **Operator priority:** familiar parity before speculative improvements. | **Deferred hypothesis:** explicitly retaining an operation for the original batch's processing files could prevent a second manual application and omissions. Cost/risk: repeated arrows, intervening per-image edits, duplicate attempts, failed ingestion, changed authority and cancellation/reload semantics; never silently overwrite newer intent or auto-replay uncertain saves. Trigger: working Upload shows this omission is materially costly and the operator selects those semantics. Keep file-attempt identity, canonical membership and captured command intent separate now; do not build a pending-edit queue, automatic catch-up or template engine in advance. |
 | R14 | **Operator ambition, not a measured failure in U0b:** robust uploads of large files, many files, or both, and recovery without losing trust. Existing transport/status limitations are recorded in B2/B3/B6 and C1/C4; splitting batches after failures is coping behaviour, not evidence of a preferred small workload. | **Deferred improvements selected by evidence:** clearer recovery/reconciliation and, only if justified, stronger transport support. Benefit: less repeated work and fewer lost outcomes. Cost/risk: browser memory/lifecycle limits, uncertain server outcomes and compatibility across loader/signed storage; no safe-resume or exactly-once guarantee exists merely from a local job record. Trigger: a separately authorized representative workflow demonstrates a specific bottleneck/failure or the operator selects a bounded investigation. Preserve independent jobs, separate phase/edit outcomes and bounded client resources now; do not invent a batch cap, resumable-upload subsystem or autonomous performance campaign. Backend amendments follow Section 7's additive-first policy and their owning register. |
@@ -1721,26 +1788,22 @@ with the other 150 single-ID counts used for required visibility verification.
 The separate 1,325 upload-status reads follow the job observation policy and are
 not explained by browse restarts.
 
-**Deferred to U2 integration; candidate improvement, not prescribed:** coalesce only membership-driven browse
-refresh with bounded publication delay, keeping authoritative membership, receipts
-and explicit navigation current; share appropriately qualified count metadata
-rather than count the same browse twice. Benefit: fewer superseded page reads and
-repeated counts during bursts. Cost/risk: represented focus/position, first-child
-synchronization, continuous arrivals, route departure, freshness and failed-versus-
-empty semantics. Keep existing lifecycle-excluded-member, ordered-page and history
-witnesses; add a focused burst/held-page witness before repair. No raw mget shortcut,
-optimistic visibility, new cache, concurrency change or batching of upload writes
-follows. Evaluate the refresh and count ownership against actual form editing
-during U2 integration, not as a new gate or interim UI-polish project before U4
-closeout. U2 does not automatically remove these upstream reads; neither this
-candidate mechanism nor a particular delay is an implementation decision.
+**Implemented in U2:** membership-only browse refresh retains the latest revision
+while a read is in flight, then admits it on completion. Authoritative membership,
+receipts and explicit navigation remain current; there is no timer or new cache.
+Batch discovery reuses the authoritative page total instead of also requesting ticker
+counts. The held-arrival API witness reproduced four read starts and now requires two,
+while retaining input node, focus, composition, selection and represented field position.
+Lifecycle-excluded-member, ordered-page and history witnesses remain. Cost/risk is the
+existing request lifetime and continuity ownership, not an upload-concurrency change.
+No raw mget shortcut, optimistic visibility or batching of upload writes follows.
 Elapsed-time improvement and the share of backend work saved remain unmeasured;
 browser cancellation alone is not upstream cancellation.
 
 **U4 arrival animation investigation, same boundary:** operator observed repeated
 phantom-focus feedback while images arrived, and noted that Upload presentation
-will be redesigned with U2 form density. Source inspection finds that membership
-refresh calls `captureSearchContinuity(false)` in
+would be redesigned with U2 form density. At the U4 baseline, source inspection found
+membership refresh called `captureSearchContinuity(false)` in
 [URL synchronization](../../src/hooks/useUrlSearchSync.ts). The
 [continuity chooser](../../src/lib/search-continuity.ts) prefers remembered focus,
 otherwise an on-demand viewport-centre image; with no rendered images there is
@@ -1757,16 +1820,14 @@ was moved or a new centre elected every frame. The original passive collector
 did not record exact pulse targets or scroll writes, so no per-arrival movement
 or animation-restart count is claimed.
 
-**Proposed boundary, not implemented:** retain genuine position continuity for
-surviving images, but distinguish background membership refresh from deliberate
-navigation feedback. Benefit: avoid announcing a focus transition for routine
-arrivals without sacrificing represented position. Cost/risk: shared search,
-history and detail-return semantics, including intentional phantom pulses.
-Trigger: U2 integration with an existing-suite witness for passive arrivals
-and preserved user-transition feedback. Resolve alongside the Upload redesign
-and U2 variable-height form density; do not add Grid-specific pulse patches,
-disable anchoring globally or mistake reduced refresh frequency for correct
-presentation semantics.
+**Implemented in U2:** maintenance provenance preserves surviving-image and active
+form-interior continuity without phantom navigation pulses. First-page and farther
+anchor publication retain placement; a deliberate-navigation control still pulses.
+Benefit: routine arrivals do not announce a focus transition. Shared history and
+detail-return semantics remain the risk boundary, with their existing witnesses
+retained. This is separate from refresh-frequency reduction, not a Grid-specific
+animation patch or globally disabled anchoring. No new live movement measurement
+is claimed.
 
 **Operator boundary after prototype review:** retain the shared canonical-image
 browsing model. A Kahuna-style attempt-slot/pending-row model or second browsing
@@ -1779,6 +1840,32 @@ not select broad refactoring, global form exposure, pending-arrival metadata,
 transport tuning or backend work. Embedded JPEG extraction was researched only
 as optional faster display and then declined for now; no dependency or preview
 implementation was added. UI polish remains after real U2 integration.
+
+#### U2 Follow-on Opportunities
+
+Recorded under Section 7 after U2 implementation, 14 November. These are source-backed
+constraints and proposed improvements, not new runtime findings, U2 closure gates or
+permission to implement them. R2 above owns the cross-surface draft-handoff opportunity;
+R15/R17 already own broader batch navigation and field/zoom customization.
+
+| ID | Evidence and observation | Proposed benefit, cost/risk and trigger |
+| --- | --- | --- |
+| R25 | **Source:** [Form fields](../../src/components/MetadataTextEditor.tsx#L84) show Not sent per dirty field but have no explicit discard action; the [draft store](../../src/stores/metadata-drafts-store.ts) spans images and batches and only removes a field when its value matches the current canonical value. Its unload warning cannot identify or navigate to the outstanding work. This establishes the controls/lifetime gap, not observed user confusion or lost data. | **Proposal:** a small outstanding-edits summary with a jump to the affected image/field, plus deliberate per-field discard, could let someone find unfinished work after leaving a batch and abandon a draft without reconstructing the original text. Cost/risk: image-global drafts can appear in several batches; canonical reads can change; discarding an unsent draft must not erase an uncertain save receipt or imply rollback. Trigger: U5 defines pending/rejected/uncertain outcomes or an operator demonstrates difficulty finding/abandoning work. Start with existing activity/navigation owners; no new Places panel, durable storage or global editor framework is implied. |
+| R26 | **Source and retained unit witness:** the [draft store](../../src/stores/metadata-drafts-store.ts#L14) retains the initial baseline, while [MetadataFormField](../../src/components/MetadataTextEditor.tsx#L87) displays the draft over a newer canonical value and reports only Not sent. The metadata suite proves retention across canonical changes; it does not provide a compare/rebase UI or establish an actual concurrent-editor incident. | **Proposal:** when a fresh canonical value differs from the draft's baseline, offer a bounded comparison and explicit keep-draft/discard decision. Benefit: someone can see that the underlying value changed before replacing it. Cost/risk: own acknowledged writes, delayed readback and another editor's changes must not be conflated; a comparison is not server conflict prevention or an atomic save guarantee. Trigger: assess alongside U5's authoritative reads and publication receipts, or after a demonstrated conflicting-edit workflow. Do not add automatic merging, retries, a new versioning API or a universal conflict subsystem merely because a baseline exists. |
+| R27 | **Source and geometry evidence:** [MeasuredGrid](../../src/components/MeasuredGrid.tsx#L34) places a non-sticky preview at the start of each natural-height form; the retained tall-form journeys intentionally read interiors below that preview. The image can therefore leave view while lower metadata is being edited. No loss of identity or measured user error is claimed. | **Hypothesis:** a desktop preview constrained to stay within its own form while scrolling could keep the image available for checking credit/description, without opening detail or moving the field being edited. Cost/risk: sticky geometry must not alter anchor election, overlap the next image or consume scarce keyboard space on phones; virtualized disposal, graphic-image protection and detail entry must remain correct. Trigger: operator use of real forms demonstrates a need to keep the image visible. Evaluate separately from R17's field visibility and zoom choices; this is not permission for a second metadata panel or fixed-height clipping. |
+| R28 | **Source:** [setDraft](../../src/stores/metadata-drafts-store.ts#L13) copies the top-level draft map and the edited image's field map on every change. Draft records persist in memory across route/window disposal, so update cost depends on the number of edited identities, not just visible cells. This is an allocation/complexity observation, not a measured typing regression or a violation of the separate loaded-window geometry bound. | **Deferred hypothesis:** more localized draft updates could reduce typing work in a long session containing many edited images. Benefit is conditional on measured cost. Cost/risk: more complicated ownership/subscriptions and accidental eviction of unsaved intent; sparse state is currently simple and appropriate. Trigger: profile representative long-session editing and attribute material input latency or memory pressure to this store before selecting an optimization. No arbitrary draft cap, silent eviction, benchmark campaign or speculative store rewrite is approved. |
+
+##### Recommended Execution Placement
+
+These are recommended homes for explicit selection, not additions to unit acceptance
+criteria or approval to implement every opportunity. None reopens U2.
+
+| Opportunity | Natural step/session | Sequencing and boundary |
+| --- | --- | --- |
+| R25: outstanding edits and discard | [U5: metadata saving and propagation](#u5-required-metadata-saving-and-batch-propagation) | Define discard and outstanding-work navigation alongside real pending/rejected/uncertain outcomes, so the UI does not confuse abandoning local intent with undoing a server write. Coordinate with R2's single-image draft handoff. A simple unsent-only discard control could be explicitly selected during pre-U5 polish, but defer the richer summary until U5's outcome model exists. U8 can refine its presentation during end-to-end review. |
+| R26: changed canonical value beneath a draft | [U5: metadata saving and propagation](#u5-required-metadata-saving-and-batch-propagation) | Assess the behavior when establishing authoritative reads, baseline handling and publication receipts, before connecting the same field through Form and panels. Select any comparison/keep/discard UI explicitly; it is not automatically a U5 gate. If deferred, retain that disposition rather than implying conflict prevention. U8 can exercise the selected behavior in the completed workflow. |
+| R27: form-bounded sticky preview | Operator-led UI polish after U2, before U5 | This is independent of save transport and is the most natural candidate for the planned polish session if the operator wants it. Keep it a bounded layout/interaction change with existing tall-form, field-anchor, density and compact witnesses. If not selected now, leave it for [U8's visual review](#u8-visual-review-and-parity-acceptance); it must not delay U5. |
+| R28: draft-store allocation/localized updates | Evidence-led follow-up after U5; [U8](#u8-visual-review-and-parity-acceptance) is a useful observation point | First use the real editing lifecycle to determine how many drafts remain outstanding and whether typing or memory cost is material. Existing evidence should be checked before selecting any profiling; performance campaigns remain operator-run. Optimize the owning draft store only if cost is attributed to it. There is no scheduled rewrite or additional U8 gate merely from the map-copy observation. |
 
 ## 9. Completion Report
 

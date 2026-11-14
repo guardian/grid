@@ -23,6 +23,11 @@ test.describe("U3 isolated uploads", () => {
   const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
     VITE_MEDIA_DELIVERY: "canonical", VITE_GRID_LOADER_ORIGIN: "https://loader.example.test", VITE_GRID_AUTH_ORIGIN: "https://auth.example.test" };
   let previous: Record<string, string | undefined>;
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("kupua-upload-density")) sessionStorage.setItem("kupua-upload-density", new URL(location.href).searchParams.get("density") ?? "grid");
+    });
+  });
   test.beforeAll(async ({}, testInfo) => {
     previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
@@ -349,17 +354,24 @@ test.describe("U3 isolated uploads", () => {
     const batch = new URL(page.url()).searchParams.get("batch")!;
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
     await expect(page.getByText("Upload activity: 2 files; 2 images available", { exact: true })).toBeVisible();
+    await (await getDensityChangeButton(page, "table"))?.click();
     const table = page.getByRole("region", { name: "Image results table", exact: true });
     await expect(table.locator("[data-image-id]")).toHaveCount(2);
     await page.reload();
     await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveValue(batch);
     await expect(table.locator("[data-image-id]")).toHaveCount(2);
     await page.screenshot({ path: testInfo.outputPath("u4-batch-hosted-desktop.png") });
+    await (await getDensityChangeButton(page, "form"))?.click();
+    const form = page.getByRole("region", { name: "Image results form", exact: true });
+    const description = form.getByRole("textbox", { name: "Description", exact: true }).first();
+    await description.fill("Retained hosted draft");
+    await page.screenshot({ path: testInfo.outputPath("u2-form-hosted-desktop.png") });
     await page.getByText(/Upload activity:/).click();
     await page.locator("[data-upload-attempt]").first().getByRole("button", { name: "Open image", exact: true }).click();
     await expect(page.locator("[data-detail-image-id]")).toBeVisible();
     await page.goBack();
-    await expect(table).toBeVisible();
+    await expect(form).toBeVisible();
+    await expect(description).toHaveValue("Retained hosted draft");
     expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
     await page.goForward();
     await expect(page.locator("[data-detail-image-id]")).toBeVisible();
@@ -527,6 +539,9 @@ test.describe("Unit B isolated continuation", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 9_000_000 } });
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem("kupua-upload-density")) sessionStorage.setItem("kupua-upload-density", new URL(location.href).searchParams.get("density") ?? "grid");
+    });
   });
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => (window as Partial<CommandWindow>).editorFixture?.disposeReadback()).catch(() => {});
@@ -558,6 +573,164 @@ test.describe("Unit B isolated continuation", () => {
       return (await import(contextPath)).uploadBatchMembership.getState().batches.get("local-lifecycle").ids.length;
     })).toBe(201);
     expect((await counts(page)).unexpected).toEqual([]);
+  });
+
+  test("U2 form keeps editing and field position through held burst arrivals and context returns", async ({ page }) => {
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.evaluate(async () => {
+      sessionStorage.removeItem("kupua-upload-density");
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const routerPath = "/src/router.ts";
+      (await import(contextPath)).uploadBatchMembership.getState().set("local-u2", Array.from({ length: 60 }, (_, index) => `local-${index}`), undefined, true);
+      await (await import(routerPath)).router.navigate({ to: "/upload", search: { batch: "local-u2" } });
+    });
+    const region = page.getByRole("region", { name: "Image results form", exact: true });
+    await expect(region).toBeVisible();
+    await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState().loading);
+    const cell = region.locator('[data-image-id="local-1"]');
+    const input = cell.getByRole("textbox", { name: "Description", exact: true });
+    const originalDraft = "A retained editorial description. ".repeat(50);
+    const composedDraft = originalDraft.slice(0, 4) + "composed" + originalDraft.slice(12);
+    await input.fill(originalDraft);
+    await input.evaluate(element => {
+      const region = element.closest('[role="region"]')!;
+      region.scrollTop += element.getBoundingClientRect().top - region.getBoundingClientRect().top - 100;
+      (element as HTMLTextAreaElement).setSelectionRange(4, 12);
+    });
+    const top = await input.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
+    await page.evaluate(() => {
+      const store = (window as CommandWindow).__kupua_store__;
+      const source = store.getState().dataSource;
+      const original = source.searchAfter.bind(source);
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const probe = { calls: 0, pulses: [] as string[], input: document.activeElement, release, cleanup: () => {} };
+      const unsubscribe = store.subscribe(state => { if (state._phantomPulseImageId) probe.pulses.push(state._phantomPulseImageId); });
+      source.searchAfter = async (...args) => {
+        probe.calls++;
+        const result = await original(...args);
+        if (probe.calls === 1) await held;
+        return result;
+      };
+      probe.cleanup = () => { release(); unsubscribe(); source.searchAfter = original; delete (window as any).__u2Arrivals; };
+      (window as any).__u2Arrivals = probe;
+    });
+    const arrive = (length: number) => page.evaluate(async length => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      (await import(contextPath)).uploadBatchMembership.getState().set("local-u2", Array.from({ length }, (_, index) => `local-${index}`), undefined, true);
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    }, length);
+    const composition = await page.context().newCDPSession(page);
+    let composing = false;
+    try {
+      await composition.send("Input.imeSetComposition", { text: "composed", selectionStart: 2, selectionEnd: 5 });
+      composing = true;
+      await arrive(61);
+      await page.waitForFunction(() => (window as any).__u2Arrivals.calls === 1);
+      for (const length of [62, 63, 64]) await arrive(length);
+      expect(await page.evaluate(() => (window as any).__u2Arrivals.calls)).toBe(1);
+      await page.evaluate(() => (window as any).__u2Arrivals.release());
+      await page.waitForFunction(() => {
+        const state = (window as CommandWindow).__kupua_store__.getState();
+        return !state.loading && state.total === 64;
+      });
+      expect(await page.evaluate(() => (window as any).__u2Arrivals.calls)).toBe(2);
+      expect(await page.evaluate(() => (window as any).__u2Arrivals.pulses)).toEqual([]);
+      expect(await input.evaluate(element => element === (window as any).__u2Arrivals.input)).toBe(true);
+      await expect(input).toBeFocused();
+      expect(await input.evaluate(element => [(element as HTMLTextAreaElement).selectionStart, (element as HTMLTextAreaElement).selectionEnd])).toEqual([6, 9]);
+      expect(await input.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top)).toBe(top);
+      await expect(input).toHaveValue(composedDraft);
+      await composition.send("Input.insertText", { text: "composed" });
+      composing = false;
+      await expect(input).toHaveValue(composedDraft);
+      expect(new URL(page.url()).searchParams.has("image")).toBe(false);
+      await input.press("Tab");
+      expect(await page.evaluate(() => document.activeElement?.closest("[data-measured-cell]")?.getAttribute("data-image-id"))).toBe("local-1");
+    } finally {
+      if (composing) await composition.send("Input.imeSetComposition", { text: "", selectionStart: 0, selectionEnd: 0 });
+      await composition.detach();
+      await page.evaluate(() => (window as any).__u2Arrivals?.cleanup());
+    }
+    await cell.locator(':is(input,textarea,select,button,a[href],[tabindex="0"]):not([disabled]):visible').last().focus();
+    await region.evaluate(async element => {
+      const path = "/src/lib/scroll-geometry-ref.ts";
+      const geometry = (await import(path)).getLayoutGeometry();
+      element.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex("local-30")).top;
+      element.dispatchEvent(new Event("scroll"));
+    });
+    await expect(region.locator('[data-image-id="local-30"]')).toBeInViewport();
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.activeElement?.closest("[data-measured-cell]")?.getAttribute("data-image-id"))).toBe("local-2");
+    for (const density of ["grid", "table", "justified", "form"] as const) {
+      await (await getDensityChangeButton(page, density))?.click();
+      await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
+    }
+    await expect(input).toHaveValue(composedDraft);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Image results table", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Form view", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await expect(input).toHaveValue(composedDraft);
+    expect((await counts(page)).fakeDispatches).toBe(0);
+    expect((await counts(page)).unexpected).toEqual([]);
+    await cell.getByRole("button", { name: "Open image", exact: true }).click();
+    const detail = page.locator('[data-detail-image-id="local-1"]');
+    await expect(detail).toBeVisible();
+    await detail.getByRole("link", { name: "Grid", exact: true }).click();
+    await new KupuaHelpers(page).waitForResults();
+    expect(await page.evaluate(async () => {
+      const path = "/src/stores/ui-prefs-store.ts";
+      return (await import(path)).useUiPrefsStore.getState().densityContext;
+    })).toBe("search");
+    await (await getDensityChangeButton(page, "table"))?.click();
+    expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe("table");
+    expect(await page.evaluate(() => sessionStorage.getItem("kupua-upload-density"))).toBe("form");
+  });
+
+  test.describe("U2 compact form", () => {
+    test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
+    test("keeps lower-field suggestions usable in a reduced keyboard viewport", async ({ page }, info) => {
+      await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 8 } });
+      await page.goto(`${origin}/__continuation?density=grid`);
+      await new KupuaHelpers(page).waitForResults();
+      await page.evaluate(async () => {
+        sessionStorage.removeItem("kupua-upload-density");
+        const contextPath = "/src/lib/browsing-context.tsx";
+        const routerPath = "/src/router.ts";
+        (await import(contextPath)).uploadBatchMembership.getState().set("local-phone", Array.from({ length: 8 }, (_, index) => `local-${index}`), undefined, true);
+        await (await import(routerPath)).router.navigate({ to: "/upload", search: { batch: "local-phone" } });
+      });
+      const region = page.getByRole("region", { name: "Image results form", exact: true });
+      await expect(region).toBeVisible();
+      await page.setViewportSize({ width: 390, height: 420 });
+      await expect(page.locator('html[data-shell="compact"]')).toHaveCount(1);
+      expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+      const creditOptions: Parameters<Page["route"]>[1] = route => route.fulfill({ json: {
+        fields: { "metadata.credit": { buckets: [{ key: "Reuters", count: 2 }] } }, isFilterCounts: {},
+      } });
+      await page.route("**/images/aggregations", creditOptions);
+      try {
+        const credit = region.locator('[data-image-id="local-1"]').getByRole("combobox", { name: "Credit", exact: true });
+        await credit.fill("Re");
+        const suggestions = page.getByRole("listbox", { name: "Suggestions for Credit", exact: true });
+        await expect(suggestions).toBeVisible();
+        await expect(credit).toBeInViewport();
+        const bounds = (await suggestions.boundingBox())!;
+        expect(bounds.y).toBeGreaterThanOrEqual(0);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(420);
+        await page.screenshot({ path: info.outputPath("form-compact-keyboard.png") });
+        await suggestions.getByRole("option", { name: "Reuters 2", exact: true }).tap();
+        await expect(credit).toHaveValue("Reuters");
+        await expect(credit).toBeFocused();
+        await page.setViewportSize({ width: 390, height: 844 });
+        await expect(credit).toHaveValue("Reuters");
+        expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      } finally { await page.unroute("**/images/aggregations", creditOptions); }
+      expect((await counts(page)).fakeDispatches).toBe(0);
+    });
   });
 
   test("U1 API browsing returns between filtered search, batch, densities, detail and crop without selection leakage", async ({ page }) => {
@@ -898,6 +1071,8 @@ test.describe("Unit B isolated continuation", () => {
         await target.dispose();
       }
       const beforeRefresh = await counts(page);
+      const refreshRead = page.waitForRequest(request => request.method() === "POST"
+        && request.url() === `${origin}/api/images/search-after` && Array.isArray(request.postDataJSON().ids));
       await page.getByRole("region", { name: "Image results grid", exact: true }).evaluate(element => {
         element.scrollTop = 0;
         const top = element.getBoundingClientRect().top + 20;
@@ -907,7 +1082,12 @@ test.describe("Unit B isolated continuation", () => {
           element.dispatchEvent(event);
         }
       });
-      await expect.poll(async () => (await counts(page)).countReads).toBeGreaterThan(beforeRefresh.countReads);
+      expect((await refreshRead).postDataJSON().ids).toHaveLength(80);
+      await page.waitForFunction(() => {
+        const state = (window as CommandWindow).__kupua_store__.getState();
+        return !state.loading && !state.error && state.total === 80;
+      });
+      expect((await counts(page)).countReads).toBe(beforeRefresh.countReads);
       expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(selected);
       const sort = page.getByRole("button", { name: "Sort by: Uploaded", exact: true });
       await expect(sort).toBeVisible();

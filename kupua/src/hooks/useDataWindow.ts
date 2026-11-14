@@ -84,7 +84,7 @@ export interface ViewportVelocitySample {
 
 let _velocityContext: {
   owner: object;
-  layoutPolicy: "grid" | "table" | "justified" | undefined;
+  layoutPolicy: "grid" | "table" | "justified" | "form" | undefined;
   results: readonly (Image | undefined)[];
   generation: number;
   total: number;
@@ -322,7 +322,7 @@ interface DataWindow {
  * } = useDataWindow();
  * ```
  */
-export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified"): DataWindow {
+export function useDataWindow(layoutPolicy?: "grid" | "table" | "justified" | "form"): DataWindow {
   const ownerRef = useRef({ mounted: true });
   const nearEndRef = useRef(false);
   const layoutPolicyRef = useRef(layoutPolicy);

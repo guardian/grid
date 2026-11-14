@@ -68,7 +68,7 @@ export type ListNavigationConfig = {
   /** Set the focused image ID (from useDataWindow). */
   setFocusedImageId: (id: string | null) => void;
 
-  /** Total virtualizer row count. */
+  /** Logical item extent, not the virtual-row count of a bounded layout. */
   virtualizerCount: number;
 
   /** Get image at a flat index (from useDataWindow). */

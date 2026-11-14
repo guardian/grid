@@ -15,7 +15,7 @@ export interface MeasuredCells {
   key: string;
   estimate: (image: Image | undefined, width: number) => number;
   thumbnailHeight: (image: Image, width: number) => number;
-  render: (image: Image) => ReactNode;
+  render: (image: Image, thumbnail: ReactNode) => ReactNode;
 }
 
 interface FieldPoint { key: string; top: number; height: number }
@@ -27,23 +27,34 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
   const [correctionAnchor, setCorrectionAnchor] = useState<WindowGeometry["correctionAnchor"]>();
   const committedReadings = useRef(readings);
   useLayoutEffect(() => { committedReadings.current = readings; }, [readings]);
-  const current = useRef({ readings, cells, width });
+  const current = useRef({ readings, cells, width, images, context });
   const committedLayout = useRef<ReturnType<typeof buildMeasuredLayout> | undefined>(undefined);
   const capture = useRef<{ id: string; fields: FieldPoint[]; key: string; viewportOffset?: number } | undefined>(undefined);
   let renderCapture: typeof capture.current;
-  if (cells && parent.current && (current.current.cells?.key !== cells.key || current.current.width !== width)) {
+  let anchorId: string | null = null;
+  if (cells && parent.current && (current.current.readings !== readings || current.current.cells !== cells ||
+      current.current.width !== width || current.current.images !== images ||
+      current.current.context.bufferOffset !== context.bufferOffset || current.current.context.total !== context.total ||
+      current.current.context.searchKey !== context.searchKey)) {
     const element = parent.current;
     const source = committedLayout.current;
     const resolve = (id: string | null) => id && source?.window.findItemIndex(id) !== undefined ? id : null;
     const focused = resolve(useSearchStore.getState().focusedImageId);
     const focusRow = focused && source ? source.getItemRow(source.window.findItemIndex(focused)!) : undefined;
     const selection = useSelectionStore.getState();
-    const id = chooseReflowAnchor({ selection: resolve(selection.selectedIds.size ? selection.anchorId : null),
+    const params = useSearchStore.getState().params;
+    const activeCell = document.activeElement?.closest<HTMLElement>("[data-measured-cell]");
+    const activeBounds = activeCell?.getBoundingClientRect();
+    const viewportBounds = element.getBoundingClientRect();
+    const activeId = activeBounds && activeBounds.bottom > viewportBounds.top && activeBounds.top < viewportBounds.bottom
+      ? activeCell?.dataset.imageId : undefined;
+    const id = resolve(activeId ?? null) ?? chooseReflowAnchor({ selection: resolve(!params.imageScope && !params.recentUploadScope && selection.selectedIds.size ? selection.anchorId : null),
       focus: focusRow && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(), focusRow, element.scrollTop, element.clientHeight) ? focused : null,
       viewport: getViewportAnchorId });
+    anchorId = id;
     const previous = id ? readings.get(id) : undefined;
     const cell = id && element.querySelector<HTMLElement>(`[data-measured-cell][data-image-id="${CSS.escape(id)}"]`);
-    if (id && previous && cell) {
+    if (id && previous && cell && (current.current.cells?.key !== cells.key || current.current.width !== width)) {
       const top = cell.getBoundingClientRect().top;
       const viewportTop = element.getBoundingClientRect().top;
       const active = document.activeElement?.closest<HTMLElement>("[data-measured-field]");
@@ -54,7 +65,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     }
   }
   useLayoutEffect(() => {
-    current.current = { readings, cells, width };
+    current.current = { readings, cells, width, images, context };
     if (renderCapture) capture.current = renderCapture;
   });
   const layout = useMemo(() => {
@@ -67,7 +78,8 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     const next = buildMeasuredLayout(images, width, context,
       { estimatedHeight: cells.estimate(undefined, width), estimate: image => cells.estimate(image, width),
         anchorHeight: image => cells.thumbnailHeight(image, width), measurements });
-    next.window.correctionAnchor = committedReadings.current !== readings ? correctionAnchor : undefined;
+    next.window.correctionAnchor = committedReadings.current !== readings && correctionAnchor ? correctionAnchor
+      : anchorId ? { id: anchorId, beforeOffset: 0, afterOffset: 0 } : undefined;
     return next;
   }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, cells, readings, correctionAnchor]);
   useLayoutEffect(() => { committedLayout.current = layout; }, [layout]);
@@ -103,7 +115,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
         return { key: field.dataset.measuredField!, top: rect.top - bounds.top, height: rect.height };
       });
       const previous = readings.get(id);
-      const height = bounds.height + 4;
+      const height = Math.ceil(bounds.height) + 4;
       if (previous?.height === height && previous.width === width && previous.key === cells.key &&
           JSON.stringify(previous.fields) === JSON.stringify(fields)) continue;
       changed = true;
@@ -116,7 +128,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
         if (retained && destination) point = { id, beforeOffset: retained.top, afterOffset: destination.top,
           viewportOffset: captured.viewportOffset === undefined ? undefined
             : captured.viewportOffset + retained.top - captured.fields[position].top };
-      } else if (!point && previous && bounds.bottom > viewport.top && bounds.top < viewport.bottom) {
+      } else if (!point && id === anchorId && previous && bounds.bottom > viewport.top && bounds.top < viewport.bottom) {
         const field = previous.fields.find(field => bounds.top + field.top + field.height > viewport.top);
         const destination = fields.find(next => next.key === field?.key);
         if (field && destination) point = { id, beforeOffset: field.top, afterOffset: destination.top };
@@ -134,7 +146,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     const observer = new ResizeObserver(entries => {
       if (!entries.some(entry => {
         const id = (entry.target as HTMLElement).dataset.imageId;
-        return !id || current.current.readings.get(id)?.height !== entry.target.getBoundingClientRect().height + 4;
+        return !id || current.current.readings.get(id)?.height !== Math.ceil(entry.target.getBoundingClientRect().height) + 4;
       })) return;
       observer.disconnect();
       observed.current.clear();

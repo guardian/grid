@@ -1994,7 +1994,7 @@ async function _findAndFocusImage(
         // Phantom promotion: position around image but don't set focusedImageId.
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
-        const suppressPulse = get()._isInitialLoad;
+        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance";
         set({
           ...(!retainExplicitFocus && {
             focusedImageId: null,
@@ -2128,7 +2128,7 @@ async function _findAndFocusImage(
                 _focusedImageKnownOffset: null,
               }),
               _phantomFocusImageId: imageId,
-              ...(!get()._isInitialLoad && { _phantomPulseImageId: imageId }),
+              ...(!get()._isInitialLoad && continuity?.provenance !== "maintenance" && { _phantomPulseImageId: imageId }),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
             }
           : {
@@ -2139,7 +2139,7 @@ async function _findAndFocusImage(
             }) : {}),
       });
 
-      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad) {
+      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad && continuity?.provenance !== "maintenance") {
         setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
       }
       set({ _isInitialLoad: false });
@@ -2359,7 +2359,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   },
 
   search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
-    const historyFocusIntent = options?.continuity?.provenance === "history" ? get()._focusIntent : undefined;
+    const historyFocusIntent = options?.continuity && options.continuity.provenance !== "user" ? get()._focusIntent : undefined;
     const historyPresentationCurrent = () => historyFocusIntent === undefined || get()._focusIntent === historyFocusIntent;
     if (options?.continuity) {
       const { targetId, focus, neighbours } = options.continuity;
@@ -2655,7 +2655,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         // Fire ticker aggs in parallel with the first page.
         // countWithTickers uses size:0 so it doesn't compete with the main
         // search for ES heap. Errors are non-fatal — null means no tickers.
-      const tickerRequest = dataSource.countWithTickers(requestParams).catch(() => null);
+      const tickerRequest = params.imageScope ? Promise.resolve(null) : dataSource.countWithTickers(requestParams, signal).catch(() => null);
       discovery = {
         phase: "initial-read", replacement: null, resultsPublished: false, signal, searchGeneration: myGeneration, searchKey: buildSearchKey(params), dataSource,
         params: requestParams, frozenUntil: options?.frozenUntil, page: pageRequest,
@@ -2783,7 +2783,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         }
         if (options?.traceAction) traceInteraction(options.traceAction, "t_store_ready", options.traceInteractionId, { total: result.total });
 
-        const suppressPulse = get()._isInitialLoad;
+        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance";
 
         // Identify images that arrived after the frozen-until boundary
         // (the user clicked "N new" to refresh — these are the new arrivals).

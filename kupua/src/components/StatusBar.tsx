@@ -15,7 +15,7 @@
 import { useSearchStore } from "@/stores/search-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSelectionStore } from "@/stores/selection-store";
-import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { BROWSING_DENSITIES, useUiPrefsStore, type Density } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -62,7 +62,7 @@ function buildTickerTooltip(
 
 const SB_TOTAL_KEY = "kupua-sb-total";
 
-const CYCLE = { justified: "grid", grid: "table", table: "justified" } as const;
+const CYCLE = { justified: "grid", grid: "table", table: "justified", form: "grid" } as const;
 const NARROW_QUERY = "(max-width: 499px)";
 
 function useNarrow() {
@@ -201,7 +201,7 @@ export const StatusBar = memo(function StatusBar() {
   const collectionsExpanded = usePanelStore((s) => s.isSectionOpen("left-collections"));
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
 
-  const selectDensity = (choice: "grid" | "table" | "justified") => {
+  const selectDensity = (choice: Density) => {
     const next = choice === density ? "grid" : choice;
     if (next === density) return;
     beginTraceInteraction("density-swap", { from: density });
@@ -354,10 +354,10 @@ export const StatusBar = memo(function StatusBar() {
       <div className="w-px bg-grid-separator shrink-0" />
 
       <div role="group" aria-label="Image layout" className="flex shrink-0">
-        {(["table", "grid", "justified"] as const).map((mode) => {
+        {BROWSING_DENSITIES[path === "/upload" ? "upload" : "search"].map((mode) => {
           const label = `${mode[0].toUpperCase()}${mode.slice(1)} view`;
           // Narrow bars show only the active density; tapping it cycles to the next.
-          const next = CYCLE[mode];
+          const next = path === "/upload" && mode === "table" ? "form" : path === "/upload" && mode === "form" ? "justified" : CYCLE[mode];
           return <button
             key={mode}
             type="button"
@@ -378,7 +378,8 @@ export const StatusBar = memo(function StatusBar() {
                 <rect x="9" y="1" width="6" height="6" rx="0.5" />
                 <rect x="1" y="9" width="6" height="6" rx="0.5" />
                 <rect x="9" y="9" width="6" height="6" rx="0.5" />
-              </> : <path d="M520-600v-240h320v240H520ZM120-440v-400h320v400H120Zm400 320v-400h320v400H520Zm-400 0v-240h320v240H120Z" />}
+              </> : mode === "form" ? <><rect x="1" y="1" width="5" height="6" rx="0.5" /><path d="M8 1h7v2H8zm0 4h7v2H8zM1 9h14v2H1zm0 4h14v2H1z" /></>
+                : <path d="M520-600v-240h320v240H520ZM120-440v-400h320v400H120Zm400 320v-400h320v400H520Zm-400 0v-240h320v240H120Z" />}
             </svg>
           </button>;
         })}

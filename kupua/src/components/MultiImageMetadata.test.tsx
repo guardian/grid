@@ -12,7 +12,9 @@ import { MultiImageMetadata } from "./MultiImageMetadata";
 import { ImageMetadata } from "./ImageMetadata";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
-import { MetadataTextEditor } from "./MetadataTextEditor";
+import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
+import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
+import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { CostBadge, CostBadgeFromCost } from "./CostBadge";
 import { useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
 import * as typeahead from "@/lib/typeahead-fields";
@@ -40,6 +42,7 @@ function fieldRow(label: string) {
 }
 
 beforeEach(async () => {
+  useMetadataDrafts.setState({ drafts: new Map() });
   resetImageFreshnessForTests();
   vi.clearAllMocks();
   frames = [];
@@ -91,6 +94,52 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
+  it("retains sparse form drafts across unmount and canonical changes without changing canonical metadata", () => {
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_description")!;
+    const view = (value: string, editable = true) => <MetadataFormField imageId="first" field={field} value={value} editable={editable} required />;
+    const mounted = render(view("Original"));
+    expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Retained draft" } });
+    mounted.unmount();
+    const next = render(view("New canonical", false));
+    const input = screen.getByLabelText("Description") as HTMLTextAreaElement;
+    expect(input.value).toBe("Retained draft");
+    expect(input.readOnly).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("Not sent");
+    next.rerender(view("New canonical"));
+    fireEvent.change(input, { target: { value: "" } });
+    expect(input.checkValidity()).toBe(false);
+    expect(screen.getByText("Description is required.")).toBeTruthy();
+    fireEvent.change(input, { target: { value: "Original" } });
+    expect(input.value).toBe("Original");
+    const warning = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(warning);
+    expect(warning.defaultPrevented).toBe(true);
+    fireEvent.change(input, { target: { value: "New canonical" } });
+    expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    expect(input.value).toBe("New canonical");
+    const clean = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+  });
+
+  it("keeps inactive form fields from taking focus or requesting suggestions on arrival", async () => {
+    vi.useFakeTimers();
+    try {
+      const resolve = vi.fn(async () => [{ value: "Reuters" }]);
+      vi.spyOn(typeahead, "buildTypeaheadFields").mockReturnValue([{ fieldName: "credit", resolver: resolve }]);
+      render(<MetadataSuggestionInput label="Credit" fieldKey="credit" value="" onChange={() => {}} autoFocus={false} />);
+      const input = screen.getByLabelText("Credit");
+      expect(document.activeElement).not.toBe(input);
+      await act(() => vi.advanceTimersByTimeAsync(150));
+      expect(resolve).not.toHaveBeenCalled();
+      act(() => input.focus());
+      expect(document.activeElement).toBe(input);
+      await act(() => vi.advanceTimersByTimeAsync(150));
+      expect(resolve).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
   it.each(["single", "multiple"])("keeps Source in collapsible additional metadata and Labels separate in %s panels", context => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const populated = images.map(image => ({ ...image, metadata: { ...image.metadata, source: "Wire source" },

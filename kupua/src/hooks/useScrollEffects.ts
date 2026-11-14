@@ -906,7 +906,9 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       // Restore the focused item at the same viewport ratio — "Never Lost".
       const headerOffset = includesHeader ? geo.headerOffset : 0;
       const rowTop = row.top + headerOffset;
-      const target = placeRow(rowTop, row.anchorHeight ?? row.height, savedRatio * el.clientHeight, headerOffset, el.clientHeight, Infinity);
+      const target = continuity?.provenance === "maintenance"
+        ? rowTop - savedRatio * el.clientHeight
+        : placeRow(rowTop, row.anchorHeight ?? row.height, savedRatio * el.clientHeight, headerOffset, el.clientHeight, Infinity);
       const clamped = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, target));
       virtualizer.scrollToOffset(clamped);
       if (

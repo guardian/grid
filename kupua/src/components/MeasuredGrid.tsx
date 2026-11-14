@@ -5,19 +5,19 @@ import { imageRatio } from "@/lib/result-geometry";
 import type { Image } from "@/types/image";
 import type { MeasuredCells } from "@/hooks/useMeasuredLayout";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { DETAIL_PANEL_FIELDS } from "@/lib/field-registry";
+import { ImageMetadata } from "./ImageMetadata";
+import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
 
-export const useMeasuredPrototype = create<{
-  enabled: boolean; fields: ReadonlySet<string>; drafts: ReadonlyMap<string, string>;
-  setDraft: (id: string, value: string) => void;
-}>(set => ({ enabled: false, fields: new Set(["note", "extra"]), drafts: new Map(),
-  setDraft: (id, value) => set(state => ({ drafts: new Map(state.drafts).set(id, value) })),
+export const useFormFields = create<{ fields: ReadonlySet<string> }>(() => ({
+  fields: new Set(DETAIL_PANEL_FIELDS.map(field => field.id)),
 }));
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
-  Object.assign(window, { __kupua_measured__: {
-    enable: (enabled = true) => { useMeasuredPrototype.setState({ enabled }); useUiPrefsStore.getState().setDensity("justified"); },
-    draft: (id: string, value: string) => useMeasuredPrototype.getState().setDraft(id, value),
-    field: (key: string, visible: boolean) => useMeasuredPrototype.setState(state => {
+  Object.assign(window, { __kupua_form__: {
+    enable: () => useUiPrefsStore.setState({ density: "form" }),
+    draft: (id: string, value: string) => useMetadataDrafts.getState().setDraft(id, "metadata_description", "", value),
+    field: (key: string, visible: boolean) => useFormFields.setState(state => {
       const fields = new Set(state.fields);
       if (visible) fields.add(key); else fields.delete(key);
       return { fields };
@@ -25,33 +25,24 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   } });
 }
 
-function Fields({ image }: { image: Image }) {
-  const fields = useMeasuredPrototype(state => state.fields);
-  const draft = useMeasuredPrototype(state => state.drafts.get(image.id) ?? "");
-  const variation = [...image.id].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % 7;
-  return <div className="p-3 space-y-3 cursor-text" onClick={event => event.stopPropagation()}
-    onDoubleClick={event => event.stopPropagation()} onDragStart={event => event.stopPropagation()}>
-    {fields.has("note") && <label data-measured-field="note" className="block text-sm">
-      Note
-      <textarea aria-label="Prototype note" value={draft} rows={1}
-        className="block w-full bg-grid-bg border border-grid-border p-2 leading-6 resize-y"
-        style={{ fieldSizing: "content" }}
-        onChange={event => useMeasuredPrototype.getState().setDraft(image.id, event.target.value)} />
-    </label>}
-    {fields.has("extra") && <div data-measured-field="extra" className="text-sm leading-6 break-words">
-      {Array.from({ length: 8 + variation * 13 }, () => "Example field value.").join(" ")}
-    </div>}
-  </div>;
-}
-
 const thumbnailHeight = (image: Image, width: number) => Math.min(180, Math.max(1, width) / imageRatio(image));
 
 export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
-  const fields = useMeasuredPrototype(state => state.fields);
+  const fields = useFormFields(state => state.fields);
   const cells = useMemo<MeasuredCells>(() => ({
     key: [...fields].sort().join(","), thumbnailHeight,
-    estimate: (image, width) => (image ? thumbnailHeight(image, width) : 180) + 28 + fields.size * 90,
-    render: image => <Fields image={image} />,
+    estimate: (_image, width) => (width < 680 ? 180 : 0) + 600,
+    render: (image, thumbnail) => <div className="form-density-item">
+      <div data-measured-field="image" className="min-w-0 self-start">
+        {thumbnail}
+        <p className="px-3 py-2 text-xs text-grid-text-muted wrap-anywhere select-text">{image.uploadInfo?.filename ?? image.id}</p>
+      </div>
+      <div data-form-content className="min-w-0 p-3 cursor-text select-text"
+        onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
+        onDragStart={event => event.stopPropagation()}>
+        <ImageMetadata image={image} formFields={fields} />
+      </div>
+    </div>,
   }), [fields]);
   return <ImageGrid {...props} measuredCells={cells} />;
 }

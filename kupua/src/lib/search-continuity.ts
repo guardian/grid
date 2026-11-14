@@ -13,7 +13,7 @@ import type { HistorySnapshot } from "@/lib/history-snapshot";
 export type SearchPlacement = { kind: "ratio"; ratio: number; includesHeader?: boolean } | { kind: "start" } | { kind: "centre" };
 
 export interface SearchContinuity {
-  provenance: "user" | "history";
+  provenance: "user" | "history" | "maintenance";
   targetId: string | null;
   placement: SearchPlacement;
   focus: "target" | "none" | "retain";
@@ -46,21 +46,25 @@ export function historySearchContinuity(snapshot: HistorySnapshot | undefined, p
 }
 
 export function captureSearchContinuity(
-  sortOnly: boolean,
+  transition: boolean | "membership",
   container = getScrollContainer(),
   geometry = getLayoutGeometry(),
 ): SearchContinuity {
+  const sortOnly = transition === true;
+  const maintenance = transition === "membership";
   const state = useSearchStore.getState();
   const selection = useSelectionStore.getState();
   const selectedAnchor = sortOnly && !state.params.imageScope && !state.params.recentUploadScope && selection.selectedIds.size > 0 ? selection.anchorId : null;
   const focusTarget = sortOnly && getEffectiveFocusMode() !== "explicit" ? null : state.focusedImageId;
-  const targetId = selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
-  const focus = selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";
+  const activeId = maintenance && typeof document !== "undefined"
+    ? document.activeElement?.closest<HTMLElement>("[data-measured-cell]")?.dataset.imageId : undefined;
+  const targetId = activeId ?? selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
+  const focus = maintenance || selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";
   const index = resolveAnchorVirtIndex(targetId, state.imagePositions, state.bufferOffset, isTwoTierFromTotal(state.total));
   const placement: SearchPlacement = index !== null && container && container.clientHeight > 0
     ? { kind: "ratio", ratio: (getItemLayoutRow(geometry, index).top - container.scrollTop) / container.clientHeight }
     : { kind: "start" };
-  return { provenance: "user", targetId, placement, focus,
+  return { provenance: maintenance ? "maintenance" : "user", targetId, placement, focus,
     ...(targetId && focus !== "target" ? { neighbours: getVisibleImageIds() } : {}) };
 }
 

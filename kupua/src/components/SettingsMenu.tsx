@@ -24,7 +24,7 @@ function ZoomRow() {
   const offset = useZoomStore((s) =>
     density === "justified" ? s.justifiedOffset : density === "grid" ? s.gridOffset : 0,
   );
-  const range = useZoomStore((s) => (density === "table" ? null : s.ranges[density]));
+  const range = useZoomStore((s) => (density === "table" || density === "form" ? null : s.ranges[density]));
   const { step, reset } = useZoomStore.getState();
   const btn =
     "w-8 h-8 flex items-center justify-center rounded text-lg text-grid-text hover:bg-grid-hover/30 disabled:text-grid-text-dim disabled:hover:bg-transparent";
@@ -51,6 +51,7 @@ function LockViewRow() {
   const justifiedOffset = useZoomStore((s) => s.justifiedOffset);
   const gridOffset = useZoomStore((s) => s.gridOffset);
   const [home, setHome] = useState(readHomeView);
+  if (density === "form") return null;
   const current = { density, justifiedOffset, gridOffset };
   const matches = home !== null && home.density === density
     && (density === "table" || current[`${density}Offset`] === home[`${density}Offset`]);

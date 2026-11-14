@@ -5,8 +5,9 @@ import { SuggestionDropdown } from "./SuggestionDropdown";
 import { useCollectionStore } from "@/stores/collection-store";
 import { useTypeaheadSuggestions } from "@/hooks/useTypeaheadSuggestions";
 
-export function MetadataSuggestionInput({ label, fieldKey, value, onChange, placeholder }: {
+export function MetadataSuggestionInput({ label, fieldKey, value, onChange, placeholder, autoFocus = true, required = false, readOnly = false }: {
   label: string; fieldKey: string; value: string; onChange: (value: string) => void; placeholder?: string;
+  autoFocus?: boolean; required?: boolean; readOnly?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const id = useId();
@@ -16,12 +17,12 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
     .find(field => field.fieldName === fieldKey)?.resolver, [source, fieldKey, collectionTree]);
   const [active, setActive] = useState(-1);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
-  const [focused, setFocused] = useState(true);
+  const [focused, setFocused] = useState(autoFocus);
   const [dismissed, setDismissed] = useState<string | null>(null);
-  const items = useTypeaheadSuggestions(resolver, value, focused && dismissed !== value);
+  const items = useTypeaheadSuggestions(resolver, value, focused && !readOnly && dismissed !== value);
   useLayoutEffect(() => {
     const input = ref.current;
-    if (input) input.setSelectionRange(input.value.length, input.value.length);
+    if (input && autoFocus) input.setSelectionRange(input.value.length, input.value.length);
   }, []);
   useEffect(() => { setActive(-1); }, [items]);
   const choose = (item: TypeaheadSuggestion) => {
@@ -30,7 +31,7 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
     setActive(-1);
   };
   return <>
-    <input ref={ref} autoFocus aria-label={label} value={value} placeholder={placeholder} autoComplete="off"
+    <input ref={ref} autoFocus={autoFocus} required={required} readOnly={readOnly} aria-label={label} value={value} placeholder={placeholder} autoComplete="off"
       role={resolver ? "combobox" : undefined} aria-autocomplete={resolver ? "list" : undefined} aria-expanded={resolver ? suggestionsVisible : undefined}
       aria-controls={suggestionsVisible ? id : undefined} aria-activedescendant={suggestionsVisible && active >= 0 && items[active] ? `${id}-${active}` : undefined}
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}

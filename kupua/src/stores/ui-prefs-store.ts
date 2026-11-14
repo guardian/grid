@@ -24,21 +24,22 @@ import { isCompactNow, useIsCompact } from "@/hooks/useShell";
 // ---------------------------------------------------------------------------
 
 export type FocusMode = "explicit" | "phantom";
-export type Density = "grid" | "table" | "justified";
+export type Density = "grid" | "table" | "justified" | "form";
+type DensityContext = "search" | "upload";
 
 export const BROWSING_DENSITIES: Readonly<Record<"search" | "upload", readonly Density[]>> = {
   search: ["table", "grid", "justified"],
-  upload: ["table", "grid", "justified"],
+  upload: ["table", "grid", "justified", "form"],
 };
 
 export function availableDensity(context: "search" | "upload", preference: unknown): Density {
-  return BROWSING_DENSITIES[context].includes(preference as Density) ? preference as Density : defaultDensity();
+  return BROWSING_DENSITIES[context].includes(preference as Density) ? preference as Density : context === "upload" ? "form" : defaultDensity();
 }
 
 export const DENSITY_STORAGE_KEY = "kupua-density";
 
-export function writeDensityPreference(density: Density): void {
-  try { sessionStorage.setItem(DENSITY_STORAGE_KEY, density); } catch {}
+export function writeDensityPreference(density: Density, context: DensityContext = "search"): void {
+  try { sessionStorage.setItem(context === "upload" ? "kupua-upload-density" : DENSITY_STORAGE_KEY, density); } catch {}
 }
 
 /** Locked Home view wins; else compact phones default to justified, desktop to grid. */
@@ -52,19 +53,21 @@ export function defaultDensity(): Density {
   }
 }
 
-function initialDensity(): Density {
+function initialDensity(context: DensityContext = "search"): Density {
   try {
-    const saved = sessionStorage.getItem(DENSITY_STORAGE_KEY);
-    return availableDensity("search", saved);
+    const saved = sessionStorage.getItem(context === "upload" ? "kupua-upload-density" : DENSITY_STORAGE_KEY);
+    return availableDensity(context, saved);
   } catch {
-    return defaultDensity();
+    return availableDensity(context, undefined);
   }
 }
 
 interface UiPrefsState {
   density: Density;
+  densityContext: DensityContext;
+  setDensityContext: (context: DensityContext, preference?: Density) => void;
   _densityIntent: number;
-  setDensity: (density: Density) => void;
+  setDensity: (density: Density, context?: DensityContext) => void;
   /** User's chosen focus mode (persisted in localStorage). */
   focusMode: FocusMode;
 
@@ -91,12 +94,19 @@ interface UiPrefsState {
 
 export const useUiPrefsStore = create<UiPrefsState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       density: initialDensity(),
+      densityContext: "search",
+      setDensityContext: (context, preference) => {
+        const density = availableDensity(context, preference ?? initialDensity(context));
+        set(state => ({ densityContext: context, density,
+          _densityIntent: state._densityIntent + (density !== state.density ? 1 : 0) }));
+      },
       _densityIntent: 0,
-      setDensity: (density) => {
-        writeDensityPreference(density);
-        set((state) => ({ density, _densityIntent: state._densityIntent + 1 }));
+      setDensity: (density, context = get().densityContext) => {
+        density = availableDensity(context, density);
+        writeDensityPreference(density, context);
+        set((state) => ({ density, densityContext: context, _densityIntent: state._densityIntent + 1 }));
       },
       focusMode: "explicit" as FocusMode,
       blurGraphicImages: true,

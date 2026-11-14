@@ -201,7 +201,7 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   const preferences = useUiPrefsStore.getState();
   if (preferences._densityIntent === densityIntent) {
     if (preferences.density === "table") releases.push(suppressDensityFocusSave());
-    preferences.setDensity(defaultDensity());
+    preferences.setDensity(defaultDensity(), "search");
     useZoomStore.getState().resetToHome();
   }
 

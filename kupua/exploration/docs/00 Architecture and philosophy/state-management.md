@@ -93,8 +93,19 @@ restarts observation. These are local recovery limits, not durable job storage.
 
 Same-batch revision admission keeps the current viewport mounted so continuity
 can be captured before publication; only a different context blocks the old view.
+While a membership-only browse refresh is loading, URL synchronization retains the
+latest revision and admits it when that read settles. Membership/activity itself
+publishes immediately; explicit sort, context and history navigation are not delayed.
+Only actually deferred membership work wakes this synchronization on completion,
+preserving Home's pending-navigation ownership. Maintenance continuity uses the active
+form when present, retains its interior placement and does not emit a navigation pulse.
+Batch search discovery reuses the authoritative page count rather than also fetching
+ticker counts; per-upload readable/indexed admission and ordinary Search tickers remain
+separate. No read cache, mutation replay or upload concurrency change is introduced.
 Home clears the internal scope before preloading ordinary library data, capturing
 Upload's departure first so that preload cannot overwrite its saved return state.
+Home writes Search's density preference, not Upload's. Route density context is
+admitted independently of whether the engine scope has already been cleared.
 
 Upload hides selection controls and the list metadata panel. Library selection
 remains dormant, including for gestures, layout anchors and mutation targeting;
@@ -109,6 +120,14 @@ operation targets stay captured independently of the currently displayed batch.
 The [navigation adapter](../../../src/lib/browsing-navigation.ts) retains only
 departure URL, density and existing position snapshots, not a second result buffer.
 See [history](04-browser-history-architecture.md#search-and-upload-return) for return rules.
+
+Form drafts live in [metadata-drafts-store](../../../src/stores/metadata-drafts-store.ts)
+as sparse image/field values with their initial baseline. They are not image records,
+membership, server receipts or a second buffer. Mounting a field allocates no draft;
+returning to its current canonical value removes its draft. A newer canonical read
+does not overwrite explicit local intent. Drafts survive in-app navigation and cell
+eviction, but are not serialized; their unload warning is separate from job recovery.
+U5 owns new save/publication outcomes and propagation, which are not supplied by U2.
 
 ## From Intent to Pixels
 

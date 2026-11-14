@@ -24,6 +24,29 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 14 November 2026 - Upload form density and retained editing state
+
+Replaced the measured stand-in with Upload's real Form density, using shared metadata
+controls, natural heights, explicit image entry and a compact single-column layout.
+Upload now retains its density separately from Search; Home writes the destination
+preference rather than overwriting Upload's choice. Sparse image/field drafts outlive
+cells and routes without changing canonical images, and warn before reload or closure.
+New saves, filename fallback, preset application and batch arrows remain U5 work.
+
+Kept bounded measured geometry and the existing compensation owner. Committed-geometry
+anchor election prevents a newly measured neighbour from stealing the represented
+field, integral row extents avoid cumulative scroll rounding, and retaining the active
+form's immediate neighbours preserves native Tab traversal outside overscan. Thumbnail
+activation/zoom policies remain separate from form input behavior and logical item
+extent is distinguished from bounded virtual rows at the touched host adapter.
+
+Membership-only browse refresh now waits for an in-flight read and then admits the
+latest revision, while authoritative job membership and explicit navigation remain
+immediate. Passive continuity preserves field placement without phantom navigation
+feedback. Batch discovery reuses its page's authoritative count; ordinary ticker reads
+receive cancellation ownership. No upload concurrency, replay, authorization or backend
+contract changed.
+
 ### 14 November 2026 - Local upload batches, entry and navigation
 
 Added permission-aware multi-file picker/drop on Search and Upload, excluding Grid

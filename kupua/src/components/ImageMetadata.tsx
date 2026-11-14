@@ -54,7 +54,7 @@ import { gridConfig } from "@/lib/grid-config";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { LabelEditor } from "./LabelEditor";
 import type { LabelEditContext } from "@/lib/label-operation";
-import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
+import { MetadataFormField, MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
 import { findLink } from "@/dal/grid-api/argo";
@@ -193,6 +193,7 @@ function formatDeletedTime(iso: string): { relative: string; absolute: string } 
 
 interface ImageMetadataProps {
   image: Image;
+  formFields?: ReadonlySet<string>;
   labelEditing?: LabelEditContext;
   resolveLabelEditing?: () => LabelEditContext;
   editingPending?: boolean;
@@ -200,7 +201,7 @@ interface ImageMetadataProps {
   overlay?: EnrichmentFields;
 }
 
-export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditing, editingPending }: ImageMetadataProps) {
+export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditing, editingPending, formFields }: ImageMetadataProps) {
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
@@ -406,9 +407,10 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
         <MetadataSection key={sIdx} additional={section[0]?.detailGroup === "extended"}>
           {section.map((field) => {
             if (field.visibleWhen?.() === false) return null;
+            if (formFields && !formFields.has(field.id)) return null;
 
             const raw = field.accessor(image);
-            if (field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
+            if (!formFields && field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing}
                 context={{ ...(labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]) }),
                   pending: labelEditing?.pending || editingPending || enriched?.metadataStale }}
@@ -421,6 +423,16 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               ? <Layout key={field.id} label={field.label}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <span className="text-grid-text-dim">Unknown</span>}
               </Layout> : null;
+
+            if (formFields) {
+              const control = METADATA_EDIT_CONTROLS.get(field.id);
+              if (control && control !== "datetime-local" && (field.id !== "metadata_copyright" || hasValue)) {
+                return <MetadataFormField key={field.id} imageId={image.id} field={field} value={typeof raw === "string" ? raw : ""}
+                  editable={canEditMetadata && !enriched?.metadataStale && !image.__availability}
+                  required={field.id === "metadata_description" || field.id === "metadata_credit"} />;
+              }
+              return readOnly ? <div key={field.id} data-measured-field={field.id}>{readOnly}</div> : null;
+            }
 
             if (field.id === "location" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataLocationEditor key={`location:${image.id}`} targetIds={[image.id]}

@@ -5,6 +5,7 @@ import { PillActionButton } from "./SearchPill";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { MetadataDateInput, type MetadataDateInputHandle } from "./MetadataDateInput";
 import { gridConfig } from "@/lib/grid-config";
+import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
 
 export type MetadataLocationChange = Partial<Record<"subLocation" | "city" | "state" | "country", string>>;
 
@@ -58,6 +59,42 @@ function dateTimeDraft(value: string): string {
   if (!value) return "";
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, -1) : "";
+}
+
+export function MetadataTextInput({ field, value, onChange, placeholder, autoFocus = true, natural = false,
+  required = false, readOnly = false, textareaRef }: {
+  field: FieldDefinition; value: string; onChange: (value: string) => void; placeholder?: string;
+  autoFocus?: boolean; natural?: boolean; required?: boolean; readOnly?: boolean;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+}) {
+  return METADATA_EDIT_CONTROLS.get(field.id) === "textarea"
+    ? <textarea ref={textareaRef} autoFocus={autoFocus} aria-label={field.label} rows={natural ? 1 : 4}
+      value={value} placeholder={placeholder} required={required} readOnly={readOnly}
+      style={natural ? { fieldSizing: "content" } : undefined} onChange={event => onChange(event.target.value)} />
+    : METADATA_EDIT_CONTROLS.get(field.id) === "image-type"
+    ? <select aria-label={field.label} value={value} disabled={readOnly} onChange={event => onChange(event.target.value)}>
+      <option value="">Unknown</option>
+      {value && !gridConfig.imageTypes.includes(value) && <option value={value}>{value}</option>}
+      {gridConfig.imageTypes.map(value => <option key={value} value={value}>{value}</option>)}
+    </select>
+    : <MetadataSuggestionInput label={field.label} fieldKey={field.cqlKey ?? field.id} value={value}
+      placeholder={placeholder} autoFocus={autoFocus} required={required} readOnly={readOnly} onChange={onChange} />;
+}
+
+export function MetadataFormField({ imageId, field, value, editable, required = false }: {
+  imageId: string; field: FieldDefinition; value: string; editable: boolean; required?: boolean;
+}) {
+  const draft = useMetadataDrafts(state => state.drafts.get(imageId)?.get(field.id));
+  const displayed = draft?.value ?? value;
+  return <div data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field">
+    <div className="flex items-baseline justify-between gap-2 text-xs text-grid-text-dim">
+      <span>{field.label}{required && <span className="text-grid-error"> *</span>}</span>
+      {draft && <span role="status">Not sent</span>}
+    </div>
+    <MetadataTextInput field={field} value={displayed} autoFocus={false} natural required={required} readOnly={!editable}
+      onChange={next => useMetadataDrafts.getState().setDraft(imageId, field.id, value, next)} />
+    {required && !displayed.trim() && <p className="text-xs text-grid-error">{field.label} is required.</p>}
+  </div>;
 }
 
 function dateTimeIntent(value: string, originalOffset: number | null): string {
@@ -162,8 +199,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
       else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); event.stopPropagation(); prepare(); }
       else if (event.key === "Enter") event.stopPropagation();
     }}>
-      {multiline ? <textarea ref={textareaRef} autoFocus aria-label={field.label} rows={4} value={draft} placeholder={mixedPlaceholder}
-        onChange={event => updateDraft(event.target.value)} />
+      {multiline ? <MetadataTextInput field={field} textareaRef={textareaRef} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />
         : control === "datetime-local" ? <MetadataDateInput ref={dateInputRef} initialValue={initial} mixed={editingMixed} validationId={validationId}
           onChange={(value, valid) => { updateDraft(value); setInputValid(valid); }} />
         : control === "image-type" ? <select autoFocus aria-label={field.label} data-mixed={editingMixed && !typeTouched || undefined}
@@ -178,8 +214,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
           <option value="clear">Unknown</option>
           {initial && !gridConfig.imageTypes.includes(initial) && <option value="-1" disabled>{initial}</option>}
           {gridConfig.imageTypes.map((value, index) => <option key={value} value={index}>{value}</option>)}
-        </select> : <MetadataSuggestionInput label={field.label} fieldKey={field.cqlKey ?? field.id} value={draft} placeholder={mixedPlaceholder}
-          onChange={updateDraft} />}
+        </select> : <MetadataTextInput field={field} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />}
       {!inputValid && <p id={validationId} role="alert" className="mt-1 text-xs text-grid-error">Enter a valid date and time.</p>}
       <div className="metadata-edit-footer">
         {control === "datetime-local" && <button type="button" className="metadata-edit-tool" aria-label="Clear Taken on" title="Clear Taken on"

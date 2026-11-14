@@ -36,7 +36,7 @@ export const useZoomStore = create<ZoomState>()((set, get) => ({
     get().setOffset(density, get()[field(density)]);
   },
   setOffset: (density, offset) => {
-    if (density === "table") return;
+    if (density === "table" || density === "form") return;
     const [min, max] = get().ranges[density];
     const next = Math.max(min, Math.min(max, offset));
     if (next === get()[field(density)]) return;
@@ -44,7 +44,7 @@ export const useZoomStore = create<ZoomState>()((set, get) => ({
     set({ [field(density)]: next } as Partial<ZoomState>);
   },
   step: (density, delta) => {
-    if (density === "table") return;
+    if (density === "table" || density === "form") return;
     get().setOffset(density, get()[field(density)] + delta);
   },
   reset: (density) => get().setOffset(density, 0),

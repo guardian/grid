@@ -1,7 +1,9 @@
 import type { Page } from "@playwright/test";
 import { test, expect, type KupuaHelpers } from "../shared/helpers";
 import { getDensityChangeButton, waitForDensityRow, type Density } from "../shared/density-selection";
-import { measuredDensityJourney, unfocusedDensityRoundTrips } from "../shared/browse-density";
+import { disposeFormFixture, enableFormDensity, measuredDensityJourney, unfocusedDensityRoundTrips } from "../shared/browse-density";
+
+test.afterEach(async ({ page }) => { await disposeFormFixture(page); });
 
 test("U2 measured windowed density preserves natural geometry and drafts", async ({ kupua }) => {
   await measuredDensityJourney(kupua);
@@ -653,8 +655,8 @@ test(`${view === "measured" ? "U2 measured" : "Justified"} delayed window mainte
   await start(kupua, page, info.project.name);
   await seek(page, 0.4);
   if (view === "measured") {
-    await page.evaluate(() => (window as any).__kupua_measured__.enable());
-    await expect(page.getByRole("region", { name: "Image results measured", exact: true })).toBeVisible();
+    await enableFormDensity(page);
+    await expect(page.getByRole("region", { name: "Image results form", exact: true })).toBeVisible();
   }
   await kupua.waitForExtendReady();
   await expect.poll(() => page.evaluate(async () => {
@@ -680,7 +682,7 @@ test(`${view === "measured" ? "U2 measured" : "Justified"} delayed window mainte
     (window as any).__kupua_store__.getState().setFocusedImageId(id);
     return id as string;
   });
-  const input = page.locator(`[data-image-id="${id}"]`).getByRole("textbox", { name: "Prototype note" });
+  const input = page.locator(`[data-image-id="${id}"]`).getByRole("textbox", { name: "Description", exact: true });
   if (view === "measured") await input.fill("Editing during window maintenance");
   await page.evaluate(async () => {
     const path = "/src/dal/es-config.ts";

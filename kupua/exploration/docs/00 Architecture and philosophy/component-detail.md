@@ -76,7 +76,8 @@ older URLs. `lib/local-batch-storage.ts` persists allowlisted tab-local descript
 not files, grants or images. Reload restores known members and interrupted attempts;
 storage failure is visible and protects unretained work. Retrying local storage is
 not an upload retry. Recent uploads uses an identity-scoped library query, not batch
-or submission history. Form density and metadata applicators remain U2/U5.
+or submission history. Form density is available in Upload; metadata saves and
+applicators remain U5.
 Startup upload admission is
 independent of metadata editing. Once accepted transfer reaches readable/indexed
 availability, non-acknowledged queued outcomes move into collapsed receipt history;
@@ -114,6 +115,9 @@ Column and panel stores separately persist table layout and panel settings in lo
 Density is neither a URL search parameter nor a history-snapshot field.
 Availability is explicit per search/Upload context; cross-context return recalls
 the departing context's density without changing ordinary search-history policy.
+Upload defaults to Form and retains its choice in `kupua-upload-density`, separately
+from Search's `kupua-density`. Home writes the Search preference even when entered
+from Upload detail. Form has neither results zoom nor a Search Home-lock choice.
 
 `defaultDensity()` is Justified in the compact model and Grid otherwise, unless the user has locked
 a Home view. `lib/home-view.ts` persists that lock (density plus Justified/Grid zoom offsets) in
@@ -971,22 +975,45 @@ capture/reflow ownership, not column arithmetic; results zoom (below) steps each
 [seek policy and costs](03-scroll-architecture.md#destination-seek-preparation), and
 [Justified feature comparison](00-kupua-vs-kahuna-feature-inventory.md#42-whole-image-justified-rows).
 
-## Measured Density Prototype (`components/MeasuredGrid.tsx`)
+## Form Density (`components/MeasuredGrid.tsx`)
 
-The dev switch substitutes a natural-height stand-in for the Justified slot without
-adding a route or persisted density. ImageGrid retains its interaction and browsing
-lifecycle; `useMeasuredLayout` owns mounted-cell observation and loaded-window-only
-measurements. Sparse fake drafts live outside rows. `windowed-measured-layout` uses
-individual loaded rows and estimated head/tail spans, with logical item coordinates
-for navigation and visible reporting. The existing scroll-effect owner compensates
-old/new identity geometry, including internal-field points and input captures.
+Upload exposes Form alongside Grid, Table and Justified. `ImageGrid` remains the
+shared browsing host; its variable-row policy is separate from thumbnail zoom and
+cell activation. The form renderer composes an explicit image/detail entry with
+registry-driven `ImageMetadata`, side by side on desktop and stacked on compact
+screens. Inputs use native text selection and traversal, not cell activation or
+thumbnail gestures. The focused form and its immediate loaded neighbours remain
+mounted outside ordinary overscan so Tab cannot skip intervening forms.
+
+`MetadataTextInput` shares controlled text/suggestion rendering with existing explicit
+metadata editors. `MetadataFormField` reads sparse image/field intent from
+`metadata-drafts-store`, never from a mutated canonical image or measurement cache.
+Fields do not autofocus or request suggestions until focused. Description/Credit
+retain required guidance; optional Copyright appears when present. Existing server
+capabilities and stale/unavailable state control editing. Other metadata families
+remain read-only here until their owning commands are connected. Form changes are
+marked Not sent: U5 saving, filename fallback, presets and batch arrows are not wired.
+
+The global field set defaults to all registry fields; it has no product toggle UI.
+`useMeasuredLayout` observes mounted forms and retains measurements for loaded
+identities only. `windowed-measured-layout` uses individual loaded rows and estimated
+head/tail spans. Its virtual-row indices are distinct from logical item coordinates
+used for spatial navigation and visible reporting. Extents are rounded upward to
+avoid cumulative fractional native-scroll drift; content itself is never clipped.
+The existing scroll-effect owner compensates old/new identity geometry, including
+internal-field points and input captures. Anchor election uses committed geometry
+only when layout inputs change, not every scroll render. A changing neighbour cannot
+replace the represented image as the measurement correction anchor.
 
 Measurement callbacks are published after commit. Layout effects handle initial
 measurement; observer corrections flush synchronously before paint. Observation,
 not correction, is reattached next frame after observer delivery. Image anchor height
 is distinct from full natural height, and density handoffs can retain an interior
-form position. The [U2-proto decision](../gradually-growing-teeth.upload-workplan.md#prototype-decision-record-13-november-2026)
-owns proof limits, dev controls and the operator-only performance comparison.
+form position. Drafts survive disposal, density and route changes in memory; tab
+closure/reload warns while drafts exist but does not persist them. The DEV-only
+`__kupua_form__` fixture controls activate this same renderer without exposing Form
+in ordinary Search's UI. The [U2-proto decision](../gradually-growing-teeth.upload-workplan.md#prototype-decision-record-13-november-2026)
+retains its historical proof/performance limits; it is not real-editor performance evidence.
 
 ## Results Zoom (`lib/results-zoom.ts`, `stores/zoom-store.ts`)
 

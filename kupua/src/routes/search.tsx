@@ -29,7 +29,7 @@ import { SearchFilters } from "@/components/SearchFilters";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { JustifiedGrid } from "@/components/JustifiedGrid";
-import { MeasuredGrid, useMeasuredPrototype } from "@/components/MeasuredGrid";
+import { MeasuredGrid } from "@/components/MeasuredGrid";
 import { RESIDENT_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIMIT } from "@/lib/resident-preview";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
@@ -111,7 +111,6 @@ function SearchPage() {
   const engineScope = useSearchStore(state => state.params.imageScope?.key ?? state.params.recentUploadScope?.key);
   const admitted = engineScope === (imageScope?.key ?? recentUploadScope?.key);
   const density = useUiPrefsStore((state) => state.density);
-  const measuredPrototype = useMeasuredPrototype(state => import.meta.env.DEV && state.enabled);
   const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
@@ -121,7 +120,7 @@ function SearchPage() {
 
   // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
   // Image detail and fullscreen preview own these keys for image zoom.
-  const resultsZoomActive = () => !showImageDetail && !imageFullscreenElement();
+  const resultsZoomActive = () => density !== "form" && !showImageDetail && !imageFullscreenElement();
   const zoomIn = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, 1); };
   const zoomOut = () => { if (resultsZoomActive()) useZoomStore.getState().step(density, -1); };
   useKeyboardShortcut("=", zoomIn, resultsZoomActive);
@@ -365,7 +364,8 @@ function SearchPage() {
             <p>{batch ? imageScope.revision > 0 ? "This batch has no available images yet." : "This local batch is unavailable in this tab."
               : recentStatus === "loading" ? "Loading my recent uploads..." : "My recent uploads are unavailable. Reload after signing in to a human account."}</p>
             {batch && imageScope.revision === 0 && <button type="button" className="mt-3 cursor-pointer underline" onClick={() => navigate({ to: "/upload", search: {} })}>Recent uploads</button>}
-          </div> : density === "justified" ? measuredPrototype && !upload ? <MeasuredGrid handleRange={handleRange} /> : <JustifiedGrid handleRange={handleRange} />
+          </div> : density === "form" && (upload || import.meta.env.DEV) ? <MeasuredGrid handleRange={handleRange} />
+            : density === "justified" ? <JustifiedGrid handleRange={handleRange} />
             : isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
         </PanelLayout>
       </div>

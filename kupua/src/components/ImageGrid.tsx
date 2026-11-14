@@ -22,7 +22,6 @@ import {
   useRef,
   useState,
   type ImgHTMLAttributes,
-  type ReactNode,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
@@ -209,7 +208,7 @@ function GraphicRevealButton() {
 }
 
 interface GridCellProps {
-  children?: ReactNode;
+  openOnly?: boolean;
   image: Image | undefined;
   terminal?: boolean;
   isFocused: boolean;
@@ -240,7 +239,7 @@ interface GridCellProps {
 // Vendored Guardian cost config no longer needed — deriveImage handles cost computation.
 
 const GridCell = memo(function GridCell({
-  children,
+  openOnly,
   image,
   terminal,
   isFocused,
@@ -322,32 +321,38 @@ const GridCell = memo(function GridCell({
 
   return (
     <div
-      data-grid-cell
+      data-grid-cell={openOnly ? undefined : ""}
       data-cell-id={image.id}
-      data-image-id={image.id}
-      data-measured-cell={children ? "" : undefined}
+      data-image-id={openOnly ? undefined : image.id}
+      role={openOnly ? "button" : undefined}
+      tabIndex={openOnly ? 0 : undefined}
+      aria-label={openOnly ? "Open image" : undefined}
+      onKeyDown={openOnly ? event => {
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault(); event.stopPropagation(); onCellDoubleClick(image.id);
+        }
+      } : undefined}
       className={`shrink-0 relative flex flex-col bg-grid-cell rounded overflow-hidden cursor-pointer transition-shadow ${
         isFocused
           ? "ring-2 ring-grid-accent shadow-lg bg-grid-hover/40"
           : "hover:bg-grid-hover/15"
       } ${animationClass ?? ""}`}
-      style={{ width: cellWidth, height: children ? undefined : imageOnlyHeight !== undefined && dateLineOnly ? imageOnlyHeight + GRID_DATE_LINE_HEIGHT : imageOnlyHeight ?? cellHeight }}
+      style={{ width: openOnly ? "100%" : cellWidth, height: imageOnlyHeight !== undefined && dateLineOnly ? imageOnlyHeight + GRID_DATE_LINE_HEIGHT : imageOnlyHeight ?? cellHeight }}
       draggable={draggable}
       onClick={(e) => onCellClick(image.id, e)}
       onDoubleClick={() => onCellDoubleClick(image.id)}
       onDragStart={draggable ? (e) => onDragStart?.(image.id, e) : undefined}
     >
       {/* Selection tickbox — hidden by CSS, shown on hover or in Selection Mode */}
-      <Tickbox imageId={image.id} onTickClick={handleTickBound} />
+      {!openOnly && <Tickbox imageId={image.id} onTickClick={handleTickBound} />}
       {/* Thumbnail area — 190px block, flex-centred so img element hugs actual
            image content (border wraps the visible image, not the container). */}
       <div
-        data-measured-field={children ? "image" : undefined}
         className={`relative overflow-hidden flex items-center justify-center group${isPotentiallyGraphic ? " graphic-preview" : ""}`}
         onPointerEnter={isPotentiallyGraphic ? event => {
           if (event.pointerType === "mouse") event.currentTarget.removeAttribute("data-touch-reveal");
         } : undefined}
-        style={{ height: imageOnlyHeight ?? thumbHeight, flexShrink: children ? 0 : undefined }}
+        style={{ height: imageOnlyHeight ?? thumbHeight }}
         title={descTooltip}
       >
         {thumbUrl ? (
@@ -507,7 +512,6 @@ const GridCell = memo(function GridCell({
         </div>
       </div>
       </>}
-      {children}
     </div>
   );
 });
@@ -527,13 +531,13 @@ export interface ImageGridProps {
 }
 
 export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialWidth = 0, measuredCells }: ImageGridProps = {}) {
-  const justified = layoutFactory !== undefined || measuredCells !== undefined;
+  const variableLayout = layoutFactory !== undefined || measuredCells !== undefined;
   const {
-    results, total, displayEnd, bufferOffset, virtualizerCount, loadMore, seek,
+    results, total, displayEnd, bufferOffset, virtualizerCount: logicalItemCount, loadMore, seek,
     focusedImageId, setFocusedImageId,
     reportVisibleRange, getImage, findImageIndex,
     twoTier,
-  } = useDataWindow(justified ? "justified" : "grid");
+  } = useDataWindow(measuredCells ? "form" : layoutFactory ? "justified" : "grid");
   const searchParams = useBrowsingSearch();
   const { path } = useBrowsingContext();
   const selectionEnabled = path === "/search";
@@ -561,11 +565,11 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const zoomTransition = useRef<JustifiedZoomTransition | null>(null);
   const effectiveJustifiedOffset = pinchOffset ?? justifiedOffset;
   const storeGridOffset = useZoomStore((s) => s.gridOffset);
-  const gridOffset = justified ? 0 : storeGridOffset;
+  const gridOffset = variableLayout ? 0 : storeGridOffset;
   const gridOffsetRef = useRef(gridOffset);
   gridOffsetRef.current = gridOffset;
   // Justified cells take their size from the layout; their fallbacks use the classic grid.
-  const specFor = (offset: number, width: number) => (justified ? GRID_CLASSIC : gridSpec(offset, width));
+  const specFor = (offset: number, width: number) => (variableLayout ? GRID_CLASSIC : gridSpec(offset, width));
   const level = specFor(gridOffset, containerWidth ?? 0);
   const rowHeight = gridRowHeight(level, CELL_GAP);
   const rowHeightRef = useRef(rowHeight);
@@ -575,7 +579,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const committedLayout = useRef<ImageLayout | undefined>(undefined);
   const layoutSearchKey = buildSearchKey(searchParams);
   const rowScale = justifiedRowScale(effectiveJustifiedOffset, containerWidth);
-  const geometryIdentity = justified ? resultsGeometryIdentity(results) : results;
+  const geometryIdentity = variableLayout ? resultsGeometryIdentity(results) : results;
   const { layout: measuredLayout, captureInput, retireInput } = useMeasuredLayout(parentRef, results, containerWidth,
     { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey }, measuredCells);
   const justifiedLayout = useMemo(() => {
@@ -624,7 +628,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       height = el.clientHeight;
 
       // Capture anchor BEFORE setting state (before React re-renders)
-      if ((justified ? width !== widthRef.current : cols !== prevCols) && !isFirstUpdate) {
+      if ((variableLayout ? width !== widthRef.current : cols !== prevCols) && !isFirstUpdate) {
         const anchor = captureAnchor(el, prevCols, prevHeight);
         if (anchor) {
           anchorRef.current = anchor;
@@ -653,30 +657,30 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     if (measuredCells) return;
     const el = parentRef.current;
     if (!el) return;
-    if (justified ? next.justifiedOffset === prev.justifiedOffset : next.gridOffset === prev.gridOffset) return;
-    if (justified && pinchOffsetRef.current === next.justifiedOffset) return;
+    if (variableLayout ? next.justifiedOffset === prev.justifiedOffset : next.gridOffset === prev.gridOffset) return;
+    if (variableLayout && pinchOffsetRef.current === next.justifiedOffset) return;
     const anchor = captureAnchor(el, columnsRef.current);
     if (anchor) anchorRef.current = anchor;
-    if (justified) zoomTransition.current?.external(next.justifiedOffset, prev.justifiedOffset);
-    if (!justified) {
+    if (variableLayout) zoomTransition.current?.external(next.justifiedOffset, prev.justifiedOffset);
+    if (!variableLayout) {
       const width = el.clientWidth;
       const cols = Math.max(1, Math.floor(width / gridSpec(next.gridOffset, width).minCellWidth));
       setColumns(cols);
       setCellWidth(Math.floor((width - CELL_GAP * (cols + 1)) / cols));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refs + stable setters
-  }), [justified]);
+  }), [variableLayout]);
 
   // The valid zoom range depends on width (phone vs desktop ladders).
   useEffect(() => {
     if (!containerWidth || measuredCells) return;
-    useZoomStore.getState().setRange(justified ? "justified" : "grid",
-      justified ? justifiedOffsetRange(containerWidth) : gridOffsetRange(containerWidth));
-  }, [justified, containerWidth]);
+    useZoomStore.getState().setRange(variableLayout ? "justified" : "grid",
+      variableLayout ? justifiedOffsetRange(containerWidth) : gridOffsetRange(containerWidth));
+  }, [variableLayout, containerWidth]);
 
   // Fixed Grid retains its existing threshold preview and release-time zoom.
   useEffect(() => {
-    if (justified) return;
+    if (variableLayout) return;
     const el = parentRef.current;
     const sizer = el?.firstElementChild as HTMLElement | null;
     if (!el || !sizer) return;
@@ -741,7 +745,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       document.removeEventListener("visibilitychange", clearPinch);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refs + stable setters
-  }, [justified]);
+  }, [variableLayout]);
 
   /**
    * Capture the anchor image and its viewport position.
@@ -766,7 +770,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     // Derive twoTier from current store state — NOT from the hook scope,
     // which is stale inside the ResizeObserver closure (useEffect deps=[]).
     const isTwoTier = isTwoTierFromTotal(total);
-    const itemOffset = justified ? (isTwoTier ? 0 : bufferOffset) : committedFixedGeometry.current.itemOffset;
+    const itemOffset = variableLayout ? (isTwoTier ? 0 : bufferOffset) : committedFixedGeometry.current.itemOffset;
     const focusIndex = resolveAnchorVirtIndex(focusedImageIdRef.current, imagePositions, itemOffset, isTwoTier);
     const focusRow = focusIndex === null ? null : layoutRef.current?.getItemRow(focusIndex) ??
       getItemLayoutRow({ columns: cols, rowHeight: rowHeightRef.current, itemOffset }, focusIndex);
@@ -814,7 +818,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       if (index < 0) continue;
       const geometry = committedFixedGeometry.current;
       const row = layoutRef.current?.getItemRow(index) ?? getItemLayoutRow(geometry, index);
-      nearest = { imageId, imageIndex: justified ? index : index + geometry.itemOffset,
+      nearest = { imageId, imageIndex: variableLayout ? index : index + geometry.itemOffset,
         viewportRatio: (y - container.top) / el.clientHeight,
         point: { ratio: Math.max(0, Math.min(1, (y - bounds.top) / bounds.height)),
           inset: bounds.top - container.top + el.scrollTop - row.top } };
@@ -828,12 +832,12 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // -------------------------------------------------------------------------
 
   const fixedGeometry = useMemo(() => ({ rowHeight, columns,
-    itemOffset: twoTier ? 0 : bufferOffset, itemCount: virtualizerCount,
+    itemOffset: twoTier ? 0 : bufferOffset, itemCount: logicalItemCount,
     headerOffset: 0, preserveScrollLeftOnSort: false, minCellWidth: level.minCellWidth }),
-  [rowHeight, level.minCellWidth, columns, twoTier, bufferOffset, virtualizerCount]);
+  [rowHeight, level.minCellWidth, columns, twoTier, bufferOffset, logicalItemCount]);
   const committedFixedGeometry = useRef(fixedGeometry);
   useLayoutEffect(() => { committedFixedGeometry.current = fixedGeometry; }, [fixedGeometry]);
-  const rowCount = justifiedLayout ? justifiedLayout.rowCount : getFixedRowCount(fixedGeometry, virtualizerCount);
+  const rowCount = justifiedLayout ? justifiedLayout.rowCount : getFixedRowCount(fixedGeometry, logicalItemCount);
   const measuredRowKey = useCallback((index: number) => {
     const row = measuredLayout!.getRow(index);
     return measuredLayout!.window.getItemId(row.firstItemIndex) ?? (index === 0 ? "unloaded-head" : "unloaded-tail");
@@ -843,8 +847,11 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     const id = document.activeElement?.closest<HTMLElement>("[data-measured-cell]")?.dataset.imageId;
     const index = id ? measuredLayout?.window.findItemIndex(id) : undefined;
     if (index !== undefined) {
-      const row = measuredLayout!.getItemRow(index).index;
-      if (!indices.includes(row)) indices.push(row);
+      for (const adjacent of [index - 1, index, index + 1]) {
+        if (!measuredLayout!.window.getItemId(adjacent)) continue;
+        const row = measuredLayout!.getItemRow(adjacent).index;
+        if (!indices.includes(row)) indices.push(row);
+      }
     }
     return indices.sort((first, second) => first - second);
   }, [measuredLayout]);
@@ -862,14 +869,14 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     overscan: 5,
   });
 
-  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = justified ? () => false : undefined;
+  virtualizer.shouldAdjustScrollPositionOnItemSizeChange = variableLayout ? () => false : undefined;
   useLayoutEffect(() => {
     if (justifiedLayout) virtualizer.measure();
   }, [justifiedLayout, virtualizer]);
   // Grid zoom changes every row's height.
   useLayoutEffect(() => {
-    if (!justified) virtualizer.measure();
-  }, [rowHeight, justified, virtualizer]);
+    if (!variableLayout) virtualizer.measure();
+  }, [rowHeight, variableLayout, virtualizer]);
 
   // -------------------------------------------------------------------------
   // Shared scroll effects (scroll container registration, scroll handler,
@@ -940,7 +947,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
   useEffect(() => {
     const el = parentRef.current;
-    if (!justified || measuredCells || !el || !containerWidth) return;
+    if (!variableLayout || measuredCells || !el || !containerWidth) return;
     let sourceAnchor: CapturedAnchor | null = null;
     const transition = createJustifiedZoomTransition({
       element: el,
@@ -971,10 +978,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       if (zoomTransition.current === transition) zoomTransition.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- geometry is read through refs; reinitialize on a new layout scope
-  }, [justified, containerWidth, layoutSearchKey]);
+  }, [variableLayout, containerWidth, layoutSearchKey]);
 
   useLayoutEffect(() => {
-    if (justified) zoomTransition.current?.layout(effectiveJustifiedOffset);
+    if (variableLayout) zoomTransition.current?.layout(effectiveJustifiedOffset);
   });
 
   // -------------------------------------------------------------------------
@@ -1164,7 +1171,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     const el = parentRef.current;
     if (!el) return;
     const onMiddleUp = (e: MouseEvent) => {
-      if (e.button !== 1) return;
+      if (e.button !== 1 || (e.target as Element).closest("[data-form-content]")) return;
       const cell = (e.target as HTMLElement).closest("[data-image-id]");
       if (!cell) return;
       const id = cell.getAttribute("data-image-id");
@@ -1176,7 +1183,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       requestAnimationFrame(() => enterFullscreenPreview());
     };
     const onMiddleDown = (e: MouseEvent) => {
-      if (e.button !== 1) return;
+      if (e.button !== 1 || (e.target as Element).closest("[data-form-content]")) return;
       // Only suppress Firefox autoscroll when clicking on a cell — gap clicks
       // should let Firefox start its autoscroll indicator normally.
       if ((e.target as Element).closest("[data-image-id]")) e.preventDefault();
@@ -1220,7 +1227,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     headerHeight: 0, // grid has no header inside the scroll container
     focusedImageId,
     setFocusedImageId,
-    virtualizerCount,
+    virtualizerCount: logicalItemCount,
     getImage,
     findImageIndex,
     resultsLength: results.length,
@@ -1267,10 +1274,10 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     <div
       ref={parentRef}
       role="region"
-      aria-label={measuredCells ? "Image results measured" : justified ? "Image results justified" : "Image results grid"}
+      aria-label={measuredCells ? "Image results form" : variableLayout ? "Image results justified" : "Image results grid"}
       className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain"
       data-selection-mode={inSelectionMode ? "true" : undefined}
-      style={{ ...(justified ? { overflowAnchor: "none" as const } : {}), touchAction: "pan-y" }}
+      style={{ ...(variableLayout ? { overflowAnchor: "none" as const } : {}), touchAction: measuredCells ? "auto" : "pan-y" }}
       onClick={handleBackgroundClick}
       onBeforeInputCapture={measuredCells ? captureInput : undefined}
     >
@@ -1297,14 +1304,14 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                   top: row?.top ?? virtualRow.start,
                   height: row?.height ?? rowHeight,
                   alignItems: measuredCells ? "flex-start" : undefined,
-                  gap: justified ? 4 : CELL_GAP,
-                  padding: justified ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px`
+                  gap: variableLayout ? 4 : CELL_GAP,
+                  padding: variableLayout ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px`
                     : `0 ${CELL_GAP}px 0 ${CELL_GAP + getItemColumn(fixedGeometry, startIdx) * (cellWidth + CELL_GAP)}px`,
                 }}
               >
                 {indices.map((colIdx) => {
                   const imageIdx = startIdx + colIdx;
-                  if (imageIdx >= virtualizerCount) return null;
+                  if (imageIdx >= logicalItemCount) return null;
                   const image = getImage(imageIdx);
                   // Fixed-grid keys identify physical columns within the virtual row,
                   // including leading partial rows. Buffer-local indices can change
@@ -1319,10 +1326,11 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                         : undefined
                     : undefined;
 
-                  return (
+                  const thumbnail = (
                     <GridCell
-                      key={measuredCells && image ? image.id : justified ? imageIdx : getItemColumn(fixedGeometry, imageIdx)}
+                      key={measuredCells && image ? image.id : variableLayout ? imageIdx : getItemColumn(fixedGeometry, imageIdx)}
                       image={image}
+                      openOnly={!!measuredCells}
                       terminal={!image && ((terminalStart !== null && imageIdx + (twoTier ? 0 : bufferOffset) < terminalStart)
                         || (terminalEnd !== null && imageIdx + (twoTier ? 0 : bufferOffset) >= terminalEnd))}
                       isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
@@ -1331,11 +1339,11 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                         : justifiedLayout ? justifiedLayout.getBox(imageIdx)?.height
                         : level.meta ? undefined : level.thumbHeight}
                       thumbHeight={level.thumbHeight}
-                      dateLineOnly={!justified && level.dateOnly}
+                      dateLineOnly={!variableLayout && level.dateOnly}
                       cellHeight={rowHeight - CELL_GAP}
-                      dateOrderBy={justified ? undefined : searchParams.orderBy}
+                      dateOrderBy={variableLayout ? undefined : searchParams.orderBy}
                       animationClass={animClass}
-                      onCellClick={handleCellClick}
+                      onCellClick={measuredCells ? enterDetail : handleCellClick}
                       onCellDoubleClick={handleCellDoubleClick}
                       onTickClick={handleTickClick}
                       onLabelSearch={handleLabelSearch}
@@ -1343,8 +1351,12 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                       draggable={IS_COARSE_POINTER || measuredCells ? undefined : true}
                       onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
                       blurGraphicImages={blurGraphicImages}
-                    >{measuredCells && image ? measuredCells.render(image) : undefined}</GridCell>
+                    />
                   );
+                  return measuredCells && image ? <div key={image.id} data-grid-cell data-measured-cell data-image-id={image.id}
+                    className={animClass} style={{ width: justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth }}>
+                    {measuredCells.render(image, thumbnail)}
+                  </div> : thumbnail;
                 })}
               </div>
             </ThumbnailLoadingContext.Provider>

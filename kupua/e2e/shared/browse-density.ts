@@ -2,6 +2,30 @@ import { expect, type KupuaHelpers } from "./helpers";
 import { getDensityChangeButton } from "./density-selection";
 import type { Page } from "@playwright/test";
 
+export async function enableFormDensity(page: Page) {
+  await page.evaluate(async () => {
+    if (!(window as any).__u2FormCleanup) {
+      const path = "/src/stores/enrichment-store.ts";
+      const { useEnrichmentStore } = await import(path);
+      const store = (window as any).__kupua_store__;
+      let previous: unknown;
+      const admit = (state: any) => {
+        if (state.results === previous) return;
+        previous = state.results;
+        useEnrichmentStore.getState().upsertEnrichment(new Map(state.results.filter(Boolean).map((image: any) => [image.id,
+          { resource: { links: [{ rel: "edits", href: "https://metadata.example.invalid/unused" }] } }])));
+      };
+      admit(store.getState());
+      (window as any).__u2FormCleanup = store.subscribe(admit);
+    }
+    (window as any).__kupua_form__.enable();
+  });
+}
+
+export async function disposeFormFixture(page: Page) {
+  await page.evaluate(() => { (window as any).__u2FormCleanup?.(); delete (window as any).__u2FormCleanup; });
+}
+
 function watchPlacement(page: Page, mode: string, id: string) {
   return page.evaluateHandle(({ mode, id }) => {
     const samples: (number | null)[] = [];
@@ -25,31 +49,38 @@ function watchPlacement(page: Page, mode: string, id: string) {
 export async function measuredDensityJourney(kupua: KupuaHelpers) {
   const page = kupua.page;
   await kupua.startSearch();
-  await page.evaluate(() => (window as any).__kupua_measured__.enable());
-  const region = page.getByRole("region", { name: "Image results measured", exact: true });
+  await enableFormDensity(page);
+  const region = page.getByRole("region", { name: "Image results form", exact: true });
   await expect(region).toBeVisible();
   await page.waitForFunction(() => {
     const state = (window as any).__kupua_store__.getState();
     return !state.loading && !state._browseNavigation;
   });
-  await region.evaluate(element => { element.scrollTop = 1800; element.dispatchEvent(new Event("scroll")); });
+  await region.evaluate(async element => {
+    const path = "/src/lib/scroll-geometry-ref.ts";
+    const geometry = (await import(path)).getLayoutGeometry();
+    const id = (window as any).__kupua_store__.getState().results[5].id;
+    element.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex(id)).top - 50;
+    element.dispatchEvent(new Event("scroll"));
+  });
   const baseline = await region.evaluate(async element => {
     await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     const bounds = element.getBoundingClientRect();
     const cell = Array.from(element.querySelectorAll<HTMLElement>("[data-image-id]"))
-      .find(cell => { const rect = cell.getBoundingClientRect(); return rect.top > bounds.top + 30 && rect.bottom < bounds.bottom; });
-    if (!cell) throw new Error("Measured witness needs a fully visible interior cell");
+      .find(cell => { const rect = cell.getBoundingClientRect(); return rect.top > bounds.top + 30 && rect.top < bounds.bottom - 300; });
+    if (!cell) throw new Error("Form witness needs a visible image and description");
     (window as any).__kupua_store__.getState().setFocusedImageId(cell.dataset.imageId);
     return { id: cell.dataset.imageId!, top: cell.getBoundingClientRect().top - bounds.top };
   });
   const cell = region.locator(`[data-image-id="${baseline.id}"]`);
-  await cell.getByRole("textbox", { name: "Prototype note" }).fill("Retained prototype draft");
+  await cell.getByRole("textbox", { name: "Description", exact: true }).fill("Retained form draft");
   for (let repeat = 0; repeat < 3; repeat++) {
-    for (const density of ["table", "grid", "justified"] as const) {
+    for (const density of ["table", "grid", "justified", "form"] as const) {
       const generation = await page.evaluate(() => (window as any).__kupua_getDensityRestoreGeneration__());
-      const probe = await watchPlacement(page, density === "justified" ? "measured" : density, baseline.id);
+      const probe = await watchPlacement(page, density, baseline.id);
       try {
-        await (await getDensityChangeButton(page, density))!.click();
+        if (density === "form") await enableFormDensity(page);
+        else await (await getDensityChangeButton(page, density))!.click();
         await page.waitForFunction(generation => (window as any).__kupua_getDensityRestoreGeneration__() > generation, generation);
         const finalTop = await page.locator(`[aria-label^="Image results "] [data-image-id="${baseline.id}"]`)
           .evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
@@ -61,12 +92,12 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
         await probe.dispose();
       }
     }
-    await expect(cell.getByRole("textbox", { name: "Prototype note" })).toHaveValue("Retained prototype draft");
+    await expect(cell.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Retained form draft");
     expect(await cell.evaluate(element => element.getBoundingClientRect().top -
       element.closest('[role="region"]')!.getBoundingClientRect().top)).toBe(baseline.top);
   }
   const stableFrames = async (action: () => Promise<unknown>) => {
-    const probe = await watchPlacement(page, "measured", baseline.id);
+    const probe = await watchPlacement(page, "form", baseline.id);
     try {
       await action();
       await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
@@ -84,10 +115,10 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
     const above = Array.from(element.querySelectorAll<HTMLElement>("[data-measured-cell]"))
       .find(cell => cell.getBoundingClientRect().bottom < top);
     if (!above) throw new Error("Above-viewport correction witness needs a mounted overscan cell");
-    (window as any).__kupua_measured__.draft(above.dataset.imageId, "Growing above the viewport. ".repeat(80));
+    (window as any).__kupua_form__.draft(above.dataset.imageId, "Growing above the viewport. ".repeat(80));
   }));
   for (const visible of [false, true]) {
-    await stableFrames(() => page.evaluate(visible => (window as any).__kupua_measured__.field("extra", visible), visible));
+    await stableFrames(() => page.evaluate(visible => (window as any).__kupua_form__.field("metadata_specialInstructions", visible), visible));
   }
   const initialWidth = page.viewportSize()!.width;
   for (const width of [initialWidth - 180, initialWidth]) {
@@ -97,16 +128,16 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
     await stableFrames(() => page.getByRole("button", { name, exact: true }).click());
   }
   const growth = "A naturally growing note. ".repeat(150);
-  await stableFrames(() => cell.getByRole("textbox", { name: "Prototype note" }).fill(growth));
+  await stableFrames(() => cell.getByRole("textbox", { name: "Description", exact: true }).fill(growth));
   expect(await cell.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(await region.evaluate(element => element.clientHeight));
-  await stableFrames(() => cell.getByRole("textbox", { name: "Prototype note" }).fill("Retained prototype draft"));
-  const nextField = cell.locator('[data-measured-field="extra"]');
+  await stableFrames(() => cell.getByRole("textbox", { name: "Description", exact: true }).fill("Retained form draft"));
+  const nextField = cell.locator('[data-measured-field="metadata_specialInstructions"]');
   const fieldTop = await nextField.evaluate(element => element.getBoundingClientRect().top);
-  await page.evaluate(() => (window as any).__kupua_measured__.field("note", false));
-  await expect(cell.getByRole("textbox", { name: "Prototype note" })).toHaveCount(0);
+  await page.evaluate(() => (window as any).__kupua_form__.field("metadata_description", false));
+  await expect(cell.getByRole("textbox", { name: "Description", exact: true })).toHaveCount(0);
   expect(await nextField.evaluate(element => element.getBoundingClientRect().top)).toBe(fieldTop);
-  await page.evaluate(() => (window as any).__kupua_measured__.field("note", true));
-  await expect(cell.getByRole("textbox", { name: "Prototype note" })).toHaveValue("Retained prototype draft");
+  await page.evaluate(() => (window as any).__kupua_form__.field("metadata_description", true));
+  await expect(cell.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Retained form draft");
   const globalIndex = await page.evaluate(id => (window as any).__kupua_store__.getState().imagePositions.get(id), baseline.id);
   const total = await page.evaluate(() => (window as any).__kupua_store__.getState().total);
   if (total > 1000) {
@@ -121,7 +152,7 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
       const state = (window as any).__kupua_store__.getState();
       const index = state._seekTargetGlobalIndex >= 0 ? state._seekTargetGlobalIndex - state.bufferOffset : state._seekTargetLocalIndex;
       const id = state.results[index]?.id;
-      const container = document.querySelector('[aria-label="Image results measured"]')!;
+      const container = document.querySelector('[aria-label="Image results form"]')!;
       const cell = id && container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
       const bounds = container.getBoundingClientRect();
       const rect = cell?.getBoundingClientRect();
@@ -133,9 +164,14 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
   } else {
     await region.evaluate(element => { element.scrollTop = element.scrollHeight; element.dispatchEvent(new Event("scroll")); });
     await expect(cell).toHaveCount(0);
-    await region.evaluate(element => { element.scrollTop = 1800; element.dispatchEvent(new Event("scroll")); });
+    await region.evaluate(async (element, id) => {
+      const path = "/src/lib/scroll-geometry-ref.ts";
+      const geometry = (await import(path)).getLayoutGeometry();
+      element.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex(id)).top - 50;
+      element.dispatchEvent(new Event("scroll"));
+    }, baseline.id);
   }
-  await expect(cell.getByRole("textbox", { name: "Prototype note" })).toHaveValue("Retained prototype draft");
+  await expect(cell.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Retained form draft");
 }
 
 export async function unfocusedDensityRoundTrips(kupua: KupuaHelpers) {

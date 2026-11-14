@@ -3935,6 +3935,26 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
 // ---------------------------------------------------------------------------
 
 describe("search generation counter", () => {
+  it.each([
+    ["maintenance", false], ["maintenance", true], ["user", false],
+  ] as const)("retains %s continuity (off-page=%s) with feedback only for navigation and no duplicate scope count", async (provenance, offPage) => {
+    const imageScope = { key: "upload:local-arrivals", revision: 1,
+      ids: Array.from({ length: 500 }, (_, index) => `img-${index}`), submittedOrder: true };
+    actions().setParams({ imageScope });
+    await actions().search();
+    const targetId = offPage ? "img-400" : state().results[20]!.id;
+    const counts = vi.spyOn(mock, "countWithTickers");
+    const generation = state().sortAroundFocusGeneration;
+    actions().setParams({ imageScope: { ...imageScope, revision: 2, ids: [...imageScope.ids, "img-501"] } });
+    await actions().search(undefined, { continuity: { provenance, targetId, focus: "retain", placement: { kind: "ratio", ratio: -0.4 } } });
+    await waitFor(() => !state().loading);
+    expect(state().imagePositions.has(targetId)).toBe(true);
+    expect(state().sortAroundFocusGeneration).toBeGreaterThan(generation);
+    expect(state()._searchContinuity?.placement).toEqual({ kind: "ratio", ratio: -0.4 });
+    expect(state()._phantomPulseImageId).toBe(provenance === "user" ? targetId : null);
+    expect(counts).not.toHaveBeenCalled();
+  });
+
   it("only publishes the newest admitted batch revision", async () => {
     const original = mock.searchAfter.bind(mock);
     let release!: () => void;

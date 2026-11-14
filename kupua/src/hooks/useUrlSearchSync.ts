@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
-import { qualifyBrowsingSnapshot, restoreBrowsingDensity } from "@/lib/browsing-navigation";
+import { admitBrowsingDensityContext, qualifyBrowsingSnapshot, restoreBrowsingDensity } from "@/lib/browsing-navigation";
 import { useSearchStore } from "@/stores/search-store";
 import type { SearchParams } from "@/dal";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
@@ -97,7 +97,15 @@ export function useUrlSearchSync() {
   ) as UrlSearchParams, [routeSearch]);
   const location = useRouterState({ select: (state) => state.location });
   const router = useRouter();
-  const { setParams, search } = useSearchStore();
+  const { setParams, search, loading } = useSearchStore();
+  const membershipDeferred = useRef(false);
+  const [membershipCompletion, setMembershipCompletion] = useState(0);
+  useEffect(() => useSearchStore.subscribe((state, previous) => {
+    if (membershipDeferred.current && previous.loading && !state.loading) {
+      membershipDeferred.current = false;
+      setMembershipCompletion(value => value + 1);
+    }
+  }), []);
   const navigate = useNavigate();
   const defaultsResolution = useRef<"unresolved" | "pending" | "resolved">("unresolved");
   const unmountedRef = useRef(false);
@@ -179,6 +187,7 @@ export function useUrlSearchSync() {
     const contextChanged = (previousScope?.key ?? previousParams.recentUploadScope?.key) !== (imageScope?.key ?? recentUploadScope?.key);
     const membershipChanged = !contextChanged && previousScope?.revision !== imageScope?.revision;
     if (contextChanged) restoreBrowsingDensity(path);
+    else admitBrowsingDensityContext(path);
     const serialized = JSON.stringify(searchOnly);
     const sameQuery = serialized === _prevParamsSerialized;
     const currentKey = getCurrentKupuaKey();
@@ -195,6 +204,9 @@ export function useUrlSearchSync() {
     const sameQueryHistoryDestination = sameQuery && currentKey !== _lastKupuaKey
       && currentKey !== undefined && pendingPopKey.current === currentKey
       && !nativeDetailTransition;
+    const membershipOnly = membershipChanged && searchOnly.orderBy === previousParams.orderBy && currentKey === _lastKupuaKey;
+    if (membershipOnly && loading) { membershipDeferred.current = true; return; }
+    membershipDeferred.current = false;
     pendingPopKey.current = undefined;
     if (sameQuery && !sameQueryHistoryDestination) {
       // Consume the user-initiated flag even on dedup bail to prevent it
@@ -271,8 +283,8 @@ export function useUrlSearchSync() {
     let arrivalState: ReturnType<typeof restoreArrivalState> = {};
     let continuity: SearchContinuity;
 
-    if (membershipChanged) {
-      continuity = captureSearchContinuity(false);
+    if (membershipOnly) {
+      continuity = captureSearchContinuity("membership");
     } else if (isPopstate) {
       // Capture a snapshot for the entry we're LEAVING before restoring
       // the destination. The store still has the old state (setParams/
@@ -367,7 +379,7 @@ export function useUrlSearchSync() {
     // means no matching debounce ever fires to clear it), and every future
     // debounced query from the CQL editor is silently dropped.
     setExternalQuery(null);
-  }, [searchParams, routeSearch.batch, path, imageScope, recentUploadScope, location, observedEntryKey, setParams, search, navigate]);
+  }, [searchParams, routeSearch.batch, path, imageScope, recentUploadScope, location, observedEntryKey, membershipCompletion, setParams, search, navigate]);
 }
 
 /**

@@ -23,11 +23,31 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("independent per-tab density", () => {
-  it("makes density availability explicit without admitting the disconnected form", async () => {
+  it("admits the form only in Upload", async () => {
     const { availableDensity, BROWSING_DENSITIES } = await import("./ui-prefs-store");
-    expect(BROWSING_DENSITIES.upload).toEqual(["table", "grid", "justified"]);
+    expect(BROWSING_DENSITIES.upload).toEqual(["table", "grid", "justified", "form"]);
     expect(availableDensity("search", "form")).toBe("grid");
+    expect(availableDensity("upload", undefined)).toBe("form");
     expect(availableDensity("upload", "table")).toBe("table");
+  });
+
+  it("keeps Upload density independent of Search across context changes", async () => {
+    const { useUiPrefsStore } = await import("./ui-prefs-store");
+    const preferences = useUiPrefsStore.getState();
+    preferences.setDensity("table");
+    preferences.setDensityContext("upload");
+    expect(useUiPrefsStore.getState().density).toBe("form");
+    preferences.setDensity("justified");
+    preferences.setDensityContext("search");
+    expect(useUiPrefsStore.getState().density).toBe("table");
+    expect(storage.getItem("kupua-density")).toBe("table");
+    preferences.setDensityContext("upload");
+    expect(useUiPrefsStore.getState().density).toBe("justified");
+    preferences.setDensity("form");
+    expect(storage.getItem("kupua-upload-density")).toBe("form");
+    preferences.setDensityContext("search");
+    preferences.setDensity("form");
+    expect(useUiPrefsStore.getState().density).toBe("grid");
   });
 
   it.each([
