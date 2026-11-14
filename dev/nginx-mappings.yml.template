@@ -46,3 +46,7 @@ mappings:
   - prefix: images.media
     port: 4566
     path: /@IMAGE-BUCKET/
+
+  # Prototype Kupua frontend
+  - prefix: kupua.media
+    port: 3000
