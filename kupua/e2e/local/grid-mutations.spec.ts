@@ -17,6 +17,147 @@ type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFi
   __kupua_store__: typeof useSearchStore; __kupua_selection_store__: typeof useSelectionStore };
 const fixturePlugin = labelEditorPlugin();
 
+test.describe("U3 isolated uploads", () => {
+  let vite: Awaited<ReturnType<typeof createServer>>;
+  let origin: string;
+  const env = { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false", VITE_MEDIA_API_BASE_URL: "/api",
+    VITE_MEDIA_DELIVERY: "canonical", VITE_GRID_LOADER_ORIGIN: "https://loader.example.test", VITE_GRID_AUTH_ORIGIN: "https://auth.example.test" };
+  let previous: Record<string, string | undefined>;
+  test.beforeAll(async ({}, testInfo) => {
+    previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
+    Object.assign(process.env, env);
+    vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
+      plugins: [labelEditorPlugin("upload")], server: { host: "127.0.0.1", port: 0 } });
+    await vite.listen();
+    origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
+  });
+  test.afterAll(async () => {
+    await vite?.close();
+    for (const [key, value] of Object.entries(previous ?? {})) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+
+  test("upload opt-in, route-independent completion and activity detail preserve admission and history", async ({ page }, testInfo) => {
+    const escaped: string[] = [];
+    await page.route("**/*", route => {
+      if (new URL(route.request().url()).origin === origin) return route.continue();
+      escaped.push(new URL(route.request().url()).origin);
+      return route.abort();
+    });
+    await page.addInitScript(() => {
+      if (!localStorage.getItem("u3-initialized")) {
+        localStorage.setItem("kupua-allow-editing", "true");
+        localStorage.removeItem("kupua-allow-uploads");
+        localStorage.setItem("u3-initialized", "true");
+      }
+    });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.evaluate(async () => {
+      const routerPath = "/src/router.ts";
+      await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
+    });
+    await expect(page.getByRole("button", { name: "Upload one file", exact: true })).toBeDisabled();
+    await page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      (await import(jobsPath)).submitUploadFiles([new File(["synthetic"], "blocked.jpg")]);
+    });
+    await page.getByText(/Upload activity:/).click();
+    await expect(page.getByText("Not submitted", { exact: true })).toBeVisible();
+    await expect(page.getByText("Submission blocked during preparation", { exact: true })).toBeVisible();
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
+    await page.keyboard.press("Shift+F12");
+    const dialog = page.getByRole("dialog", { name: "Hello, Joshua", exact: true });
+    await expect(dialog.getByRole("checkbox", { name: "Allow editing", exact: true })).toBeChecked();
+    await expect(dialog.getByRole("checkbox", { name: "Allow real uploads", exact: true })).not.toBeChecked();
+    await dialog.getByRole("checkbox", { name: "Allow editing", exact: true }).uncheck();
+    await dialog.getByRole("checkbox", { name: "Allow real uploads", exact: true }).check();
+    await Promise.all([page.waitForEvent("load"), dialog.getByRole("button", { name: "Apply and reload", exact: true }).click()]);
+    await expect(page.getByRole("button", { name: "Upload one file", exact: true })).toBeEnabled();
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
+    expect(await page.evaluate(() => (window as CommandWindow).commandFixture.gridLabelEditingEnabled())).toBe(false);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await new KupuaHelpers(page).waitForResults();
+    const capturedTarget = await page.evaluate(async () => {
+      const actionsPath = "/src/stores/image-action-store.ts";
+      const imageId = (window as CommandWindow).__kupua_store__.getState().results.find(Boolean)!.id;
+      (await import(actionsPath)).useImageActionStore.getState().prepare("share", { targets: [{ id: imageId }], api: true, archive: null });
+      const routerPath = "/src/router.ts";
+      await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
+      return imageId;
+    });
+    const existingActivity = page.getByRole("complementary", { name: "Image activity", exact: true });
+    await expect(existingActivity).toBeVisible();
+    await page.locator('input[type="file"]').setInputFiles(resolve("../e2e-tests/fixtures/images/test.jpg"));
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
+    const batch = new URL(page.url()).searchParams.get("batch");
+    expect(batch).toMatch(/^local-/);
+    const uploadSummary = page.getByText(/Upload activity:/);
+    const uploadBox = (await uploadSummary.boundingBox())!;
+    const existingBox = (await existingActivity.boundingBox())!;
+    expect(uploadBox.x < existingBox.x + existingBox.width && uploadBox.x + uploadBox.width > existingBox.x
+      && uploadBox.y < existingBox.y + existingBox.height && uploadBox.y + uploadBox.height > existingBox.y).toBe(false);
+    await uploadSummary.click();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await expect(page).toHaveURL(/\/search/);
+    await expect.poll(() => page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      return (await import(jobsPath)).useUploadJobsStore.getState().batches[0].attempts[0].submission?.outcome;
+    })).toBe("accepted");
+    await page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      const { useUploadJobsStore } = await import(jobsPath) as typeof import("../../src/stores/upload-jobs-store");
+      useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => ({ ...batch,
+        attempts: batch.attempts.map(attempt => ({ ...attempt,
+          submission: { ...attempt.submission, outcome: "accepted", stage: "queued", queued: "rejected" },
+        })),
+      })) }));
+    });
+    const queuedReceipt = page.getByText("Queued update rejected; file transfer acknowledged", { exact: true });
+    await expect(queuedReceipt).toBeVisible();
+    await expect(page.getByText("Upload receipt", { exact: true })).toHaveCount(0);
+    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true } });
+    await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).visibilityReads).toBeGreaterThan(0);
+    await expect(page.getByText("Upload activity: 1 file; 0 images available", { exact: true })).toBeVisible();
+    expect(await page.evaluate(async batch => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      return (await import(contextPath)).uploadBatchMembership.getState().batches.get(batch!)!.ids;
+    }, batch)).toEqual([]);
+    await page.request.post(`${origin}/__upload-control`, { data: { searchable: true } });
+    await expect(page.getByText("Upload activity: 1 file; 1 image available", { exact: true })).toBeVisible();
+    await expect(page.getByText("Image available", { exact: true })).toBeVisible();
+    await expect(queuedReceipt).toBeHidden();
+    await page.getByText("Upload receipt", { exact: true }).click();
+    await expect(queuedReceipt).toBeVisible();
+    await page.getByText("Upload receipt", { exact: true }).click();
+    await page.getByRole("button", { name: "Open batch", exact: true }).click();
+    await expect(page.getByRole("region", { name: "Image results table", exact: true }).locator("[data-image-id]")).toHaveCount(1);
+    const before = await page.evaluate(() => history.length);
+    await page.getByRole("button", { name: "Open image", exact: true }).click();
+    await expect(page.locator(`[data-detail-image-id="${"f".repeat(40)}"]`)).toBeVisible();
+    expect(await page.evaluate(() => history.length)).toBe(before + 1);
+    await page.goBack();
+    await expect(page).not.toHaveURL(/image=/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/search/);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const touch = await page.context().newCDPSession(page);
+    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await touch.detach();
+    await page.getByRole("button", { name: "Open batch", exact: true }).click();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("u3-upload-compact.png") });
+    expect(await page.evaluate(async () => {
+      const actionsPath = "/src/stores/image-action-store.ts";
+      return (await import(actionsPath)).useImageActionStore.getState().prepared[0].targetIds;
+    })).toEqual([capturedTarget]);
+    expect(escaped).toEqual([]);
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
+  });
+});
+
 async function runReadbackAction(page: Page, action: "holdReadbackSearch" | "releaseReadbackSearch") {
   const handle = await page.evaluateHandle(action => {
     const job = { complete: false, error: null as string | null, pending: Promise.resolve() };
@@ -2147,9 +2288,9 @@ async function applyEditingFromPanel(page: Page, allowed: boolean, shortcut = fa
   if (shortcut) await page.keyboard.press("Shift+F12");
   else {
     await page.getByRole("button", { name: "Settings", exact: true }).filter({ visible: true }).first().click();
-    await page.getByRole("menuitem", { name: "Hi, Joshua", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Hello, Joshua", exact: true }).click();
   }
-  const panel = page.getByRole("dialog", { name: "Hi, Joshua", exact: true });
+  const panel = page.getByRole("dialog", { name: "Hello, Joshua", exact: true });
   await expect(panel).toBeVisible();
   await panel.getByRole("checkbox", { name: "Allow editing", exact: true }).setChecked(allowed);
   const apply = panel.getByRole("button", { name: "Apply and reload", exact: true });

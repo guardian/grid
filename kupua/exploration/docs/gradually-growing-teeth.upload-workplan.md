@@ -505,11 +505,14 @@ Update one line when a unit's state changes; this is not a session diary.
 | U0a | complete 13 November: source/configuration baseline and all P01-P15 applicability/owners/witness plans recorded; TEST page selects signed upload; C1-C4 remain explicit deployment/runtime gaps, not passes |
 | U0b | complete 13 November at operator-reviewed workflow scope: C5-C7 resolved; familiar parity first, selection/panel omitted initially, later opportunities retained; operator explicitly chose no new browser demonstrations; runtime acceptance remains planned |
 | U1 | complete: route/scope foundation 13 November, API-only boundary 14 November; full unit/E2E/build/type gates pass; fixture-backed browsing only, no real Upload or recovery claim |
-| U2-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
+| U3 | implementation and local hosted/Vite upload acceptance ready for a deployment checkpoint 14 November; laptop-to-TEST trials blocked by storage CORS; deployed TEST upload acceptance remains pending; experimental storage CSP preserved as an unapplied patch |
+| U2, U4-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
 
-**Recommended next separately selected unit:** U3, real upload transport and
-route-independent jobs, with its own permissions and C1 checks. U1 supplies the
-browsing boundary; U4 joins those foundations.
+**U3 has working local ingestion, not deployed TEST acceptance.** The local-first
+trials are complete. The selected next integration check is deployed TEST, subject
+to operator deployment authority and fresh destination/file permission; no shared
+TEST CORS change is part of this checkpoint. See U3's evidence and limits below.
+U4 next joins U1/U3's foundations under separate selection; it does not start automatically.
 
 **Recommended execution order:** `U3 -> U4 -> U2 -> U5`, then the remaining required
 U6a/U6b and U7 capabilities, followed by U8 acceptance. Real U2 comes immediately
@@ -984,7 +987,7 @@ proxy. Recheck actual CORS/CSP and redirect behaviour before live use.
 #### Development Upload Gate
 
 **Operator decision, 14 November 2026:** add a separate, default-off **Allow real
-uploads** opt-in to the existing Hi, Joshua dialog, following its saved startup
+uploads** opt-in to the existing Hello, Joshua dialog, following its saved startup
 preference and Apply/reload convention. The existing editing preference must not
 implicitly enable uploads, and enabling uploads must not enable metadata writes.
 Post-upload edits still require their own editing admission and server authority.
@@ -1003,7 +1006,8 @@ the operator considers development safeguards settled, without rewriting jobs,
 transport or views. Retiring temporary upload/editing opt-ins must not remove
 permanent authentication, upload permission, advertised-service admission or
 validated transport targets. This decision specifies U3 work; no upload switch
-or real ingestion transport is implemented yet.
+or real ingestion transport was implemented by that decision alone. The U3
+implementation below now supplies both, with live acceptance still separate.
 
 #### Operator Testing Order
 
@@ -1017,6 +1021,15 @@ or real ingestion transport is implemented yet.
 3. Only after the local cases work, test the local Grid API backed by TEST ES using
   Grid's `--use-TEST` flag, with the applicable C1 browser/configuration checks and
   C4 trial/rollout disposition. This remains TEST integration, not PROD approval.
+
+The local-first stage has now passed. The mixed laptop-to-TEST stage reached a
+storage CORS barrier, also reproduced by read-only preflight for the Vite origin;
+ordinary Kahuna failed in the operator's mixed setup too. The operator selected
+preparing this branch for deployed TEST testing rather than changing shared TEST
+bucket policy to make the laptop topology work. That is a deployment checkpoint,
+not a waiver or pass of TEST upload acceptance. The
+[hosting guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#mixed-localtest-uploads-and-preserved-csp-patch)
+owns the topology evidence and unapplied CSP experiment.
 
 Kupua stays in API mode throughout, using its existing `--use-media-api` selection
 and independently configured media delivery. Do not confuse Grid's backing-service
@@ -1047,6 +1060,113 @@ listeners and settled request resources.
 **Permissions:** changes to Kahuna host injection/CSP or any backend file require
 explicit approval outside `kupua/`. Do not broaden permitted hosting stages or
 weaken safeguards. A fixture pass is not live-topology approval.
+
+#### Implemented U3 Boundary and Limits
+
+[Upload commands](../../src/lib/upload-commands.ts) implement configured octet-stream
+load and SHA-1 prepare/signed PUT/QUEUED contracts with central upload admission,
+shared session invalidation, exact loader targets and cookie-free storage transfer.
+The optional allowlisted `gridConfig.upload` projection supplies transport and byte
+limit; missing configuration is unavailable, not fallback. Laptop TEST settings
+project those fields without retaining bucket details. The separately approved
+Kahuna allowlist now injects the same transport and optional limit for hosted
+Kupua; no bucket name, capability or upload opt-in is exposed by that projection.
+Local loader routing uses Grid's advertised `loader.media` hostname convention.
+Neither the projection nor a local ES index alone verifies upload destinations.
+The local development setup adds Kupua's Vite origin to nginx and local ingest
+CORS; no shared TEST policy is changed. Active hosting preserves inherited
+`connect-src`; the optional storage-origin correction and its tests are retained
+only in the [unapplied patch](patches/hosted-upload-storage-csp.patch).
+
+[Jobs](../../src/stores/upload-jobs-store.ts) own independent submission/attempt
+records, partial receipts, processing and canonical visibility beyond routes/rows.
+One transfer/hash and one read observation are active at a time. Files are released
+after submission; statuses and IDs, not complete images, remain in job state.
+Readable canonical IDs enter U1's revisioned membership, preserving empty refusal
+and captured command targets. Same names never merge local attempts; repeated
+content may share one canonical member. B2's backend attempt/pending-key isolation
+is not repaired or established by the local witnesses.
+
+Missing status can trigger a read of the known image identity, never a mutation.
+Processing completion is retained across later visibility checks. Automatic read
+observation is bounded to five minutes; failed/missing reads and deadlines retain
+uncertainty and explicit read-only reconciliation. Original submission and queued
+outcomes survive later image availability. A lost direct-load response without
+a status ID cannot be reconstructed or safely replayed. Active work protects
+reload/closure, not safe in-app navigation; page interruption aborts owned work,
+and late results retain uncertainty rather than reviving jobs.
+
+For [GRID-024](bug-backlog.md#grid-024), an accepted submission's rejected queued
+receipt remains visible until verified availability, then becomes collapsed
+Upload receipt history alongside Image available. The rejection is retained,
+not acknowledged retroactively. Unresolved and failed attempts keep their feedback;
+no protocol call, observation cadence or replay policy changes. The browser
+presentation witness supplies a representative signed receipt on the existing
+direct-upload fixture job; signed transport rejection remains separately covered
+by command tests. This is not a backend repair or a new live-upload witness.
+
+Canonical GET is a real-time document read, not proof of search refresh. Completion
+also requires a positive exact-ID count through the existing POST read mapper and
+transport, with no inherited library filters or second browsing engine. GET and
+count share a 15-second deadline; zero remains waiting and failure remains unavailable.
+The isolated browser witness keeps membership empty while GET is readable but the
+ID is not yet searchable, then releases indexed visibility without replaying bytes.
+
+The existing Hello, Joshua Apply/reload dialog now includes default-off **Allow real
+uploads**, independent of editing. A minimal one-file entry on `/upload` and
+global [activity](../../src/components/UploadActivity.tsx) reach the existing batch
+and image display. This is not U4's full picker/drop/recent/retained navigation or
+descriptor persistence, U2's form, or U5-U7's post-upload metadata/preset operations.
+
+Existing isolated fixtures cover direct/signed contracts, gate independence,
+failure stages and no replay, same-name/repeated-content outcomes, expired-status
+reconciliation, late interruption, reload protection, route-independent arrival
+and SPA detail history. Those fixture witnesses remain separate from the actual
+upload evidence below. No U4 bulk entry or U5 metadata writes follow from them.
+
+#### Actual Upload Evidence and Deployment Checkpoint
+
+All live trials were individually authorized and used API mode. They did not
+authorize further uploads, cleanup deletes, shared policy changes or deployment.
+
+| Topology | Observed result and boundary |
+| --- | --- |
+| Local Vite, local Grid/ES/LocalStack | Fresh uploads reached canonical readability and exact-ID indexed visibility. Larger-file work continued through processing and visibility after leaving Upload. A known-completed duplicate retained one canonical batch member without increasing the catalogue. Post-workaround duplicate activity kept the rejected queued receipt inspectable beneath Image available. |
+| Local Kahuna-hosted Kupua, local Grid/ES/LocalStack | Fresh and intentional duplicate uploads reached the expected image/batch with loaded thumbnails and readable/indexed identity. Larger-file trials established active route-away completion; the later small-file receipt check did not establish active navigation timing by itself. |
+| Local hosted Kupua with TEST backing services | Preparation returned 200, but storage transfer was first blocked by CSP/configuration mismatch and then, with the experimental CSP correction active, by a CORS preflight. The latter failure preceded Search navigation; no queued update followed. Activity retained an uncertain outcome, and the known canonical identity returned 404 when checked. No retry or metadata write was made. |
+| Local Vite origin against TEST storage | Read-only storage preflight returned 403 for the required PUT and headers. No Vite-backed TEST file trial was performed; switching frontend alone would not bypass this storage barrier. |
+| Deployed TEST without Kupua | Read-only inspection found an explicit TEST ingest S3 origin in Kahuna's enforced CSP; the deployed frontend origin passed the storage preflight. This is prerequisite evidence only, not deployed Kupua upload acceptance or an exact comparison with the stopped local host's effective destination. |
+
+Successful local signed trials returned prepare/PUT 200 and queued-update 400.
+[GRID-024](bug-backlog.md#grid-024) explains the deferred loader codec-condition
+defect; storage notifications still triggered ingestion. The client did not
+retroactively acknowledge that receipt. These trials establish representative
+one-file local workflows, not large-file/mobile certification, broad editorial
+parity, safe durable resume or TEST rollout approval.
+
+**Validation retained, 14 November 2026:** the latest full units passed (116 files,
+3,876 tests). A full retry-free E2E rerun completed normally with all 601 tests
+passing across normal, forced-seek and Justified projects, superseding the earlier
+interrupted run. That E2E result preceded removal of the experimental Scala CSP
+extension and the final Hello, Joshua wording change. After removal, all 16 active
+hosting tests passed, and the saved patch reconstructed the previously tested
+helper/controller/tests byte-for-byte in an isolated round-trip check. After the
+wording change, full units and E2E typecheck passed; the three affected browser
+selectors were updated without another browser run, as explicitly requested.
+Normal and hosted builds passed before the final wording change, including builds
+served for the local hosted trials; they are not build evidence for a later merge
+or deployment. No performance campaign was run. The patch has no active storage
+CSP effect, and no shared TEST CORS rule was changed.
+
+Before deployed acceptance, inspect the actual built Kupua response, configuration,
+session/loader admission and storage policy, then perform the operator-controlled
+bounded upload trial. Require readable and indexed canonical availability, correct
+receipt/batch behavior and route-independent completion. Keep failed or uncertain
+outcomes distinct and never replay automatically. Investigate the owning failure
+if blocked; apply the saved CSP patch only for demonstrated need and with separate
+approval. Temporary local upload-configuration restoration remains an operator
+check before returning to all-local ingestion. U3 is not marked fully accepted
+until the selected deployed TEST trial has an explicit outcome/disposition.
 
 ### U4. Local Batches, Entry Points and Navigation
 
@@ -1368,7 +1488,7 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | --- | --- | --- |
 | R1 | The shared Grid/Table/detail/scroll consumers previously knew `/search` directly, and URL-level `ids=""` was dropped as unrestricted. | **U1 implementation:** a narrow [browsing context](../../src/lib/browsing-context.tsx), typed internal membership scope, fail-closed empty admission and route-aware shared consumers remove the coupling needed here. Upload is API-only; the direct-ES adapter is unchanged. Library CSV share links remain supported; batch IDs never become CSV browser URLs. Wider router/store cleanup remains deferred; no universal workspace framework or direct-ES Upload parity work. |
 | R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx#L86) combines draft state, intent preparation and rendering; single/multi/form consumers need some common behaviour. | U2/U5 may extract the necessary controlled field/draft boundary. Do not rewrite all metadata presentation or unify unlike command families just for symmetry. |
-| R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) still describe old hybrid/proxy/graceful-absence assumptions, while the [current API contract](../../src/dal/grid-api/README.md) says otherwise. | Correct stale comments when touching that boundary; do not change working transport policy to match obsolete commentary or use this as a broad documentation-cleanup task. |
+| R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) described obsolete hybrid/proxy/graceful-absence assumptions. | **Corrected in U3:** comments now describe explicit API routing, independently validated satellites, failure versus empty data and the actual site-settings owner. No working transport policy was changed to match obsolete commentary, and no broad cleanup was undertaken. |
 | R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | Extract one shared test stand-in before U1/U4 add more. Test-only; no production change. |
 | R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
 | R6 | Justified's total-row invalidation and [indexed estimated-block construction](../../src/lib/windowed-justified-layout.ts) scale with result extent. U2-proto's deterministic dependency probe established this, not measured frame-time harm. | **Resolved for measured forms** by [bounded spans](../../src/lib/windowed-measured-layout.ts) after operator approval. Reducing Justified's indexed relayout work could help, but changing its packing/navigation representation is higher-risk work. Pursue only if a profile attributes material cost to that construction; the unequal-throughput U2 comparison is not that evidence. No automatic Justified rewrite. |
@@ -1386,6 +1506,46 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | R18 | **U1 source constraint, not a measured quota failure:** [scope fingerprints](../../src/lib/image-offset-cache.ts) include immutable membership and revision, and [history storage](../../src/lib/history-snapshot.ts) retains those fingerprints per entry. Short browser URLs therefore do not imply small stored snapshots; membership can be repeated across retained entries. | **Deferred hypothesis for U4:** budget descriptor and history storage together, potentially qualifying snapshots through a lightweight membership reference rather than repeating IDs. Benefit: retain useful batch/navigation history with less storage pressure and explicit storage-failure feedback. Cost/risk: revision lookup, reload availability, isolation and existing cursor qualification; do not weaken identity checks or silently evict active work. Trigger: select U4's descriptor/storage budget and use representative retained batches. No demonstrated overflow, hash dependency, new persistence subsystem or U1 gate is claimed. |
 | R19 | **U1 observed lifecycle constraint:** moving [URL synchronization](../../src/hooks/useUrlSearchSync.ts) into the parent route broke all eight existing direct-Forward detail history cases; restoring a first-child synchronization owner made those cases pass unchanged. Existing [return](../../src/hooks/useReturnFromDetail.ts) and placement effects depend on this ordering. | **Deferred refactoring hypothesis:** make this admission-before-consumer boundary explicit if the route/detail effect structure is reorganized again. Benefit: a presentation move need not accidentally change navigation settlement. Cost/risk: lifecycle coordination across history, continuity, detail and layout, with meaningful regression risk; retain the existing direct-detail assertions. Trigger: another required route/detail ownership change demonstrates that the documented first-child boundary is insufficient. No history-policy rewrite or new navigation engine is authorized by this finding. |
 
+**U3 resource follow-up for R14:** [browser hashing](../../src/lib/upload-commands.ts)
+uses WebCrypto's whole-file SHA-1 with one active file, not an incremental digest.
+This is a source constraint, not a measured large-file or phone failure. A proven
+incremental/worker facility could reduce peak byte-buffer pressure if representative,
+separately authorized large-file use demonstrates a problem. Cost/risk: dependency
+approval, worker/file lifetime and digest compatibility. Do not infer capacity from
+small fixtures or start another performance campaign now.
+
+**U3 witnesses for B2/B3:** same-name/different-content and repeated-content local
+attempts retain independent partial outcomes and deduplicated canonical membership;
+the synthetic loader does not establish server attempt isolation or reproduce data
+loss. Expired/missing-status witnesses prove read-only image reconciliation and
+retained identity, not terminal-status durability. Backend repairs remain deferred
+under their existing permission boundaries.
+
+**U3 existing-read contract finding:** [singleton reads](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala#L141)
+use real-time document GET, while batch browsing uses indexed search. This is not a
+backend defect or permission for a new endpoint: the existing ID-scoped count supplies
+the necessary visibility check. Benefit: a newly readable image cannot prematurely
+end observation and strand an empty batch. Cost: one bounded count after a successful
+GET; no catalogue-wide query, cache or rank repair. Further observation aggregation
+would need a demonstrated workload benefit and separate selection, not this finding.
+
+**U3 activity opportunity, related to R12/R15:** [upload activity](../../src/components/UploadActivity.tsx)
+and [image activity](../../src/components/ImageActivityFrame.tsx) have independent
+owners and can coexist. A later unified attention/navigation affordance could reduce
+competing phone controls while preserving captured edit targets and per-file outcomes.
+Cost/risk: unlike lifetimes, receipt semantics, keyboard focus and limited screen space.
+Trigger: U4's working batches demonstrate a concrete navigation need; do not merge
+the stores or build a generalized activity system during U3.
+
+**U3 validation follow-up, related to R7/R8:** the existing
+[selection/sort witness](../../e2e/local/selections.spec.ts#L147) once lost its
+browser execution context during a placement read in a full run. The unchanged
+case passed in isolation and in the final full suite; no cause or product repair
+is claimed. If it recurs, distinguish browser/fixture reload from geometry failure
+using the retained local trace before changing behavior or assertions. Benefit:
+trustworthy gates; cost/risk: focused lifecycle/runner investigation, not broader
+selection refactoring. It is not a new U3 or live-upload gate.
+
 ## 9. Completion Report
 
 Close the feature with the parity checklist, selected deployment topology,
@@ -1397,3 +1557,37 @@ implemented code, not with planning/session narratives.
 
 The finished implementation should be recognizably one Kupua browsing/editor
 experience with an Upload context, not two applications sharing a stylesheet.
+
+## Followups
+
+### Prompt Arrival Ticker Checks After Upload Completion
+
+**Deferred follow-up, recorded 14 November 2026; not a U3 acceptance gate or
+implementation authorization.** An upload can reach Image available before
+Search's new-images notification catches up. Prompt the existing
+[arrival poller](../../src/stores/search-store.ts#L971) after each job reaches
+verified readable and indexed availability, including jobs finishing after
+leaving Upload. Coalesce nearby completions rather than issue one count per file;
+if a check is already in flight, retain at most one follow-up hint. When no
+eligible library poller is active, retain one pending hint for Search to resume.
+
+The hint requests an authoritative query-qualified check, never an optimistic
+increment. An identical image already in Grid before the browsing boundary must
+contribute no new arrival; a genuinely new-since-boundary image uploaded repeatedly
+must count only once. Preserve filters, the frozen arrival boundary, cumulative
+ticker accounting and stale-response guards. Do not insert images into the
+current results, change scroll position or bypass click-to-refresh behavior.
+
+Leave ordinary polling unchanged: currently 10 seconds in a visible tab,
+30 seconds while hidden (subject to browser throttling), with an immediate check
+when the tab becomes visible. Unrelated uploads still use that cadence; this is
+not server push. Reuse the existing count transport and poll owner, with no
+duplicate cache, new endpoint, fallback, retry system or notification framework.
+
+**Why and scope:** avoid an unnecessary wait after a known successful upload with
+a small jobs-to-poller notification. Request coordination and replaced-search
+ownership are the main risks, not a new UI surface. Extend existing job/poller
+tests for fresh versus duplicate arrivals, burst/in-flight coalescing, completion
+outside Search and query replacement; preserve existing membership/position
+assertions and run required full unit/E2E gates if implemented. No separate
+performance campaign is proposed.

@@ -3,12 +3,14 @@ import { createPortal } from "react-dom";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { readEditingPreference, saveEditingPreference } from "@/lib/editing-preference";
+import { readUploadPreference, saveUploadPreference } from "@/lib/upload-preference";
 
 export const HiJoshuaContext = createContext(() => {});
 
 export function HiJoshuaProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [allowEditing, setAllowEditing] = useState(false);
+  const [allowUploads, setAllowUploads] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const panelTitle = useId();
@@ -16,6 +18,7 @@ export function HiJoshuaProvider({ children }: { children: ReactNode }) {
 
   const openPanel = useCallback(() => {
     setAllowEditing(readEditingPreference());
+    setAllowUploads(readUploadPreference());
     setSaveError(false);
     setOpen(true);
   }, []);
@@ -51,7 +54,7 @@ export function HiJoshuaProvider({ children }: { children: ReactNode }) {
           onKeyDown={event => { if (event.key !== "Tab") event.stopPropagation(); }}
           className="w-full max-w-sm max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded border border-grid-border bg-grid-bg p-4 text-grid-text shadow-lg outline-none">
           <div className="flex items-center justify-between gap-3 mb-5">
-            <h2 id={panelTitle} className="text-base font-medium">Hi, Joshua</h2>
+            <h2 id={panelTitle} className="text-base font-medium">Hello, Joshua</h2>
             <button onClick={() => setOpen(false)} aria-label="Close Hi, Joshua" title="Close"
               className="w-9 h-9 shrink-0 flex items-center justify-center rounded hover:bg-grid-hover">
               <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor" aria-hidden="true"><path d="m18.3 5.7-1.4-1.4-4.9 4.9-4.9-4.9-1.4 1.4 4.9 4.9-4.9 4.9 1.4 1.4 4.9-4.9 4.9 4.9 1.4-1.4-4.9-4.9z" /></svg>
@@ -62,10 +65,15 @@ export function HiJoshuaProvider({ children }: { children: ReactNode }) {
               className="w-4 h-4 rounded border-grid-border accent-grid-accent" />
             Allow editing
           </label>
+          <label className="flex items-center gap-3 py-3 text-sm cursor-pointer">
+            <input type="checkbox" checked={allowUploads} onChange={event => setAllowUploads(event.target.checked)}
+              className="w-4 h-4 rounded border-grid-border accent-grid-accent" />
+            Allow real uploads
+          </label>
           {import.meta.env.VITE_USE_MEDIA_API !== "true" && <p className="text-sm text-grid-text-muted">Direct-ES mode is read-only.</p>}
           {saveError && <p role="alert" className="mt-3 text-sm">Could not save the preference.</p>}
           <div className="mt-5 flex justify-end">
-            <button onClick={() => { if (saveEditingPreference(allowEditing)) window.location.reload(); else setSaveError(true); }}
+            <button onClick={() => { if (saveEditingPreference(allowEditing) && saveUploadPreference(allowUploads)) window.location.reload(); else setSaveError(true); }}
               className="px-3 py-2 rounded text-sm bg-grid-accent text-white">Apply and reload</button>
           </div>
         </div>

@@ -119,6 +119,100 @@ absence. Do not derive a new failure policy or auth toast from retired comments.
 Canonical delivery links, signed-rendition renewal and downloads remain separately
 authorized work. The retirement above added no replacement adapter or write client.
 
+## Upload transport and jobs
+
+[`upload-commands.ts`](../../lib/upload-commands.ts) owns API-only ingestion;
+it does not extend the read DAL or construct an ES datasource. The independent
+`kupua-allow-uploads` startup preference defaults off. **Allow real uploads** in
+Hello, Joshua uses the same Apply/reload convention as editing. Every prepare/load,
+signed PUT and queued-status mutation rechecks the centralized upload admission,
+the shared session and `canUpload`; editing does not grant upload permission or
+vice versa. Server authorization and validated service targets remain mandatory.
+Changing preferences, logging in or transport failure never replays a submission.
+
+Site settings optionally provide `upload: { transport: "direct" | "signed",
+maxFileBytes?: number }`. Absence/invalid configuration is unavailable, not a
+default topology. Zero/omitted limits do not impose a client cap; only files strictly
+above a positive limit are refused. Browser MIME is not an admission filter.
+The existing laptop TEST-settings projection reads ingest-bucket presence and the
+decimal MB limit without returning bucket names. Those TEST settings are not proof
+of the local loader's configuration. The separately approved Kahuna configuration
+producer supplies the same allowlisted transport and optional limit to real hosted
+Kupua. It does not expose bucket names or capabilities, enable the upload gate or
+verify the discovered destinations. Active hosting inherits Kahuna's `connect-src`;
+the optional mixed-topology storage allowance remains an
+[unapplied patch](../../../exploration/docs/patches/hosted-upload-storage-csp.patch).
+
+The advertised loader root must expose the exact prepare/load/status contracts.
+Direct loading POSTs octet-stream bytes with only the encoded filename query;
+signed loading hashes one file with browser SHA-1, prepares an ID/filename map,
+PUTs the file using the returned validated storage capability and media-ID header,
+then separately POSTs QUEUED. Loader/auth use existing independently selected
+local proxies, allowlisted direct TEST origins or hosted direct HTTPS. Optional
+`VITE_GRID_LOADER_ORIGIN` selects a fixed custom loader proxy, not a request-level
+target. No storage write proxy is provided. Signed PUT omits cookies, refuses
+redirects and does not expose its URL in job state, storage or application logs.
+Storage capabilities must target regional S3 HTTPS or Grid's exact existing
+LocalStack HTTPS origin, with the signed-query contract; no general origin override
+is accepted. Preparation, queued-status and reads have 15-second deadlines. Byte
+transfers use their owner's abort signal without a new size-dependent time limit.
+Uncertain preparation/transfer and rejected/uncertain queued updates stay distinct.
+
+[`upload-jobs-store.ts`](../../stores/upload-jobs-store.ts) owns submissions and
+per-file attempts outside routes/rows. It bounds active work to one transfer/hash
+and one observation request. Same names are not keys; several attempts may resolve
+to one canonical image. Lightweight outcomes remain in memory, not image bodies or
+signed capabilities. File references are released when submission settles. Processing
+status, canonical image readability and indexed search visibility are separate
+observations. GET is a real-time document read, not proof of search refresh: an
+exact ID-scoped POST count through the existing API mapper/transport must also be
+positive before images enter U1's immutable, revisioned batch membership. The GET
+and count share one 15-second owner-cancellable deadline. There is no second buffer
+or browsing engine, no inherited library filters and no empty/unrestricted count.
+Missing status may be expiry, not failed transfer: bounded image reconciliation can
+still find the known identity. A readable duplicate does not prove this attempt was
+processed; the submission receipt is retained independently.
+
+Automatic read observation ends after five minutes or an unavailable status read.
+**Check status** restarts reads only, never an upload mutation. Active work protects
+reload/tab closure, but ordinary in-app navigation does not stop jobs or prompt.
+Page interruption aborts owned requests, releases files/timers/listeners and retains
+uncertainty for a surviving page; late responses cannot silently resume its job.
+No byte resume, durable job restoration or descriptor persistence is promised.
+U4 owns lightweight recovery/storage. WebCrypto hashes a whole file in memory, one
+at a time; no large-file memory/performance claim follows from the fixture checks.
+If a direct-load response is lost before returning an identity, the retained uncertain
+attempt has no status target; the client does not guess one or replay the upload.
+
+`/upload` provides a minimal one-file entry and global activity with existing batch
+and image display. Full picker/drop/batch navigation and recent uploads remain U4;
+form density and post-upload metadata/preset writes remain U2/U5-U7. Activity and
+image counts are separate. B2's shared backend status/pending-object identities are
+not repaired: local witnesses prove attempt retention, not concurrent server isolation.
+Upload activity occupies a top shell band so retained bottom image-action activity
+remains reachable with its original targets; neither owner adopts the other's scope.
+
+After accepted transfer and verified canonical readability/indexed visibility,
+non-acknowledged queued outcomes become collapsed Upload receipt history alongside
+Image available. They are not retroactively acknowledged or hidden while unresolved.
+[GRID-024](../../../exploration/docs/bug-backlog.md#grid-024) owns the deferred loader
+defect; the client still sends the queued request and never replays it automatically.
+
+Actual local Grid/ES/LocalStack uploads passed in Vite and Kahuna-hosted Kupua,
+including larger-file route-away completion, duplicate canonical membership and
+inspectable queued rejection after availability. These are representative signed
+transport witnesses, not deployed TEST, bulk or durable-recovery acceptance.
+Laptop-to-TEST storage preflight rejects both local frontend origins; no shared
+TEST CORS change was made. Deployed TEST Kahuna's inspected policy and storage
+preflight permit its deployed origin, but Kupua upload acceptance after branch
+deployment remains pending. See the
+[hosting guide](../../../exploration/docs/00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#mixed-localtest-uploads-and-preserved-csp-patch)
+for the topology boundary and preserved experiment, and the
+[U3 workplan](../../../exploration/docs/gradually-growing-teeth.upload-workplan.md#actual-upload-evidence-and-deployment-checkpoint)
+for exact evidence and validation limits. Further real trials still require fresh
+destination/file permission and C1/C4 disposition. Verify loader, storage, status,
+CORS/CSP and auth independently; a local ES index does not make other writes local.
+
 ## Step-2 command boundary
 
 [`grid-commands.ts`](../../lib/grid-commands.ts) is separate from the read DAL and
@@ -146,7 +240,7 @@ no image-delete endpoint is admitted.
 
 One temporary `kupua-allow-editing` localStorage preference is captured at startup.
 Only the exact saved value `true` enables it; missing, invalid or inaccessible storage
-is off. Settings > Hi, Joshua and Shift+F12 open its single-checkbox panel. Apply and
+is off. Settings > Hello, Joshua and Shift+F12 open its panel alongside the independent upload preference. Apply and
 reload saves and reloads; it is not a live switch or cross-tab cancellation mechanism.
 Other tabs read the shared origin's preference on their next reload. Different origins
 remain independent; changing a path or backing data at the same origin does not reset it.

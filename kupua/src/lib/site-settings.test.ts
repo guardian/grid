@@ -38,6 +38,7 @@ describe("TEST site settings", () => {
   it("merges common then Kahuna HOCON and projects the complete hosted settings contract", async () => {
     const settings = await parseSiteSettings(common, kahuna);
     expect(settings).toEqual({
+      upload: { transport: "direct" },
       staffPhotographerOrganisation: "ACME",
       fieldAliases: [{ elasticsearchPath: "fileMetadata.xmp.example:Flag", alias: "exampleFlag", label: "Example Flag",
         displaySearchHint: true, displayInAdditionalMetadata: true, searchHintOptions: [], matchViaExistence: true }],
@@ -49,6 +50,12 @@ describe("TEST site settings", () => {
       ],
       showDenySyndicationWarning: true, denySyndicationTextHeader: "Not for syndication",
     });
+    expect(JSON.stringify(settings)).not.toContain("synthetic-private-value");
+  });
+
+  it("projects upload topology and decimal byte limits without retaining storage configuration", async () => {
+    const settings = await parseSiteSettings('s3.ingest.bucket="synthetic-private-value"\nupload.limit.mb=666', "");
+    expect(settings.upload).toEqual({ transport: "signed", maxFileBytes: 666_000_000 });
     expect(JSON.stringify(settings)).not.toContain("synthetic-private-value");
   });
 

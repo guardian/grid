@@ -24,17 +24,24 @@ export function serviceOrigin(value: unknown, allowLocalHttp = false): string | 
   }
 }
 
-export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string } = {}) {
-  const routes: { service: "metadata" | "auth" | "collections"; prefix: string; origin: string }[] = [];
+export function isLoaderRequest(method: string | undefined, path: string | undefined): boolean {
+  return method === "GET" ? path === "/" || /^\/uploadStatus\/[a-f0-9]{40}$/.test(path ?? "")
+    : method === "POST" && (path === "/prepare" || /^\/images\?filename=[^&]+$/.test(path ?? "")
+      || /^\/uploadStatus\/[a-f0-9]{40}$/.test(path ?? ""));
+}
+
+export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string; loader?: string } = {}) {
+  const routes: { service: "metadata" | "auth" | "collections" | "loader"; prefix: string; origin: string }[] = [];
   for (const environment of ["local", "test"]) {
-    for (const service of ["metadata", "auth"] as const) {
+    for (const service of ["metadata", "auth", "loader"] as const) {
+      const hostname = service === "loader" ? "loader.media" : `media-${service}`;
       routes.push({ service, prefix: `/grid-${environment}-${service}`,
-        origin: `https://media-${service}.${environment}.dev-gutools.co.uk` });
+        origin: `https://${hostname}.${environment}.dev-gutools.co.uk` });
     }
   }
   routes.push({ service: "collections", prefix: "/grid-local-collections",
     origin: "https://media-collections.local.dev-gutools.co.uk" });
-  for (const service of ["metadata", "auth"] as const) {
+  for (const service of ["metadata", "auth", "loader"] as const) {
     const origin = serviceOrigin(configured[service], true);
     if (origin) routes.push({ service, prefix: `/grid-${service}`, origin });
   }

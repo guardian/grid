@@ -34,11 +34,11 @@ export function gridServiceOrigin(href: unknown, expectedPath = "/"): string | u
   } catch { return undefined; }
 }
 
-export function gridServiceUrl(service: "metadata" | "auth" | "collections", href: unknown, expectedPath: string, origin: string | undefined): string | undefined {
+export function gridServiceUrl(service: "metadata" | "auth" | "collections" | "loader", href: unknown, expectedPath: string, origin: string | undefined): string | undefined {
   if (!origin || href !== `${origin}${expectedPath}`) return undefined;
   if (isHostedBuild()) return href as string;
   const route = gridServiceProxyRoutes({ metadata: import.meta.env.VITE_GRID_METADATA_ORIGIN,
-    auth: import.meta.env.VITE_GRID_AUTH_ORIGIN }).find(route => route.service === service && route.origin === origin);
+    auth: import.meta.env.VITE_GRID_AUTH_ORIGIN, loader: import.meta.env.VITE_GRID_LOADER_ORIGIN }).find(route => route.service === service && route.origin === origin);
   if (route?.prefix === `/grid-test-${service}`) return href as string;
   return route ? `${route.prefix}${expectedPath}` : undefined;
 }

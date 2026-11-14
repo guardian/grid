@@ -5,8 +5,9 @@ import type { Plugin } from "vite";
 export const virtualEntry = "virtual:kupua-commands";
 const root = resolve(import.meta.dirname, "../..");
 
-export function labelEditorPlugin(publication: boolean | "readback" | "continuation" = false): Plugin {
-  const continuation = publication === "continuation";
+export function labelEditorPlugin(publication: boolean | "readback" | "continuation" | "upload" = false): Plugin {
+  const upload = publication === "upload";
+  const continuation = publication === "continuation" || upload;
   const readback = publication === "readback" || continuation;
   const projections = new Map<string, string>();
   const held = new Set<() => void>();
@@ -81,6 +82,18 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
       },
     };
   };
+  const uploadId = "f".repeat(40);
+  let uploadStatus = "QUEUED";
+  let uploadVisible = false;
+  let uploadSearchable = false;
+  let uploadVisibilityReads = 0;
+  let uploadWrites = 0;
+  let uploadStatusReads = 0;
+  const uploadEntity = () => {
+    const resource = entity("local-0", true);
+    return { ...resource, uri: `/api/images/${uploadId}`, data: { ...resource.data, id: uploadId },
+      links: resource.links.map(link => ({ ...link, href: link.href.replace("local-0", uploadId) })) };
+  };
   return {
     name: "isolated-command-fixture",
     resolveId(id) { if (id === virtualEntry) return id; },
@@ -92,6 +105,46 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
+        if (upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
+          || pathname.startsWith("/grid-loader/") || pathname === "/api" || pathname === "/api/"
+          || pathname === `/api/images/${uploadId}`)) {
+          const send = (data: unknown, status = 200) => {
+            response.statusCode = status;
+            response.setHeader("Content-Type", "application/json");
+            response.end(JSON.stringify(data));
+          };
+          if (pathname === "/__upload-control") {
+            if (request.method === "POST") {
+              const chunks: Buffer[] = [];
+              for await (const chunk of request) chunks.push(Buffer.from(chunk));
+              const body = JSON.parse(Buffer.concat(chunks).toString());
+              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; }
+              if (typeof body.status === "string") uploadStatus = body.status;
+              if (typeof body.visible === "boolean") uploadVisible = body.visible;
+              if (typeof body.searchable === "boolean") uploadSearchable = body.searchable;
+            }
+            return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId });
+          }
+          if (pathname === "/api" || pathname === "/api/") return send({ links: [
+            { rel: "loader", href: "https://loader.example.test" }, { rel: "session", href: "https://auth.example.test/session" },
+          ] });
+          if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: true } } } });
+          if (pathname === "/grid-loader/") return send({ links: [
+            { rel: "load", href: "https://loader.example.test/images{?uploadedBy,identifiers,uploadTime,filename}" },
+            { rel: "uploadStatus", href: "https://loader.example.test/uploadStatus/{id}" },
+          ] });
+          if (pathname === "/grid-loader/images" && request.method === "POST") {
+            for await (const chunk of request) { void chunk; }
+            uploadWrites++;
+            return send({ uri: `https://loader.example.test/uploadStatus/${uploadId}` }, 202);
+          }
+          if (pathname === `/grid-loader/uploadStatus/${uploadId}` && request.method === "GET") {
+            uploadStatusReads++;
+            return send({ data: { status: uploadStatus } }, uploadStatus === "MISSING" ? 404 : 200);
+          }
+          if (pathname === `/api/images/${uploadId}` && request.method === "GET") return send(uploadVisible ? uploadEntity() : {}, uploadVisible ? 200 : 404);
+          return send({ error: "unexpected-upload-fixture-request" }, 403);
+        }
         if (readback && (pathname === "/__readback-control" || pathname.startsWith("/api/images"))) {
           const chunks: Buffer[] = [];
           for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -101,6 +154,20 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             response.setHeader("Content-Type", "application/json");
             response.end(JSON.stringify(data));
           };
+          if (upload && Array.isArray(body.ids) && body.ids.includes(uploadId)) {
+            if (body.ids.length !== 1) return send({ error: "unexpected-upload-scope" }, 403);
+            const data = uploadSearchable ? [uploadEntity()] : [];
+            const sortValues = [[epoch, uploadId]];
+            if (pathname === "/api/images/mget") return send({ data: uploadVisible ? [uploadEntity()] : [] });
+            if (pathname === "/api/images/count") {
+              uploadVisibilityReads++;
+              return send({ total: body.since ? 0 : data.length });
+            }
+            if (pathname === "/api/images/keys") return send({ keys: data.map(() => ({ id: uploadId, sortValues: sortValues[0] })), after: null });
+            if (pathname === "/api/images/rank") return send({ rank: 0 });
+            if (pathname === "/api/images/search-after" || pathname === "/api/images/window") return send({ data, total: data.length,
+              sortValues: data.length ? sortValues : [], ...(pathname.endsWith("/window") ? { offset: 0, rawHitCount: data.length } : {}) });
+          }
           if (pathname === "/__readback-control") {
             if (request.method === "POST") {
               if (body.action === "hold") holdNext = true;
@@ -198,7 +265,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           response.end("Synthetic fixture: external transport disabled");
           return;
         }
-        const publicationPage = publication && ["/__publication", "/__readback", "/__continuation", "/search", "/"].includes(pathname ?? "");
+        const publicationPage = publication && ["/__publication", "/__readback", "/__continuation", "/search", "/", ...(upload ? ["/upload"] : [])].includes(pathname ?? "");
         const connectedPage = pathname === "/__connected" || (!publication && pathname === "/search");
         if (pathname !== "/__commands" && !publicationPage && !connectedPage) return next();
         response.setHeader("Content-Type", "text/html");
@@ -208,8 +275,9 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
         const html = pathname === "/__commands"
           ? `<html><head></head><body><script type="module" src="/@id/${virtualEntry}"></script></body></html>`
           : (await readFile(resolve(root, "index.html"), "utf8")).replace('<script type="module" src="/src/main.tsx"></script>',
-            `<script type="module">import "${virtualEntry}"; ${connectedPage ? 'history.replaceState(null, "", "/search");' : `await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}();`} await import("/src/main.tsx");</script>`);
-        response.end(await server.transformIndexHtml(pathname, html));
+            `<script type="module">import "${virtualEntry}"; ${connectedPage ? 'history.replaceState(null, "", "/search");' : `await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}();`}
+            ${upload && pathname === "/upload" ? `history.replaceState(null, "", ${JSON.stringify(request.url)});` : ""} await import("/src/main.tsx");</script>`);
+          response.end(await server.transformIndexHtml(pathname, upload ? html.replace("<head>", '<head><script>window.__KUPUA_CONFIG__={gridConfig:{upload:{transport:"direct"}}};</script>') : html));
       });
     },
   };

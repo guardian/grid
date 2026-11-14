@@ -1,0 +1,89 @@
+diff --git a/kahuna/app/lib/KupuaPage.scala b/kahuna/app/lib/KupuaPage.scala
+--- a/kahuna/app/lib/KupuaPage.scala
++++ b/kahuna/app/lib/KupuaPage.scala
+@@ -1,6 +1,7 @@
+ package lib
+
+ import com.gu.mediaservice.lib.config.FieldAlias
+ import play.api.libs.json.{JsObject, Json}
++import java.net.URI
+
+ /** The allowlisted site settings Kupua receives; never raw configuration. */
+@@ -54,16 +55,23 @@
+   def shouldServe(stage: String, switchOn: Boolean, isIFramed: Boolean): Boolean =
+     isAllowedStage(stage) && switchOn && !isIFramed
+
+-  /**
+-   * Kahuna's policy plus 'wasm-unsafe-eval' in script-src, for Kupua's page only: its Justified
+-   * layout compiles WebAssembly. This permits WebAssembly compilation, not JavaScript eval.
+-   */
+-  def contentSecurityPolicy(kahunaPolicy: String): String =
++  def uploadConnectSource(bucket: Option[String], region: String, presigningEndpoint: Option[URI]): Option[String] =
++    bucket.map { name =>
++      presigningEndpoint.map(endpoint =>
++        new URI(endpoint.getScheme, null, endpoint.getHost, endpoint.getPort, null, null, null).toString
++      ).getOrElse(s"https://$name.s3.$region.amazonaws.com")
++    }
++
++  /** Kupua alone permits WebAssembly compilation and its configured upload storage origin. */
++  def contentSecurityPolicy(kahunaPolicy: String, uploadSource: Option[String] = None): String =
+     kahunaPolicy.split(";").map(_.trim).filter(_.nonEmpty).map { directive =>
+-      if (directive.split("\\s+").headOption.contains("script-src") && !directive.contains("'wasm-unsafe-eval'"))
++      val tokens = directive.split("\\s+")
++      if (tokens.headOption.contains("connect-src"))
++        uploadSource.filterNot(tokens.contains).fold(directive)(origin => s"$directive $origin")
++      else if (tokens.headOption.contains("script-src") && !tokens.contains("'wasm-unsafe-eval'"))
+         s"$directive 'wasm-unsafe-eval'"
+       else directive
+     }.mkString("; ")
+
+   /** `showPaid` is per-request: never cache the result across users. */
+   def pageConfig(mediaApiUri: String, collectionsUri: String, settings: KupuaSiteSettings, showPaid: Option[Boolean]): JsObject = {
+diff --git a/kahuna/app/controllers/KahunaController.scala b/kahuna/app/controllers/KahunaController.scala
+--- a/kahuna/app/controllers/KahunaController.scala
++++ b/kahuna/app/controllers/KahunaController.scala
+@@ -80,2 +80,6 @@
+-      CONTENT_SECURITY_POLICY -> KupuaPage.contentSecurityPolicy(contentSecurityPolicy)
++      CONTENT_SECURITY_POLICY -> KupuaPage.contentSecurityPolicy(contentSecurityPolicy,
++        KupuaPage.uploadConnectSource(
++          if (config.shouldUploadStraightToBucket) config.maybeBucketForUIUploads else None,
++          config.awsRegion.id(), config.awsLocalPresigningEndpointUri
++        ))
+     )).getOrElse(Ok(views.html.main(
+diff --git a/kahuna/test/lib/KupuaPageTest.scala b/kahuna/test/lib/KupuaPageTest.scala
+--- a/kahuna/test/lib/KupuaPageTest.scala
++++ b/kahuna/test/lib/KupuaPageTest.scala
+@@ -4,4 +4,5 @@
+ import org.scalatest.matchers.should.Matchers
+ import com.gu.mediaservice.lib.config.FieldAlias
+ import play.api.libs.json.{JsArray, JsObject, Json}
++import java.net.URI
+
+@@ -56,6 +57,27 @@
+     "leaves a policy without script-src unchanged" in {
+       KupuaPage.contentSecurityPolicy("default-src 'self'") shouldBe "default-src 'self'"
+     }
++
++    "permits the configured upload origin without altering the inherited sources or other directives" in {
++      val wasmPolicy = KupuaPage.contentSecurityPolicy(kahunaPolicy)
++      Seq(
++        (Some(new URI("https://localstack.media.local.dev-gutools.co.uk")), "eu-west-1", "https://localstack.media.local.dev-gutools.co.uk"),
++        (None, "ap-southeast-2", "https://example-upload-bucket.s3.ap-southeast-2.amazonaws.com"),
++        (Some(new URI("https://uploads.example.test:9443/prefix")), "eu-west-1", "https://uploads.example.test:9443")
++      ).foreach { case (endpoint, region, expectedOrigin) =>
++        val source = KupuaPage.uploadConnectSource(Some("example-upload-bucket"), region, endpoint)
++        source shouldBe Some(expectedOrigin)
++        val policy = KupuaPage.contentSecurityPolicy(kahunaPolicy, source)
++        policy shouldBe wasmPolicy.replace("connect-src 'self' https://api.example", s"connect-src 'self' https://api.example $expectedOrigin")
++        KupuaPage.contentSecurityPolicy(policy, source) shouldBe policy
++      }
++    }
++
++    "adds no upload allowance when no upload bucket is configured" in {
++      val source = KupuaPage.uploadConnectSource(None, "eu-west-1", Some(new URI("https://uploads.example.test")))
++      source shouldBe None
++      KupuaPage.contentSecurityPolicy(kahunaPolicy, source) shouldBe KupuaPage.contentSecurityPolicy(kahunaPolicy)
++    }
+   }
+
+   "pageConfig" - {

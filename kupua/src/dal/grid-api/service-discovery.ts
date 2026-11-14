@@ -7,11 +7,10 @@
  *   deployed TEST mode uses the allowlisted absolute media-api origin.
  * - The `/images/{id}` path follows the `image` link template from the
  *   HATEOAS root (`${rootUri}/images/{id}`).
- * - In `--use-TEST` mode the HATEOAS root returns mixed-origin URLs (media-api
- *   at *.local.dev-gutools.co.uk, satellites at *.test.dev-gutools.co.uk).
- *   For satellite services (Phase B+), each gets its own proxy prefix and
- *   a URL helper here. Never derive a single base URI from the root.
- * - Full rules: integration-workplan-bread-and-butter.md §"Architectural rule"
+ * - A local Grid API can advertise independently configured satellite origins.
+ *   Validate and route each through proxy-target.ts; never infer them from the
+ *   API origin. Hosted and deployed TEST services use admitted direct origins.
+ * - Kupua's `--use-TEST` selects legacy direct ES, not this API transport.
  *
  * See grid-api-contract-audit-findings.md §2 for the root link table.
  * See infra-safeguards.md §8 for the write-guard that protects the /api prefix.
@@ -24,9 +23,9 @@ import { mediaApiUrl } from "./proxy-target";
  * ServiceDiscovery provides URL construction and service link lookup for the
  * Grid API adapter. Initialised once at app startup via `init()`.
  *
- * All methods degrade gracefully when `init()` has not been called or failed —
- * `imageUrl()` returns a hardcoded proxy path, `getLink()` returns undefined,
- * `getClientConfig()` returns undefined. No method throws.
+ * Missing links remain unavailable after a failed root read. Required-data
+ * callers report failure separately from successful empty data. imageUrl()
+ * uses the explicit API-mode target and never selects direct Elasticsearch.
  */
 export class ServiceDiscovery {
   private links = new Map<string, string>();
@@ -38,7 +37,7 @@ export class ServiceDiscovery {
    *
    * Every caller shares one read, started by the first call, and resolves once it settles:
    * `true` when the root loaded (a missing relation is then genuinely absent), `false` when it
-   * failed. A failed read is not retried until reload (graceful API absence directive).
+  * failed. A failed read is not retried until reload.
    */
   init(signal?: AbortSignal): Promise<boolean> {
     this.loading ??= this.load(signal);
@@ -52,20 +51,15 @@ export class ServiceDiscovery {
         redirect: "error",
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
       });
-      if (!resp.ok) return false; // 401/403/5xx — leave links empty, graceful absence
+      if (!resp.ok) return false;
 
       const root = (await resp.json()) as RootResponse;
       for (const link of root.links ?? []) {
         this.links.set(link.rel, link.href);
       }
 
-      // clientConfig is not in the media-api root response — it is a kahuna concept
-      // baked into the Play template. Phase A stubs this as undefined.
-      // TODO (Cluster 1): determine the actual fetch source for clientConfig and
-      // wire it up here. The PROD/TEST shapes are captured in types.ts.
       return true;
     } catch {
-      // Network failure, unreadable body or AbortError — leave links empty, UI degrades gracefully.
       return false;
     }
   }
@@ -81,14 +75,12 @@ export class ServiceDiscovery {
   /**
    * Returns the absolute href for a named link from the HATEOAS root.
    *
-   * Used by Phase B satellite adapters (leases, usages, crops, etc.).
    * Returns `undefined` when:
    *   - The link was absent from the root (permission-gated or user lacks access)
    *   - `init()` has not been called or failed
    *
-   * Never construct satellite URLs from this href directly — always route through
-   * the appropriate Vite proxy prefix (e.g. `/grid-leases`, `/grid-usage`).
-   * See integration-workplan-bread-and-butter.md §"Architectural rule".
+  * Consumers validate exact service targets through proxy-target.ts before
+  * dispatch; a discovered relation alone is not permission to write.
    */
   getLink(rel: string): string | undefined {
     return this.links.get(rel);
@@ -97,8 +89,8 @@ export class ServiceDiscovery {
   /**
    * Returns a shallow copy of the parsed clientConfig, or `undefined` when unavailable.
    *
-   * Every consumer must treat each field as potentially `undefined` and degrade.
-   * Per the "graceful API absence" directive: absence = "flag off" / "not configured".
+  * This legacy projection is not populated by media-api. Runtime site settings
+  * belong to site-settings.ts and hosted-config.ts, not the discovery response.
    */
   getClientConfig(): ClientConfig | undefined {
     return this.clientConfig ? { ...this.clientConfig } : undefined;

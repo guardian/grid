@@ -858,25 +858,30 @@ describe("KUP-004 standalone detail identity", () => {
     expect(menu.queryByRole("menuitemcheckbox", { name: /Lock this view|View locked as Home/ })).toBeNull();
   });
 
-  it("opens Hi, Joshua from Settings or Shift+F12 without changing the saved preference on dismissal", () => {
+  it("opens Hello, Joshua from Settings or Shift+F12 without changing the saved preference on dismissal", () => {
     localStorage.removeItem("kupua-allow-editing");
+    localStorage.removeItem("kupua-allow-uploads");
     render(<HiJoshuaProvider><SettingsMenu /><SettingsMenu /></HiJoshuaProvider>);
     const settings = screen.getAllByRole("button", { name: "Settings" })[1];
     settings.focus();
     fireEvent.click(settings);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Hi, Joshua" }));
-    expect(screen.getByRole("dialog", { name: "Hi, Joshua" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Hello, Joshua" }));
+    expect(screen.getByRole("dialog", { name: "Hello, Joshua" })).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: "Allow real uploads" }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Allow real uploads" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Allow editing" }));
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(localStorage.getItem("kupua-allow-editing")).toBeNull();
+    expect(localStorage.getItem("kupua-allow-uploads")).toBeNull();
     expect(document.activeElement).toBe(settings);
     fireEvent.click(settings);
-    fireEvent.click(screen.getByRole("menuitem", { name: "Hi, Joshua" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Hello, Joshua" }));
     fireEvent.keyDown(document.body, { key: "F12", shiftKey: true });
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.keyDown(document.body, { key: "F12", shiftKey: true });
     expect((screen.getByRole("checkbox", { name: "Allow editing" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("checkbox", { name: "Allow real uploads" }) as HTMLInputElement).checked).toBe(false);
   });
 
   it("keeps shared Settings dismissal and focus handling but hides it in image fullscreen", () => {

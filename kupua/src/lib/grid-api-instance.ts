@@ -59,8 +59,8 @@ export async function serviceLink(rel: string): Promise<string | undefined> {
   return (await discovery.init()) ? discovery.getLink(rel) : undefined;
 }
 
-export async function getGridServiceOrigin(service: "metadata" | "auth"): Promise<string | undefined> {
-  return gridServiceOrigin(await serviceLink(service === "metadata" ? "edits" : "session"), service === "metadata" ? "/" : "/session");
+export async function getGridServiceOrigin(service: "metadata" | "auth" | "loader"): Promise<string | undefined> {
+  return gridServiceOrigin(await serviceLink(service === "metadata" ? "edits" : service === "loader" ? "loader" : "session"), service === "auth" ? "/session" : "/");
 }
 
 export function getGridSessionPermissions(): Promise<GridSessionPermissions | null> {

@@ -10,14 +10,20 @@ it("routes advertised local and TEST satellites independently without manual tar
   vi.stubEnv("VITE_HOSTED", "false");
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
   vi.stubEnv("VITE_GRID_AUTH_ORIGIN", "");
+  vi.stubEnv("VITE_GRID_LOADER_ORIGIN", "");
   const { gridServiceUrl } = await import("./proxy-target");
   for (const environment of ["local", "test"]) {
     const metadata = `https://media-metadata.${environment}.dev-gutools.co.uk`;
     const auth = `https://media-auth.${environment}.dev-gutools.co.uk`;
+    const loader = `https://loader.media.${environment}.dev-gutools.co.uk`;
     expect(gridServiceUrl("metadata", `${metadata}/metadata/fixture`, "/metadata/fixture", metadata))
       .toBe(environment === "test" ? `${metadata}/metadata/fixture` : `/grid-local-metadata/metadata/fixture`);
     expect(gridServiceUrl("auth", `${auth}/session`, "/session", auth))
       .toBe(environment === "test" ? `${auth}/session` : `/grid-local-auth/session`);
+    expect(gridServiceUrl("loader", `${loader}/prepare`, "/prepare", loader))
+      .toBe(environment === "test" ? `${loader}/prepare` : "/grid-local-loader/prepare");
+    const reversedLoader = `https://media-loader.${environment}.dev-gutools.co.uk`;
+    expect(gridServiceUrl("loader", `${reversedLoader}/prepare`, "/prepare", reversedLoader)).toBeUndefined();
     expect(gridServiceUrl("metadata", `${auth}/metadata/fixture`, "/metadata/fixture", auth)).toBeUndefined();
     expect(gridServiceUrl("metadata", `${metadata}/metadata/other`, "/metadata/fixture", metadata)).toBeUndefined();
   }
@@ -28,6 +34,7 @@ it("routes advertised local and TEST satellites independently without manual tar
 it("admits only supported Vite transport shapes with startup-captured proxy targets", async () => {
   vi.stubEnv("VITE_USE_MEDIA_API", "true");
   vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "https://metadata.example.test");
+  vi.stubEnv("VITE_GRID_LOADER_ORIGIN", "https://loader.example.test");
   const { createServer } = await import("vite");
   // A middleware-only test must not invalidate a concurrently running app's optimizer cache.
   const cacheDir = await mkdtemp(resolve("node_modules/.vite-read-guard-"));
@@ -76,8 +83,28 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
     vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
     expect(next).toHaveBeenCalledOnce();
+    const loaderGuard = server.middlewares.stack.find(entry => entry.route === "/grid-loader")?.handle as Connect.NextHandleFunction;
+    expect(loaderGuard).toBeDefined();
+    for (const request of [
+      { method: "GET", url: "/" }, { method: "POST", url: "/prepare" },
+      { method: "POST", url: "/images?filename=same+name.jpg" },
+      { method: "GET", url: `/uploadStatus/${"a".repeat(40)}` }, { method: "POST", url: `/uploadStatus/${"a".repeat(40)}` },
+    ]) {
+      next.mockClear();
+      loaderGuard(request as never, response as never, next);
+      expect(next).toHaveBeenCalledOnce();
+    }
+    next.mockClear();
+    for (const request of [
+      { method: "PUT", url: "/images" }, { method: "POST", url: "/prepare/other" },
+      { method: "GET", url: "/metadata/fixture" },
+      { method: "POST", url: "/images?filename=a&uploadedBy=other" },
+      { method: "POST", url: "/images?target=https://foreign.example.test" },
+      { method: "DELETE", url: `/uploadStatus/${"a".repeat(40)}` },
+    ]) loaderGuard(request as never, response as never, next);
+    expect(next).not.toHaveBeenCalled();
     for (const environment of ["local", "test"]) {
-      for (const service of ["metadata", "auth", "collections"]) {
+      for (const service of ["metadata", "auth", "collections", "loader"]) {
         const prefix = `/grid-${environment}-${service}`;
         const proxy = server.config.server.proxy![`^${prefix}/`];
         if (environment === "test" && service === "collections") {
@@ -85,12 +112,13 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
           expect(server.middlewares.stack.some(entry => entry.route === prefix)).toBe(false);
           continue;
         }
-        expect(proxy).toMatchObject({ target: `https://media-${service}.${environment}.dev-gutools.co.uk`, followRedirects: false,
+        const hostname = service === "loader" ? "loader.media" : `media-${service}`;
+        expect(proxy).toMatchObject({ target: `https://${hostname}.${environment}.dev-gutools.co.uk`, followRedirects: false,
           headers: { Origin: "https://media.local.dev-gutools.co.uk" } });
         const fixedGuard = server.middlewares.stack.find(entry => entry.route === prefix)?.handle as Connect.NextHandleFunction;
         expect(fixedGuard).toBeDefined();
         next.mockClear();
-        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : service === "collections" ? "/collections" : "/metadata/fixture" } as never, response as never, next);
+        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : service === "collections" ? "/collections" : service === "loader" ? "/" : "/metadata/fixture" } as never, response as never, next);
         expect(next).toHaveBeenCalledOnce();
         next.mockClear();
         fixedGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);

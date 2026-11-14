@@ -24,6 +24,55 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 14 November 2026 - Real upload transport and route-independent jobs
+
+Added configured direct-load and signed-upload contracts behind a separate,
+default-off Allow real uploads startup preference in Hello, Joshua. Upload admission
+rechecks session authority before every mutation; exact loader targets and scoped,
+cookie-free signed storage PUTs do not introduce an arbitrary-target proxy or ES
+fallback. Signed storage preserves Grid's fixed LocalStack HTTPS contract as well
+as regional S3, and byte transfers remain abortable without a new short deadline.
+
+The laptop settings projection and separately approved Kahuna allowlist supply
+only upload transport and optional byte limits, not storage details or upload
+permission. The loader proxy follows Grid's loader.media hostname convention.
+
+An independent job owner retains submission/file-attempt identity, partial receipts,
+processing, visibility and uncertainty across route changes. Bounded transfer/hash
+and read observation release file references and settled resources. Canonical images
+join U1's revisioned membership without collapsing attempts; missing status can be
+reconciled by image identity without replaying uploads. Page interruption preserves
+uncertainty even when a late accepted response arrives, and unload protection ends
+when active work settles.
+
+Completion distinguishes a real-time image GET from indexed search visibility.
+The existing ID-scoped POST count must also be positive before observation stops
+and batch membership publishes, preventing an empty batch from being stranded
+between document availability and search refresh. GET and count share a bounded
+owner-cancellable read deadline so one stalled read cannot block other jobs.
+
+After an accepted upload reaches readable and searchable availability, a
+non-acknowledged queued update moves into expandable Upload receipt history.
+The original outcome remains inspectable; unresolved attempts keep their current
+feedback. This contains GRID-024's presentation impact without repairing the
+loader, skipping its queued request or replaying mutations.
+
+A minimal one-file Upload entry and global activity make the transport exercisable
+through existing browsing/detail views before U4. Activity navigation uses the
+established SPA detail-entry ownership rather than synthesizing duplicate history.
+Its top shell band avoids covering existing bottom image-action activity or changing
+those operations' captured targets. The menu and dialog greeting is corrected to
+Hello, Joshua without changing preferences, shortcuts or admission behavior.
+
+Local development adds a kupua.media nginx mapping for Vite and its exact frontend
+origin to the LocalStack ingest CORS template, preserving existing methods, headers
+and Kahuna access. Shared TEST storage policy is unchanged. The mixed-topology
+storage-CSP experiment, controller wiring and regression cases are retained as an
+unapplied patch linked from Architecture 09; active hosting keeps inherited
+connect-src and its existing WebAssembly allowance. Full batch entry/navigation,
+form density, post-upload metadata and deployed TEST acceptance remain separately
+owned; local evidence does not establish shared-environment rollout approval.
+
 ### 14 November 2026 - Route-safe Upload browsing
 
 Added fixture-backed, media-api-only Upload browsing over the existing search store,

@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 11 November 2026.** The tables below list open defects,
+**Current recorded status: 14 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -41,6 +41,9 @@ The 11 November update adds GRID-021's operator-observed local index loss during
 local/TEST mode switching; the intended developer-data lifetime awaits engineer confirmation.
 It also records KUP-051's missing Subjects editing workflow: the existing backend
 supports Subjects overrides through metadata-editor, Dynamo and indexed metadata refresh.
+The 14 November update adds GRID-024's locally reproduced signed-upload queued-status
+rejection and production-codec explanation. Its backend repair is deferred; U3's
+Kupua-only presentation mitigation is described in the entry below.
 Other dispositions have not been revalidated.
 Update this overview when a detailed disposition changes.
 
@@ -119,6 +122,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
 | [GRID-022](#grid-022) | Repeated crop saves regenerate shared assets and append duplicate export identities | Operator-reported UI repeat; source and read-only record inspection confirmed | Independent crop refresh/idempotency decision; local UI filtering is not a backend repair |
 | [GRID-023](#grid-023) | Distinguish unavailable saved crops from an empty crop list | Potential UX improvement; source-backed current behaviour | Preserve existing access policy; explanatory presentation not selected |
+| [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Local fresh/duplicate rejection and current production-codec mismatch confirmed; backend repair deferred | Kupua reconciles availability independently; settled receipt presentation mitigated in U3, not a backend repair |
 
 <details>
 <summary>Completed bounded repairs and verification: 45 IDs</summary>
@@ -1063,6 +1067,72 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Potential improvement:** show a restrained unavailable/disabled explanation distinct from a genuinely empty saved list. Greyed presentation is an option, not an approved design. Do not fetch or reveal withheld exports, infer a specific denial reason without authoritative facts, relax creation/selection policy or add polling.
 - **Smallest acceptance check if selected:** distinguish an admitted empty list from a withheld list and from pending/failed data; keep Original inspectable and preserve the existing deep-link access boundary. Reuse existing detail fixtures without extra permission requests.
 - **Disposition:** POTENTIAL IMPROVEMENT, independently parked; no implementation or policy change authorized by recording it.
+
+#### GRID-024
+**Signed-upload QUEUED transition compares a typed stored status with a String**
+- **Component / owner:** image-loader's [status-table condition](../../../image-loader/app/lib/UploadStatusTable.scala#L27)
+  and [controller response](../../../image-loader/app/controllers/UploadStatusController.scala#L47);
+  Grid maintainer ownership to confirm. The signed-upload protocol calls this
+  transition after an acknowledged storage PUT.
+- **Confirmed mechanism (14 November 2026):** `UploadStatusRecord.status` is a
+  `StatusType`. The current Scanamo 2.0.0 production codec encodes Prepared as
+  DynamoDB Map `{ Prepared: String("Prepared") }`, while the condition
+  `"status" === Prepared.toString` encodes String `"Prepared"`. These cannot
+  match a valid current prepared record. An offline probe using the existing
+  loader classes, Scala 2.13.18 and production codec confirmed the mismatch.
+  Uppercase `Prepared.name` and singleton `Prepared.type` encoding also differ;
+  explicitly widening `(Prepared: StatusType)` matches the record representation.
+  This is codec evidence, not a successful read of a live DynamoDB row or a
+  failing-first regression through the actual production condition.
+- **Observed impact:** approved local Vite and locally hosted Kupua trials,
+  including fresh files and an intentional duplicate, received prepare/PUT 200
+  followed by queued-update 400. Subsequent status reads could still report
+  PREPARED before COMPLETED; canonical images became readable and searchable.
+  The controller's missing-status wording is misleading for this condition
+  failure. The repeated rejection is not explained solely by duplicates or a
+  completion-before-queued race. TEST/PROD reproduction and historical first-bad
+  deployment have not been established.
+- **Why ingestion and Kahuna still work:** QUEUED updates progress bookkeeping
+  in the existing upload-status table; it does not enqueue processing. Storage
+  notification/SQS triggers ingestion independently, and internal completion/
+  failure updates require only row existence. Kahuna's
+  [manager](../../../kahuna/public/js/upload/manager.js#L121) calls the queued
+  endpoint, catches/logs rejection and continues polling. Its
+  [job counter](../../../kahuna/public/js/upload/jobs/upload-jobs.js#L45) starts
+  at the number of files and decrements on FAILED or COMPLETED plus a readable
+  image, not QUEUED: the queued decrement is commented out. PREPARED takes the
+  indexing display branch. Thus this defect need not strand its remaining
+  counter or prevent a successful final image, though the request still fails.
+- **History:** `94c8e1dde1` (1 December 2023) introduced the client queued POST
+  and PREPARED guard together; `3e9fe1fbc5` (6 December 2023) changed `.name` to
+  `.toString`; `f5d75c6455` (8 October 2024) migrated Scanamo condition syntax.
+  Older codecs were not tested, so these commits do not establish when a deployed
+  installation first became affected.
+- **Deferred backend correction and Kahuna consequences:** compare against
+  `(Prepared: StatusType)` while preserving row existence and the PREPARED-only
+  transition. This has not been applied. A successful repair can expose Kahuna's
+  brief queued label, remove the console rejection and turn an already-issued
+  conditional request into a real status write. It is not literally behavior-
+  or capacity-neutral, despite no intended change to file bytes, final images,
+  permissions, TTL or stored format. Genuine completion-before-queued races can
+  still reject; blanket acceptance of 400 is not a repair. Any selected backend
+  regression should exercise the actual condition with production encoding,
+  proving valid Prepared acceptance and missing/non-Prepared refusal.
+- **Kupua mitigation selected for U3:** the existing reconciler continues after
+  queued rejection without replay, requiring a readable canonical image and a
+  positive exact-ID search count. The presentation change makes Image available
+  the current successful result only after accepted submission and confirmed
+  availability, moving the unchanged rejected queued receipt into expandable
+  upload receipt history. Before confirmation it stays visible; preparation,
+  transfer, authentication and unresolved outcomes are not blanket-suppressed.
+  Attempt identity remains distinct from canonical identity, including duplicates.
+  No request is skipped, rejection relabeled as acknowledgement, extra poll/retry
+  added or backend state rewritten. Implementation/validation status belongs to
+  the U3 workplan; this entry does not certify an unrun check.
+- **Disposition:** OPEN backend defect, explicitly deferred by the operator on
+  14 November. It may be raised separately; no image-loader repair or shared
+  Kahuna UX change is commissioned for U3. Local successful availability is not
+  an all-stages-200 claim or proof of universal ingestion reliability.
 
 #### GRID-020
 **Metadata override replacement can lose a concurrent edit**

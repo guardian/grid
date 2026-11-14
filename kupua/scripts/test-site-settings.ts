@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { fromIni } from "@aws-sdk/credential-providers";
 import type { Plugin } from "vite";
-import { requireSiteSettings, type SiteSettings } from "../src/lib/site-settings.ts";
+import { requireSiteSettings, type CompleteSiteSettings } from "../src/lib/site-settings.ts";
 
 const { Context } = createRequire(import.meta.url)("@pushcorn/hocon-parser") as {
   Context: new (options: { text: string; strict: boolean; env: boolean; required: boolean }) => {
@@ -38,7 +38,7 @@ function setting(config: ConfigObject, path: string[], fallback: unknown): unkno
   return value;
 }
 
-export async function parseSiteSettings(common: string, kahuna: string): Promise<Required<SiteSettings>> {
+export async function parseSiteSettings(common: string, kahuna: string): Promise<CompleteSiteSettings> {
   try {
     const config = await new InMemoryContext({ text: `${common}\n${kahuna}`, strict: true, env: false, required: true }).resolve();
     if (!isObject(config)) throw new Error();
@@ -50,7 +50,13 @@ export async function parseSiteSettings(common: string, kahuna: string): Promise
     const orgTicker = setting(config, ["filters", "shouldDisplayOrgOwnedCountAndFilterCheckbox"], true);
     if (typeof orgTicker !== "boolean") throw new Error();
     const hasAgencyPicks = ingredients !== undefined && ingredients !== null;
+    const ingestBucket = setting(config, ["s3", "ingest", "bucket"], undefined);
+    const limitMb = setting(config, ["upload", "limit", "mb"], undefined);
+    if (ingestBucket !== undefined && ingestBucket !== null && typeof ingestBucket !== "string") throw new Error();
+    if (limitMb !== undefined && limitMb !== null && (typeof limitMb !== "number" || !Number.isSafeInteger(limitMb) || limitMb < 0)) throw new Error();
     return requireSiteSettings({
+      upload: { transport: ingestBucket === undefined || ingestBucket === null ? "direct" : "signed",
+        ...(typeof limitMb === "number" ? { maxFileBytes: limitMb * 1_000_000 } : {}) },
       staffPhotographerOrganisation: organisation,
       fieldAliases: aliases.map(alias => {
         if (!isObject(alias)) return alias;
@@ -98,7 +104,7 @@ async function readTestConfig(key: string): Promise<string> {
   }
 }
 
-export async function loadTestSiteSettings(readConfig: (key: string) => Promise<string> = readTestConfig): Promise<Required<SiteSettings>> {
+export async function loadTestSiteSettings(readConfig: (key: string) => Promise<string> = readTestConfig): Promise<CompleteSiteSettings> {
   try {
     const common = await readConfig(CONFIG_KEYS[0]);
     const kahuna = await readConfig(CONFIG_KEYS[1]);
@@ -108,7 +114,7 @@ export async function loadTestSiteSettings(readConfig: (key: string) => Promise<
   }
 }
 
-export function siteSettingsPlugin(settings: Required<SiteSettings>) {
+export function siteSettingsPlugin(settings: CompleteSiteSettings) {
   const json = JSON.stringify({ gridConfig: requireSiteSettings(settings) }).replace(/</g, "\\u003c");
   return {
     name: "grid-site-settings",

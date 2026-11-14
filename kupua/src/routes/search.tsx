@@ -61,6 +61,8 @@ import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-fr
 import type { LabelEditContext } from "@/lib/label-operation";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
 import { useIsCompact } from "@/hooks/useShell";
+import { UploadEntry } from "@/components/UploadActivity";
+import { SettingsMenu } from "@/components/SettingsMenu";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -307,6 +309,8 @@ function SearchPage() {
           <h1 className="text-base font-medium">Upload</h1>
           {batch && <span className="min-w-0 flex-1 truncate text-sm text-grid-text-muted">{batch}</span>}
           {UPLOAD_BROWSING_ENABLED && <SearchFilters.Sort alwaysVisible />}
+          {UPLOAD_BROWSING_ENABLED && <UploadEntry />}
+          <SettingsMenu />
           <button type="button" className="ml-auto cursor-pointer text-sm underline" onClick={() => returnToBrowsing(navigate, "/search")}>Search</button>
         </header> : <SearchBar />}
         {RESIDENT_PREVIEW_ENABLED && <div className="px-3 py-1 text-xs bg-grid-cell text-grid-text-muted" role="note">

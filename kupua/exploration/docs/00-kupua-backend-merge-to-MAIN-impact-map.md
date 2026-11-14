@@ -18,12 +18,26 @@ tests before making any claim; old branch commits are not the review boundary.
 
 - **Kupua-only hosting configuration:** [KupuaPage](../../../kahuna/app/lib/KupuaPage.scala)
   injects initial API/collections bootstrap, per-user paid-image default and allowlisted
-  site settings. Former Kupua-only editing rollout and metadata/auth injection are
-  removed; existing-root service discovery and one temporary startup client preference
-  replace those dependencies. Ordinary Kahuna editing, opt-in hosting, stage/iframe
-  boundaries, server authorization and CSP/CORS/CSRF policy remain unchanged. Explain
-  exact cleanup scope and fixture-only hosted validation; client preference and batch
-  bounds are neither server enforcement nor authorization to activate editing.
+  site settings, including existing upload transport and optional byte limit.
+  Existing-root service discovery replaces former metadata/auth injection; independent
+  default-off editing/upload startup preferences do not grant server authority.
+  The existing Kupua-only WebAssembly script allowance remains; active hosting
+  preserves inherited `connect-src` without an upload-storage addition. The
+  [experimental storage-CSP patch](patches/hosted-upload-storage-csp.patch) is an
+  unapplied documentation artifact, not controller behavior or a deployment
+  requirement. Reassess this disclosure if it is applied. Ordinary Kahuna policy
+  generation (`KahunaConfig`), editing, stage/iframe boundaries, authorization
+  and service CORS/CSRF remain unchanged.
+  Distinguish recorded local hosted trials from blocked/pending TEST acceptance;
+  source/fixture tests do not certify every deployment's effective configuration.
+- **Local Kupua development routing and upload CORS:**
+  [the nginx template](../../../dev/nginx-mappings.yml.template) maps `kupua.media`
+  to port 3000 for the local Vite frontend. The
+  [development storage template](../../../dev/cloudformation/grid-dev-core.yml)
+  adds only `https://kupua.media.local.dev-gutools.co.uk` to the local ingest
+  bucket's existing allowed origins. Existing Kahuna origin, methods and headers
+  remain; no wildcard or TEST/PROD bucket-policy change is included. This is a
+  separate local-development policy addition, not unchanged CORS everywhere.
 - **Existing AI/API surface:** [MediaApi](../../../media-api/app/controllers/MediaApi.scala)
   adds conditional `ai-search` discovery and opt-in `aiQuery` ranking text to
   `GET /images`. Explain ranking-text versus filter-query meaning, response embedding

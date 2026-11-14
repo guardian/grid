@@ -49,14 +49,33 @@ Panel-local consumers resolve
 focused/selected images without making the whole route subscribe to selection metadata changes.
 
 `lib/browsing-context.tsx` supplies the lightweight route/selection policy and
-in-memory fixture membership. `lib/browsing-navigation.ts` owns pre-disposal
+revisioned in-memory batch membership shared by fixtures and completed jobs.
+`lib/browsing-navigation.ts` owns pre-disposal
 departure capture and existing snapshot/density restoration. Upload omits the
 search toolbar, selection controls and list panels; shared Grid/Table/Justified,
 detail and crop navigate within the admitted route. It mounts no second engine.
 Empty/missing membership cannot become a library query. Real recent uploads,
-jobs, persisted descriptors and form density are not connected; the
+persisted descriptors and form density are not connected; the
 [Upload workplan](../gradually-growing-teeth.upload-workplan.md#u1-route-safe-browsing-and-scope-admission)
 owns those boundaries.
+
+`lib/upload-commands.ts` owns the separately admitted configured direct/signed
+ingestion contracts. `stores/upload-jobs-store.ts` retains submissions, per-file
+attempts, processing/visibility observations and partial outcomes independently of
+routes and rows. One transfer/hash and one observation request are active at a time;
+settled files are released. Canonical readability plus exact ID-scoped indexed count
+visibility are required before IDs publish into the same U1 membership
+registry, deduplicated without discarding attempts. `components/UploadActivity.tsx`
+provides U3's minimal one-file entry and global activity; it is not U4's picker/drop,
+recent-uploads, persistence or full batch navigation. Startup upload admission is
+independent of metadata editing. Once accepted transfer reaches readable/indexed
+availability, non-acknowledged queued outcomes move into collapsed receipt history;
+the original outcome remains inspectable, not acknowledged retroactively. The
+[upload contract](../../../src/dal/grid-api/README.md#upload-transport-and-jobs)
+owns target validation, interruption and no-replay semantics. Local hosted/Vite
+upload witnesses passed; the
+[U3 evidence boundary](../gradually-growing-teeth.upload-workplan.md#actual-upload-evidence-and-deployment-checkpoint)
+separates those from blocked laptop-to-TEST and pending deployed TEST acceptance.
 
 Upload is API-only under the existing startup mode. Direct-ES visits show an
 unavailable state and admit empty membership to cancel old work without reads;

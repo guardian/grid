@@ -16,6 +16,7 @@ export interface SiteTickerDefinition {
 }
 
 export interface SiteSettings {
+  upload?: { transport: "signed" | "direct"; maxFileBytes?: number };
   staffPhotographerOrganisation?: string;
   fieldAliases?: SiteFieldAlias[];
   imageTypes?: string[];
@@ -52,6 +53,8 @@ function isTicker(value: unknown): boolean {
 }
 
 const validators: Record<keyof SiteSettings, (value: unknown) => boolean> = {
+  upload: value => isRecord(value) && (value.transport === "signed" || value.transport === "direct")
+    && (value.maxFileBytes === undefined || (typeof value.maxFileBytes === "number" && Number.isSafeInteger(value.maxFileBytes) && value.maxFileBytes >= 0)),
   staffPhotographerOrganisation: isNonEmptyString,
   fieldAliases: value => Array.isArray(value) && value.every(isAlias),
   imageTypes: isStringArray,
@@ -72,6 +75,10 @@ export function validateSiteSettings(raw: unknown): SiteSettings {
   for (const [key, valid] of Object.entries(validators)) {
     if (valid(raw[key])) result[key] = raw[key];
   }
+  if (isRecord(result.upload)) result.upload = {
+    transport: result.upload.transport,
+    ...(result.upload.maxFileBytes !== undefined ? { maxFileBytes: result.upload.maxFileBytes } : {}),
+  };
   if (Array.isArray(result.fieldAliases)) {
     result.fieldAliases = result.fieldAliases.map(({ elasticsearchPath, alias, label, displaySearchHint, displayInAdditionalMetadata, searchHintOptions, matchViaExistence }) => ({
       elasticsearchPath, alias, label, displaySearchHint, displayInAdditionalMetadata,
@@ -87,10 +94,13 @@ export function validateSiteSettings(raw: unknown): SiteSettings {
   return result as SiteSettings;
 }
 
-export function requireSiteSettings(raw: unknown): Required<SiteSettings> {
+export type CompleteSiteSettings = Required<Omit<SiteSettings, "upload">> & Pick<SiteSettings, "upload">;
+
+export function requireSiteSettings(raw: unknown): CompleteSiteSettings {
   const result = validateSiteSettings(raw);
-  if (Object.keys(result).length !== Object.keys(validators).length) throw new Error("Invalid Grid site settings");
-  return result as Required<SiteSettings>;
+  if (Object.keys(validators).some(key => key !== "upload" && !(key in result))
+    || (isRecord(raw) && raw.upload !== undefined && !result.upload)) throw new Error("Invalid Grid site settings");
+  return result as CompleteSiteSettings;
 }
 
 export function siteSettings(): SiteSettings {

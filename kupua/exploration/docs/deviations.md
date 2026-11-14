@@ -20,15 +20,39 @@ query or treating recent uploads as a batch. Search selection stays dormant and
 is not repurposed as batch membership. Search/Upload return recalls context and
 represented position using one engine; it does not copy Kahuna's blanket in-app
 leave warning. The trade-off is tab-memory membership and explicit unavailable
-links after its loss, not durable batch history. This boundary currently uses
-fixtures: no upload jobs, transfer recovery, form saves or safe background-transfer
-claim follows. The [Upload workplan](gradually-growing-teeth.upload-workplan.md)
-owns those separately selected capabilities and their interruption policy.
+links after its loss, not durable batch history. U1's boundary witnesses use
+fixtures; U3 now supplies route-independent jobs and representative local ingestion
+witnesses, not durable transfer recovery or form saves. The
+[Upload workplan](gradually-growing-teeth.upload-workplan.md)
+owns those capabilities, the interruption policy and pending deployed acceptance.
 
 The legacy direct-ES mode deliberately gains no Upload parity. It displays an
 explicit unavailable state without querying batch membership or falling back to
 library results; ordinary search is left alone pending separately selected retirement.
 API browser witnesses reuse the existing isolated API fixture and real client mapper.
+
+### Settled Upload Receipt History
+
+Kahuna logs queued-update rejection and continues polling. Kupua keeps that
+outcome visible while availability is unconfirmed, then moves it into expandable
+Upload receipt history after an accepted submission reaches a readable and
+searchable canonical image. The trade-off is quieter completed activity with
+an extra disclosure to inspect the historical rejection, not a claim that the
+queued update succeeded. Transport, bounded observation and attempt/canonical
+identity stay unchanged. [GRID-024](bug-backlog.md#grid-024) records the deferred
+backend defect and the consequences of repairing it separately.
+
+### Deferred Upload Storage CSP Patch (Not Active)
+
+Active Kupua hosting preserves Kahuna's inherited `connect-src`; there is no extra
+upload-storage allowance. The experimental config-derived allowance, Kupua-only
+controller wiring and regression tests are retained as an
+[unapplied patch](patches/hosted-upload-storage-csp.patch). Its trade-off would be
+a Kupua-specific permission for a mixed local-hosted/TEST topology that ordinary
+Kahuna also failed to use in the operator's trial. Such support is not assumed.
+The patch alone does not solve TEST bucket CORS, grant upload authority or validate
+ingestion. The [hosting guide](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md#mixed-localtest-uploads-and-preserved-csp-patch)
+records the observed barriers, deployed-policy evidence and application conditions.
 
 ### Laptop Satellite Transport
 

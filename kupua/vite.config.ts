@@ -7,7 +7,7 @@ import type { Plugin } from "vite";
 import { loadTestSiteSettings, siteSettingsPlugin } from "./scripts/test-site-settings.ts";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
-import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest } from "./src/lib/grid-mutation-policy.ts";
+import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest, isLoaderRequest } from "./src/lib/grid-mutation-policy.ts";
 import {
   DEPLOYED_TEST_MEDIA_API_BASE_URL,
   shouldEnableDirectBedrockProxy,
@@ -75,10 +75,10 @@ function gridApiWriteGuard(routes: ReturnType<typeof gridServiceProxyRoutes>): P
           const isReadViaPost = prefix === "/api" && isGridApiReadViaPost(req.method, req.url);
           const isRead = req.method === "GET" && (prefix === "/api"
             || (service === "auth" ? req.url === "/session"
-              : service === "collections" ? req.url === "/collections" : /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
+              : service === "collections" ? req.url === "/collections" : service === "metadata" && /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
           const isSelectedWrite = service === "metadata"
             && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url));
-          if (!isRead && !isReadViaPost && !isSelectedWrite) {
+          if (!isRead && !isReadViaPost && !isSelectedWrite && !(service === "loader" && isLoaderRequest(req.method, req.url))) {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(
               "[grid-api-write-guard] Request is not an admitted read or supported operation.",
@@ -144,7 +144,8 @@ const directBedrockPlugins = shouldEnableDirectBedrockProxy(
 ) ? [bedrockEmbedProxy()] : [];
 
 const satelliteRoutes = process.env.VITE_USE_MEDIA_API === "true"
-  ? gridServiceProxyRoutes({ metadata: process.env.VITE_GRID_METADATA_ORIGIN, auth: process.env.VITE_GRID_AUTH_ORIGIN }) : [];
+  ? gridServiceProxyRoutes({ metadata: process.env.VITE_GRID_METADATA_ORIGIN, auth: process.env.VITE_GRID_AUTH_ORIGIN,
+    loader: process.env.VITE_GRID_LOADER_ORIGIN }) : [];
 
 return {
   ...(hosted && {
