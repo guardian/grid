@@ -81,6 +81,10 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
     });
   },
   coverage: [async ({ page, browserName }, use) => {
+    if (process.env.GRID_DISABLE_COVERAGE === 'true') {
+      await use();
+      return;
+    }
     if (browserName !== 'chromium') {
       throw new Error('Native JS/CSS coverage requires Chromium');
     }
