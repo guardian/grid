@@ -24,7 +24,8 @@ import {
   type ImgHTMLAttributes,
   type ReactNode,
 } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { defaultRangeExtractor, type Range } from "@tanstack/react-virtual";
 import { useDataWindow, getViewportAnchorId } from "@/hooks/useDataWindow";
@@ -533,7 +534,9 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     reportVisibleRange, getImage, findImageIndex,
     twoTier,
   } = useDataWindow(justified ? "justified" : "grid");
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
+  const { path } = useBrowsingContext();
+  const selectionEnabled = path === "/search";
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const parentRef = useRef<HTMLDivElement>(null);
@@ -759,7 +762,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     if (pinchAnchorRef.current) return pinchAnchorRef.current;
     const { imagePositions, bufferOffset, total, results } = useSearchStore.getState();
     const { selectedIds, anchorId } = useSelectionStore.getState();
-    const selectionAnchorId = selectedIds.size > 0 ? anchorId : null;
+    const selectionAnchorId = selectionEnabled && selectedIds.size > 0 ? anchorId : null;
     // Derive twoTier from current store state — NOT from the hook scope,
     // which is stale inside the ResizeObserver closure (useEffect deps=[]).
     const isTwoTier = isTwoTierFromTotal(total);
@@ -980,7 +983,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // on mode flip). CSS handles tickbox visibility via data-selection-mode.
   // -------------------------------------------------------------------------
 
-  const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+  const inSelectionMode = useSelectionStore((s) => selectionEnabled && s.selectedIds.size > 0);
   const blurGraphicImages = useUiPrefsStore((s) => s.blurGraphicImages);
 
   // -------------------------------------------------------------------------
@@ -998,7 +1001,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // TODO -- requires the image's API URI which is not in the ES result yet.
   const handleDragStart = useCallback((imageId: string, e: React.DragEvent) => {
     const selState = useSelectionStore.getState();
-    const inMode = selState.selectedIds.size > 0 && selState.selectedIds.has(imageId);
+    const inMode = selectionEnabled && selState.selectedIds.size > 0 && selState.selectedIds.has(imageId);
     const ids = inMode ? Array.from(selState.selectedIds) : [imageId];
     e.dataTransfer.effectAllowed = "copy";
     // text/plain: consumed by plain-text drop targets
@@ -1008,7 +1011,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       "application/vnd.mediaservice.images+json",
       JSON.stringify(ids.map((id) => ({ data: { id } }))),
     );
-  }, []);
+  }, [selectionEnabled]);
 
   // Label + collection pill click → search.
   const handleLabelSearch = useMetadataSearch();
@@ -1047,12 +1050,12 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         storeImageOffset(imageId, globalOffset, searchKey, cursor);
       }
       pushNavigate(navigate, {
-        to: "/search",
+        to: path,
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
         state: { _detailEntryImageId: imageId },
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
+    [navigate, path, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
   );
 
   /**
@@ -1079,8 +1082,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       })();
       return {
         targetId: imageId,
-        modifier,
-        inSelectionMode: selState.selectedIds.size > 0,
+        modifier: selectionEnabled ? modifier : "none" as const,
+        inSelectionMode: selectionEnabled && selState.selectedIds.size > 0,
         anchorId,
         targetGlobalIndex: searchState.imagePositions.get(imageId),
         anchorGlobalIndex,
@@ -1090,13 +1093,13 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
         anchorSortValues,
       };
     },
-    [findImageIndex, getImage],
+    [findImageIndex, getImage, selectionEnabled],
   );
 
   const handleCellClick = useCallback(
     (imageId: string, e: React.MouseEvent) => {
       if (e.altKey) return; // alt-click: no-op in grid
-      const inMode = useSelectionStore.getState().selectedIds.size > 0;
+      const inMode = selectionEnabled && useSelectionStore.getState().selectedIds.size > 0;
       if (e.shiftKey && !inMode) return; // shift outside selection mode: no-op in grid
 
       // Click-to-toggle: clicking the already-focused image clears focus.
@@ -1121,7 +1124,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
       dispatchClickEffects(effects, { setFocusedImageId, enterDetail, handleRange });
     },
-    [buildClickContext, setFocusedImageId, enterDetail, handleRange],
+    [buildClickContext, setFocusedImageId, enterDetail, handleRange, selectionEnabled],
   );
 
   const handleTickClick = useCallback(

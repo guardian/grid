@@ -22,6 +22,7 @@
 
 import { memo } from "react";
 import { useIsSelected } from "@/hooks/useIsSelected";
+import { useBrowsingContext } from "@/lib/browsing-context";
 
 interface TickboxProps {
   imageId: string;
@@ -33,6 +34,8 @@ export const Tickbox = memo(function Tickbox({
   onTickClick,
 }: TickboxProps) {
   const isSelected = useIsSelected(imageId);
+  const { path } = useBrowsingContext();
+  if (path === "/upload") return null;
 
   return (
     <button
@@ -81,6 +84,8 @@ export const TableTickbox = memo(function TableTickbox({
   onTickClick,
 }: TickboxProps) {
   const isSelected = useIsSelected(imageId);
+  const { path } = useBrowsingContext();
+  if (path === "/upload") return null;
 
   return (
     <button

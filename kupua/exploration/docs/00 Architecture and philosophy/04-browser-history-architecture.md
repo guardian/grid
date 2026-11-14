@@ -40,6 +40,55 @@ remain logical-only. Native detail/fullscreen close without
 traversal retains mounted placement; traversed return centres through current geometry,
 including Table's usable-height adjustment and missing-target/supersession guards.
 
+### Search and Upload Return
+
+The media-api-only, fixture-backed `/upload?batch=local-<id>` route uses the same browsing engine
+and existing detail/crop display parameters. [Browsing navigation](../../../src/lib/browsing-navigation.ts)
+captures departure from search or Upload in the router's `onBeforeNavigate`,
+before the source route disposes its geometry. Each context retains only its URL,
+density and snapshot reference. Explicit Search/Upload controls restore that
+destination through existing continuity; native Back/Forward uses entry snapshots.
+This is a two-context adapter, not a general workspace or retained-results system.
+
+Home captures Upload before preloading the library and clears its internal scope.
+Later route-exit capture must still match the engine's source context; otherwise
+the earlier departure remains intact. This preserves Upload return without changing
+ordinary Home's fresh-entry, selection-reset or density-reset policy.
+
+Direct-ES mode shows `Upload requires media-api mode.` and does not admit resolved
+membership. An empty scope cancels departing work without new page/count reads;
+Search is an explicit alternative, not an automatic fallback. Ordinary direct-ES
+search and its history policies remain unchanged.
+
+The ordinary search density policy above is unchanged. Crossing between search
+and Upload restores that context's last density; switching batches need not recall
+each batch's separate view. `BROWSING_DENSITIES` and `availableDensity` explicitly
+admit Grid, Table and Justified in both contexts. Form is not implemented or
+admitted yet; an unsupported stored preference cannot strand search. Density is
+still absent from the URL and history snapshot shape.
+
+Scope keys and revisions participate in result/cursor fingerprints. For Upload
+only, a newer membership revision can reuse a represented snapshot when batch
+identity and all other query/sort parameters agree and the anchor remains a member.
+Its new key is qualified before ordinary continuity restoration, without importing
+library arrival freezes. Another batch, changed sorting or a removed anchor does
+not gain this qualification. Library snapshot matching remains strict.
+
+For active membership growth, same-batch admission leaves the list mounted until
+continuity is captured. Revisions still qualify requests and publication; they are
+not a reason to dispose the viewport before its represented position is read.
+
+URL synchronization is a route-owned first child, before list/detail passive
+effects. Preserve this ordering: parent-owned synchronization ran after detail
+return consumers and prevented existing direct-Forward detail placement from settling.
+This ordering constraint does not change native entry or detail-origin policy.
+
+Missing local membership, including a URL containing `image`, displays unavailable
+with explicit Search/Recent uploads alternatives. Known-empty membership is distinct;
+neither may issue a library-wide query or open an unrelated singleton detail.
+`/upload` is currently an unavailable recent-uploads destination, not an all-users
+query. Local membership and return descriptors are not durable recovery, jobs or drafts.
+
 ### Startup Default Admission
 
 `useUrlSearchSync` resolves a bare initial entry from `home-defaults` before
@@ -291,7 +340,7 @@ Call sites are oblivious to which is in use.
 
 ### Capture
 
-Snapshots are captured at three points:
+Snapshots are captured at four points:
 
 1. **On push** — `markPushSnapshot()` fires inside `useUpdateSearchParams` and
    `pushNavigate`, immediately before `navigate()`. The store still shows pre-edit
@@ -312,6 +361,11 @@ Snapshots are captured at three points:
    for the current entry's `kupuaKey`. This is the reload-survival mechanism: the
    current entry has no push-captured snapshot (only predecessors do), so without
    pagehide the snapshot would be absent on mount after reload.
+
+4. **Before leaving a browsing route** — the router's `onBeforeNavigate` captures
+  search/Upload departure before disposal, using the source location's key rather
+  than the already-changed native destination state. Same-route detail, crop,
+  query and density transitions retain their existing owners above.
 
 `pushNavigateAsPopstate` (logo-reset) deliberately skips capture — its whole point
 is to land fresh at offset 0.

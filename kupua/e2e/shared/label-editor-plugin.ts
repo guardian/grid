@@ -25,15 +25,25 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   const matches = (ordinal: number, body: Record<string, unknown>) => ordinal >= 0 && ordinal < logicalTotal
     && (!requiresLabel(body) || ordinal < (matchingPrefix ?? 0) || projections.has(`local-${ordinal}`))
     && (!excludesLabel(body) || !projections.has(`local-${ordinal}`));
-  const currentTotal = (body: Record<string, unknown>) => body.since ? 0 : requiresLabel(body)
-    ? (matchingPrefix ?? 0) + [...projections.keys()].filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0)).length
-    : logicalTotal - (excludesLabel(body) ? projections.size : 0);
+  const scopedOrdinals = (body: Record<string, unknown>) => Array.isArray(body.ids)
+    ? (body.ids as string[]).filter(known).map(id => Number(id.slice(6)))
+      .filter(ordinal => matches(ordinal, body)).sort((first, second) => first - second)
+    : undefined;
+  const currentTotal = (body: Record<string, unknown>) => body.since ? 0 : scopedOrdinals(body)?.length
+    ?? (requiresLabel(body)
+      ? (matchingPrefix ?? 0) + [...projections.keys()].filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0)).length
+      : logicalTotal - (excludesLabel(body) ? projections.size : 0));
   const pageOrdinals = (body: Record<string, unknown>) => {
-    if (Array.isArray(body.ids)) return (body.ids as string[]).filter(known).map(id => Number(id.slice(6)))
-      .filter(ordinal => matches(ordinal, body)).sort((first, second) => first - second);
     const cursor = body.sortValues as (number | string | null)[] | undefined;
     const reverse = Boolean(body.reverse);
     const ordinal = cursor ? Math.round((epoch - Number(cursor[0])) / 1000) : reverse ? logicalTotal : -1;
+    const scoped = scopedOrdinals(body);
+    if (scoped) {
+      const candidates = scoped.filter(candidate => reverse ? candidate < ordinal : candidate > ordinal);
+      const offset = Number(body.offset ?? 0);
+      const length = Number(body.length ?? body.size ?? 200);
+      return reverse ? candidates.slice(-offset - length, offset ? -offset : undefined) : candidates.slice(offset, offset + length);
+    }
     let candidate = ordinal + (reverse ? String(cursor?.at(-1)).endsWith("\u0000") ? 0 : -1 : 1);
     let skip = Number(body.offset ?? 0);
     const page: number[] = [];
@@ -124,6 +134,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             counts.rankReads++;
             const cursor = body.sortValues as (number | string)[];
             const ordinal = Math.round((epoch - Number(cursor[0])) / 1000);
+            const scoped = scopedOrdinals(body);
+            if (scoped) return send({ rank: scoped.filter(candidate => candidate < ordinal).length });
             if (requiresLabel(body)) return send({ rank: Math.min(ordinal, matchingPrefix ?? 0) + [...projections.keys()]
               .filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0) && Number(id.slice(6)) < ordinal).length });
             const removed = excludesLabel(body) ? [...projections.keys()].filter(id => Number(id.slice(6)) < ordinal).length : 0;

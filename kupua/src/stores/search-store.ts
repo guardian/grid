@@ -970,6 +970,7 @@ function nullZoneDistCacheKey(params: SearchParams): string {
 
 function startNewImagesPoll(get: () => SearchState, set: (s: Partial<SearchState>) => void) {
   stopNewImagesPoll();
+  if (get().params.imageScope) return;
   const gen = ++_newImagesPollGeneration;
   const baselineTickerCounts = get().tickerCounts;
   let requestSequence = 0;
@@ -2474,6 +2475,22 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     // Close old PIT (fire-and-forget)
     if (oldPitId) {
       dataSource.closePit(oldPitId);
+    }
+
+    if (params.imageScope?.ids.length === 0) {
+      useEnrichmentStore.getState().setEnrichment(new Map());
+      set({
+        results: [], total: 0, bufferOffset: 0, imagePositions: new Map(),
+        loading: false, error: null, pitId: null, startCursor: null, endCursor: null,
+        focusedImageId: null, _focusedImageKnownOffset: null,
+        newCount: 0, newCountSince: null, tickerCounts: null, tickersLastUpdated: null,
+        _arrivingImageIds: new Set(), _isInitialLoad: false,
+        _seekTargetLocalIndex: -1, _seekTargetGlobalIndex: -1,
+        _pitGeneration: get()._pitGeneration + 1,
+        _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false },
+        ...emptyAggregationState(),
+      });
+      return;
     }
 
     // -----------------------------------------------------------------------

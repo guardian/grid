@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearch } from "@tanstack/react-router";
+import { useBrowsingSearch } from "@/lib/browsing-context";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
 import { SORT_DROPDOWN_OPTIONS, DESC_BY_DEFAULT } from "@/lib/field-registry";
@@ -38,7 +38,7 @@ function parsePrimarySort(orderBy: string): { field: string; desc: boolean } {
 // ---------------------------------------------------------------------------
 
 function FilterControls({ inSheet = false }: { inSheet?: boolean }) {
-  const params = useSearch({ from: "/search" });
+  const params = useBrowsingSearch();
   const updateSearch = useUpdateSearchParams();
 
   const handleFreeOnlyToggle = useCallback(() => {
@@ -71,8 +71,8 @@ function FilterControls({ inSheet = false }: { inSheet?: boolean }) {
 // Sort controls (right end of toolbar)
 // ---------------------------------------------------------------------------
 
-function SortControls({ inSheet = false }: { inSheet?: boolean }) {
-  const params = useSearch({ from: "/search" });
+function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: boolean; alwaysVisible?: boolean }) {
+  const params = useBrowsingSearch();
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -142,7 +142,7 @@ function SortControls({ inSheet = false }: { inSheet?: boolean }) {
   }, [open]);
 
   return (
-    <div ref={dropdownRef} className={`${inSheet ? "flex" : "hidden wide:min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}
+    <div ref={dropdownRef} className={`${inSheet || alwaysVisible ? "flex" : "hidden wide:min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}
       onKeyDown={event => {
         if (event.key === "Escape" && open) {
           event.preventDefault();

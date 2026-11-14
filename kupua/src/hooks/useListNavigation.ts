@@ -41,6 +41,7 @@ import { hasOrderingUncertainty } from "@/lib/image-read-freshness";
 import { getTerminalDirection, useSearchStore } from "@/stores/search-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useBrowsingContext } from "@/lib/browsing-context";
 import { getFixedRowCount, getLayoutRow, type SpatialNavigation } from "@/lib/scroll-geometry-ref";
 
 // ---------------------------------------------------------------------------
@@ -181,6 +182,7 @@ function pageScrollTarget(
 // ---------------------------------------------------------------------------
 
 export function useListNavigation(config: ListNavigationConfig): void {
+  const { path } = useBrowsingContext();
   // Store everything in refs to avoid re-registering listeners on every render.
   const configRef = useRef(config);
   configRef.current = config;
@@ -477,7 +479,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       const isGrid = c.spatial !== undefined || c.columnsPerRow > 1;
       // In selection mode, treat as if there is no focus: arrows scroll,
       // never move focus. Read imperatively so no stale closures.
-      const inSelectionMode = useSelectionStore.getState().selectedIds.size > 0;
+      const inSelectionMode = path === "/search" && useSelectionStore.getState().selectedIds.size > 0;
       // In phantom mode, keyboard never enters focus mode — always scroll.
       const hasFocus = !inSelectionMode && c.focusedImageId !== null && getEffectiveFocusMode() === "explicit";
 
@@ -573,7 +575,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
       if (isNativeInputTarget(e)) return;
 
       const hasFocus = c.focusedImageId !== null && getEffectiveFocusMode() === "explicit" &&
-        useSelectionStore.getState().selectedIds.size === 0;
+        (path === "/upload" || useSelectionStore.getState().selectedIds.size === 0);
 
       switch (e.key) {
         case "Home":

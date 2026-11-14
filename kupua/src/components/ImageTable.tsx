@@ -5,7 +5,8 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import {
   createColumnHelper,
   flexRender,
@@ -428,7 +429,9 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     clearPreDoubleClickWidth,
   } = useColumnStore();
   const updateSearch = useUpdateSearchParams();
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
+  const { path } = useBrowsingContext();
+  const selectionEnabled = path === "/search";
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const parentRef = useRef<HTMLDivElement>(null);
@@ -489,12 +492,12 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         storeImageOffset(imageId, globalOffset, searchKey, cursor);
       }
       pushNavigate(navigate, {
-        to: "/search",
+        to: path,
         search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
         state: { _detailEntryImageId: imageId },
       });
     },
-    [navigate, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
+    [navigate, path, setFocusedImageId, findImageIndex, getImage, bufferOffset, twoTier],
   );
 
   // Single-click a row → set focus (explicit) or enter detail (phantom).
@@ -524,8 +527,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       })();
       return {
         targetId: imageId,
-        modifier,
-        inSelectionMode: selState.selectedIds.size > 0,
+        modifier: selectionEnabled ? modifier : "none" as const,
+        inSelectionMode: selectionEnabled && selState.selectedIds.size > 0,
         anchorId,
         targetGlobalIndex: searchState.imagePositions.get(imageId),
         anchorGlobalIndex,
@@ -535,12 +538,12 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         anchorSortValues,
       };
     },
-    [findImageIndex, getImage],
+    [findImageIndex, getImage, selectionEnabled],
   );
 
   const handleRowClick = useCallback(
     (imageId: string, e: React.MouseEvent) => {
-      if (useSelectionStore.getState().selectedIds.size > 0) {
+      if (selectionEnabled && useSelectionStore.getState().selectedIds.size > 0) {
         const effects = interpretClick({ ...buildClickContext(imageId, e), kind: "image-body" });
         dispatchClickEffects(effects, {
           setFocusedImageId,
@@ -563,7 +566,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       // Phantom guard above means we're in explicit mode here.
       setFocusedImageId(imageId === focusedImageId ? null : imageId);
     },
-    [setFocusedImageId, handleRowDoubleClick, buildClickContext, handleRange, focusedImageId],
+    [setFocusedImageId, handleRowDoubleClick, buildClickContext, handleRange, focusedImageId, selectionEnabled],
   );
 
   /**
@@ -797,7 +800,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Selection mode — subscribe once at container level.
   // Per-cell components do NOT subscribe to this (would cause 1000+ re-renders
   // on mode flip). CSS handles tickbox visibility via data-selection-mode.
-  const inSelectionMode = useSelectionStore((s) => s.selectedIds.size > 0);
+  const inSelectionMode = useSelectionStore((s) => selectionEnabled && s.selectedIds.size > 0);
 
   // -------------------------------------------------------------------------
   // Long-press gestures (S5 -- coarse pointer / touch selection)
@@ -1085,7 +1088,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const handleCellClick = useCallback(
     (columnId: string, image: Image, e: React.MouseEvent) => {
       if (!e.shiftKey && !e.altKey) return;
-      if (useSelectionStore.getState().selectedIds.size > 0) return;
+      if (selectionEnabled && useSelectionStore.getState().selectedIds.size > 0) return;
 
       // Check for per-sub-field CQL key on the click target (e.g. Location column)
       const target = e.target as HTMLElement;
@@ -1117,7 +1120,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         updateSearch({ query: newQuery });
       }
     },
-    [updateSearch]
+    [updateSearch, selectionEnabled]
   );
 
   // ---------------------------------------------------------------------------

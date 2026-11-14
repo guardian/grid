@@ -32,6 +32,7 @@ export interface UseLongPressOptions {
    * Touch events are listened here, not on individual cells.
    */
   containerRef: RefObject<HTMLElement | null>;
+  enabled?: boolean;
 
   /**
    * Fired when a long-press commits (threshold reached, no excessive movement).
@@ -68,6 +69,7 @@ function getCellId(target: EventTarget | null): string {
 
 export function useLongPress({
   containerRef,
+  enabled = true,
   onLongPressStart,
   onDragEnterCell,
   onDragEnd,
@@ -83,7 +85,7 @@ export function useLongPress({
 
   useEffect(() => {
     const el = containerRef.current!;
-    if (!el) return;
+    if (!el || !enabled) return;
 
     // Mutable gesture state -- reset on each pointerdown.
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -320,5 +322,5 @@ export function useLongPress({
       el.removeEventListener("contextmenu", onContextMenu);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- stable: containerRef + callback refs
-  }, [containerRef]);
+  }, [containerRef, enabled]);
 }

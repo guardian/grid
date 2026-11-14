@@ -436,9 +436,9 @@ export class MockDataSource implements ImageDataSource {
     return this.totalImages;
   }
 
-  async countWithTickers(): Promise<CountWithTickersResult> {
+  async countWithTickers(params?: SearchParams): Promise<CountWithTickersResult> {
     this.requestCount++;
-    return { count: this.totalImages, tickerCounts: {} };
+    return { count: params?.imageScope ? params.imageScope.ids.filter(id => this.findById(id)[0]).length : this.totalImages, tickerCounts: {} };
   }
 
   async getById(id: string, _signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
@@ -496,8 +496,9 @@ export class MockDataSource implements ImageDataSource {
     const effectiveTotal = sortedIndices ? sortedIndices.length : this.totalImages;
 
     // If params.ids is set, filter to those IDs
-    if (params.ids) {
-      const idList = params.ids.split(",").map((s) => s.trim());
+    if (params.imageScope || params.ids) {
+      const probe = params.ids?.split(",").map(id => id.trim());
+      const idList = params.imageScope ? params.imageScope.ids.filter(id => !probe || probe.includes(id)) : probe!;
       const hits: Image[] = [];
       const sortVals: SortValues[] = [];
       for (const id of idList) {
@@ -507,7 +508,7 @@ export class MockDataSource implements ImageDataSource {
           sortVals.push(sortValuesForImage(img, sortClause));
         }
       }
-      return this._filterRemoved({ hits, total: this.totalImages, sortValues: maybeRemap(sortVals) });
+      return this._filterRemoved({ hits, total: params.imageScope ? hits.length : this.totalImages, sortValues: maybeRemap(sortVals) });
     }
 
     // If from/size (no cursor), return from offset

@@ -19,6 +19,39 @@ import { test, expect, waitForFixtureSetup } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
 
+test("Upload requires media-api without reading resolved membership through direct ES", async ({ kupua, page }) => {
+  await kupua.startSearch();
+  await page.evaluate(async () => {
+    const contextPath = "/src/lib/browsing-context.tsx";
+    const routerPath = "/src/router.ts";
+    const keyPath = "/src/lib/orchestration/history-key.ts";
+    const { uploadBatchMembership } = await import(contextPath);
+    const { router } = await import(routerPath);
+    const { withFreshKupuaKey } = await import(keyPath);
+    const source = (window as any).__kupua_store__.getState().dataSource;
+    const ids = (window as any).__kupua_store__.getState().results.filter(Boolean).slice(0, 5).map((image: any) => image.id);
+    uploadBatchMembership.getState().set("local-api-only", ids);
+    const originalPage = source.searchAfter.bind(source);
+    const originalCount = source.countWithTickers.bind(source);
+    const control = { reads: 0, dispose: () => { source.searchAfter = originalPage; source.countWithTickers = originalCount; } };
+    (window as any).__u1ModeControl = control;
+    source.searchAfter = (...args: any[]) => { control.reads++; return originalPage(...args); };
+    source.countWithTickers = (...args: any[]) => { control.reads++; return originalCount(...args); };
+    await router.navigate({ to: "/upload", search: { batch: "local-api-only", image: ids[0] }, state: withFreshKupuaKey() });
+  });
+  try {
+    await expect(page.getByText("Upload requires media-api mode.", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__u1ModeControl.reads)).toBe(0);
+    await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await kupua.waitForResults();
+    expect(new URL(page.url()).pathname).toBe("/search");
+    expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.imageScope)).toBeUndefined();
+  } finally {
+    await page.evaluate(() => { (window as any).__u1ModeControl.dispose(); delete (window as any).__u1ModeControl; });
+  }
+});
+
 for (const coordinates of ["indexed", "seek"] as const) {
   test.describe(`B19 ${coordinates} table tail`, () => {
     test.use({ baseURL: coordinates === "seek" ? "http://localhost:3030" : "http://localhost:3000" });

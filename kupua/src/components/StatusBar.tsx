@@ -17,7 +17,7 @@ import { usePanelStore } from "@/stores/panel-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
-import { useSearch } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { shortcutTooltip } from "@/lib/keyboard-shortcuts";
@@ -155,7 +155,8 @@ export const StatusBar = memo(function StatusBar() {
   const newCount = useSearchStore((s) => s.newCount);
   const tickerCounts = useSearchStore((s) => s.tickerCounts);
   const tickersLastUpdated = useSearchStore((s) => s.tickersLastUpdated);
-  const selectedCount = useSelectionStore((s) => s.selectedIds.size);
+  const { path } = useBrowsingContext();
+  const selectedCount = useSelectionStore((s) => path === "/search" ? s.selectedIds.size : 0);
   const clearSelection = useSelectionStore((s) => s.clear);
   const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
   const isCompact = useIsCompact();
@@ -165,7 +166,7 @@ export const StatusBar = memo(function StatusBar() {
   // It's the correct "has a search ever settled?" signal — unlike `total > 0`,
   // it distinguishes "app just loaded, no results yet" from "search returned 0".
   const isInitialLoad = useSearchStore((s) => s._isInitialLoad);
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
   const storeSince = useSearchStore((s) => s.newCountSince);
 
   const [cached] = useState(() => {
@@ -233,7 +234,7 @@ export const StatusBar = memo(function StatusBar() {
     >
       {/* Left panel toggle — full-height strip; when active, extends below
           the border to visually merge with the panel beneath */}
-      <button
+      {path === "/search" && <button
         onClick={() => togglePanel("left")}
         onMouseDown={(e) => e.preventDefault()}
         onMouseEnter={handleBrowseHover}
@@ -250,7 +251,7 @@ export const StatusBar = memo(function StatusBar() {
           <path d="M3 4a2 2 0 012-2h14a2 2 0 012 2v16a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm2 0v16h4V4H5zm6 0v16h8V4h-8z" />
         </svg>
         <span className="status-control-label text-sm">Browse</span>
-      </button>
+      </button>}
 
       <div className="w-px bg-grid-separator shrink-0" />
 
@@ -386,7 +387,7 @@ export const StatusBar = memo(function StatusBar() {
       <div className="w-px bg-grid-separator shrink-0 compact:hidden" />
 
       {/* Right panel toggle — phones use the bottom card instead */}
-      <button
+      {path === "/search" && <button
         onClick={() => togglePanel("right")}
         onMouseDown={(e) => e.preventDefault()}
         className={`compact:hidden shrink-0 flex items-center gap-1 px-2 pointer-coarse:px-3.5 transition-colors cursor-pointer whitespace-nowrap relative ${
@@ -402,7 +403,7 @@ export const StatusBar = memo(function StatusBar() {
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M21 4a2 2 0 00-2-2H5a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2V4zm-2 0v16h-4V4h4zm-6 0v16H5V4h8z" />
         </svg>
-      </button>
+      </button>}
     </div>
   );
 });

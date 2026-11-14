@@ -12,6 +12,24 @@
 
 ## From Grid / Kahuna
 
+### Local Upload Browsing Context
+
+Kupua's media-api-only Upload browsing boundary resolves short local batch references
+to explicit canonical image sets rather than adopting the departing library
+query or treating recent uploads as a batch. Search selection stays dormant and
+is not repurposed as batch membership. Search/Upload return recalls context and
+represented position using one engine; it does not copy Kahuna's blanket in-app
+leave warning. The trade-off is tab-memory membership and explicit unavailable
+links after its loss, not durable batch history. This boundary currently uses
+fixtures: no upload jobs, transfer recovery, form saves or safe background-transfer
+claim follows. The [Upload workplan](gradually-growing-teeth.upload-workplan.md)
+owns those separately selected capabilities and their interruption policy.
+
+The legacy direct-ES mode deliberately gains no Upload parity. It displays an
+explicit unavailable state without querying batch membership or falling back to
+library results; ordinary search is left alone pending separately selected retirement.
+API browser witnesses reuse the existing isolated API fixture and real client mapper.
+
 ### Laptop Satellite Transport
 
 Hosted Kupua uses advertised service origins directly. Laptop API-mode Vite instead

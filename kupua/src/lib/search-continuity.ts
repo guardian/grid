@@ -52,7 +52,7 @@ export function captureSearchContinuity(
 ): SearchContinuity {
   const state = useSearchStore.getState();
   const selection = useSelectionStore.getState();
-  const selectedAnchor = sortOnly && selection.selectedIds.size > 0 ? selection.anchorId : null;
+  const selectedAnchor = sortOnly && !state.params.imageScope && selection.selectedIds.size > 0 ? selection.anchorId : null;
   const focusTarget = sortOnly && getEffectiveFocusMode() !== "explicit" ? null : state.focusedImageId;
   const targetId = selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
   const focus = selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";

@@ -41,6 +41,55 @@ refs bridge imperative consumers; visible-range observations have their own
 external-store subscription. React selector subscriptions, imperative `getState()`
 reads and local refs serve different notification needs.
 
+## Search and Upload Scope Admission
+
+The [browsing context](../../../src/lib/browsing-context.tsx) admits either
+`/search` or `/upload` to the same search store, data window and renderers.
+URL synchronization belongs to the active route, not the search toolbar.
+Only one context is mounted against the shared geometry and buffer.
+
+Upload is media-api-only, using the existing startup mode rather than another
+switch. Direct-ES mode admits an empty Upload scope to cancel old work and shows
+an explicit unavailable state with Search as an alternative; it makes no batch
+page/count reads. Its return affordance is hidden there. Existing direct-ES search
+and the adapter remain unchanged; the Upload workplan forbids extending that path.
+
+Upload's fixture-facing `uploadBatchMembership` holds immutable canonical-ID
+membership snapshots independently of the route. `set(batch, ids)` deduplicates
+IDs and advances the revision when membership changes. `SearchParams.imageScope`
+carries its key, revision and typed IDs; the browser URL carries only `batch`.
+This is not the selection store, an image cache, authority or a job owner.
+Membership is currently in memory only: reload can make a batch unavailable.
+Jobs, outcomes, drafts and descriptor persistence remain separately owned future work.
+
+Resolved batches clear unrelated search filters and admit paid/free images.
+Missing batches and disconnected recent uploads admit explicit empty scopes;
+known-empty batches publish empty results after existing cancellation, without
+page/count reads. Nonempty Upload scopes use media-api POST ID filters, including the
+intersection with singleton cursor probes. Local keys/revisions never reach the
+server. Query keys distinguish scopes and revisions, and existing request
+generations/signals reject obsolete results. Membership revisions, not library
+arrival polling, own batch growth.
+
+Same-batch revision admission keeps the current viewport mounted so continuity
+can be captured before publication; only a different context blocks the old view.
+Home clears the internal scope before preloading ordinary library data, capturing
+Upload's departure first so that preload cannot overwrite its saved return state.
+
+Upload hides selection controls and the list metadata panel. Library selection
+remains dormant, including for gestures, layout anchors and mutation targeting;
+it is neither cleared nor replaced with the batch. Detail actions still have
+their explicit image target. Metadata search links leave Upload for search.
+The selection recognizer itself is disabled in Upload, not merely its callbacks.
+Pull-to-refresh ignores dormant library selection and preserves it when refreshing;
+ordinary Search keeps its existing selection-mode policy.
+Global activity remains reachable in compact Upload: the root suppresses it only
+when Search's expanded selection sheet supplies an inline replacement. Existing
+operation targets stay captured independently of the currently displayed batch.
+The [navigation adapter](../../../src/lib/browsing-navigation.ts) retains only
+departure URL, density and existing position snapshots, not a second result buffer.
+See [history](04-browser-history-architecture.md#search-and-upload-return) for return rules.
+
 ## From Intent to Pixels
 
 **Ordinary query/sort transition.** This is a schematic of an accepted read path,

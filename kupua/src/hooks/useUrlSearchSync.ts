@@ -10,8 +10,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useRouter, useRouterState, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
+import { qualifyBrowsingSnapshot, restoreBrowsingDensity } from "@/lib/browsing-navigation";
 import { useSearchStore } from "@/stores/search-store";
+import type { SearchParams } from "@/dal";
 import { getViewportAnchorId } from "@/hooks/useDataWindow";
 import {
   applySearchContextTransitions,
@@ -36,7 +39,7 @@ import { getCurrentKupuaKey, getDetailOriginKupuaKey } from "@/lib/orchestration
 import { restoreArrivalState, snapshotStore } from "@/lib/history-snapshot";
 import { buildHistorySnapshot } from "@/lib/build-history-snapshot";
 import { buildSearchKey } from "@/lib/image-offset-cache";
-import { historySearchContinuity, takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
+import { captureSearchContinuity, historySearchContinuity, takeSearchContinuity, type SearchContinuity } from "@/lib/search-continuity";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -81,13 +84,13 @@ function cleanParams(
 /**
  * Syncs URL search params → Zustand store and triggers search.
  *
- * Place this hook once, in the component that contains the search page
- * (e.g. in SearchBar or at the route component level).
+ * Mount once in the active route's first child, before list/detail effects.
  */
 
 
 export function useUrlSearchSync() {
-  const routeSearch = useSearch({ from: "/search" });
+  const routeSearch = useBrowsingSearch();
+  const { path, imageScope } = useBrowsingContext();
   // Router matches retain extra keys. Preserve known-key order for existing navigation dedup.
   const searchParams = useMemo(() => Object.fromEntries(
     Object.entries(routeSearch).filter(([key]) => Object.hasOwn(searchParamsSchema.shape, key))
@@ -126,7 +129,7 @@ export function useUrlSearchSync() {
     // On first mount, if the URL has no search params at all, apply defaults
     // (e.g. nonFree=true).  This is a one-time redirect — once any interaction
     // has happened, we never re-inject defaults.
-    if (defaultsResolution.current !== "resolved") {
+    if (path === "/search" && defaultsResolution.current !== "resolved") {
       const hasAnyParam = Object.values(searchParams).some(
         (v) => v !== undefined && v !== ""
       );
@@ -139,7 +142,7 @@ export function useUrlSearchSync() {
         // user-initiated flag is moot. If this ever becomes a push, it
         // must switch to pushNavigate().
         navigate({
-          to: "/search",
+          to: path,
           search: defaults,
           replace: true,
           state: withCurrentKupuaKey(),
@@ -155,8 +158,8 @@ export function useUrlSearchSync() {
     );
     if (needsCanonicalReplace) {
       navigate({
-        to: "/search",
-        search: cleanParams(canonicalParams),
+        to: path,
+        search: { ...cleanParams(canonicalParams), ...(path === "/upload" ? { batch: routeSearch.batch } : {}) },
         replace: true,
         state: withCurrentKupuaKey(),
       });
@@ -166,11 +169,15 @@ export function useUrlSearchSync() {
     // Serialize to compare — avoids infinite loops from object identity changes.
     // Strip display-only keys (e.g. image) — they live in the URL but don't
     // affect ES queries. Changing only a display key should NOT trigger a search.
-    const searchOnly = Object.fromEntries(
+    const searchOnly: Record<string, unknown> & SearchParams = { ...Object.fromEntries(
       Object.entries(searchParams).filter(
         ([k]) => !URL_DISPLAY_KEYS.has(k as keyof UrlSearchParams)
       )
-    );
+    ), ...(imageScope ? { nonFree: "true", imageScope } : {}) };
+    const previousScope = useSearchStore.getState().params.imageScope;
+    const contextChanged = previousScope?.key !== imageScope?.key;
+    const membershipChanged = !contextChanged && previousScope?.revision !== imageScope?.revision;
+    if (contextChanged) restoreBrowsingDensity(path);
     const serialized = JSON.stringify(searchOnly);
     const sameQuery = serialized === _prevParamsSerialized;
     const currentKey = getCurrentKupuaKey();
@@ -214,7 +221,7 @@ export function useUrlSearchSync() {
     // navigate(), so it's guaranteed to be present when the effect processes
     // the resulting param change.
     const isUserInitiated = consumeUserInitiatedFlag();
-    const isPopstate = !isUserInitiated;
+    const isPopstate = contextChanged || !isUserInitiated;
 
     // Detect sort-only change: orderBy changed, nothing else did.
     // Used below to decide relaxation behaviour for phantom focus.
@@ -251,7 +258,7 @@ export function useUrlSearchSync() {
     // navigate through this code path, so a single check covers both.
     // User sort-only and native detail-origin changes are excluded;
     // density never changes the URL. Other history destinations restore.
-    if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION) {
+    if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !contextChanged && !imageScope) {
       const isUrlNavigation = _prevParamsSerialized !== "" && !isSortOnly;
       if (isUrlNavigation) {
         useSelectionStore.getState().clear();
@@ -263,7 +270,9 @@ export function useUrlSearchSync() {
     let arrivalState: ReturnType<typeof restoreArrivalState> = {};
     let continuity: SearchContinuity;
 
-    if (isPopstate) {
+    if (membershipChanged) {
+      continuity = captureSearchContinuity(false);
+    } else if (isPopstate) {
       // Capture a snapshot for the entry we're LEAVING before restoring
       // the destination. The store still has the old state (setParams/
       // search haven't fired yet). This enables forward navigation to
@@ -277,7 +286,7 @@ export function useUrlSearchSync() {
       // viewportRatio to drift on every back/forward cycle. A different
       // anchor image means the user scrolled significantly; that's a
       // legitimate position change and must be captured.
-      if (_lastKupuaKey) {
+      if (_lastKupuaKey && !contextChanged) {
         const existing = snapshotStore.get(_lastKupuaKey);
         if (!existing || !existing.anchorIsPhantom) {
           const departingSnap = buildHistorySnapshot();
@@ -299,9 +308,9 @@ export function useUrlSearchSync() {
       // popstate path. Logo-reset entries have no snapshot by construction
       // (freshly minted kupuaKey), so they fall through to reset-to-top.
       const kupuaKey = getCurrentKupuaKey();
-      const snapshot = kupuaKey ? snapshotStore.get(kupuaKey) : undefined;
-      continuity = historySearchContinuity(snapshot, searchParams);
-      if (!searchOnly.aiQuery) {
+      const snapshot = qualifyBrowsingSnapshot(kupuaKey ? snapshotStore.get(kupuaKey) : undefined, searchOnly);
+      continuity = historySearchContinuity(snapshot, searchOnly);
+      if (!searchOnly.aiQuery && !imageScope) {
         const current = useSearchStore.getState();
         arrivalState = restoreArrivalState(snapshot, buildSearchKey(searchOnly), {
           searchKey: buildSearchKey(current.params),
@@ -331,7 +340,9 @@ export function useUrlSearchSync() {
     const reset = Object.fromEntries(
       searchKeys.map((k) => [k, undefined])
     );
-    setParams({ ...reset, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
+    setParams({ ...reset, imageScope, ...searchOnly, ...(isPopstate ? { offset: 0 } : {}) });
+    if (contextChanged) useSearchStore.setState({ results: [], total: 0, bufferOffset: 0,
+      imagePositions: new Map(), focusedImageId: null, _focusedImageKnownOffset: null, startCursor: null, endCursor: null });
 
     // AI mode sort-only: re-sort the in-memory buffer client-side.
     // No ES round-trip or Bedrock call needed — all ≤200 results are already in memory.
@@ -355,7 +366,7 @@ export function useUrlSearchSync() {
     // means no matching debounce ever fires to clear it), and every future
     // debounced query from the CQL editor is silently dropped.
     setExternalQuery(null);
-  }, [searchParams, location, observedEntryKey, setParams, search, navigate]);
+  }, [searchParams, routeSearch.batch, path, imageScope, location, observedEntryKey, setParams, search, navigate]);
 }
 
 /**
@@ -369,7 +380,8 @@ export function useUrlSearchSync() {
  */
 export function useUpdateSearchParams() {
   const navigate = useNavigate();
-  const currentParams = useSearch({ from: "/search" });
+  const currentParams = useBrowsingSearch();
+  const { path } = useBrowsingContext();
   const paramsRef = useRef(currentParams);
   paramsRef.current = currentParams;
 
@@ -383,8 +395,9 @@ export function useUpdateSearchParams() {
         markPushSnapshot();
       }
       markUserInitiatedNavigation();
+      const destination = path === "/upload" && Object.hasOwn(updates, "query") ? "/search" : path;
       const transition = applySearchContextTransitions(
-        paramsRef.current,
+        destination === "/search" && path === "/upload" ? {} : paramsRef.current,
         updates,
         _searchContextMemory,
       );
@@ -395,13 +408,14 @@ export function useUpdateSearchParams() {
       // the current one on replace (same entry, key must survive).
       const state = isReplace ? withCurrentKupuaKey() : withFreshKupuaKey();
       navigate({
-        to: "/search",
-        search: cleanParams(merged as Record<string, string | undefined>),
+        to: destination,
+        search: { ...cleanParams(searchParamsSchema.parse(merged) as Record<string, string | undefined>),
+          ...(destination === "/upload" ? { batch: paramsRef.current.batch } : {}) },
         replace: isReplace,
         state,
       });
     },
-    [navigate]
+    [navigate, path]
   );
 }
 

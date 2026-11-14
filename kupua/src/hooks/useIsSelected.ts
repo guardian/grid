@@ -8,7 +8,9 @@
  * Kahuna made (selections-kahuna-findings.md §3 Cause 4).
  */
 import { useSelectionStore } from "@/stores/selection-store";
+import { useBrowsingContext } from "@/lib/browsing-context";
 
 export function useIsSelected(id: string): boolean {
-  return useSelectionStore((s) => s.selectedIds.has(id));
+  const { path } = useBrowsingContext();
+  return useSelectionStore((s) => path === "/search" && s.selectedIds.has(id));
 }

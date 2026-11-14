@@ -9,7 +9,7 @@ import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
 import { gridServiceProxyRoutes } from "../../src/lib/grid-mutation-policy";
 import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
 import { getDensityChangeButton } from "../shared/density-selection";
-import { waitForFixtureSetup } from "../shared/helpers";
+import { KupuaHelpers, waitForFixtureSetup } from "../shared/helpers";
 import type { useSearchStore } from "../../src/stores/search-store";
 import type { useSelectionStore } from "../../src/stores/selection-store";
 
@@ -62,6 +62,372 @@ test.describe("Unit B isolated continuation", () => {
     await page.evaluate(() => (window as Partial<CommandWindow>).editorFixture?.disposeReadback()).catch(() => {});
     await page.goto("about:blank");
     await page.unrouteAll({ behavior: "wait" });
+  });
+
+  test("U1 API browsing returns between filtered search, batch, densities, detail and crop without selection leakage", async ({ page }) => {
+    const kupua = new KupuaHelpers(page);
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10_000 } });
+    await page.route(/\/api\/images\/(?:mget|search-after|window|local-\d+)$/, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      const entities = Array.isArray(body.data) ? body.data : [body];
+      for (const entity of entities) entity.links.push({ rel: "crops", href: `${origin}/crops/${entity.data.id}` });
+      await route.fulfill({ response, json: body });
+    });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await kupua.waitForResults();
+    expect(await page.evaluate(async () => {
+      const apiPath = "/src/dal/api-data-source.ts";
+      const { ApiDataSource } = await import(apiPath);
+      return (window as any).__kupua_store__.getState().dataSource instanceof ApiDataSource;
+    })).toBe(true);
+    await kupua.seekTo(0.35);
+    await page.evaluate(async () => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const { uploadBatchMembership } = await import(contextPath);
+      const state = (window as any).__kupua_store__.getState();
+      const ids = state.results.filter(Boolean).slice(0, 80).map((image: any) => image.id);
+      uploadBatchMembership.getState().set("local-u1", ids);
+      const selected = (window as any).__kupua_selection_store__.getState();
+      selected.toggle(ids[0], state.results[0]);
+    });
+    await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    const departure = await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const id = (window as any).__kupua_getViewportAnchorId__();
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+      return { id, top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top,
+        rank: state.imagePositions.get(id), selected: [...(window as any).__kupua_selection_store__.getState().selectedIds], href: location.search };
+    });
+    expect(departure.selected).toHaveLength(1);
+    const scopedRead = page.waitForRequest(request => request.method() === "POST"
+      && request.url() === `${origin}/api/images/search-after` && Array.isArray(request.postDataJSON().ids));
+    await page.evaluate(async () => {
+      const routerPath = "/src/router.ts";
+      const keyPath = "/src/lib/orchestration/history-key.ts";
+      const { router } = await import(routerPath);
+      const { withFreshKupuaKey } = await import(keyPath);
+      await router.navigate({ to: "/upload", search: { batch: "local-u1" }, state: withFreshKupuaKey() });
+    });
+    const batchBody = (await scopedRead).postDataJSON();
+    expect(batchBody.ids).toHaveLength(80);
+    expect(batchBody.q).toBe("");
+    expect(batchBody).not.toHaveProperty("imageScope");
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && state.params.imageScope?.key === "upload:local-u1" && state.total === 80;
+    });
+    expect(await page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return { query: state.params.query, since: state.params.since, until: state.params.until,
+        nonFree: state.params.nonFree, selected: [...(window as any).__kupua_selection_store__.getState().selectedIds] };
+    })).toEqual({ query: undefined, since: undefined, until: undefined, nonFree: "true", selected: departure.selected });
+    await expect(page.getByRole("button", { name: "Select image", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Details panel|Browse panel|Deselect/ })).toHaveCount(0);
+    const table = page.getByRole("region", { name: "Image results table", exact: true });
+    await table.evaluate(element => { element.scrollTop = 650; });
+    const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    await page.mouse.click(point.x, point.y);
+    const batchAnchor = await page.evaluate(id => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+      return { id, top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
+    }, point.imageId);
+    for (const density of ["Grid", "Justified", "Table"]) {
+      await page.getByRole("button", { name: `${density} view`, exact: true }).click();
+      await expect(page.getByRole("button", { name: `${density} view`, exact: true })).toHaveAttribute("aria-pressed", "true");
+    }
+    await expect.poll(async () => page.evaluate(({ id, top }) => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
+    }, batchAnchor)).toBeLessThan(1);
+    await page.locator(`[data-image-id="${batchAnchor.id}"]`).dblclick();
+    await expect(page.locator(`[data-detail-image-id="${batchAnchor.id}"]`)).toBeVisible();
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    const crop = page.getByRole("dialog", { name: "Crop image", exact: true });
+    await expect(crop).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/upload");
+    expect(new URL(page.url()).searchParams.get("batch")).toBe("local-u1");
+    await crop.getByRole("button", { name: "Back to image", exact: true }).click();
+    await expect(crop).toBeHidden();
+    await page.goBack();
+    await expect(table).toBeVisible();
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && !state.params.imageScope && state._searchContinuity?.phase === "placed";
+    });
+    expect(new URL(page.url()).pathname).toBe("/search");
+    expect(Object.fromEntries(new URL(page.url()).searchParams)).toEqual(Object.fromEntries(new URLSearchParams(departure.href)));
+    await expect.poll(async () => page.evaluate(({ id, top, rank }) => {
+      const state = (window as any).__kupua_store__.getState();
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      return cell && state.imagePositions.get(id) === rank ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
+    }, departure)).toBeLessThan(1);
+    await page.evaluate(async () => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const { uploadBatchMembership } = await import(contextPath);
+      const registry = uploadBatchMembership.getState();
+      const batch = registry.batches.get("local-u1")!;
+      const next = (window as any).__kupua_store__.getState().results.find((image: any) => image && !batch.ids.includes(image.id));
+      registry.set("local-u1", [...batch.ids, next.id]);
+    });
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && state.params.imageScope?.revision === 2;
+    });
+    expect(new URL(page.url()).searchParams.get("batch")).toBe("local-u1");
+    await expect.poll(async () => page.evaluate(({ id, top }) => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
+    }, batchAnchor)).toBeLessThan(1);
+    expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(departure.selected);
+    await page.locator(`[data-image-id="${batchAnchor.id}"]`).dblclick();
+    const detail = page.locator(`[data-detail-image-id="${batchAnchor.id}"]`);
+    await expect(detail).toBeVisible();
+    await detail.getByRole("link", { name: "Grid", exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.imageScope)).toBeUndefined();
+    await kupua.waitForResults();
+    expect(new URL(page.url()).pathname).toBe("/search");
+    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.waitForFunction(() => {
+      const state = (window as any).__kupua_store__.getState();
+      return !state.loading && state.params.imageScope?.key === "upload:local-u1";
+    });
+    expect(await page.evaluate(async () => {
+      const prefsPath = "/src/stores/ui-prefs-store.ts";
+      return (await import(prefsPath)).useUiPrefsStore.getState().density;
+    })).toBe("table");
+    await page.goBack();
+    await expect(table).toBeVisible();
+    await expect.poll(() => page.evaluate(({ id, top }) => {
+      const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+      const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+      return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
+    }, batchAnchor)).toBeLessThan(1);
+    expect((await counts(page)).unexpected).toEqual([]);
+  });
+
+  test("U1 API browsing admits distinct batches and revisions without widening empty or missing links", async ({ page }) => {
+    const kupua = new KupuaHelpers(page);
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+    await page.goto(`${origin}/__readback?density=grid`);
+    await kupua.waitForResults();
+    await page.evaluate(async () => {
+      const apiPath = "/src/dal/api-data-source.ts";
+      const { ApiDataSource } = await import(apiPath);
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const { uploadBatchMembership } = await import(contextPath);
+      const state = (window as any).__kupua_store__.getState();
+      if (!(state.dataSource instanceof ApiDataSource)) throw new Error("U1 must exercise ApiDataSource");
+      const ids = state.results.filter(Boolean).slice(0, 120).map((image: any) => image.id);
+      uploadBatchMembership.getState().set("local-slow", ids);
+      uploadBatchMembership.getState().set("local-active", ids.slice(0, 80));
+      uploadBatchMembership.getState().set("local-empty", []);
+      const source = state.dataSource;
+      const originalPage = source.searchAfter.bind(source);
+      const originalCount = source.countWithTickers.bind(source);
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const control = { calls: 0, held: false, released: false, ids, release,
+        dispose: () => { release(); source.searchAfter = originalPage; source.countWithTickers = originalCount; } };
+      (window as any).__u1Admission = control;
+      source.searchAfter = async (...args: any[]) => {
+        control.calls++;
+        const result = await originalPage(...args);
+        if (args[0].imageScope?.key === "upload:local-slow") {
+          control.held = true;
+          await held;
+          control.released = true;
+        }
+        return result;
+      };
+      source.countWithTickers = (...args: any[]) => { control.calls++; return originalCount(...args); };
+    });
+    const visit = async (batch: string, image?: string) => page.evaluate(async ({ batch, image }) => {
+      const routerPath = "/src/router.ts";
+      const keyPath = "/src/lib/orchestration/history-key.ts";
+      const { router } = await import(routerPath);
+      const { withFreshKupuaKey } = await import(keyPath);
+      await router.navigate({ to: "/upload", search: { batch, image, orderBy: "-uploadTime" }, state: withFreshKupuaKey() });
+    }, { batch, image });
+    try {
+      await visit("local-slow");
+      await page.waitForFunction(() => (window as any).__u1Admission.held);
+      await visit("local-active");
+      await page.waitForFunction(() => {
+        const state = (window as any).__kupua_store__.getState();
+        return !state.loading && state.params.imageScope?.key === "upload:local-active" && state.total === 80;
+      });
+      await page.evaluate(() => (window as any).__u1Admission.release());
+      await page.waitForFunction(() => (window as any).__u1Admission.released);
+      expect(await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        return { key: state.params.imageScope.key, total: state.total };
+      })).toEqual({ key: "upload:local-active", total: 80 });
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
+      await page.getByRole("region", { name: "Image results table", exact: true }).evaluate(element => { element.scrollTop = 650; });
+      await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+      const arrivalAnchor = await page.evaluate(() => {
+        const state = (window as any).__kupua_store__.getState();
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const id = (window as any).__kupua_getViewportAnchorId__();
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
+        return { id, focus: state.focusedImageId, top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
+      });
+      expect(arrivalAnchor.focus).toBeNull();
+      await page.evaluate(async () => {
+        const contextPath = "/src/lib/browsing-context.tsx";
+        const { uploadBatchMembership } = await import(contextPath);
+        uploadBatchMembership.getState().set("local-active", (window as any).__u1Admission.ids.slice(0, 100));
+      });
+      await page.waitForFunction(() => {
+        const state = (window as any).__kupua_store__.getState();
+        return !state.loading && state.params.imageScope?.revision === 2 && state.total === 100;
+      });
+      await expect.poll(() => page.evaluate(({ id, top }) => {
+        const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
+        return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
+      }, arrivalAnchor)).toBeLessThan(1);
+      await page.getByRole("button", { name: "Search", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.goBack();
+      await expect(page.getByRole("button", { name: "Table view", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.goForward();
+      await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.getByRole("button", { name: "Upload", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Table view", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
+      const calls = await page.evaluate(() => (window as any).__u1Admission.calls);
+      for (const batch of ["local-empty", "local-missing"]) {
+        await visit(batch, "outside-batch");
+        await expect(page.getByText(batch === "local-empty" ? "This batch has no available images yet." : "This local batch is unavailable in this tab.", { exact: true })).toBeVisible();
+        expect(await page.evaluate(() => (window as any).__u1Admission.calls)).toBe(calls);
+        expect(await page.evaluate(() => (window as any).__kupua_store__.getState().total)).toBe(0);
+        await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
+      }
+      await page.getByRole("button", { name: "Recent uploads", exact: true }).click();
+      await expect(page.getByText("Recent uploads are not connected yet.", { exact: true })).toBeVisible();
+      expect(await page.evaluate(() => (window as any).__u1Admission.calls)).toBe(calls);
+    } finally {
+      await page.evaluate(() => { (window as any).__u1Admission?.dispose(); delete (window as any).__u1Admission; });
+    }
+    await page.goto(`${origin}/upload?batch=local-missing&image=outside-batch`);
+    await expect(page.getByText("This local batch is unavailable in this tab.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
+    expect((await counts(page)).unexpected).toEqual([]);
+  });
+
+  test.describe("U1 compact Upload controls", () => {
+    test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+    test("touch refresh and sorting keep library selection dormant", async ({ page }) => {
+      const kupua = new KupuaHelpers(page);
+      await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 120 } });
+      await page.goto(`${origin}/__readback?density=grid`);
+      await kupua.waitForResults();
+      const selected = await page.evaluate(async () => {
+        const contextPath = "/src/lib/browsing-context.tsx";
+        const panelPath = "/src/stores/panel-store.ts";
+        const actionPath = "/src/stores/image-action-store.ts";
+        const { uploadBatchMembership } = await import(contextPath);
+        const { usePanelStore } = await import(panelPath);
+        const { useImageActionStore } = await import(actionPath);
+        const state = (window as any).__kupua_store__.getState();
+        const images = state.results.filter(Boolean);
+        const image = images[100];
+        (window as any).__kupua_selection_store__.getState().toggle(image.id, image);
+        uploadBatchMembership.getState().set("local-compact", images.slice(0, 80).map((item: any) => item.id));
+        if (!usePanelStore.getState().config.right.visible) usePanelStore.getState().togglePanel("right");
+        if (!useImageActionStore.getState().prepare("share", { api: true, archive: null, targets: [{ id: image.id, image }] })) {
+          throw new Error("Activity fixture preparation refused");
+        }
+        return [image.id];
+      });
+      const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
+      await expect(activity).toBeVisible();
+      await page.evaluate(async () => {
+        const routerPath = "/src/router.ts";
+        const keyPath = "/src/lib/orchestration/history-key.ts";
+        const { router } = await import(routerPath);
+        const { withFreshKupuaKey } = await import(keyPath);
+        await router.navigate({ to: "/upload", search: { batch: "local-compact" }, state: withFreshKupuaKey() });
+      });
+      await page.waitForFunction(() => {
+        const state = (window as any).__kupua_store__.getState();
+        return !state.loading && state.params.imageScope?.key === "upload:local-compact" && state.total === 80;
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+      await expect(activity).toBeVisible();
+      expect(await page.evaluate(async () => {
+        const actionPath = "/src/stores/image-action-store.ts";
+        return (await import(actionPath)).useImageActionStore.getState().prepared[0].targetIds;
+      })).toEqual(selected);
+      const activityDetails = activity.locator(":scope > details");
+      if (await activityDetails.getAttribute("open") === null) await activityDetails.locator(":scope > summary").click();
+      await activity.getByRole("button", { name: /Dismiss .* preview/ }).click();
+      await expect(page.locator("[data-tickbox]")).toHaveCount(0);
+      const point = await kupua.waitForHitTestedImagePoint({ view: "grid" });
+      const target = await page.locator(`[data-image-id="${point.imageId}"]`).elementHandle();
+      if (!target) throw new Error("Upload gesture target unavailable");
+      try {
+        await target.evaluate((element, point) => {
+          element.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1, pointerType: "touch", clientX: point.x, clientY: point.y }));
+          const start = new Event("touchstart", { bubbles: true, cancelable: true });
+          Object.defineProperty(start, "touches", { value: [{ clientX: point.x, clientY: point.y }] });
+          element.dispatchEvent(start);
+        }, point);
+        await page.waitForTimeout(650);
+        const claim = await target.evaluate((element, point) => {
+          const move = new Event("touchmove", { bubbles: true, cancelable: true });
+          Object.defineProperty(move, "touches", { value: [{ clientX: point.x, clientY: point.y - 40 }] });
+          element.dispatchEvent(move);
+          return { prevented: move.defaultPrevented, selecting: document.body.dataset.dragSelecting };
+        }, point);
+        expect(claim).toEqual({ prevented: false, selecting: undefined });
+      } finally {
+        await target.evaluate(element => {
+          element.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1, pointerType: "touch" }));
+          const end = new Event("touchend", { bubbles: true });
+          Object.defineProperty(end, "touches", { value: [] });
+          element.dispatchEvent(end);
+        });
+        await target.dispose();
+      }
+      const beforeRefresh = await counts(page);
+      await page.getByRole("region", { name: "Image results grid", exact: true }).evaluate(element => {
+        element.scrollTop = 0;
+        const top = element.getBoundingClientRect().top + 20;
+        for (const [type, clientY] of [["touchstart", top], ["touchmove", top + 160], ["touchend", null]] as const) {
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          Object.defineProperty(event, "touches", { value: clientY === null ? [] : [{ clientX: 100, clientY }] });
+          element.dispatchEvent(event);
+        }
+      });
+      await expect.poll(async () => (await counts(page)).countReads).toBeGreaterThan(beforeRefresh.countReads);
+      expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(selected);
+      const sort = page.getByRole("button", { name: "Sort by: Uploaded", exact: true });
+      await expect(sort).toBeVisible();
+      await sort.click();
+      await expect(page.getByRole("listbox")).toBeVisible();
+      await page.keyboard.press("Escape");
+      const sortedRead = page.waitForRequest(request => request.method() === "POST"
+        && request.url() === `${origin}/api/images/search-after` && request.postDataJSON().orderBy === "uploadTime");
+      await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();
+      expect((await sortedRead).postDataJSON().ids).toHaveLength(80);
+      expect(new URL(page.url()).pathname).toBe("/upload");
+      expect(new URL(page.url()).searchParams.get("batch")).toBe("local-compact");
+      expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(selected);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect((await counts(page)).unexpected).toEqual([]);
+    });
   });
 
   test("saved-crop links replace rendition state without new history or search work", async ({ page }, testInfo) => {

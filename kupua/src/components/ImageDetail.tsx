@@ -41,7 +41,9 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useNavigate, useRouter, useSearch } from "@tanstack/react-router";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
+import { captureBrowsingDeparture } from "@/lib/browsing-navigation";
 import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { useDataWindow } from "@/hooks/useDataWindow";
 import { useImageTraversal } from "@/hooks/useImageTraversal";
@@ -105,7 +107,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const restoreAroundCursor = useSearchStore((s) => s.restoreAroundCursor);
   const navigate = useNavigate();
   const router = useRouter();
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
+  const { path } = useBrowsingContext();
   const cropping = searchParams.cropping === "true";
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
@@ -396,13 +399,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // bails on display-only-key-only changes. If this ever becomes a push,
       // it must switch to pushNavigate().
       navigate({
-        to: "/search",
+        to: path,
         search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id, crop: undefined }),
         replace: true,
         state: withCurrentKupuaKey(),
       });
     },
-    [navigate, searchKey, searchParamsOrderBy],
+    [navigate, path, searchKey, searchParamsOrderBy],
   );
 
   const {
@@ -475,14 +478,14 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       if (!cropOwner.current.canCrop || cropOwner.current.imageId !== imageId || window.location.href !== originLocation
         || history.state?.kupuaKey !== originKey || import.meta.env.VITE_USE_MEDIA_API === "true" && isGridSessionInvalidated()) return;
       pushNavigate(navigate, {
-        to: "/search",
+        to: path,
         search: (prev: Record<string, unknown>) => ({ ...prev, cropping: "true" }),
         state: { ...history.state, _cropOriginKupuaKey: history.state?.kupuaKey },
       });
     };
     if (imageFullscreenElement()) void document.exitFullscreen().then(enter).catch(() => {});
     else enter();
-  }, [navigate, canCrop, imageId]);
+  }, [navigate, path, canCrop, imageId]);
   const closeCrop = useCallback(() => {
     if (history.state?._cropOriginKupuaKey) {
       markUserInitiatedNavigation();
@@ -490,12 +493,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       return;
     }
     navigate({
-      to: "/search",
+      to: path,
       search: (prev: Record<string, unknown>) => ({ ...prev, cropping: undefined }),
       replace: true,
       state: withCurrentKupuaKey(),
     });
-  }, [navigate]);
+  }, [navigate, path]);
   useKeyboardShortcut("c", () => { if (!cropping && image) openCrop(); });
 
   // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
@@ -538,9 +541,9 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     const crop = cropId ? latestCrops(image?.exports).find(crop => crop.id === cropId) : undefined;
     if (cropId && (!cropPolicy.canReadExports || !crop || !allowsCropRatio(cropSettings, crop.specification?.aspectRatio))) return;
     setFailedMediaOwner(null);
-    navigate({ to: "/search", search: (prev: Record<string, unknown>) => ({ ...prev, crop: cropId }),
+    navigate({ to: path, search: (prev: Record<string, unknown>) => ({ ...prev, crop: cropId }),
       replace: true, state: withCurrentKupuaKey() });
-  }, [navigate, image?.exports, cropSettings, cropPolicy.canReadExports]);
+  }, [navigate, path, image?.exports, cropSettings, cropPolicy.canReadExports]);
   const [isZoomed, setIsZoomed] = useState(false);
   usePinchZoom({
     containerRef: isCompact ? imageSurfaceRef : containerRef,
@@ -790,6 +793,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       pending: displayImage?.id !== imageId || actionImage?.metadataStale }],
   };
   const goHome = () => {
+    if (path === "/upload") captureBrowsingDeparture(router.state.location);
     void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }),
       undefined, router.history);
   };

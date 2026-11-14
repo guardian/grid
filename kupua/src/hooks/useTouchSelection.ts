@@ -5,6 +5,7 @@ import { useLongPress } from "@/hooks/useLongPress";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { createDragSelect, handleLongPressStart, type DragSelectSession } from "@/lib/handleLongPressStart";
 import { useSelectionStore } from "@/stores/selection-store";
+import { useBrowsingContext } from "@/lib/browsing-context";
 
 /** Touch gestures shared by grid/justified and table: long-press, paint/erase drag-select, pull-to-refresh. */
 export function useTouchSelection({ containerRef, handleRange, findImageIndex, getImage, getOrderBy }: {
@@ -14,6 +15,7 @@ export function useTouchSelection({ containerRef, handleRange, findImageIndex, g
   getImage: (idx: number) => Image | undefined;
   getOrderBy: () => string | undefined;
 }): void {
+  const { path } = useBrowsingContext();
   const handleRangeRef = useRef(handleRange);
   handleRangeRef.current = handleRange;
   const dragSelectRef = useRef<DragSelectSession | null>(null);
@@ -21,7 +23,7 @@ export function useTouchSelection({ containerRef, handleRange, findImageIndex, g
   const dragSelect = dragSelectRef.current;
 
   useLongPress({
-    containerRef,
+    containerRef, enabled: path === "/search",
     onLongPressStart: (cellId) => {
       const sel = useSelectionStore.getState();
       const wasSelected = sel.selectedIds.has(cellId);

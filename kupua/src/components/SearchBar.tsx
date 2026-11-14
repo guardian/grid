@@ -3,7 +3,9 @@ import { splitFieldTerms, joinFieldTerms, parseFieldChips, serializeFieldChips }
 import { useIsCompact } from "./PanelLayout";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useUrlSearchSync, useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
+import { returnToBrowsing } from "@/lib/browsing-navigation";
+import { uploadBatchMembership, UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
@@ -31,6 +33,7 @@ import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 export function SearchBar() {
   const searchParams = useSearch({ from: "/search" });
+  const hasUploadBatch = uploadBatchMembership(state => state.batches.size > 0);
   const updateSearch = useUpdateSearchParams();
   const navigate = useNavigate();
   const router = useRouter();
@@ -65,9 +68,6 @@ export function SearchBar() {
   const [hasEditorContent, setHasEditorContent] = useState(
     !!(searchParams.query)
   );
-
-  // Sync URL → store → search (single place for the whole app)
-  useUrlSearchSync();
 
   // Cancel any pending debounce timer when SearchBar unmounts.
   // Without this, navigating away (e.g. double-click → image detail) leaves
@@ -290,6 +290,13 @@ export function SearchBar() {
       >
         <img src={`${import.meta.env.BASE_URL}images/grid-logo.svg`} alt="Grid" className="w-8 h-8" />
       </a>
+
+      {hasUploadBatch && UPLOAD_BROWSING_ENABLED && <button type="button" aria-label="Upload" title="Upload" className="shrink-0 p-2 hover:bg-grid-hover cursor-pointer"
+        onClick={() => returnToBrowsing(navigate, "/upload")}>
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5" />
+        </svg>
+      </button>}
 
       {/* CQL search input with chips — grows to fill available space.
            Layout mirrors kahuna: [magnifier] [query (flex-1 overflow-hidden)] [clear ✕].

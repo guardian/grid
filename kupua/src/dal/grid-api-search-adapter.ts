@@ -143,7 +143,11 @@ export function buildReadBody(params: SearchParams): Record<string, unknown> {
   if (params.modifiedSince) body.modifiedSince = params.modifiedSince;
   if (params.modifiedUntil) body.modifiedUntil = params.modifiedUntil;
   if (params.uploadedBy) body.uploadedBy = params.uploadedBy;
-  if (params.ids) body.ids = params.ids.split(",").map((id) => id.trim());
+  if (params.imageScope) {
+    if (params.imageScope.ids.length === 0) throw new Error("Empty image scope must be admitted without a read");
+    const probe = params.ids?.split(",").map(id => id.trim());
+    body.ids = params.imageScope.ids.filter(id => !probe || probe.includes(id));
+  } else if (params.ids) body.ids = params.ids.split(",").map((id) => id.trim());
   // payType is disabled in Kahuna (the UI control is commented out; live cost
   // filter is the single nonFree/free boolean). Not sent — see deviations.md.
   if (params.syndicationStatus) body.syndicationStatus = params.syndicationStatus;

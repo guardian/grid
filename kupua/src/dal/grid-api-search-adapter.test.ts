@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { extractEnrichment, apiSearchAfter, apiGetImage, apiGetByIds } from "./grid-api-search-adapter";
+import { extractEnrichment, apiSearchAfter, apiGetImage, apiGetByIds, buildReadBody } from "./grid-api-search-adapter";
 import { attachedEnrichment } from "@/stores/enrichment-store";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { getFieldRawValue } from "@/lib/field-registry";
@@ -29,6 +29,26 @@ import type { SearchAfterResult } from "./types";
 // ---------------------------------------------------------------------------
 // Fixture factories
 // ---------------------------------------------------------------------------
+
+describe("local image scope reads", () => {
+  const imageScope = { key: "upload:local-one", revision: 2, ids: ["one", "two"] };
+
+  it("sends canonical membership without the local reference or revision", () => {
+    const body = buildReadBody({ imageScope, nonFree: "true" });
+    expect(body.ids).toEqual(["one", "two"]);
+    expect(body).not.toHaveProperty("imageScope");
+    expect(body).not.toHaveProperty("free");
+  });
+
+  it("intersects singleton cursor probes with membership", () => {
+    expect(buildReadBody({ imageScope, ids: "two,outside" }).ids).toEqual(["two"]);
+    expect(buildReadBody({ imageScope, ids: "outside" }).ids).toEqual([]);
+  });
+
+  it("refuses accidental empty reads rather than dropping the ID constraint", () => {
+    expect(() => buildReadBody({ imageScope: { ...imageScope, ids: [] } })).toThrow("Empty image scope");
+  });
+});
 
 /** A minimal but valid media-api search-after hit entity. */
 function makeEntity(overrides: {

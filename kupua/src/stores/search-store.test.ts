@@ -3935,6 +3935,56 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
 // ---------------------------------------------------------------------------
 
 describe("search generation counter", () => {
+  it("only publishes the newest admitted batch revision", async () => {
+    const original = mock.searchAfter.bind(mock);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (args[0].imageScope?.revision === 1) await held;
+      return result;
+    });
+    const imageScope = { key: "upload:local-one", revision: 1, ids: ["img-1"] };
+    actions().setParams({ imageScope });
+    const previous = actions().search();
+    await flush();
+    actions().setParams({ imageScope: { ...imageScope, revision: 2, ids: ["img-1", "img-2"] } });
+    await actions().search();
+    release();
+    await previous;
+    expect(state().results.map(image => image?.id)).toEqual(["img-1", "img-2"]);
+    expect(state().total).toBe(2);
+    expect(state().params.imageScope?.revision).toBe(2);
+  });
+
+  it("admits an empty local scope without reads and rejects the departing library completion", async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const original = mock.searchAfter.bind(mock);
+    const pages = vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      await held;
+      return original(...args);
+    });
+    const counts = vi.spyOn(mock, "countWithTickers");
+    const departing = actions().search();
+    await flush();
+    pages.mockClear();
+    counts.mockClear();
+
+    actions().setParams({ imageScope: { key: "upload:local-empty", revision: 1, ids: [] } });
+    const admitted = actions().search();
+    release();
+    await Promise.all([departing, admitted]);
+
+    expect(pages).not.toHaveBeenCalled();
+    expect(counts).not.toHaveBeenCalled();
+    expect(state().results).toEqual([]);
+    expect(state().total).toBe(0);
+    expect(state().imagePositions.size).toBe(0);
+    expect(state().loading).toBe(false);
+    expect(state().error).toBeNull();
+  });
+
   it("first search is discarded when a second search overtakes it", async () => {
     mock = new MockDataSource(100);
     useSearchStore.setState({ dataSource: mock });

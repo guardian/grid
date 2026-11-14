@@ -15,12 +15,17 @@
  * the same data layer (`useDataWindow`), focus, and URL-managed search context.
  */
 
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
+import { BrowsingContext, useBrowsingContext, useBrowsingSearch, uploadBatchMembership, UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
+import { returnToBrowsing } from "@/lib/browsing-navigation";
+import { useUrlSearchSync } from "@/hooks/useUrlSearchSync";
 import { zodSearchValidator } from "@tanstack/router-zod-adapter";
 import { rootRoute } from "./__root";
 import { searchParamsSchema } from "@/lib/search-params-schema";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusBar } from "@/components/StatusBar";
+import { SearchFilters } from "@/components/SearchFilters";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { JustifiedGrid } from "@/components/JustifiedGrid";
@@ -44,7 +49,6 @@ import { useZoomStore } from "@/stores/zoom-store";
 import { imageFullscreenElement } from "@/lib/app-fullscreen";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useVisibleRange } from "@/hooks/useDataWindow";
-import { useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRangeSelection } from "@/hooks/useRangeSelection";
 import { interpolateNullZoneSortLabel, resolveKeywordSortInfo, resolveDateSortInfo, computeTrackTicksWithNullZone } from "@/lib/sort-context";
@@ -62,18 +66,43 @@ export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/search",
   validateSearch: zodSearchValidator(searchParamsSchema),
-  component: SearchPage,
+  component: () => <BrowsingContext value={{ path: "/search" }}><SearchPage /></BrowsingContext>,
 });
 
+export const uploadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/upload",
+  validateSearch: zodSearchValidator(searchParamsSchema.pick({ orderBy: true, image: true, crop: true, cropping: true }).extend({ batch: z.string().optional() })),
+  component: UploadPage,
+});
+
+function UploadPage() {
+  const { batch } = uploadRoute.useSearch();
+  const membership = uploadBatchMembership(state => batch ? state.batches.get(batch) : undefined);
+  const imageScope = useMemo(() => (UPLOAD_BROWSING_ENABLED ? membership : undefined)
+    ?? { key: `upload:${batch ?? "recent"}`, revision: 0, ids: [] }, [membership, batch]);
+  return <BrowsingContext value={{ path: "/upload", imageScope }}><SearchPage /></BrowsingContext>;
+}
+
+function BrowsingSync() {
+  useUrlSearchSync();
+  return null;
+}
+
 function SearchPage() {
-  const { image } = useSearch({ from: "/search" });
+  const { image, batch } = useBrowsingSearch();
+  const { path, imageScope } = useBrowsingContext();
+  const upload = path === "/upload";
+  const navigate = useNavigate();
+  const engineScope = useSearchStore(state => state.params.imageScope);
+  const admitted = engineScope?.key === imageScope?.key;
   const density = useUiPrefsStore((state) => state.density);
   const measuredPrototype = useMeasuredPrototype(state => import.meta.env.DEV && state.enabled);
   const collectionStatus = useCollectionStore((s) => s.status);
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
   const handleRange = useRangeSelection();
-  const showImageDetail = !!image;
+  const showImageDetail = !!image && (!upload || !!imageScope?.ids.includes(image));
   const isGrid = density !== "table";
 
   // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
@@ -107,7 +136,7 @@ function SearchPage() {
   // kicks the metadata fetch on first paint so the multi-image panel
   // shows reconciled values rather than all-dashes after a reload.
   useEffect(() => {
-    void useSelectionStore.getState().hydrate();
+    if (!upload) void useSelectionStore.getState().hydrate();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -125,7 +154,7 @@ function SearchPage() {
   const leftPanelVisible = usePanelStore((s) => s.config.left.visible);
   const filtersExpanded = usePanelStore((s) => s.isSectionOpen("left-filters"));
   const fetchAggregations = useSearchStore((s) => s.fetchAggregations);
-  const filtersActive = leftPanelVisible && filtersExpanded;
+  const filtersActive = !upload && leftPanelVisible && filtersExpanded;
   const previousFiltersActiveRef = useRef(filtersActive);
   const previousSearchParamsRef = useRef(searchParams);
   const pendingAggregationModeRef = useRef<"debounced" | "immediate" | null>(
@@ -255,6 +284,7 @@ function SearchPage() {
 
   return (
     <>
+      <BrowsingSync />
       {/* Search UI — always mounted, always laid out at full size.
           When image detail is showing, made invisible via opacity-0 +
           pointer-events-none. This preserves scroll position perfectly —
@@ -273,15 +303,20 @@ function SearchPage() {
         // trap silently swallows ImageDetail's Backspace/arrow shortcuts.
         inert={showImageDetail || undefined}
       >
-        <SearchBar />
+        {upload ? <header className="flex items-center gap-3 border-b border-grid-separator px-3 py-2 text-grid-text">
+          <h1 className="text-base font-medium">Upload</h1>
+          {batch && <span className="min-w-0 flex-1 truncate text-sm text-grid-text-muted">{batch}</span>}
+          {UPLOAD_BROWSING_ENABLED && <SearchFilters.Sort alwaysVisible />}
+          <button type="button" className="ml-auto cursor-pointer text-sm underline" onClick={() => returnToBrowsing(navigate, "/search")}>Search</button>
+        </header> : <SearchBar />}
         {RESIDENT_PREVIEW_ENABLED && <div className="px-3 py-1 text-xs bg-grid-cell text-grid-text-muted" role="note">
           {SAMPLED_PREVIEW_ENABLED
             ? `Sample fixture · up to ${RESIDENT_PREVIEW_LIMIT} images · search matching is simulated; reload resamples`
             : `Synthetic fixture · ${RESIDENT_PREVIEW_LIMIT} images · not live data; search matching is simulated`}
         </div>}
-        <StatusBar />
+        {admitted && (!upload || UPLOAD_BROWSING_ENABLED) && <StatusBar />}
         <PanelLayout
-          leftPanel={
+          leftPanel={!upload &&
             <>
               {collectionStatus !== "absent" && (
                 <AccordionSection sectionId="left-collections" title="Collections">
@@ -293,7 +328,7 @@ function SearchPage() {
               </AccordionSection>
             </>
           }
-          rightPanel={
+          rightPanel={!upload &&
             <>
               <AccordionSection sectionId="right-metadata" title="Details">
                 <FocusedImageMetadata />
@@ -306,7 +341,12 @@ function SearchPage() {
           }
           scrubber={scrubberElement}
         >
-          {density === "justified" ? measuredPrototype ? <MeasuredGrid handleRange={handleRange} /> : <JustifiedGrid handleRange={handleRange} />
+          {!admitted ? <div role="status" className="p-6 text-grid-text-muted">Loading...</div>
+            : upload && !UPLOAD_BROWSING_ENABLED ? <div role="status" className="p-6 text-grid-text-muted">Upload requires media-api mode.</div>
+            : upload && imageScope?.ids.length === 0 ? <div role="status" className="p-6 text-grid-text-muted">
+            <p>{imageScope.revision > 0 ? "This batch has no available images yet." : batch ? "This local batch is unavailable in this tab." : "Recent uploads are not connected yet."}</p>
+            {batch && imageScope.revision === 0 && <button type="button" className="mt-3 cursor-pointer underline" onClick={() => navigate({ to: "/upload", search: {} })}>Recent uploads</button>}
+          </div> : density === "justified" ? measuredPrototype && !upload ? <MeasuredGrid handleRange={handleRange} /> : <JustifiedGrid handleRange={handleRange} />
             : isGrid ? <ImageGrid handleRange={handleRange} /> : <ImageTable handleRange={handleRange} />}
         </PanelLayout>
       </div>
@@ -318,7 +358,7 @@ function SearchPage() {
       {/* Image detail overlay — rendered when image is in URL.
           Must be AFTER FullscreenPreview so its `f` shortcut wins the
           keyboard shortcut stack (most-recently-registered = top). */}
-      {showImageDetail && <ImageDetail imageId={image} gridContainerRef={gridContainerRef} />}
+      {admitted && showImageDetail && (!upload || imageScope!.ids.includes(image)) && <ImageDetail imageId={image} gridContainerRef={gridContainerRef} />}
     </>
   );
 }

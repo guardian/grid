@@ -9,24 +9,25 @@
  */
 
 import { useEffect } from "react";
-import { useSearch } from "@tanstack/react-router";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import { useSearchStore } from "@/stores/search-store";
 
 const SUFFIX = "the Grid";
 
 export function useDocumentTitle() {
-  const { query } = useSearch({ from: "/search" });
+  const { query } = useBrowsingSearch();
+  const { path } = useBrowsingContext();
   const newCount = useSearchStore((s) => s.newCount);
 
   useEffect(() => {
-    const prefix = query?.trim() || "search";
+    const prefix = path === "/upload" ? "upload" : query?.trim() || "search";
     const base = `${prefix} | ${SUFFIX}`;
     document.title = newCount > 0 ? `(${newCount} new)  ${base}` : base;
 
     return () => {
       document.title = SUFFIX;
     };
-  }, [query, newCount]);
+  }, [query, newCount, path]);
 }
 
 

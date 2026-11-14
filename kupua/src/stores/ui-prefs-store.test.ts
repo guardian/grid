@@ -23,6 +23,13 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("independent per-tab density", () => {
+  it("makes density availability explicit without admitting the disconnected form", async () => {
+    const { availableDensity, BROWSING_DENSITIES } = await import("./ui-prefs-store");
+    expect(BROWSING_DENSITIES.upload).toEqual(["table", "grid", "justified"]);
+    expect(availableDensity("search", "form")).toBe("grid");
+    expect(availableDensity("upload", "table")).toBe("table");
+  });
+
   it.each([
     ["touchscreen desktop", false, "explicit", "grid"],
     ["phone", true, "phantom", "justified"],
@@ -47,7 +54,7 @@ describe("independent per-tab density", () => {
     expect(useUiPrefsStore.getState().density).toBe(density);
   });
 
-  it.each([null, "invalid", '{"density":"table"}'])("defaults fresh/invalid storage %j to grid", async (value) => {
+  it.each([null, "invalid", "form", '{"density":"table"}'])("defaults fresh/invalid storage %j to grid", async (value) => {
     if (value !== null) storage.setItem("kupua-density", value);
     const { useUiPrefsStore } = await import("./ui-prefs-store");
     expect(useUiPrefsStore.getState().density).toBe("grid");

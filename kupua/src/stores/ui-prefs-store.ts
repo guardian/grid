@@ -26,6 +26,15 @@ import { isCompactNow, useIsCompact } from "@/hooks/useShell";
 export type FocusMode = "explicit" | "phantom";
 export type Density = "grid" | "table" | "justified";
 
+export const BROWSING_DENSITIES: Readonly<Record<"search" | "upload", readonly Density[]>> = {
+  search: ["table", "grid", "justified"],
+  upload: ["table", "grid", "justified"],
+};
+
+export function availableDensity(context: "search" | "upload", preference: unknown): Density {
+  return BROWSING_DENSITIES[context].includes(preference as Density) ? preference as Density : defaultDensity();
+}
+
 export const DENSITY_STORAGE_KEY = "kupua-density";
 
 export function writeDensityPreference(density: Density): void {
@@ -46,7 +55,7 @@ export function defaultDensity(): Density {
 function initialDensity(): Density {
   try {
     const saved = sessionStorage.getItem(DENSITY_STORAGE_KEY);
-    return saved === "table" || saved === "justified" || saved === "grid" ? saved : defaultDensity();
+    return availableDensity("search", saved);
   } catch {
     return defaultDensity();
   }

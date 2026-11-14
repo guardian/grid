@@ -42,12 +42,36 @@ on `pagehide` when reload persistence is enabled. React mounts under StrictMode.
 `router.ts` assembles the routes and uses `plain-search-serializer.ts` to preserve plain string
 query values. `/` redirects to search; `/images/:imageId` redirects to the search detail overlay
 for bookmark compatibility. `routes/search.tsx` composes the toolbar, panels, list, scrubber and
-detail overlay, mounts URL synchronization and one shared range-selection handler, initializes
-the legacy Grid API singleton and hydrates selection metadata. Panel-local consumers resolve
+detail overlay for the active `/search` or `/upload` context, mounts URL synchronization
+as a first child before list/detail effects and one shared range-selection handler,
+initializes the legacy Grid API singleton and hydrates selection metadata only for search.
+Panel-local consumers resolve
 focused/selected images without making the whole route subscribe to selection metadata changes.
+
+`lib/browsing-context.tsx` supplies the lightweight route/selection policy and
+in-memory fixture membership. `lib/browsing-navigation.ts` owns pre-disposal
+departure capture and existing snapshot/density restoration. Upload omits the
+search toolbar, selection controls and list panels; shared Grid/Table/Justified,
+detail and crop navigate within the admitted route. It mounts no second engine.
+Empty/missing membership cannot become a library query. Real recent uploads,
+jobs, persisted descriptors and form density are not connected; the
+[Upload workplan](../gradually-growing-teeth.upload-workplan.md#u1-route-safe-browsing-and-scope-admission)
+owns those boundaries.
+
+Upload is API-only under the existing startup mode. Direct-ES visits show an
+unavailable state and admit empty membership to cancel old work without reads;
+they do not extend the ES adapter or switch data modes. The search toolbar's
+Upload return affordance requires both API mode and retained membership.
+Upload requests the shared sort control's always-visible variant, including compact
+and narrow layouts. Its selection recognizer is disabled before attaching gesture
+listeners; scoped refresh preserves dormant library selection. Same-batch arrivals
+keep the viewport mounted for continuity capture, and Home clears scope only after
+capturing Upload's departure, before its library preload.
 
 The root wraps the route outlet in `ErrorBoundary` and mounts one `ToastContainer` outside it.
 `ErrorBoundary` handles render failures with retry or a Home reload; it is not network recovery.
+Compact global activity is suppressed only for the Search list's expanded inline
+selection sheet, never merely because dormant library selection exists in Upload.
 
 ## Preferences and Layout State (`stores/ui-prefs-store.ts`, `column-store.ts`, `panel-store.ts`)
 
@@ -58,6 +82,8 @@ effective phantom mode without overwriting the saved desktop choice. Desktop tou
 choice. Callers use the effective-mode helpers.
 Column and panel stores separately persist table layout and panel settings in localStorage.
 Density is neither a URL search parameter nor a history-snapshot field.
+Availability is explicit per search/Upload context; cross-context return recalls
+the departing context's density without changing ordinary search-history policy.
 
 `defaultDensity()` is Justified in the compact model and Grid otherwise, unless the user has locked
 a Home view. `lib/home-view.ts` persists that lock (density plus Justified/Grid zoom offsets) in
@@ -326,8 +352,8 @@ individual renderers; use the field catalogue for the available definitions.
 `search-params-schema.ts` validates URL fields and canonicalizes one primary sort. Collection
 context suppresses AI and defaults to date-added ordering; entering/leaving AI or collection
 context restores remembered sorts where applicable. AI admits relevance and upload-time sorts.
-`useUpdateSearchParams()` applies these transitions before navigation. Only `image` is a
-display-only URL field; pagination is store-owned. `home-defaults.ts` owns the Home search
+`useUpdateSearchParams()` applies these transitions before navigation. Image/crop state
+is display-only; pagination is store-owned. `home-defaults.ts` owns the Home search
 default (`nonFree: "true"`), distinct from datasource requests where absence means free-only.
 On an initially empty search URL, `useUrlSearchSync` waits for the defaults replacement before
 admitting any search, including StrictMode effect replay. Defaults are not reinjected after later
@@ -680,7 +706,9 @@ Existing truncation/soft-cap feedback stays; the route owns the hook and passes 
 
 Top-level header: logo (click → `resetToHome()`), `CqlSearchInput` with 300ms debounce,
 `AiSearchInput` (gated by the selected mode's AI capability), Clear, split `SearchFilters` and
-`SettingsMenu`. Manages CQL input generation for stale-debounce detection. AI text changes
+`SettingsMenu`, plus an Upload return entry when local membership exists. Real
+file-entry controls remain U4 work. URL synchronization is route-owned, not mounted
+by SearchBar. Manages CQL input generation for stale-debounce detection. AI text changes
 propagate to the URL via `updateSearch({ aiQuery })` with 600ms debounce. Pending debounce is
 cancelled on unmount. Clear and Home remain separate operations; Home resets the whole context.
 

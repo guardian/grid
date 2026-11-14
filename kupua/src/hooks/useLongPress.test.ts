@@ -75,6 +75,33 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("useLongPress -- threshold timing", () => {
+  it("does not claim touch movement or clicks when disabled", () => {
+    const container = createContainer();
+    const cell = createCell(container, "img-disabled");
+    const onStart = vi.fn();
+    const onClick = vi.fn();
+    cell.addEventListener("click", onClick);
+    renderHook(() => useLongPress({
+      containerRef: { current: container }, enabled: false,
+      onLongPressStart: onStart, onDragEnterCell: vi.fn(),
+    }));
+    const touch = (type: string) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "touches", { value: [{ clientX: 100, clientY: 150 }] });
+      cell.dispatchEvent(event);
+      return event;
+    };
+    firePointer(cell, "pointerdown");
+    touch("touchstart");
+    vi.advanceTimersByTime(LONG_PRESS_MS + 1);
+    const move = touch("touchmove");
+    cell.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(onStart).not.toHaveBeenCalled();
+    expect(move.defaultPrevented).toBe(false);
+    expect(document.body.dataset.dragSelecting).toBeUndefined();
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
   it("fires onLongPressStart after LONG_PRESS_MS without movement", () => {
     const container = createContainer();
     const cell = createCell(container, "img-1");

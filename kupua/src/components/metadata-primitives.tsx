@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useId, useState } from "react";
-import { useSearch } from "@tanstack/react-router";
+import { useBrowsingSearch } from "@/lib/browsing-context";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { cancelSearchDebounce } from "@/lib/orchestration/search";
 import { upsertFieldTerm } from "@/dal/adapters/elasticsearch/cql-query-edit";
@@ -28,7 +28,7 @@ import { Chevron } from "./Chevron";
 // ---------------------------------------------------------------------------
 
 export function useMetadataSearch() {
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
   const updateSearch = useUpdateSearchParams();
 
   return useCallback(

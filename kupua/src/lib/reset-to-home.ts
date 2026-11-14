@@ -156,7 +156,7 @@ export async function resetToHome(navigate: () => void | string, traceInteractio
   resetCqlInputComponents();
   // Apply the full reset, then overlay the home defaults (DEFAULT_SEARCH).
   // Single source of truth: if the home URL defaults change, this follows.
-  store.setParams({ ...fullReset, ...DEFAULT_SEARCH, offset: 0 });
+  store.setParams({ ...fullReset, ...DEFAULT_SEARCH, imageScope: undefined, offset: 0 });
   try {
     const search = store.search(undefined, traceInteractionId
       ? { traceAction: "home-logo", traceInteractionId }

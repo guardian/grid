@@ -24,6 +24,32 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 14 November 2026 - Route-safe Upload browsing
+
+Added fixture-backed, media-api-only Upload browsing over the existing search store,
+data window and Grid/Table/Justified/detail/crop views. Short batch URLs resolve to
+immutable ID scopes with distinct batch identity and membership revision. Empty or
+missing batches never become library searches, and existing cancellation/generation
+guards reject obsolete completions.
+
+Search/Upload return restores context, density and represented position through
+pre-disposal snapshots, without a second result buffer. A surviving anchor keeps
+its place across membership revisions without relaxing library history matching.
+Route-owned synchronization preserves list/detail effect ordering. Library selection
+remains separate and dormant in Upload, whose selection controls and list panels
+are omitted.
+
+Home captures Upload before preloading the library and clears its batch scope;
+active membership growth keeps the viewport mounted for continuity capture.
+Upload disables selection gesture recognition, preserves library membership on
+touch refresh and keeps sorting available in compact and narrow layouts. Global
+activity remains reachable where no inline selection sheet replaces it, retaining
+the operation's captured targets rather than adopting the current batch.
+
+Existing API fixtures cover scoped reads and navigation. Form density, file entry,
+jobs, transport, editing commands and durable batch recovery remain disconnected;
+the Upload workplan records their boundaries and validation.
+
 ### 13 November 2026 - DOM-measured density prototype
 
 Added a dev-only natural-height stand-in that shares ImageGrid's browsing lifecycle,

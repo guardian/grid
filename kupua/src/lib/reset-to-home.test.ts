@@ -15,7 +15,7 @@ const fixture = vi.hoisted(() => {
   const state = {
     params: {} as Record<string, unknown>,
     search: vi.fn(() => { fixture.generation++; listeners.forEach((listener) => listener()); return operation(); }),
-    setParams: vi.fn((params: Record<string, unknown>) => { state.params = params; listeners.forEach((listener) => listener()); }),
+    setParams: vi.fn((params: Record<string, unknown>) => { state.params = { ...state.params, ...params }; listeners.forEach((listener) => listener()); }),
     setFocusedImageId: vi.fn(),
     abortExtends: vi.fn(),
   };
@@ -71,6 +71,7 @@ describe("resetToHome", () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     fixture.operation.mockReset().mockResolvedValue(undefined);
+    fixture.state.params = {};
     fixture.mobile = true;
     fixture.flags.restore = fixture.flags.density = null;
     fixture.listeners.clear();
@@ -146,6 +147,8 @@ describe("resetToHome", () => {
 
   it("waits for data before density suppression and ordinary Home navigation", async () => {
     const { resetToHome } = await import("./reset-to-home");
+    window.history.replaceState(null, "", "/upload?batch=local-home&image=local-0");
+    fixture.state.params = { imageScope: { key: "upload:local-home", revision: 1, ids: ["local-0"] } };
     fixture.preferences.setDensity("table");
     const pending = deferred();
     fixture.operation.mockReturnValueOnce(pending.promise);
@@ -155,6 +158,7 @@ describe("resetToHome", () => {
     expect(fixture.flags.density).toBeNull();
     expect(fixture.preferences.density).toBe("table");
     expect(clearSelection).toHaveBeenCalledOnce();
+    expect(fixture.state.params.imageScope).toBeUndefined();
     pending.resolve();
     await home;
     expect(navigate).toHaveBeenCalledOnce();

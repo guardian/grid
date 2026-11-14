@@ -50,6 +50,13 @@ const SPARSE_IMAGE: Image = {
 // buildSearchKey
 // ---------------------------------------------------------------------------
 describe("buildSearchKey", () => {
+  it("distinguishes local batch identity and membership revision with identical sorting", () => {
+    const params = { orderBy: "-uploadTime", imageScope: { key: "upload:local-one", revision: 1, ids: ["image"] } };
+    expect(buildSearchKey(params)).not.toBe(buildSearchKey({ ...params, imageScope: { ...params.imageScope, key: "upload:local-two" } }));
+    expect(buildSearchKey(params)).not.toBe(buildSearchKey({ ...params, imageScope: { ...params.imageScope, revision: 2 } }));
+    expect(buildSearchKey({ ...params, batch: "local-one" })).toBe(buildSearchKey(params));
+  });
+
   it("produces deterministic key regardless of param order", () => {
     const a = buildSearchKey({ query: "cats", orderBy: "width" });
     const b = buildSearchKey({ orderBy: "width", query: "cats" });

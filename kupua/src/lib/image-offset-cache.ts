@@ -82,7 +82,7 @@ export function buildSearchKey(params: SearchParams | Record<string, unknown>): 
   const entries = Object.entries(params)
     .filter(([k, v]) =>
       !URL_DISPLAY_KEYS.has(k) &&
-      k !== "offset" && k !== "length" &&
+      k !== "offset" && k !== "length" && k !== "batch" &&
       v != null && v !== "")
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(entries);

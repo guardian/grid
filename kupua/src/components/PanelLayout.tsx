@@ -31,6 +31,7 @@ import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
 import { useSelectionStore } from "@/stores/selection-store";
 import { BottomSheet } from "./BottomSheet";
 import { SelectionFab } from "./SelectionFab";
+import { useBrowsingContext } from "@/lib/browsing-context";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,6 +255,7 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
 // ---------------------------------------------------------------------------
 
 export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: PanelLayoutProps) {
+  const { path } = useBrowsingContext();
   const leftVisible = usePanelStore((s) => s.config.left.visible);
   const leftWidth = usePanelStore((s) => s.config.left.width);
   const rightVisible = usePanelStore((s) => s.config.right.visible);
@@ -269,12 +271,12 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
   // See lib/keyboard-shortcuts.ts for the universal pattern.
   // -------------------------------------------------------------------------
 
-  useKeyboardShortcut("[", () => togglePanel("left"));
-  useKeyboardShortcut("]", () => togglePanel("right"));
+  useKeyboardShortcut("[", () => { if (leftPanel) togglePanel("left"); });
+  useKeyboardShortcut("]", () => { if (rightPanel) togglePanel("right"); });
 
   const isCompact = useIsCompact();
   const selectedCount = useSelectionStore((s) => s.selectedIds.size);
-  const hasSelection = selectedCount > 0;
+  const hasSelection = path === "/search" && selectedCount > 0;
   const [actionsCloseSignal, setActionsCloseSignal] = useState(0);
 
   // Compact: the expanded card belongs to the selection; clearing it (×, Home) closes it.

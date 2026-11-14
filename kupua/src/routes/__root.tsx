@@ -26,7 +26,8 @@ function RootLayout() {
   const compact = useIsCompact();
   const selected = useSelectionStore(state => state.selectedIds.size > 0);
   const expanded = usePanelStore(state => state.config.right.visible);
-  const image = useRouterState({ select: state => (state.location.search as { image?: string }).image });
+  const inlineActivity = useRouterState({ select: state => state.location.pathname === "/search"
+    && !(state.location.search as { image?: string }).image });
   useAppCutout(compact);
   return (
     <div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
@@ -34,7 +35,7 @@ function RootLayout() {
         <Outlet />
       </ErrorBoundary>
       <ToastContainer />
-      <LabelOperationReceipts hidden={compact && selected && expanded && !image} />
+      <LabelOperationReceipts hidden={compact && selected && expanded && inlineActivity} />
     </div>
   );
 }

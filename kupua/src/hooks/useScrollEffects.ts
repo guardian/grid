@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useSearch } from "@tanstack/react-router";
+import { useBrowsingSearch } from "@/lib/browsing-context";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { canExtendForward, getDisplayEnd, getSearchGeneration, getTerminalDirection, getWindowMaintenanceDelay, useSearchStore } from "@/stores/search-store";
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
@@ -211,7 +211,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     scrollRowToCenter,
   } = config;
 
-  const searchParams = useSearch({ from: "/search" });
+  const searchParams = useBrowsingSearch();
   const [densityReady, setDensityReady] = useState(() =>
     _densityFocusSaved === null && useSearchStore.getState()._browseNavigation === null);
   const densityMountedReadyRef = useRef(false);
@@ -348,7 +348,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const state = useSearchStore.getState();
     if ((event.key === "ArrowLeft" || event.key === "ArrowRight") &&
         ((!("layout" in geo) && geo.columns <= 1) || getEffectiveFocusMode() !== "explicit" ||
-          state.focusedImageId === null || useSelectionStore.getState().selectedIds.size > 0)) return false;
+          state.focusedImageId === null || (!state.params.imageScope && useSelectionStore.getState().selectedIds.size > 0))) return false;
     return ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "PageUp", "PageDown", "Home", "End", " "].includes(event.key);
   }
 
@@ -644,7 +644,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const store = useSearchStore.getState();
       const mayMoveFocus = pendingFocus.focusedImageId !== null &&
         store.focusedImageId === pendingFocus.focusedImageId &&
-        getEffectiveFocusMode() === "explicit" && useSelectionStore.getState().selectedIds.size === 0;
+        getEffectiveFocusMode() === "explicit" && (store.params.imageScope || useSelectionStore.getState().selectedIds.size === 0);
       if (pendingFocus.edge === "first") {
         if (mayMoveFocus) {
           const firstImg = store.results.find(image => image && !image.__availability);
