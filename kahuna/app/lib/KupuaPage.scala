@@ -15,7 +15,9 @@ case class KupuaSiteSettings(
   agencyPicksColour: String,
   showDenySyndicationWarning: Boolean,
   denySyndicationTextHeader: String,
-  defaultShouldBlurGraphicImages: Boolean
+  defaultShouldBlurGraphicImages: Boolean,
+  shouldUploadStraightToBucket: Boolean,
+  maybeUploadLimitInBytes: Option[Int]
 )
 
 object KupuaSiteSettings {
@@ -30,7 +32,9 @@ object KupuaSiteSettings {
     agencyPicksColour = config.agencyPicksColour,
     showDenySyndicationWarning = config.showDenySyndicationWarning.getOrElse(false),
     denySyndicationTextHeader = config.denySyndicationTextHeader,
-    defaultShouldBlurGraphicImages = config.defaultShouldBlurGraphicImages
+    defaultShouldBlurGraphicImages = config.defaultShouldBlurGraphicImages,
+    shouldUploadStraightToBucket = config.shouldUploadStraightToBucket,
+    maybeUploadLimitInBytes = config.maybeUploadLimitInBytes
   )
 }
 
@@ -76,6 +80,8 @@ object KupuaPage {
       "searchClause" -> "is:agency-pick",
       "backgroundColour" -> agencyPicksColour,
       "subAggField" -> "usageRights.supplier"))
+    val upload = Json.obj("transport" -> (if (shouldUploadStraightToBucket) "signed" else "direct")) ++
+      maybeUploadLimitInBytes.fold(Json.obj())(limit => Json.obj("maxFileBytes" -> limit))
     val gridConfig = Json.obj(
       "staffPhotographerOrganisation" -> staffPhotographerOrganisation,
       "fieldAliases" -> fieldAliases,
@@ -88,7 +94,8 @@ object KupuaPage {
       "tickerDefinitions" -> (orgTicker.toList ++ agencyTicker.toList),
       "showDenySyndicationWarning" -> showDenySyndicationWarning,
       "denySyndicationTextHeader" -> denySyndicationTextHeader,
-      "defaultShouldBlurGraphicImages" -> defaultShouldBlurGraphicImages
+      "defaultShouldBlurGraphicImages" -> defaultShouldBlurGraphicImages,
+      "upload" -> upload
     )
     Json.obj("mediaApiUri" -> mediaApiUri, "collectionsUri" -> collectionsUri, "gridConfig" -> gridConfig) ++
       showPaid.fold(Json.obj())(paid => Json.obj("showPaid" -> paid))

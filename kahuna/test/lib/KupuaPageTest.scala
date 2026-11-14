@@ -72,7 +72,9 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
       agencyPicksColour = "#123456",
       showDenySyndicationWarning = true,
       denySyndicationTextHeader = "Denied </script>",
-      defaultShouldBlurGraphicImages = false
+      defaultShouldBlurGraphicImages = false,
+      shouldUploadStraightToBucket = true,
+      maybeUploadLimitInBytes = Some(666000000)
     )
     def config(s: KupuaSiteSettings = settings, showPaid: Option[Boolean] = Some(false)) =
       KupuaPage.pageConfig("https://api.example.test", "https://collections.example.test", s, showPaid)
@@ -95,7 +97,7 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
       grid.keys shouldBe Set(
         "staffPhotographerOrganisation", "fieldAliases", "imageTypes", "recordDownloadAsUsage", "useReaper",
         "hasAgencyPicks", "agencyPicksIngredients", "agencyPicksColour", "tickerDefinitions",
-        "showDenySyndicationWarning", "denySyndicationTextHeader", "defaultShouldBlurGraphicImages")
+        "showDenySyndicationWarning", "denySyndicationTextHeader", "defaultShouldBlurGraphicImages", "upload")
       (grid \ "staffPhotographerOrganisation").as[String] shouldBe "ACME"
       (grid \ "fieldAliases") .as[JsArray] shouldBe Json.arr(Json.toJson(alias))
       (grid \ "fieldAliases" \ 0 \ "matchViaExistence").as[Boolean] shouldBe true
@@ -108,6 +110,14 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
       (grid \ "showDenySyndicationWarning").as[Boolean] shouldBe true
       (grid \ "denySyndicationTextHeader").as[String] shouldBe "Denied </script>"
       (grid \ "defaultShouldBlurGraphicImages").as[Boolean] shouldBe false
+      (grid \ "upload").as[JsObject] shouldBe Json.obj("transport" -> "signed", "maxFileBytes" -> 666000000)
+    }
+
+    "uses direct upload when configured and omits an unspecified byte limit" in {
+      val grid = (config(settings.copy(
+        shouldUploadStraightToBucket = false, maybeUploadLimitInBytes = None
+      )) \ "gridConfig").as[JsObject]
+      (grid \ "upload").as[JsObject] shouldBe Json.obj("transport" -> "direct")
     }
 
     "builds media-api's ticker shapes in its order" in {
