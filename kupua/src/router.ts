@@ -10,6 +10,7 @@ import { imageCropRoute, imageRoute } from "./routes/image";
 import { plainParseSearch, plainStringifySearch } from "./lib/plain-search-serializer";
 import { discardCropDraftOutside } from "./lib/crop/crop-draft";
 import { captureBrowsingDeparture } from "./lib/browsing-navigation";
+import { acknowledgeUploadNavigation } from "./stores/upload-jobs-store";
 
 const routeTree = rootRoute.addChildren([indexRoute, searchRoute, uploadRoute, imageRoute, imageCropRoute]);
 
@@ -21,6 +22,7 @@ export const router = createRouter({
 });
 
 router.subscribe("onBeforeNavigate", ({ fromLocation, toLocation }) => {
+  if (fromLocation && fromLocation.href !== toLocation.href) acknowledgeUploadNavigation();
   if (fromLocation && fromLocation.pathname !== toLocation.pathname) captureBrowsingDeparture(fromLocation);
 });
 router.subscribe("onResolved", ({ toLocation }) => discardCropDraftOutside(toLocation.searchStr));

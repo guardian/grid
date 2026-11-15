@@ -3,6 +3,7 @@ import { uploadBatchMembership } from "@/lib/browsing-context";
 import { loadUploadBatches, saveUploadBatch, useLocalPersistenceStore } from "@/lib/local-batch-storage";
 import { mintKupuaKey } from "@/lib/orchestration/history-key";
 import { observeGridUpload, observeUploadedImage, submitGridUpload, type UploadSubmission } from "@/lib/upload-commands";
+import { redactUploadError } from "@/lib/upload-error";
 
 export type UploadPhase = "waiting" | "preparing" | "transferring" | "processing" | "visibility" | "complete" | "failed" | "blocked" | "uncertain" | "interrupted";
 export type UploadAttempt = {
@@ -16,9 +17,14 @@ export type UploadAttempt = {
   interrupted?: boolean;
   submission?: UploadSubmission;
   message?: string;
+  notificationDismissed?: boolean;
+  serverError?: string;
 };
 export type UploadBatch = { id: string; createdAt: number; restored?: boolean; attempts: readonly UploadAttempt[] };
-export const useUploadJobsStore = create<{ batches: readonly UploadBatch[] }>(() => ({ batches: [] }));
+export const activeUploadPhases = new Set<UploadPhase>(["waiting", "preparing", "transferring", "processing", "visibility"]);
+export const attentionUploadPhases = new Set<UploadPhase>(["failed", "blocked", "uncertain", "interrupted"]);
+export const useUploadJobsStore = create<{ batches: readonly UploadBatch[]; activityAttemptIds: ReadonlySet<string> }>(() => ({ batches: [], activityAttemptIds: new Set() }));
+const reportedProblems = new Map<string, Set<string>>();
 const files = new Map<string, File>();
 const requests = new Map<string, AbortController>();
 const observation = new Map<string, { due: number; deadline: number }>();
@@ -35,7 +41,47 @@ function attemptById(id: string): UploadAttempt | undefined {
 function update(id: string, patch: Partial<UploadAttempt>): void {
   useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => batch.attempts.some(attempt => attempt.id === id)
     ? { ...batch, attempts: batch.attempts.map(attempt => attempt.id === id ? { ...attempt, ...patch } : attempt) } : batch) }));
+  const attempt = attemptById(id);
+  if (attempt) reportProblem(attempt);
   refreshLifecycle();
+}
+
+function reportProblem(attempt: UploadAttempt): void {
+  const queued = attempt.submission?.queued;
+  const problems: { stage: string; message: string; serverError?: string; httpStatus?: number }[] = [];
+  if (queued && queued !== "acknowledged") {
+    problems.push({ stage: "queued", message: attempt.submission?.reason ?? `Queued status update ${queued}.`, httpStatus: attempt.submission?.httpStatus });
+  }
+  if (attentionUploadPhases.has(attempt.phase)) {
+    const stage = attempt.phase === "failed" && attempt.submission?.outcome === "accepted" ? "processing" : attempt.submission?.stage ?? attempt.phase;
+    problems.push({ stage, message: attempt.message ?? `Upload ${attempt.phase} during ${stage}.`, serverError: attempt.serverError,
+      ...(!queued ? { httpStatus: attempt.submission?.httpStatus } : {}) });
+  }
+  const previous = reportedProblems.get(attempt.id) ?? new Set<string>();
+  for (const problem of problems) {
+    const diagnostic = { ...problem, message: redactUploadError(problem.message),
+      ...(problem.serverError ? { serverError: redactUploadError(problem.serverError) } : {}) };
+    const signature = JSON.stringify(diagnostic);
+    if (previous.has(signature)) continue;
+    previous.add(signature);
+    reportedProblems.set(attempt.id, previous);
+    console.error("[Upload]", { filename: redactUploadError(attempt.name), mediaId: attempt.statusId ?? attempt.imageId ?? null, ...diagnostic });
+  }
+}
+
+export function acknowledgeUploadNavigation(): void {
+  const state = useUploadJobsStore.getState();
+  const visible = state.batches.flatMap(batch => batch.attempts).filter(attempt => state.activityAttemptIds.has(attempt.id));
+  if (visible.length && visible.every(attempt => attempt.phase === "complete")) {
+    useUploadJobsStore.setState({ activityAttemptIds: new Set() });
+  }
+}
+
+export function dismissUploadAttempt(id: string): void {
+  const attempt = attemptById(id);
+  if (!attempt || !attentionUploadPhases.has(attempt.phase)) return;
+  update(id, { notificationDismissed: true });
+  useUploadJobsStore.setState(state => ({ activityAttemptIds: new Set([...state.activityAttemptIds].filter(attemptId => attemptId !== id)) }));
 }
 
 function warnBeforeUnload(event: BeforeUnloadEvent): void {
@@ -81,7 +127,13 @@ export function submitUploadFiles(submitted: readonly File[]): string | undefine
     files.set(attemptId, file);
     return { id: attemptId, name: file.name, size: file.size, phase: "waiting" as const };
   }).sort((first, second) => first.name.localeCompare(second.name));
-  useUploadJobsStore.setState(state => ({ batches: [...state.batches, { id, createdAt: Date.now(), attempts }] }));
+  useUploadJobsStore.setState(state => {
+    const previous = state.batches.flatMap(batch => batch.attempts).filter(attempt => state.activityAttemptIds.has(attempt.id));
+    const continuing = previous.some(attempt => activeUploadPhases.has(attempt.phase));
+    const retained = previous.filter(attempt => continuing || attentionUploadPhases.has(attempt.phase));
+    return { batches: [...state.batches, { id, createdAt: Date.now(), attempts }],
+      activityAttemptIds: new Set([...retained.map(attempt => attempt.id), ...attempts.map(attempt => attempt.id)]) };
+  });
   ownLifecycle();
   void transferNext();
   return id;
@@ -145,7 +197,7 @@ async function observeAttempt(id: string): Promise<void> {
       update(id, { phase: "complete", imageId: attempt.statusId, message: undefined });
       observation.delete(id);
     } else if (result.outcome === "failed") {
-      update(id, { phase: "failed", message: "The loader reports processing failed." });
+      update(id, { phase: "failed", message: "The loader reports processing failed.", serverError: result.errorMessage });
       observation.delete(id);
     } else if (result.outcome === "unavailable" || (result.outcome === "missing" && attempt.phase !== "visibility")) {
       update(id, { phase: "uncertain", message: result.outcome === "missing"
@@ -185,6 +237,9 @@ export function disposeUploadJobs(): void {
     attempts: batch.attempts.map(attempt => ["waiting", "preparing", "transferring", "processing", "visibility"].includes(attempt.phase)
       ? { ...attempt, phase: "uncertain", interrupted: true, message: "This page was interrupted. No upload will be replayed." } : attempt),
   })) }));
+  for (const batch of useUploadJobsStore.getState().batches) {
+    for (const attempt of batch.attempts) if (attempt.interrupted) reportProblem(attempt);
+  }
   if (lifecycleOwned) {
     window.removeEventListener("beforeunload", warnBeforeUnload);
     window.removeEventListener("pagehide", disposeUploadJobs);
@@ -196,7 +251,8 @@ const retainedBatches = loadUploadBatches();
 for (const batch of retainedBatches) {
   uploadBatchMembership.getState().set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []), batch.revision, true);
 }
-useUploadJobsStore.setState({ batches: retainedBatches });
+useUploadJobsStore.setState({ batches: retainedBatches,
+  activityAttemptIds: new Set(retainedBatches.flatMap(batch => batch.attempts.filter(attempt => attentionUploadPhases.has(attempt.phase) && !attempt.notificationDismissed).map(attempt => attempt.id))) });
 useUploadJobsStore.subscribe((state, previous) => {
   if (state.batches === previous.batches) return;
   for (const batch of state.batches) {

@@ -14,7 +14,7 @@ import { useAppCutout, useIsCompact } from "@/hooks/useShell";
 import { useSelectionStore } from "@/stores/selection-store";
 import { usePanelStore } from "@/stores/panel-store";
 import { applyLegacyCropParams } from "@/lib/crop/crop-options";
-import { UploadActivity, UploadDropzone } from "@/components/UploadActivity";
+import { UploadActivity, UploadDropzone, UploadNotices } from "@/components/UploadActivity";
 
 export const rootRoute = createRootRoute({
   beforeLoad: ({ location }) => {
@@ -33,6 +33,7 @@ function RootLayout() {
   return (
     <UploadDropzone><div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
       <UploadActivity />
+      <UploadNotices />
       <ErrorBoundary>
         <Outlet />
       </ErrorBoundary>

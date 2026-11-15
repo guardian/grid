@@ -282,7 +282,7 @@ const GridCell = memo(function GridCell({
   if (image.__availability) return (
     <div data-grid-cell data-cell-id={image.id} data-image-id={image.id} data-unavailable={image.__availability}
       className="shrink-0 flex items-center justify-center bg-grid-cell rounded text-sm text-grid-text-muted"
-      style={{ width: cellWidth, height: imageOnlyHeight !== undefined && dateLineOnly ? imageOnlyHeight + GRID_DATE_LINE_HEIGHT : imageOnlyHeight ?? cellHeight }}>
+      style={{ width: openOnly ? "100%" : cellWidth, height: imageOnlyHeight !== undefined && dateLineOnly ? imageOnlyHeight + GRID_DATE_LINE_HEIGHT : imageOnlyHeight ?? cellHeight }}>
       {image.__availability === "deleted" ? "Image deleted" : "Image unavailable"}
     </div>
   );
@@ -1275,7 +1275,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       ref={parentRef}
       role="region"
       aria-label={measuredCells ? "Image results form" : variableLayout ? "Image results justified" : "Image results grid"}
-      className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain"
+      className={`${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain`}
       data-selection-mode={inSelectionMode ? "true" : undefined}
       style={{ ...(variableLayout ? { overflowAnchor: "none" as const } : {}), touchAction: measuredCells ? "auto" : "pan-y" }}
       onClick={handleBackgroundClick}

@@ -107,6 +107,14 @@ test.describe("U2 measured phone", () => {
     await expect(page.locator('html[data-shell="compact"]')).toHaveCount(1);
     expect(await region.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await expect(region.locator("[data-measured-cell]").first()).toBeAttached();
+    expect(await region.locator(".form-density-item").first().evaluate(form => {
+      const preview = form.querySelector('[data-measured-field="image"]')!.getBoundingClientRect();
+      const content = form.querySelector("[data-form-content]")!.getBoundingClientRect();
+      const field = form.querySelector(".metadata-form-field")!;
+      const label = field.firstElementChild!.getBoundingClientRect();
+      const control = field.querySelector("input, textarea, select")!.getBoundingClientRect();
+      return content.top >= preview.bottom && control.top >= label.bottom;
+    })).toBe(true);
     await region.getByRole("textbox", { name: "Description", exact: true }).first().fill("Phone draft with natural wrapping. ".repeat(6));
     await page.screenshot({ path: info.outputPath("measured-mobile.png") });
   });

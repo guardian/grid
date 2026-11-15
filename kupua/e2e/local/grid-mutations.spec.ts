@@ -51,9 +51,11 @@ test.describe("U3 isolated uploads", () => {
     await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
     await page.goto(`${origin}/__continuation?density=grid`);
     await new KupuaHelpers(page).waitForResults();
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Upload", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
+    await expect(page.getByRole("toolbar", { name: "Upload controls", exact: true })).toBeVisible();
+    await expect(page.getByRole("toolbar", { name: "Upload controls", exact: true })
+      .getByRole("combobox", { name: "Upload batch", exact: true })).toBeInViewport();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     expect(await page.locator('input[type="file"][multiple]').count()).toBe(1);
     await page.locator('input[type="file"]').setInputFiles([
       { name: "z.jpg", mimeType: "image/jpeg", buffer: Buffer.from("first fixture") },
@@ -62,7 +64,7 @@ test.describe("U3 isolated uploads", () => {
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
     const first = new URL(page.url()).searchParams.get("batch");
     expect(first).toMatch(/^local-/);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await new KupuaHelpers(page).waitForResults();
     const drop = await page.evaluateHandle(() => {
       const transfer = new DataTransfer();
@@ -79,7 +81,7 @@ test.describe("U3 isolated uploads", () => {
       await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
       expect(new URL(page.url()).searchParams.get("batch")).not.toBe(second);
       expect(new URL(page.url()).searchParams.get("batch")).not.toBe(first);
-      await page.getByRole("button", { name: "Search", exact: true }).click();
+      await page.getByRole("button", { name: "Back to search", exact: true }).click();
       await new KupuaHelpers(page).waitForResults();
       const image = page.locator("[data-image-id]").first();
       await image.dispatchEvent("dragstart", { dataTransfer: drop });
@@ -101,7 +103,7 @@ test.describe("U3 isolated uploads", () => {
     await page.goto(`${origin}/__continuation?density=table`);
     await new KupuaHelpers(page).waitForResults();
     expect(await page.getByRole("combobox", { name: "Upload batch", exact: true }).count()).toBe(0);
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     expect(await page.getByRole("combobox", { name: "Upload batch", exact: true }).count()).toBe(1);
     const ids = await page.evaluate(async () => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
@@ -148,18 +150,23 @@ test.describe("U3 isolated uploads", () => {
     const batch = new URL(page.url()).searchParams.get("batch")!;
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
-    await expect(page.getByText("Upload activity: 5 files; 2 images available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload activity: 2 need attention", exact: true })).toBeVisible();
     const firstId = "ad782ecdac770fc6eb9a62e44f90873fb97fb26b";
     const secondId = "fe05bcdcdc4928012781a5f1a2a77cbb5398e106";
     const table = page.getByRole("region", { name: "Image results table", exact: true });
     await expect.poll(() => table.locator("[data-image-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-image-id")))).toEqual([firstId, secondId]);
     await expect(page.getByRole("button", { name: "Sort by: Submitted filename", exact: true })).toBeVisible();
-    await page.getByText(/Upload activity:/).click();
+    await page.getByRole("button", { name: /^Upload activity:/ }).click();
     const outcomes = page.locator("[data-upload-attempt]");
-    expect(await outcomes.locator(":scope > span:first-child").allTextContents()).toEqual(["a-first.jpg", "bad.jpg", "m-duplicate.jpg", "oversized.jpg", "z-original.jpg"]);
-    await expect(page.getByText("Same canonical image as another file", { exact: true })).toBeVisible();
-    await expect(page.getByText("File exceeds the configured upload size limit.", { exact: true })).toBeVisible();
-    await page.getByText(/Upload activity:/).click();
+    await expect(outcomes.locator("button.upload-filename")).toHaveCount(3);
+    expect(await outcomes.locator(".upload-filename").allTextContents()).toEqual(["bad.jpg", "oversized.jpg", "a-first.jpg", "m-duplicate.jpg", "z-original.jpg"]);
+    expect(await page.evaluate(async () => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      const attempts = (await import(jobsPath)).useUploadJobsStore.getState().batches.at(-1).attempts;
+      return attempts.filter((attempt: any) => ["m-duplicate.jpg", "z-original.jpg"].includes(attempt.name)).map((attempt: any) => attempt.imageId);
+    })).toEqual([secondId, secondId]);
+    await expect(page.getByText("Filesize exceeds max 20B", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /^Upload activity:/ }).click();
     await page.getByRole("button", { name: "Sort by: Submitted filename", exact: true }).click();
     await page.getByRole("option", { name: "Uploaded", exact: true }).click();
     await expect(page.getByRole("button", { name: "Sort by: Uploaded", exact: true })).toBeVisible();
@@ -184,6 +191,7 @@ test.describe("U3 isolated uploads", () => {
   });
 
   test("U4 recent uploads retain position across Search and never widen after identity loss", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-uploads", "true"));
     const escaped: string[] = [];
     const consoleMessages: string[] = [];
     page.on("console", message => consoleMessages.push(message.text()));
@@ -211,15 +219,15 @@ test.describe("U3 isolated uploads", () => {
     const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
     await page.mouse.click(point.x, point.y);
     const anchor = await table.locator(`[data-image-id="${point.imageId}"]`).evaluate(element => element.getBoundingClientRect().top);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await kupua.waitForResults();
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveValue("");
     await expect.poll(async () => {
       const row = table.locator(`[data-image-id="${point.imageId}"]`);
       return await row.count() ? Math.abs(await row.evaluate(element => element.getBoundingClientRect().top) - anchor) : null;
     }).toBeLessThan(1);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await kupua.waitForResults();
     await page.reload();
     await kupua.waitForResults();
@@ -241,10 +249,21 @@ test.describe("U3 isolated uploads", () => {
     await expect(table).toBeVisible();
     expect(await page.evaluate(() => Object.keys(sessionStorage).map(key => sessionStorage.getItem(key)).join("").includes("uploader@example.invalid"))).toBe(false);
     await page.evaluate(async () => {
+      const prefsPath = "/src/stores/ui-prefs-store.ts";
+      (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("explicit");
+      const state = (window as CommandWindow).__kupua_store__.getState();
+      state.setFocusedImageId(state.results.find(Boolean)!.id);
+    });
+    await page.keyboard.press("f");
+    await expect(page.locator('[data-fullscreen-preview="active"]')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.hasAttribute("data-fullscreen-preview") === true)).toBe(true);
+    await page.evaluate(async () => {
       const sessionPath = "/src/lib/grid-api-instance.ts";
       (await import(sessionPath)).invalidateGridSession();
     });
-    await expect(page.getByText("My recent uploads are unavailable. Reload after signing in to a human account.", { exact: true })).toBeVisible();
+    await expect(page.locator('[data-fullscreen-preview="active"]')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true);
+    await expect(page.getByText("Upload permission is unavailable. Reload after signing in.", { exact: true })).toBeVisible();
     await expect(page.locator("[data-image-id]")).toHaveCount(0);
     await page.request.post(`${origin}/__upload-control`, { data: { identityAvailable: false } });
     bodies.length = 0;
@@ -265,16 +284,16 @@ test.describe("U3 isolated uploads", () => {
     const acceptUnload = (dialog: Dialog) => dialog.type() === "beforeunload" ? dialog.accept() : dialog.dismiss();
     page.on("dialog", acceptUnload);
     try { await page.reload(); } finally { page.off("dialog", acceptUnload); }
-    await page.getByText(/Upload activity:/).click();
-    await expect(page.getByText("Interrupted; not resumed", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /^Upload activity:/ }).click();
+    await expect(page.getByRole("button", { name: "Recheck", exact: true })).toBeVisible();
     const afterReload = (await (await page.request.get(`${origin}/__upload-control`)).json()).statusReads;
     await page.waitForTimeout(2_200);
     const idle = await (await page.request.get(`${origin}/__upload-control`)).json();
     expect(idle.statusReads).toBe(afterReload);
     expect(idle.writes).toBe(1);
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
-    await page.getByRole("button", { name: "Check status", exact: true }).click();
-    await expect(page.getByText("Known image", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Recheck", exact: true }).click();
+    await expect(page.getByRole("button", { name: "pending.jpg", exact: true })).toBeVisible();
     const restore = await page.evaluateHandle(() => {
       const original = Storage.prototype.setItem;
       Storage.prototype.setItem = function(key, value) {
@@ -285,12 +304,18 @@ test.describe("U3 isolated uploads", () => {
     });
     try {
       await page.locator('input[type="file"]').setInputFiles({ name: "quota.jpg", mimeType: "image/jpeg", buffer: Buffer.from("quota") });
-      const warning = page.getByText(/This batch has changes that could not be retained/);
+      const warning = page.getByText("Upload history saving error", { exact: true });
       await expect(warning).toBeVisible();
-      await expect(page.getByText("Upload activity: 1 file; 1 image available", { exact: true })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Upload activity: 1 completed", exact: true })).toBeVisible();
       await restore.evaluate(restoreStorage => restoreStorage());
-      await page.getByRole("button", { name: "Try local storage again", exact: true }).click();
-      await expect(warning).toHaveCount(0);
+      await page.evaluate(async () => {
+        const jobsPath = "/src/stores/upload-jobs-store.ts";
+        (await import(jobsPath)).retainUploadBatches();
+      });
+      expect(await page.evaluate(async () => {
+        const storagePath = "/src/lib/local-batch-storage.ts";
+        return Object.keys((await import(storagePath)).useLocalPersistenceStore.getState().batchIssues);
+      })).toEqual([]);
       expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
     } finally { await restore.evaluate(restoreStorage => restoreStorage()); await restore.dispose(); }
   });
@@ -353,7 +378,7 @@ test.describe("U3 isolated uploads", () => {
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
     const batch = new URL(page.url()).searchParams.get("batch")!;
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
-    await expect(page.getByText("Upload activity: 2 files; 2 images available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload activity: 2 completed", exact: true })).toBeVisible();
     await (await getDensityChangeButton(page, "table"))?.click();
     const table = page.getByRole("region", { name: "Image results table", exact: true });
     await expect(table.locator("[data-image-id]")).toHaveCount(2);
@@ -366,8 +391,8 @@ test.describe("U3 isolated uploads", () => {
     const description = form.getByRole("textbox", { name: "Description", exact: true }).first();
     await description.fill("Retained hosted draft");
     await page.screenshot({ path: testInfo.outputPath("u2-form-hosted-desktop.png") });
-    await page.getByText(/Upload activity:/).click();
-    await page.locator("[data-upload-attempt]").first().getByRole("button", { name: "Open image", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^Upload activity:/ })).toHaveCount(0);
+    await form.getByRole("button", { name: "Open image", exact: true }).first().click();
     await expect(page.locator("[data-detail-image-id]")).toBeVisible();
     await page.goBack();
     await expect(form).toBeVisible();
@@ -377,6 +402,34 @@ test.describe("U3 isolated uploads", () => {
     await expect(page.locator("[data-detail-image-id]")).toBeVisible();
     expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
     expect(escaped).toEqual([]);
+  });
+
+  test("denied upload permission hides entry and drops and refuses a retained batch detail URL", async ({ page }) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-uploads", "true"));
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, canUpload: false } });
+    await page.goto(`${origin}/__continuation?density=grid`);
+    await new KupuaHelpers(page).waitForResults();
+    expect(await page.evaluate(async () => {
+      const path = "/src/lib/grid-api-instance.ts";
+      return (await import(path)).getGridSessionPermissions();
+    })).toMatchObject({ canUpload: false });
+    await expect(page.getByRole("button", { name: "My recent uploads", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-upload-dropzone], input[type="file"]')).toHaveCount(0);
+    await page.evaluate(async () => {
+      const contextPath = "/src/lib/browsing-context.tsx";
+      const routerPath = "/src/router.ts";
+      const id = "a".repeat(40);
+      (await import(contextPath)).uploadBatchMembership.getState().set("local-denied", [id]);
+      await (await import(routerPath)).router.navigate({ to: "/upload", search: { batch: "local-denied", image: id } });
+    });
+    await expect(page.getByText("You are not authorised to upload images.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveCount(0);
+    await expect(page.locator('[aria-label^="Image results"], [data-detail-image-id], [data-upload-dropzone]')).toHaveCount(0);
+    expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
+    await new KupuaHelpers(page).waitForResults();
   });
 
   test("upload opt-in, route-independent completion and activity detail preserve admission and history", async ({ page }, testInfo) => {
@@ -400,15 +453,24 @@ test.describe("U3 isolated uploads", () => {
       const routerPath = "/src/router.ts";
       await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
     });
-    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toBeDisabled();
+    await expect(page.getByText("Uploads are disabled.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload files", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "My recent uploads", exact: true })).toHaveCount(0);
+    await expect(page.locator('[data-upload-dropzone], input[type="file"]')).toHaveCount(0);
     await page.evaluate(async () => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
       (await import(jobsPath)).submitUploadFiles([new File(["synthetic"], "blocked.jpg")]);
     });
-    await page.getByText(/Upload activity:/).click();
-    await expect(page.getByText("Not submitted", { exact: true })).toBeVisible();
-    await expect(page.getByText("Submission blocked during preparation", { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(async () => {
+      const path = "/src/stores/upload-jobs-store.ts";
+      return (await import(path)).useUploadJobsStore.getState().batches[0]?.attempts[0]?.phase;
+    })).toBe("blocked");
     expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
+    await page.evaluate(async () => {
+      const path = "/src/stores/upload-jobs-store.ts";
+      const jobs = await import(path);
+      jobs.dismissUploadAttempt(jobs.useUploadJobsStore.getState().batches[0].attempts[0].id);
+    });
     await page.keyboard.press("Shift+F12");
     const dialog = page.getByRole("dialog", { name: "Hello, Joshua", exact: true });
     await expect(dialog.getByRole("checkbox", { name: "Allow editing", exact: true })).toBeChecked();
@@ -419,7 +481,7 @@ test.describe("U3 isolated uploads", () => {
     await expect(page.getByRole("button", { name: "Upload files", exact: true })).toBeEnabled();
     expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(0);
     expect(await page.evaluate(() => (window as CommandWindow).commandFixture.gridLabelEditingEnabled())).toBe(false);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await new KupuaHelpers(page).waitForResults();
     const capturedTarget = await page.evaluate(async () => {
       const actionsPath = "/src/stores/image-action-store.ts";
@@ -435,13 +497,13 @@ test.describe("U3 isolated uploads", () => {
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
     const batch = new URL(page.url()).searchParams.get("batch");
     expect(batch).toMatch(/^local-/);
-    const uploadSummary = page.getByText(/Upload activity:/);
+    const uploadSummary = page.getByRole("button", { name: /^Upload activity:/ });
     const uploadBox = (await uploadSummary.boundingBox())!;
     const existingBox = (await existingActivity.boundingBox())!;
     expect(uploadBox.x < existingBox.x + existingBox.width && uploadBox.x + uploadBox.width > existingBox.x
       && uploadBox.y < existingBox.y + existingBox.height && uploadBox.y + uploadBox.height > existingBox.y).toBe(false);
     await uploadSummary.click();
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await expect(page).toHaveURL(/\/search/);
     await expect.poll(() => page.evaluate(async batchId => {
       const jobsPath = "/src/stores/upload-jobs-store.ts";
@@ -457,26 +519,29 @@ test.describe("U3 isolated uploads", () => {
       })) }));
     }, batch);
     const queuedReceipt = page.getByText("Queued update rejected; file transfer acknowledged", { exact: true });
-    await expect(queuedReceipt).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload activity: 1 in progress", exact: true })).toBeVisible();
+    await expect(queuedReceipt).toHaveCount(0);
     await expect(page.getByText("Upload receipt", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Upload activity:/ }).click();
+    await page.getByRole("button", { name: "Open batch", exact: true }).click();
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true } });
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).visibilityReads).toBeGreaterThan(0);
-    await expect(page.getByText("Upload activity: 1 file; 0 images available", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Upload activity: 1 in progress", exact: true })).toBeVisible();
     expect(await page.evaluate(async batch => {
       const contextPath = "/src/lib/browsing-context.tsx";
       return (await import(contextPath)).uploadBatchMembership.getState().batches.get(batch!)!.ids;
     }, batch)).toEqual([]);
     await page.request.post(`${origin}/__upload-control`, { data: { searchable: true } });
-    await expect(page.getByText("Upload activity: 1 file; 1 image available", { exact: true })).toBeVisible();
-    await expect(page.getByText("Image available", { exact: true })).toBeVisible();
-    await expect(queuedReceipt).toBeHidden();
-    await page.getByText("Upload receipt", { exact: true }).click();
-    await expect(queuedReceipt).toBeVisible();
-    await page.getByText("Upload receipt", { exact: true }).click();
-    await page.getByRole("button", { name: "Open batch", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Upload activity: 1 completed", exact: true })).toBeVisible();
+    expect(await page.evaluate(async batchId => {
+      const jobsPath = "/src/stores/upload-jobs-store.ts";
+      return (await import(jobsPath)).useUploadJobsStore.getState().batches.find((item: any) => item.id === batchId)?.attempts[0].submission?.queued;
+    }, batch)).toBe("rejected");
+    await expect(queuedReceipt).toHaveCount(0);
     await expect(page.getByRole("region", { name: "Image results table", exact: true }).locator("[data-image-id]")).toHaveCount(1);
     const before = await page.evaluate(() => history.length);
-    await page.getByRole("button", { name: "Open image", exact: true }).click();
+    await page.getByRole("button", { name: /^Upload activity:/ }).click();
+    await page.getByRole("region", { name: "Upload activity", exact: true }).getByRole("button", { name: "test.jpg", exact: true }).click();
     await expect(page.locator(`[data-detail-image-id="${"f".repeat(40)}"]`)).toBeVisible();
     expect(await page.evaluate(() => history.length)).toBe(before + 1);
     await page.goBack();
@@ -487,7 +552,7 @@ test.describe("U3 isolated uploads", () => {
     const touch = await page.context().newCDPSession(page);
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await touch.detach();
-    await page.getByRole("button", { name: "Open batch", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath("u3-upload-compact.png") });
     expect(await page.evaluate(async () => {
@@ -589,6 +654,32 @@ test.describe("Unit B isolated continuation", () => {
     const region = page.getByRole("region", { name: "Image results form", exact: true });
     await expect(region).toBeVisible();
     await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState().loading);
+    await region.locator('[data-measured-cell][data-image-id="local-0"] img').evaluate(async element => {
+      const bitmap = element as HTMLImageElement;
+      await bitmap.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.naturalHeight; canvas.height = bitmap.naturalWidth;
+      const context = canvas.getContext("2d")!;
+      context.translate(canvas.width, 0); context.rotate(Math.PI / 2); context.drawImage(bitmap, 0, 0);
+      const dimensions = { width: canvas.width, height: canvas.height };
+      const store = (window as CommandWindow).__kupua_store__;
+      store.setState(state => ({ results: state.results.map(image => image?.id === "local-0" ? { ...image,
+        source: { ...image.source!, dimensions, orientedDimensions: dimensions },
+        thumbnail: { ...image.thumbnail!, secureUrl: canvas.toDataURL(), mimeType: "image/png", dimensions },
+      } : image) }));
+    });
+    const viewport = page.viewportSize()!;
+    for (const width of [viewport.width, 390]) {
+      await page.setViewportSize({ width, height: viewport.height });
+      await expect.poll(() => region.locator('[data-measured-cell][data-image-id="local-0"] img').evaluate(element => {
+        const image = element as HTMLImageElement;
+        const preview = image.closest('[role="button"]')!.getBoundingClientRect();
+        const column = image.closest('[data-measured-field="image"]')!.getBoundingClientRect();
+        return { portrait: image.naturalHeight > image.naturalWidth, fit: getComputedStyle(image).objectFit,
+          height: preview.height, withinColumn: preview.left >= column.left && preview.right <= column.right };
+      })).toEqual({ portrait: true, fit: "contain", height: 256, withinColumn: true });
+    }
+    await page.setViewportSize(viewport);
     const cell = region.locator('[data-image-id="local-1"]');
     const input = cell.getByRole("textbox", { name: "Description", exact: true });
     const originalDraft = "A retained editorial description. ".repeat(50);
@@ -669,10 +760,10 @@ test.describe("Unit B isolated continuation", () => {
       await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
     }
     await expect(input).toHaveValue(composedDraft);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await expect(page.getByRole("region", { name: "Image results table", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Form view", exact: true })).toHaveCount(0);
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     await expect(input).toHaveValue(composedDraft);
     expect((await counts(page)).fakeDispatches).toBe(0);
     expect((await counts(page)).unexpected).toEqual([]);
@@ -688,6 +779,16 @@ test.describe("Unit B isolated continuation", () => {
     await (await getDensityChangeButton(page, "table"))?.click();
     expect(await page.evaluate(() => sessionStorage.getItem("kupua-density"))).toBe("table");
     expect(await page.evaluate(() => sessionStorage.getItem("kupua-upload-density"))).toBe("form");
+    await page.evaluate(async () => {
+      const path = "/src/router.ts";
+      await (await import(path)).router.navigate({ to: "/upload", search: { batch: "local-u2" } });
+    });
+    await expect(region).toBeVisible();
+    await page.getByRole("button", { name: "Publish unavailable", exact: true }).click();
+    const unavailable = region.locator('[data-measured-field="image"] [data-unavailable]').first();
+    await expect(unavailable).toBeAttached();
+    expect(await unavailable.evaluate(element => element.getBoundingClientRect().width))
+      .toBe(await unavailable.evaluate(element => element.closest('[data-measured-field="image"]')!.getBoundingClientRect().width));
   });
 
   test.describe("U2 compact form", () => {
@@ -823,7 +924,7 @@ test.describe("Unit B isolated continuation", () => {
     await expect(crop).toBeHidden();
     await page.goBack();
     await expect(table).toBeVisible();
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await page.waitForFunction(() => {
       const state = (window as any).__kupua_store__.getState();
       return !state.loading && !state.params.imageScope && state._searchContinuity?.phase === "placed";
@@ -844,7 +945,7 @@ test.describe("Unit B isolated continuation", () => {
       const next = (window as any).__kupua_store__.getState().results.find((image: any) => image && !batch.ids.includes(image.id));
       registry.set("local-u1", [...batch.ids, next.id]);
     });
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     await page.waitForFunction(() => {
       const state = (window as any).__kupua_store__.getState();
       return !state.loading && state.params.imageScope?.revision === 2;
@@ -863,7 +964,7 @@ test.describe("Unit B isolated continuation", () => {
     await expect.poll(() => page.evaluate(() => (window as any).__kupua_store__.getState().params.imageScope)).toBeUndefined();
     await kupua.waitForResults();
     expect(new URL(page.url()).pathname).toBe("/search");
-    await page.getByRole("button", { name: "Upload", exact: true }).click();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
     await page.waitForFunction(() => {
       const state = (window as any).__kupua_store__.getState();
       return !state.loading && state.params.imageScope?.key === "upload:local-u1";
@@ -964,13 +1065,13 @@ test.describe("Unit B isolated continuation", () => {
         const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
         return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
       }, arrivalAnchor)).toBeLessThan(1);
-      await page.getByRole("button", { name: "Search", exact: true }).click();
+      await page.getByRole("button", { name: "Back to search", exact: true }).click();
       await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("aria-pressed", "true");
       await page.goBack();
       await expect(page.getByRole("button", { name: "Table view", exact: true })).toHaveAttribute("aria-pressed", "true");
       await page.goForward();
       await expect(page.getByRole("button", { name: "Grid view", exact: true })).toHaveAttribute("aria-pressed", "true");
-      await page.getByRole("button", { name: "Upload", exact: true }).click();
+      await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
       await expect(page.getByRole("button", { name: "Table view", exact: true })).toHaveAttribute("aria-pressed", "true");
       await page.waitForFunction(() => !(window as any).__kupua_store__.getState().loading);
       const calls = await page.evaluate(() => (window as any).__u1Admission.calls);
@@ -989,7 +1090,7 @@ test.describe("Unit B isolated continuation", () => {
     }
     await page.goto(`${origin}/upload?batch=local-missing&image=outside-batch`);
     await expect(page.getByText("This local batch is unavailable in this tab.", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Back to search", exact: true })).toBeVisible();
     expect((await counts(page)).unexpected).toEqual([]);
   });
 
@@ -1091,9 +1192,38 @@ test.describe("Unit B isolated continuation", () => {
       expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(selected);
       const sort = page.getByRole("button", { name: "Sort by: Uploaded", exact: true });
       await expect(sort).toBeVisible();
+      await page.setViewportSize({ width: 390, height: 320 });
       await sort.click();
-      await expect(page.getByRole("listbox")).toBeVisible();
+      const menu = page.getByRole("listbox", { name: "Sort field", exact: true });
+      await expect(menu).toBeVisible();
+      await page.keyboard.press("End");
+      const lastVisible = await menu.getByRole("option").last().evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const menuBounds = element.parentElement!.getBoundingClientRect();
+        return bounds.top >= menuBounds.top && bounds.bottom <= Math.min(innerHeight, menuBounds.bottom);
+      });
+      await page.keyboard.press("Tab");
+      const forward = await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).evaluate(element => element === document.activeElement);
+      await sort.press("ArrowDown");
+      await page.keyboard.press("Shift+Tab");
+      const backward = await page.getByRole("combobox", { name: "Upload batch", exact: true }).evaluate(element => element === document.activeElement);
+      expect({ lastVisible, forward, backward }).toEqual({ lastVisible: true, forward: true, backward: true });
+      await sort.press("ArrowDown");
       await page.keyboard.press("Escape");
+      await expect(sort).toBeFocused();
+      await sort.press("ArrowDown");
+      const lastLabel = (await menu.getByRole("option").last().innerText()).trim();
+      await menu.getByRole("option").last().click();
+      await page.getByRole("button", { name: `Sort by: ${lastLabel}`, exact: true }).press("ArrowDown");
+      const selectedOption = menu.getByRole("option", { name: lastLabel, exact: true });
+      await expect(selectedOption).toBeFocused();
+      expect(await selectedOption.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const menuBounds = element.parentElement!.getBoundingClientRect();
+        return bounds.top >= menuBounds.top && bounds.bottom <= Math.min(innerHeight, menuBounds.bottom);
+      })).toBe(true);
+      await menu.getByRole("option", { name: "Uploaded", exact: true }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
       const sortedRead = page.waitForRequest(request => request.method() === "POST"
         && request.url() === `${origin}/api/images/search-after` && request.postDataJSON().orderBy === "uploadTime");
       await page.getByRole("button", { name: "Sort descending, click to sort ascending", exact: true }).click();

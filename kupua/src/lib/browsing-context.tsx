@@ -29,6 +29,7 @@ export const uploadBatchMembership = create<{
 
 export const BrowsingContext = createContext<{
   path: BrowsingPath; imageScope?: ImageScope; recentUploadScope?: RecentUploadScope; recentStatus?: "loading" | "unavailable";
+  uploadStatus?: "loading" | "denied" | "disabled" | "unavailable";
 }>({ path: "/search" });
 export const useBrowsingContext = () => useContext(BrowsingContext);
 

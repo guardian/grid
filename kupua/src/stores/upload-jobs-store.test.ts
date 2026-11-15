@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { uploadBatchMembership } from "@/lib/browsing-context";
-import { checkUploadAttempt, disposeUploadJobs, retainUploadBatches, submitUploadFiles, useUploadJobsStore } from "./upload-jobs-store";
+import { acknowledgeUploadNavigation, checkUploadAttempt, dismissUploadAttempt, disposeUploadJobs, retainUploadBatches, submitUploadFiles, useUploadJobsStore } from "./upload-jobs-store";
 import { observeGridUpload, observeUploadedImage, submitGridUpload } from "@/lib/upload-commands";
 import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 
@@ -9,13 +9,72 @@ const file = (name: string, bytes = name) => Object.assign(new Blob([bytes]), { 
 afterEach(async () => {
   disposeUploadJobs();
   await Promise.resolve();
-  useUploadJobsStore.setState({ batches: [] });
+  useUploadJobsStore.setState({ batches: [], activityAttemptIds: new Set() });
   uploadBatchMembership.setState({ batches: new Map() });
   vi.resetAllMocks();
   vi.useRealTimers();
 });
 
 describe("route-independent upload jobs", () => {
+  it("logs a queued rejection once without concealing a later processing failure", async () => {
+    vi.useFakeTimers();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(submitGridUpload).mockResolvedValue({ outcome: "accepted", stage: "queued", imageId: "4".repeat(40), queued: "rejected" });
+    vi.mocked(observeGridUpload).mockResolvedValue({ outcome: "failed" });
+    try {
+      submitUploadFiles([file("processing-failure.jpg")]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(errors).toHaveBeenCalledTimes(2);
+      expect(errors).toHaveBeenCalledWith("[Upload]", expect.objectContaining({ stage: "queued", message: "Queued status update rejected." }));
+      expect(errors).toHaveBeenCalledWith("[Upload]", expect.objectContaining({ stage: "processing", message: "The loader reports processing failed." }));
+    } finally { errors.mockRestore(); }
+  });
+
+  it("keeps only the current activity round, preserves running work through navigation and acknowledges individual errors without deleting history", async () => {
+    vi.useFakeTimers();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const firstId = "1".repeat(40);
+    const secondId = "2".repeat(40);
+    useUploadJobsStore.setState({ batches: [{ id: "local-old", createdAt: 1, attempts: [
+      { id: "old-success", name: "old.jpg", size: 1, phase: "complete", imageId: "0".repeat(40) },
+    ] }] });
+    vi.mocked(submitGridUpload).mockResolvedValueOnce({ outcome: "accepted", stage: "transfer", imageId: firstId })
+      .mockResolvedValueOnce({ outcome: "accepted", stage: "transfer", imageId: secondId })
+      .mockResolvedValueOnce({ outcome: "failed", stage: "transfer", imageId: "3".repeat(40), reason: "Synthetic transfer rejection." });
+    vi.mocked(observeGridUpload).mockResolvedValue({ outcome: "status", status: "COMPLETED" });
+    vi.mocked(observeUploadedImage).mockResolvedValue({ outcome: "visible" });
+    try {
+      submitUploadFiles([file("first.jpg")]);
+      submitUploadFiles([file("second.jpg")]);
+      expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(2);
+      acknowledgeUploadNavigation();
+      expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(2);
+      await vi.advanceTimersByTimeAsync(2_100);
+      expect(useUploadJobsStore.getState().activityAttemptIds.has("old-success")).toBe(false);
+      expect(errors).not.toHaveBeenCalled();
+      const previousRound = [...useUploadJobsStore.getState().activityAttemptIds];
+      const batchId = submitUploadFiles([file("failed.jpg")])!;
+      await vi.advanceTimersByTimeAsync(1);
+      expect(previousRound.some(id => useUploadJobsStore.getState().activityAttemptIds.has(id))).toBe(false);
+      const attempt = useUploadJobsStore.getState().batches.find(batch => batch.id === batchId)!.attempts[0];
+      acknowledgeUploadNavigation();
+      expect(useUploadJobsStore.getState().activityAttemptIds.has(attempt.id)).toBe(true);
+      expect(errors).toHaveBeenCalledWith("[Upload]", expect.objectContaining({
+        filename: "failed.jpg", mediaId: "3".repeat(40), message: "Synthetic transfer rejection.",
+      }));
+      vi.mocked(submitGridUpload).mockResolvedValueOnce({ outcome: "accepted", stage: "transfer", imageId: "4".repeat(40) });
+      submitUploadFiles([file("next-round.jpg")]);
+      expect(useUploadJobsStore.getState().activityAttemptIds.has(attempt.id)).toBe(true);
+      await vi.advanceTimersByTimeAsync(2_100);
+      dismissUploadAttempt(attempt.id);
+      expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(1);
+      acknowledgeUploadNavigation();
+      expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(0);
+      expect(useUploadJobsStore.getState().batches.find(batch => batch.id === batchId)?.attempts[0])
+        .toMatchObject({ phase: "failed", notificationDismissed: true });
+    } finally { errors.mockRestore(); }
+  });
+
   it("retains older batches beyond five choices and keeps new work in memory when descriptor storage refuses writes", async () => {
     const stored = new Map<string, string>();
     let refuse = false;
@@ -70,6 +129,7 @@ describe("route-independent upload jobs", () => {
     vi.mocked(observeUploadedImage).mockResolvedValue({ outcome: "visible" });
     const batchId = submitUploadFiles([file("z.jpg"), file("a.jpg"), file("pending.jpg"), file("too-large.jpg")])!;
     await vi.advanceTimersByTimeAsync(2_100);
+    dismissUploadAttempt(useUploadJobsStore.getState().batches.find(batch => batch.id === batchId)!.attempts.find(attempt => attempt.name === "too-large.jpg")!.id);
     const revision = uploadBatchMembership.getState().batches.get(batchId)!.revision;
     disposeUploadJobs();
     vi.resetModules();
@@ -79,6 +139,9 @@ describe("route-independent upload jobs", () => {
       expect(batch?.attempts.map(attempt => attempt.name)).toEqual(["a.jpg", "pending.jpg", "too-large.jpg", "z.jpg"]);
       expect(batch?.attempts.map(attempt => attempt.phase)).toEqual(["complete", "interrupted", "failed", "complete"]);
       expect(batch?.attempts.find(attempt => attempt.name === "too-large.jpg")?.message).toBe("File exceeds the configured upload size limit.");
+      const dismissed = batch?.attempts.find(attempt => attempt.name === "too-large.jpg");
+      expect(dismissed?.notificationDismissed).toBe(true);
+      expect(restored.useUploadJobsStore.getState().activityAttemptIds.has(dismissed!.id)).toBe(false);
       expect(batch?.attempts.find(attempt => attempt.name === "z.jpg")?.submission?.queued).toBe("rejected");
       const membership = (await import("@/lib/browsing-context")).uploadBatchMembership.getState().batches.get(batchId);
       expect(membership?.ids).toEqual([readyId]);
@@ -160,19 +223,26 @@ describe("route-independent upload jobs", () => {
 
   it("keeps missing status uncertain and performs only reads on explicit reconciliation", async () => {
     vi.useFakeTimers();
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const id = "b".repeat(40);
     vi.mocked(submitGridUpload).mockResolvedValue({ outcome: "accepted", stage: "transfer", imageId: id });
-    vi.mocked(observeGridUpload).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValueOnce({ outcome: "status", status: "COMPLETED" });
-    vi.mocked(observeUploadedImage).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValue({ outcome: "visible" });
+    vi.mocked(observeGridUpload).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValueOnce({ outcome: "status", status: "COMPLETED" });
+    vi.mocked(observeUploadedImage).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValue({ outcome: "visible" });
     submitUploadFiles([file("missing.jpg")]);
     await vi.advanceTimersByTimeAsync(1);
     const attempt = useUploadJobsStore.getState().batches[0].attempts[0];
     expect(attempt.phase).toBe("uncertain");
     expect(attempt.statusId).toBe(id);
     checkUploadAttempt(attempt.id);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(useUploadJobsStore.getState().batches[0].attempts[0].phase).toBe("uncertain");
+    expect(errors).toHaveBeenCalledOnce();
+    checkUploadAttempt(attempt.id);
     await vi.advanceTimersByTimeAsync(2_100);
     expect(useUploadJobsStore.getState().batches[0].attempts[0].phase).toBe("complete");
     expect(submitGridUpload).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
+    expect(errors).toHaveBeenCalledOnce();
+    errors.mockRestore();
   });
 });

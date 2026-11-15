@@ -10,7 +10,8 @@
  * still works on any screen size.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useBrowsingSearch } from "@/lib/browsing-context";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
@@ -76,7 +77,9 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
   const params = useBrowsingSearch();
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<{ top: number; right: number; maxHeight: number }>();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
@@ -130,7 +133,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
     function handleClick(e: MouseEvent) {
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
+        !dropdownRef.current.contains(e.target as Node) && !menuRef.current?.contains(e.target as Node)
       ) {
         setOpen(false);
       }
@@ -141,13 +144,53 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
 
   useEffect(() => {
     if (!open) return;
-    const options = Array.from(dropdownRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
-    (options.find(option => option.getAttribute("aria-selected") === "true") ?? options[0])?.focus({ preventScroll: true });
-  }, [open]);
+    const options = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
+    const target = menuRef.current?.contains(document.activeElement) ? document.activeElement as HTMLElement
+      : options.find(option => option.getAttribute("aria-selected") === "true") ?? options[0];
+    target?.focus({ preventScroll: true });
+    if (alwaysVisible && position) target?.scrollIntoView({ block: "nearest" });
+  }, [open, alwaysVisible, position]);
+
+  useLayoutEffect(() => {
+    if (!open || !alwaysVisible) return;
+    const place = () => {
+      const bounds = dropdownRef.current?.getBoundingClientRect();
+      if (bounds) setPosition({ top: bounds.bottom + 4, right: Math.max(8, innerWidth - bounds.right), maxHeight: Math.max(0, innerHeight - bounds.bottom - 12) });
+    };
+    const toolbar = dropdownRef.current?.closest('[role="toolbar"]');
+    place();
+    window.addEventListener("resize", place);
+    toolbar?.addEventListener("scroll", place, true);
+    return () => { window.removeEventListener("resize", place); toolbar?.removeEventListener("scroll", place, true); };
+  }, [open, alwaysVisible]);
+  const menu = open && <div ref={menuRef} role="listbox" aria-label="Sort field"
+    className={alwaysVisible ? "fixed z-[80] popup-menu overflow-y-auto overscroll-contain" : "absolute top-full right-0 mt-1 popup-menu"}
+    style={alwaysVisible ? position : undefined}
+    onMouseDown={event => event.stopPropagation()}>
+    {effectiveSortableFields.map(opt => {
+      const isPrimary = sortField === opt.value;
+      const disabled = hasAiChip && !isAiSortOptionEnabled(opt.value);
+      return <button key={opt.value} type="button" role="option" tabIndex={isPrimary ? 0 : -1} disabled={disabled}
+        aria-selected={isPrimary} aria-disabled={disabled} data-sort-key={opt.value}
+        onClick={disabled ? undefined : () => handleSelectField(opt.value)}
+        className={`popup-item text-left focus-visible:bg-grid-hover ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}>
+        <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
+          {isPrimary && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d={sortDesc ? "M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" : "M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"} />
+          </svg>}
+        </span>{opt.label}
+      </button>;
+    })}
+  </div>;
 
   return (
     <div ref={dropdownRef} className={`${inSheet || alwaysVisible ? "flex" : "hidden wide:min-[760px]:flex"} items-center gap-0.5 shrink-0 relative`}
       onKeyDown={event => {
+        if (event.key === "Tab" && open && alwaysVisible) {
+          setOpen(false);
+          triggerRef.current?.focus({ preventScroll: true });
+          return;
+        }
         if (event.key === "Escape" && open) {
           event.preventDefault();
           event.stopPropagation();
@@ -160,14 +203,15 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
         event.preventDefault();
         event.stopPropagation();
         if (!open) { setOpen(true); return; }
-        const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)'));
+        const options = Array.from(menuRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]:not(:disabled)') ?? []);
         if (!options.length) return;
         const index = options.indexOf(document.activeElement as HTMLButtonElement);
         const next = event.key === "Home" ? 0 : event.key === "End" ? options.length - 1
           : (index + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
         options[next].focus({ preventScroll: true });
+        if (alwaysVisible) options[next].scrollIntoView({ block: "nearest" });
       }}
-      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false); }}
+      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !menuRef.current?.contains(event.relatedTarget as Node | null)) setOpen(false); }}
     >
       {/* Sort field button */}
       <button
@@ -211,46 +255,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
         </svg>
       </button>
 
-      {/* Dropdown menu — uses shared popup-menu / popup-item classes. */}
-      {open && (
-        <div
-          role="listbox"
-          aria-label="Sort field"
-          className="absolute top-full right-0 mt-1 popup-menu"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {effectiveSortableFields.map((opt) => {
-            const isPrimary = sortField === opt.value;
-            const disabled = hasAiChip && !isAiSortOptionEnabled(opt.value);
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                tabIndex={isPrimary ? 0 : -1}
-                disabled={disabled}
-                aria-selected={isPrimary}
-                aria-disabled={disabled}
-                data-sort-key={opt.value}
-                onClick={disabled ? undefined : () => handleSelectField(opt.value)}
-                className={`popup-item text-left focus-visible:bg-grid-hover ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}
-              >
-                <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
-                  {isPrimary && (
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      {sortDesc
-                        ? <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
-                        : <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
-                      }
-                    </svg>
-                  )}
-                </span>
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {alwaysVisible ? createPortal(menu, document.body) : menu}
     </div>
   );
 }

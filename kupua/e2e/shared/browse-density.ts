@@ -56,6 +56,21 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
     const state = (window as any).__kupua_store__.getState();
     return !state.loading && !state._browseNavigation;
   });
+  const formLayout = await region.evaluate(element => {
+    const form = element.querySelector<HTMLElement>(".form-density-item")!;
+    const preview = form.querySelector<HTMLElement>('[data-measured-field="image"]')!;
+    const field = form.querySelector<HTMLElement>(".metadata-form-field")!;
+    const label = field.firstElementChild!.getBoundingClientRect();
+    const control = field.querySelector("input, textarea, select")!.getBoundingClientRect();
+    const bounds = form.getBoundingClientRect();
+    return { width: bounds.width, available: element.clientWidth, previewWidth: preview.getBoundingClientRect().width,
+      centered: Math.abs(bounds.left - element.getBoundingClientRect().left - (element.clientWidth - bounds.width) / 2),
+      inlineLabel: label.right < control.left };
+  });
+  expect(formLayout.width).toBe(Math.min(900, formLayout.available - 24));
+  expect(formLayout.previewWidth).toBe(256);
+  expect(formLayout.centered).toBeLessThan(1);
+  expect(formLayout.inlineLabel).toBe(true);
   await region.evaluate(async element => {
     const path = "/src/lib/scroll-geometry-ref.ts";
     const geometry = (await import(path)).getLayoutGeometry();

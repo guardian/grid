@@ -25,13 +25,13 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   } });
 }
 
-const thumbnailHeight = (image: Image, width: number) => Math.min(180, Math.max(1, width) / imageRatio(image));
+const thumbnailHeight = (image: Image, width: number) => Math.min(256, Math.min(256, Math.max(1, width - 24)) / imageRatio(image));
 
 export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
   const fields = useFormFields(state => state.fields);
   const cells = useMemo<MeasuredCells>(() => ({
     key: [...fields].sort().join(","), thumbnailHeight,
-    estimate: (_image, width) => (width < 680 ? 180 : 0) + 600,
+    estimate: (_image, width) => (width < 680 ? 256 : 0) + 600,
     render: (image, thumbnail) => <div className="form-density-item">
       <div data-measured-field="image" className="min-w-0 self-start">
         {thumbnail}

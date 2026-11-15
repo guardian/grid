@@ -4,23 +4,29 @@ import { buildReadBody, postImageRead, SearchAfterApiError } from "@/dal/grid-ap
 import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated } from "./grid-api-instance";
 import { uploadsAllowedAtStartup } from "./upload-preference";
 import { siteSettings } from "./site-settings";
+import { redactUploadError } from "./upload-error";
 
 export type UploadStage = "preparation" | "transfer" | "queued";
 export type UploadWriteOutcome = "acknowledged" | "blocked" | "rejected" | "uncertain";
+export type UploadFailureKind = "server" | "failed" | "size" | "session";
 export type UploadSubmission = {
   outcome: "accepted" | "blocked" | "failed" | "uncertain";
   stage: UploadStage;
   imageId?: string;
   queued?: UploadWriteOutcome;
   reason?: string;
+  failureKind?: UploadFailureKind;
+  maxFileBytes?: number;
+  httpStatus?: number;
 };
 export type UploadObservation =
   | { outcome: "status"; status: string }
   | { outcome: "visible" }
-  | { outcome: "missing" | "unavailable" | "failed" };
+  | { outcome: "failed"; errorMessage?: string }
+  | { outcome: "missing" | "unavailable" };
 const imageIdPattern = /^[a-f0-9]{40}$/;
 const linksSchema = z.object({ links: z.array(z.object({ rel: z.string(), href: z.string() })) });
-const statusSchema = z.object({ data: z.object({ status: z.enum(["PREPARED", "QUEUED", "PROCESSING", "PENDING", "COMPLETED", "FAILED"]) }) });
+const statusSchema = z.object({ data: z.object({ status: z.enum(["PREPARED", "QUEUED", "PROCESSING", "PENDING", "COMPLETED", "FAILED"]), errorMessage: z.string().nullish() }) });
 type Loader = { origin: string; prepare?: string; load?: string; status: string };
 let loaderRead: Promise<Loader | undefined> | undefined;
 
@@ -70,14 +76,17 @@ function signedStorageTarget(value: unknown): value is string {
   } catch { return false; }
 }
 
-async function write(target: string, init: RequestInit, signal: AbortSignal, storage = false): Promise<UploadWriteOutcome> {
-  if (signal.aborted || await admission() || signal.aborted) return "blocked";
+async function write(target: string, init: RequestInit, signal: AbortSignal, storage = false): Promise<{ outcome: UploadWriteOutcome; httpStatus?: number; reason?: string }> {
+  const reason = await admission();
+  if (signal.aborted || reason || signal.aborted) return { outcome: "blocked", reason };
   try {
     const response = await fetch(target, { ...init, credentials: storage ? "omit" : "include", redirect: "error",
       referrerPolicy: "no-referrer", signal: storage ? signal : AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
     if (!storage && (response.status === 401 || response.status === 419)) invalidateGridSession();
-    return response.ok ? "acknowledged" : [400, 401, 403, 413, 415, 419, 422].includes(response.status) ? "rejected" : "uncertain";
-  } catch { return "uncertain"; }
+    return response.ok ? { outcome: "acknowledged" } : {
+      outcome: [400, 401, 403, 413, 415, 419, 422].includes(response.status) ? "rejected" : "uncertain", httpStatus: response.status,
+    };
+  } catch { return { outcome: "uncertain" }; }
 }
 
 export async function submitGridUpload(file: File, progress: (stage: UploadStage, imageId?: string) => void,
@@ -87,14 +96,15 @@ export async function submitGridUpload(file: File, progress: (stage: UploadStage
   let dispatched = false;
   try {
     const reason = await admission();
-    if (reason || signal.aborted) return { outcome: "blocked", stage, reason: reason ?? "Submission stopped." };
+    if (reason || signal.aborted) return { outcome: "blocked", stage, reason: reason ?? "Submission stopped.",
+      failureKind: reason?.startsWith("Session expired") ? "session" : reason === "Upload permission is unavailable." ? "server" : "failed" };
     const config = siteSettings().upload;
-    if (!config) return { outcome: "blocked", stage, reason: "Upload configuration is unavailable." };
-    if (config.maxFileBytes && file.size > config.maxFileBytes) return { outcome: "failed", stage, reason: "File exceeds the configured upload size limit." };
+    if (!config) return { outcome: "blocked", stage, reason: "Upload configuration is unavailable.", failureKind: "server" };
+    if (config.maxFileBytes && file.size > config.maxFileBytes) return { outcome: "failed", stage, reason: "File exceeds the configured upload size limit.", failureKind: "size", maxFileBytes: config.maxFileBytes };
     const service = await loader();
-    if (!service) return { outcome: "blocked", stage, reason: "Loader service is unavailable." };
+    if (!service) return { outcome: "blocked", stage, reason: "Loader service is unavailable.", failureKind: "server" };
     if (config.transport === "direct") {
-      if (!service.load) return { outcome: "blocked", stage, reason: "Direct loading is unavailable." };
+      if (!service.load) return { outcome: "blocked", stage, reason: "Direct loading is unavailable.", failureKind: "server" };
       const path = `/images?${new URLSearchParams({ filename: file.name })}`;
       const target = gridServiceUrl("loader", `${service.origin}${path}`, path, service.origin);
       if (!target || await admission() || signal.aborted) return { outcome: "blocked", stage };
@@ -104,7 +114,8 @@ export async function submitGridUpload(file: File, progress: (stage: UploadStage
       const response = await fetch(target, { method: "POST", body: file, headers: { "Content-Type": "application/octet-stream" },
         credentials: "include", redirect: "error", signal });
       if (response.status === 401 || response.status === 419) invalidateGridSession();
-      if (!response.ok) return { outcome: [400, 401, 403, 413, 415, 419, 422].includes(response.status) ? "failed" : "uncertain", stage };
+      if (!response.ok) return { outcome: [400, 401, 403, 413, 415, 419, 422].includes(response.status) ? "failed" : "uncertain", stage,
+        httpStatus: response.status, failureKind: "server" };
       const body: unknown = await response.json();
       const receipt = z.object({ uri: z.string() }).safeParse(body);
       const candidate = receipt.success && receipt.data.uri.startsWith(service.status) ? receipt.data.uri.slice(service.status.length) : "";
@@ -112,7 +123,7 @@ export async function submitGridUpload(file: File, progress: (stage: UploadStage
       imageId = candidate;
       return { outcome: "accepted", stage, imageId };
     }
-    if (!service.prepare) return { outcome: "blocked", stage, reason: "Signed upload preparation is unavailable." };
+    if (!service.prepare) return { outcome: "blocked", stage, reason: "Signed upload preparation is unavailable.", failureKind: "failed" };
     progress(stage);
     const digest = await crypto.subtle.digest("SHA-1", await file.arrayBuffer());
     imageId = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -124,21 +135,24 @@ export async function submitGridUpload(file: File, progress: (stage: UploadStage
       body: JSON.stringify({ [imageId]: file.name }), credentials: "include", redirect: "error",
       signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
     if (prepared.status === 401 || prepared.status === 419) invalidateGridSession();
-    if (!prepared.ok) return { outcome: [400, 401, 403, 413, 415, 419, 422].includes(prepared.status) ? "failed" : "uncertain", stage, imageId };
+    if (!prepared.ok) return { outcome: [400, 401, 403, 413, 415, 419, 422].includes(prepared.status) ? "failed" : "uncertain", stage, imageId,
+      httpStatus: prepared.status, failureKind: "failed" };
     const body: unknown = await prepared.json();
     const capability = z.record(z.string(), z.string()).safeParse(body);
     const target = capability.success ? capability.data[imageId] : undefined;
-    if (!signedStorageTarget(target)) return { outcome: "failed", stage, imageId, reason: "Preparation returned an invalid storage target. No bytes sent." };
+    if (!signedStorageTarget(target)) return { outcome: "failed", stage, imageId, reason: "Preparation returned an invalid storage target. No bytes sent.", failureKind: "server" };
     stage = "transfer";
     progress(stage, imageId);
     const transferred = await write(target, { method: "PUT", body: file, headers: { "x-amz-meta-media-id": imageId } }, signal, true);
-    if (transferred !== "acknowledged") return { outcome: transferred === "blocked" ? "blocked" : transferred === "rejected" ? "failed" : "uncertain", stage, imageId };
+    if (transferred.outcome !== "acknowledged") return { outcome: transferred.outcome === "blocked" ? "blocked" : transferred.outcome === "rejected" ? "failed" : "uncertain", stage, imageId,
+      ...(transferred.httpStatus ? { httpStatus: transferred.httpStatus } : {}), reason: transferred.reason, failureKind: "server" };
     stage = "queued";
     progress(stage, imageId);
     const path = `/uploadStatus/${imageId}`;
     const queuedTarget = gridServiceUrl("loader", `${service.origin}${path}`, path, service.origin)!;
     const queued = await write(queuedTarget, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "QUEUED" }) }, signal);
-    return { outcome: "accepted", stage, imageId, queued };
+    return { outcome: "accepted", stage, imageId, queued: queued.outcome,
+      ...(queued.httpStatus ? { httpStatus: queued.httpStatus } : {}), ...(queued.reason ? { reason: queued.reason } : {}) };
   } catch {
     return { outcome: dispatched ? "uncertain" : "failed", stage, imageId, reason: "Upload did not finish normally. No automatic retry was made." };
   }
@@ -158,7 +172,9 @@ export async function observeGridUpload(imageId: string, signal: AbortSignal): P
     if (!response.ok) return { outcome: "unavailable" };
     const status = statusSchema.safeParse(await response.json());
     if (!status.success) return { outcome: "unavailable" };
-    return status.data.data.status === "FAILED" ? { outcome: "failed" } : { outcome: "status", status: status.data.data.status };
+    return status.data.data.status === "FAILED" ? { outcome: "failed",
+      ...(status.data.data.errorMessage ? { errorMessage: redactUploadError(status.data.data.errorMessage) } : {}),
+    } : { outcome: "status", status: status.data.data.status };
   } catch { return { outcome: "unavailable" }; }
 }
 

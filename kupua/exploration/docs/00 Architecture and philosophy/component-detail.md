@@ -67,9 +67,15 @@ routes and rows. One transfer/hash and one observation request are active at a t
 settled files are released. Canonical readability plus exact ID-scoped indexed count
 visibility are required before IDs publish into the same U1 membership
 registry, deduplicated without discarding attempts. `components/UploadActivity.tsx`
-provides multi-file entry on Search/Upload, external-file drop with internal-drag
-exclusion, short-reference batch selection and compact persistent activity with
-expandable file outcomes. Later submissions create separate batches. A minimum
+owns multi-file entry, external-file drop with internal-drag exclusion and short-reference
+batch selection. Its shared access hook distinguishes permission loading, denial,
+disabled startup preference and unavailable session. Recent-upload navigation and
+file entry disappear when access is refused; submission/drop also require upload
+configuration. The drop wrapper remains mounted while its handlers/marker change,
+so resolving permission cannot remount Search or discard an input draft. Direct
+Upload visits admit empty membership and an explanation when refused, including
+batch/detail URLs; fullscreen presentation is cleared through its existing exit owner.
+Later submissions create separate batches. A minimum
 selector width keeps short batch references readable as compact toolbars wrap. The selector
 shows five recent choices plus outstanding/current older work, without deleting
 older URLs. `lib/local-batch-storage.ts` persists allowlisted tab-local descriptors,
@@ -78,10 +84,18 @@ storage failure is visible and protects unretained work. Retrying local storage 
 not an upload retry. Recent uploads uses an identity-scoped library query, not batch
 or submission history. Form density is available in Upload; metadata saves and
 applicators remain U5.
-Startup upload admission is
-independent of metadata editing. Once accepted transfer reaches readable/indexed
-availability, non-acknowledged queued outcomes move into collapsed receipt history;
-the original outcome remains inspectable, not acknowledged retroactively. The
+Startup upload admission is independent of metadata editing. `components/UploadProgress.tsx`
+renders a temporary activity round, not upload history. Search joins its separately
+clickable status segment to the left of the blue Upload button; Upload places activity
+after the batch selector. One error/running/complete icon represents the highest-priority
+state. Expanded outcomes put attention before running and complete files, preserve
+per-file identity, offer individual acknowledgement and read-only Recheck, and link
+successful filenames to their images. Fully completed activity clears on the next
+real navigation; old successes do not return after reload. Batches remain independently
+available. Safe processing details can be expanded/copied; popup navigation keys do
+not control the list underneath. Queued-update failures remain in descriptors and
+deduplicated diagnostics, not a separate receipt UI, and are never acknowledged retroactively.
+The
 [upload contract](../../../src/dal/grid-api/README.md#upload-transport-and-jobs)
 owns target validation, interruption and no-replay semantics. Representative local
 hosted/Vite and deployed TEST uploads reached readable/indexed identity; deployed
@@ -92,9 +106,12 @@ separates those results from blocked laptop-to-TEST and broader unverified workf
 Upload is API-only under the existing startup mode. Direct-ES visits show an
 unavailable state and admit empty membership to cancel old work without reads;
 they do not extend the ES adapter or switch data modes. The search toolbar's
-Upload return affordance requires both API mode and retained membership.
-Upload requests the shared sort control's always-visible variant, including compact
-and narrow layouts. Its selection recognizer is disabled before attaching gesture
+Upload return affordance requires API mode, startup opt-in and current upload permission;
+it restores the retained Upload context when present. Upload requests the shared sort
+control's always-visible variant, including compact and narrow layouts. That menu is
+portaled out of the horizontal toolbar scroller, bounded/scrollable on short screens,
+and preserves keyboard option visibility and logical toolbar Tab traversal.
+Its selection recognizer is disabled before attaching gesture
 listeners; scoped refresh preserves dormant library selection. Same-batch arrivals
 keep the viewport mounted for continuity capture, and Home clears scope only after
 capturing Upload's departure, before its library preload.
@@ -980,8 +997,14 @@ capture/reflow ownership, not column arithmetic; results zoom (below) steps each
 Upload exposes Form alongside Grid, Table and Justified. `ImageGrid` remains the
 shared browsing host; its variable-row policy is separate from thumbnail zoom and
 cell activation. The form renderer composes an explicit image/detail entry with
-registry-driven `ImageMetadata`, side by side on desktop and stacked on compact
-screens. Inputs use native text selection and traversal, not cell activation or
+registry-driven `ImageMetadata` in a centered, at-most-900px form. Desktop uses a
+256px preview column and a 10px gap; editable labels and read-only label/value rows
+align in a 120px label column. Preview height is derived from the same bounded
+preview width and image ratio, capped at 256px, for both rendering and anchor geometry.
+Images use contain fitting, not cropping; unavailable previews obey the same column
+width. Result-container queries stack preview/content and labels/inputs below 680px.
+Previews remain non-sticky; R27 has not been selected. Inputs use native text selection
+and traversal, not cell activation or
 thumbnail gestures. The focused form and its immediate loaded neighbours remain
 mounted outside ordinary overscan so Tab cannot skip intervening forms.
 

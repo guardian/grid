@@ -27,6 +27,17 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("Grid upload transport", () => {
+  it("retains failed processing detail while redacting signed URLs and credentials", async () => {
+    const transport = vi.fn().mockResolvedValueOnce(root()).mockResolvedValueOnce(loader())
+      .mockResolvedValueOnce(Response.json({ data: { status: "FAILED", errorMessage:
+        `com.drew.imaging.ImageProcessingException: Invalid image at ${storageTarget.href}\nAuthorization: Bearer synthetic-secret\n${JSON.stringify({ Authorization: "Bearer synthetic-quoted-auth", token: "synthetic-quoted-token with spaces", "X-Amz-Credential": "synthetic-quoted-amz" }, null, 2)}` } }));
+    vi.stubGlobal("fetch", transport);
+    const { observeGridUpload } = await import("./upload-commands");
+    const result = await observeGridUpload(id, new AbortController().signal);
+    expect(result).toMatchObject({ outcome: "failed", errorMessage: expect.stringContaining("ImageProcessingException") });
+    expect(JSON.stringify(result)).not.toMatch(/X-Amz|synthetic-secret|synthetic-quoted|amazonaws/);
+  });
+
   it("bounds a stalled visibility count so other upload observations can continue", async () => {
     const deadline = new AbortController();
     const owner = new AbortController();

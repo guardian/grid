@@ -24,6 +24,41 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 15 November 2026 - Upload toolbar, activity, access and Form layout polish
+
+Moved recent-upload navigation and file submission immediately before the settings
+menu, in that order. Recent uploads uses the Material photo-library icon and the
+existing action-button visual treatment; submission keeps its upload icon with the
+blue Crop-button face. A measured toolbar budget shortens recent-upload wording
+from My recent uploads to Uploads, then hides both labels while retaining icons.
+Upload has no intermediate label.
+
+Separated temporary upload activity from retained batch history. Search joins a
+separately clickable status segment to the blue Upload control; Upload keeps shared
+navigation, batch selection, activity and sort/order together. Current-round outcomes
+prioritize attention, preserve per-file identity and support individual acknowledgement
+and read-only Recheck. Successful filenames open images; completed rounds clear on
+navigation without resurrecting historical successes after reload.
+
+Retained original queued receipts without a separate receipt-history UI. Processing
+details are redacted before persistence, diagnostics and copyable disclosure; quoted
+credential representations are covered. Queued and terminal errors log independently
+without repeated identical diagnostics. History/storage failures use the selected
+warning/console presentation without pretending an upload was retried.
+
+Matched Form's general Kahuna proportions with centered bounded width, proportional
+previews, aligned desktop labels and result-container-based compact stacking. Existing
+measured geometry, field identities, drafts and arrival ownership remain. Unavailable
+previews now respect their own column. Sticky previews and metadata saving remain separate.
+
+Hidden upload entry and drop handling when permission is denied or the startup switch
+is off; direct Upload links explain unavailable access and admit empty membership.
+Permission resolution preserves the application child tree, and session invalidation
+clears Upload fullscreen presentation. Short-screen Sort menus remain scrollable,
+preserve selected-option visibility and logical Tab order, while error-detail navigation
+keys no longer control the underlying results. No new upload retry or duplicate preflight
+was introduced.
+
 ### 14 November 2026 - Upload form density and retained editing state
 
 Replaced the measured stand-in with Upload's real Form density, using shared metadata

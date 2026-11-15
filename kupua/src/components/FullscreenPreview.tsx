@@ -72,7 +72,7 @@ function getImageUrl(image: Image): string | undefined {
   return getCarouselImageUrl(image);
 }
 
-export function FullscreenPreview() {
+export function FullscreenPreview({ disabled = false }: { disabled?: boolean } = {}) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -122,7 +122,7 @@ export function FullscreenPreview() {
   );
 
   const { prevImage, canGoNext, goToPrev, goToNext } = useImageTraversal(
-    isActive ? focusedImageId : null,
+    isActive && !disabled ? focusedImageId : null,
     onNavigate,
     router.history,
   );
@@ -136,6 +136,7 @@ export function FullscreenPreview() {
   }, []);
 
   const enterPreview = useCallback(() => {
+    if (disabled) return;
     const image = resolveFocusedImage();
     if (!image || image.__availability || getImageAvailability(image.id)) return;
     const el = containerRef.current;
@@ -189,7 +190,7 @@ export function FullscreenPreview() {
         history.back();
       }
     });
-  }, [resolveLocalIndex]);
+  }, [resolveLocalIndex, disabled]);
 
   // Register enterPreview for imperative access (middle-click from grid/table).
   useEffect(() => {
@@ -288,12 +289,19 @@ export function FullscreenPreview() {
     finalizePreviewExit();
   }, [finalizePreviewExit]);
 
+  useLayoutEffect(() => {
+    if (!disabled) return;
+    setCurrentImage(null);
+    setImageUrl(undefined);
+    if (initiatedRef.current) exitPreview();
+  }, [disabled, exitPreview]);
+
   // Zoom (touch pinch + desktop click/wheel/drag). Active when preview is open.
   usePinchZoom({
     containerRef,
     imageRef,
     imageKey: currentImage?.id,
-    enabled: isActive && !!imageUrl,
+    enabled: !disabled && isActive && !!imageUrl,
     scaleRef,
     onScaleChange: setIsZoomed,
     onDoubleClick: exitPreview,
@@ -435,7 +443,7 @@ export function FullscreenPreview() {
       enterPreview();
     }
   }, [isActive, exitPreview, enterPreview]);
-  useKeyboardShortcut("f", handleF);
+  useKeyboardShortcut("f", handleF, () => !disabled);
 
   // Keyboard navigation while in fullscreen preview
   useEffect(() => {

@@ -133,6 +133,14 @@ the shared session and `canUpload`; editing does not grant upload permission or
 vice versa. Server authorization and validated service targets remain mandatory.
 Changing preferences, logging in or transport failure never replays a submission.
 
+The UI uses that startup preference and the shared permission projection before
+exposing My recent uploads, the picker, activity or drop handlers. Direct `/upload`
+visits, including retained batch/detail URLs, admit empty membership and explain
+denied/disabled/unavailable access without browsing images. Denial uses Kahuna's
+"You are not authorised to upload images." Session invalidation also clears active
+Upload fullscreen presentation. Missing upload configuration separately prevents
+submission controls; neither UI state nor local membership replaces server authority.
+
 Site settings optionally provide `upload: { transport: "direct" | "signed",
 maxFileBytes?: number }`. Absence/invalid configuration is unavailable, not a
 default topology. Zero/omitted limits do not impose a client cap; only files strictly
@@ -176,7 +184,7 @@ still find the known identity. A readable duplicate does not prove this attempt 
 processed; the submission receipt is retained independently.
 
 Automatic read observation ends after five minutes or an unavailable status read.
-**Check status** restarts reads only, never an upload mutation. Active work protects
+**Recheck** restarts reads only, never an upload mutation. Active work protects
 reload/tab closure, but ordinary in-app navigation does not stop jobs or prompt.
 Page interruption aborts owned requests, releases files/timers/listeners and retains
 uncertainty for a surviving page; late responses cannot silently resume its job.
@@ -191,12 +199,13 @@ Search and Upload provide permission-aware multi-file picker/drop entry. Each
 submission owns a distinct short local batch reference; internal Grid and in-page
 image drags do not submit files. A small selector shows five recent batches plus
 outstanding work and the selected older record. Search return is separate from
-batch selection. The persistent activity band expands file-level outcomes and
-keeps file counts distinct from unique canonical images. Form density and
-post-upload metadata/preset writes remain U2/U5-U7. B2's shared backend status/pending-object identities are
-not repaired: local witnesses prove attempt retention, not concurrent server isolation.
-Upload activity occupies a top shell band so retained bottom image-action activity
-remains reachable with its original targets; neither owner adopts the other's scope.
+batch selection. A temporary activity indicator expands current-round file outcomes;
+it is not batch history or a canonical-image count. Form density is connected, while
+new post-upload metadata/preset writes remain U5-U7. B2's shared backend status/pending-object
+identities are not repaired: local witnesses prove attempt retention, not concurrent server
+isolation. Upload activity uses a left segment joined to Search's Upload button, a
+toolbar control on Upload and a separate affordance elsewhere. Existing image-action
+activity remains independently reachable with its captured targets.
 
 [`local-batch-storage.ts`](../../lib/local-batch-storage.ts) persists tab-session
 descriptors: submitted names/sizes, attempt and batch IDs, canonical/status IDs,
@@ -205,8 +214,11 @@ credentials, grants or complete images. Descriptors have a 2 MiB budget; history
 snapshots have 1 MiB and their existing 50-entry LRU. Full membership fingerprints
 remain qualified by revision; no snapshot-reference redesign was needed. A failed
 descriptor write keeps work in memory, warns and protects page closure, without
-deleting older records. **Try local storage again** only retries persistence.
-Failed history writes retain in-page navigation and warn about reload limits.
+deleting older records. The owning storage-retention action can retry persistence
+without resubmitting uploads; the current activity popup has no upload-retry control.
+Descriptor failures show a warning toast, unavailable requested history has its own
+warning, and history-only write problems are console diagnostics. Failed history
+writes retain in-page navigation within their existing reload limits.
 Missing records and known-empty batches never become library reads.
 
 Job-owned batches default to submitted-filename order. `ApiDataSource` hydrates
@@ -224,9 +236,18 @@ route key supports history/reload, whose targets are resolved through the curren
 authenticated query. Loading or unavailable identity admits an empty scope, never
 all users. Both batch and recent browsing keep library selection dormant.
 
-After accepted transfer and verified canonical readability/indexed visibility,
-non-acknowledged queued outcomes become collapsed Upload receipt history alongside
-Image available. They are not retroactively acknowledged or hidden while unresolved.
+The indicator represents the current activity round across batches, with attention
+before running and successful files. Individual error dismissal acknowledges presentation,
+not cancellation or deletion. New work joins an active round; otherwise it replaces
+old successes while retaining unacknowledged attention. An all-success indicator clears
+on the next real navigation, and historical successes do not reappear after reload.
+Original submission/queued outcomes remain in descriptors, not a receipt-history UI.
+Error diagnostics are deduplicated and include known filename/identity and safe stage,
+HTTP and server detail. `redactUploadError` removes URLs, credential headers/fields
+(including quoted representations), tokens and emails before server details are
+retained, logged or exposed in copyable processing-error disclosures. No success/progress
+logging or pre-upload duplicate-existence lookup is added. Queued outcomes are never
+retroactively acknowledged by later availability.
 [GRID-024](../../../exploration/docs/bug-backlog.md#grid-024) owns the deferred loader
 defect; the client still sends the queued request and never replays it automatically.
 

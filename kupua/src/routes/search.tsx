@@ -15,10 +15,10 @@
  * the same data layer (`useDataWindow`), focus, and URL-managed search context.
  */
 
-import { createRoute, useNavigate } from "@tanstack/react-router";
+import { createRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { z } from "zod";
 import { BrowsingContext, useBrowsingContext, useBrowsingSearch, uploadBatchMembership, UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
-import { returnToBrowsing } from "@/lib/browsing-navigation";
+import { captureBrowsingDeparture, returnToBrowsing } from "@/lib/browsing-navigation";
 import { useUrlSearchSync } from "@/hooks/useUrlSearchSync";
 import { zodSearchValidator } from "@tanstack/router-zod-adapter";
 import { rootRoute } from "./__root";
@@ -61,8 +61,12 @@ import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-fr
 import type { LabelEditContext } from "@/lib/label-operation";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
 import { useIsCompact } from "@/hooks/useShell";
-import { UploadBatchSelector, UploadEntry } from "@/components/UploadActivity";
+import { UploadActivity, UploadBatchSelector, UploadEntry, useUploadAccess } from "@/components/UploadActivity";
 import { SettingsMenu } from "@/components/SettingsMenu";
+import { DetailNavigation } from "@/components/DetailNavigation";
+import { resetToHome } from "@/lib/reset-to-home";
+import { pushNavigateAsPopstate } from "@/lib/orchestration/search";
+import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -80,20 +84,23 @@ export const uploadRoute = createRoute({
 
 function UploadPage() {
   const { batch } = uploadRoute.useSearch();
+  const access = useUploadAccess();
+  const allowed = UPLOAD_BROWSING_ENABLED && access === "available";
   const [identity, setIdentity] = useState<string | null>();
   useEffect(() => subscribeGridSessionInvalidation(() => setIdentity(null)), []);
   useEffect(() => {
-    if (!UPLOAD_BROWSING_ENABLED || batch) return;
+    if (!allowed || batch) return;
     let disposed = false;
     setIdentity(undefined);
     void getGridSessionIdentity().then(value => { if (!disposed) setIdentity(value); });
     return () => { disposed = true; };
-  }, [batch]);
+  }, [allowed, batch]);
   const membership = uploadBatchMembership(state => batch ? state.batches.get(batch) : undefined);
-  const recentUploadScope = useMemo(() => !batch && identity ? { key: "upload:recent", uploadedBy: identity } : undefined, [batch, identity]);
-  const imageScope = useMemo(() => UPLOAD_BROWSING_ENABLED && recentUploadScope ? undefined : (UPLOAD_BROWSING_ENABLED ? membership : undefined)
-    ?? { key: `upload:${batch ?? "recent-unavailable"}`, revision: 0, ids: [] }, [membership, batch, recentUploadScope]);
+  const recentUploadScope = useMemo(() => allowed && !batch && identity ? { key: "upload:recent", uploadedBy: identity } : undefined, [allowed, batch, identity]);
+  const imageScope = useMemo(() => !allowed ? { key: `upload:access-${access}`, revision: 0, ids: [] }
+    : recentUploadScope ? undefined : membership ?? { key: `upload:${batch ?? "recent-unavailable"}`, revision: 0, ids: [] }, [allowed, access, membership, batch, recentUploadScope]);
   return <BrowsingContext value={{ path: "/upload", imageScope, recentUploadScope,
+    ...(UPLOAD_BROWSING_ENABLED && access !== "available" ? { uploadStatus: access } : {}),
     ...(!batch && !recentUploadScope ? { recentStatus: identity === undefined ? "loading" : "unavailable" } as const : {}),
   }}><SearchPage /></BrowsingContext>;
 }
@@ -105,9 +112,10 @@ function BrowsingSync() {
 
 function SearchPage() {
   const { image, batch } = useBrowsingSearch();
-  const { path, imageScope, recentUploadScope, recentStatus } = useBrowsingContext();
+  const { path, imageScope, recentUploadScope, recentStatus, uploadStatus } = useBrowsingContext();
   const upload = path === "/upload";
   const navigate = useNavigate();
+  const router = useRouter();
   const engineScope = useSearchStore(state => state.params.imageScope?.key ?? state.params.recentUploadScope?.key);
   const admitted = engineScope === (imageScope?.key ?? recentUploadScope?.key);
   const density = useUiPrefsStore((state) => state.density);
@@ -115,7 +123,7 @@ function SearchPage() {
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
   const handleRange = useRangeSelection();
-  const showImageDetail = !!image && (!upload || !!recentUploadScope || !!imageScope?.ids.includes(image));
+  const showImageDetail = !!image && !uploadStatus && (!upload || !!recentUploadScope || !!imageScope?.ids.includes(image));
   const isGrid = density !== "table";
 
   // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
@@ -318,20 +326,26 @@ function SearchPage() {
         // trap silently swallows ImageDetail's Backspace/arrow shortcuts.
         inert={showImageDetail || undefined}
       >
-        {upload ? <header className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-grid-separator px-3 py-2 text-grid-text">
-          <h1 className="text-base font-medium">Upload</h1>
-          {UPLOAD_BROWSING_ENABLED && <UploadBatchSelector batch={batch} />}
-          {UPLOAD_BROWSING_ENABLED && <SearchFilters.Sort alwaysVisible />}
-          {UPLOAD_BROWSING_ENABLED && <UploadEntry />}
+        {upload ? <header role="toolbar" aria-label={uploadStatus ? "Navigation" : "Upload controls"}
+          className="upload-toolbar @container/detail-toolbar relative z-30 flex items-center gap-1.5 px-3 py-1.5 h-11 shrink-0 bg-grid-bg border-b border-grid-separator text-grid-text">
+          <DetailNavigation destination="search" onBack={() => returnToBrowsing(navigate, "/search")} onHome={() => {
+            captureBrowsingDeparture(router.state.location);
+            void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }), undefined, router.history);
+          }} />
+          <div className="flex flex-1 min-w-0 h-9 items-center gap-2 overflow-x-auto hide-scrollbar">
+            {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadBatchSelector batch={batch} />}
+            {!uploadStatus && <UploadActivity toolbar />}
+            {UPLOAD_BROWSING_ENABLED && !uploadStatus && <div className="ml-auto flex shrink-0 items-center"><SearchFilters.Sort alwaysVisible /></div>}
+          </div>
+          {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadEntry />}
           <SettingsMenu />
-          <button type="button" className="ml-auto cursor-pointer text-sm underline" onClick={() => returnToBrowsing(navigate, "/search")}>Search</button>
         </header> : <SearchBar />}
         {RESIDENT_PREVIEW_ENABLED && <div className="px-3 py-1 text-xs bg-grid-cell text-grid-text-muted" role="note">
           {SAMPLED_PREVIEW_ENABLED
             ? `Sample fixture · up to ${RESIDENT_PREVIEW_LIMIT} images · search matching is simulated; reload resamples`
             : `Synthetic fixture · ${RESIDENT_PREVIEW_LIMIT} images · not live data; search matching is simulated`}
         </div>}
-        {admitted && (!upload || UPLOAD_BROWSING_ENABLED) && <StatusBar />}
+        {admitted && (!upload || UPLOAD_BROWSING_ENABLED && !uploadStatus) && <StatusBar />}
         <PanelLayout
           leftPanel={!upload &&
             <>
@@ -356,9 +370,15 @@ function SearchPage() {
               {!showImageDetail && <CompactLabelActivity />}
             </>
           }
-          scrubber={scrubberElement}
+          scrubber={uploadStatus ? undefined : scrubberElement}
         >
-          {!admitted ? <div role="status" className="p-6 text-grid-text-muted">Loading...</div>
+          {uploadStatus ? <div role="status" className="p-6 text-grid-text-muted">{{
+            loading: "Checking upload permission...",
+            denied: "You are not authorised to upload images.",
+            disabled: "Uploads are disabled.",
+            unavailable: "Upload permission is unavailable. Reload after signing in.",
+          }[uploadStatus]}</div>
+            : !admitted ? <div role="status" className="p-6 text-grid-text-muted">Loading...</div>
             : upload && !UPLOAD_BROWSING_ENABLED ? <div role="status" className="p-6 text-grid-text-muted">Upload requires media-api mode.</div>
             : upload && imageScope?.ids.length === 0 ? <div role="status" className="p-6 text-grid-text-muted">
             <p>{batch ? imageScope.revision > 0 ? "This batch has no available images yet." : "This local batch is unavailable in this tab."
@@ -372,7 +392,7 @@ function SearchPage() {
 
       {/* Fullscreen preview — always mounted (hidden until activated by `f` key).
           Uses the Fullscreen API for true edge-to-edge display. */}
-      <FullscreenPreview />
+      <FullscreenPreview disabled={!!uploadStatus} />
 
       {/* Image detail overlay — rendered when image is in URL.
           Must be AFTER FullscreenPreview so its `f` shortcut wins the

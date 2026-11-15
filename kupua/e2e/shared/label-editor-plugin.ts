@@ -93,6 +93,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   let uploadWrites = 0;
   let uploadStatusReads = 0;
   let uploadIdentityAvailable = true;
+  let uploadPermission = true;
   let multipleUploads = false;
   let uploadLimit: number | undefined;
   const uploaded = new Map<string, { name: string; ordinal: number }>();
@@ -107,6 +108,9 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   };
   return {
     name: "isolated-command-fixture",
+    config() {
+      return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test") } } : undefined;
+    },
     resolveId(id) { if (id === virtualEntry) return id; },
     load(id) {
       if (id === virtualEntry) return `import * as commands from ${JSON.stringify(resolve(root, "src/lib/grid-commands.ts"))}; window.commandFixture = commands;
@@ -116,7 +120,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
-        if (upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
+        if ((readback && ["/api", "/api/", "/grid-auth/session"].includes(pathname)) || upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
           || pathname.startsWith("/grid-loader/") || pathname === "/api" || pathname === "/api/"
           || /^\/api\/images\/[a-f0-9]{40}$/.test(pathname))) {
           const send = (data: unknown, status = 200) => {
@@ -129,7 +133,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); }
+              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); }
+              if (typeof body.canUpload === "boolean") uploadPermission = body.canUpload;
               if (typeof body.identityAvailable === "boolean") uploadIdentityAvailable = body.identityAvailable;
               if (typeof body.multiple === "boolean") multipleUploads = body.multiple;
               if (typeof body.maxFileBytes === "number") uploadLimit = body.maxFileBytes;
@@ -140,10 +145,10 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId });
           }
           if (pathname === "/api" || pathname === "/api/") return send({ links: [
-            { rel: "loader", href: "https://loader.example.test" }, { rel: "session", href: "https://auth.example.test/session" },
+            ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
           ] });
-          if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: true },
-            ...(uploadIdentityAvailable ? { email: "uploader@example.invalid" } : {}),
+          if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },
+            ...(upload && uploadIdentityAvailable ? { email: "uploader@example.invalid" } : {}),
           } } });
           if (pathname === "/grid-loader/") return send({ links: [
             { rel: "load", href: "https://loader.example.test/images{?uploadedBy,identifiers,uploadTime,filename}" },
@@ -305,7 +310,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           : (await readFile(resolve(root, "index.html"), "utf8")).replace('<script type="module" src="/src/main.tsx"></script>',
             `<script type="module">import "${virtualEntry}"; ${connectedPage ? 'history.replaceState(null, "", "/search");' : `await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}();`}
             await import("/src/main.tsx");</script>`);
-          response.end(await server.transformIndexHtml(pathname, upload ? html.replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify({ gridConfig: { upload: { transport: "direct", maxFileBytes: uploadLimit } } })};</script>`) : html));
+          response.end(await server.transformIndexHtml(pathname, upload ? html.replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify({ gridConfig: { upload: { transport: "direct", maxFileBytes: uploadLimit } } })};</script>`)
+            : readback ? html.replace("<head>", '<head><script>localStorage.setItem("kupua-allow-uploads", "true");</script>') : html));
       });
     },
   };

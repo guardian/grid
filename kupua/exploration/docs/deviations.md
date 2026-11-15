@@ -62,14 +62,21 @@ explicit per-submission working sets. Missing identity never becomes an all-user
 
 ### Settled Upload Receipt History
 
-Kahuna logs queued-update rejection and continues polling. Kupua keeps that
-outcome visible while availability is unconfirmed, then moves it into expandable
-Upload receipt history after an accepted submission reaches a readable and
-searchable canonical image. The trade-off is quieter completed activity with
-an extra disclosure to inspect the historical rejection, not a claim that the
-queued update succeeded. Transport, bounded observation and attempt/canonical
-identity stay unchanged. [GRID-024](bug-backlog.md#grid-024) records the deferred
-backend defect and the consequences of repairing it separately.
+Kahuna's job-editor list also serves as visible activity history. Kupua deliberately
+separates retained batches/receipts from a temporary activity round. The latter has
+one priority icon, attention-first disclosure and individual error acknowledgement;
+an all-success indicator clears on navigation and does not return after reload.
+Batch browsing keeps submitted-filename order independently of notification order.
+The trade-off is less historical status in the indicator in exchange for keeping it
+about current work; retained batch navigation remains available.
+
+Queued-update rejection is retained in descriptors and deduplicated console diagnostics,
+not a separate receipt-history UI or a failure label overriding verified image
+availability. Processing-error details remain explicitly expandable/copyable after
+redaction. No queued receipt is retroactively acknowledged, and acknowledgement of
+an error does not cancel/retry an upload or delete a batch. Transport, bounded
+observation and attempt/canonical identity stay unchanged. [GRID-024](bug-backlog.md#grid-024)
+owns the deferred backend defect; no automatic replay or duplicate preflight follows.
 
 ### Laptop Satellite Transport
 

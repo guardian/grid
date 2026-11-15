@@ -3,28 +3,26 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { gridUploadsEnabled } from "@/lib/upload-commands";
 import { getGridSessionPermissions, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import { siteSettings } from "@/lib/site-settings";
-import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 import { pushNavigate } from "@/lib/orchestration/search";
-import { checkUploadAttempt, retainUploadBatches, submitUploadFiles, useUploadJobsStore, type UploadBatch, type UploadPhase } from "@/stores/upload-jobs-store";
-import { containPillActivation } from "./SearchPill";
+import { activeUploadPhases, attentionUploadPhases, submitUploadFiles, useUploadJobsStore, type UploadBatch } from "@/stores/upload-jobs-store";
+import { UploadProgress } from "./UploadProgress";
+export { UploadNotices } from "./UploadProgress";
 
-const phaseLabels: Record<UploadPhase, string> = {
-  waiting: "Waiting", preparing: "Preparing", transferring: "Transferring", processing: "Transfer acknowledged; awaiting processing",
-  visibility: "Processing complete; awaiting search visibility", complete: "Image available", failed: "Failed", blocked: "Not submitted", uncertain: "Outcome uncertain",
-  interrupted: "Interrupted; not resumed",
-};
-
-function useUploadAvailable(): boolean {
-  const [permitted, setPermitted] = useState(false);
-  const enabled = gridUploadsEnabled() && !!siteSettings().upload;
+export function useUploadAccess(): "loading" | "available" | "denied" | "disabled" | "unavailable" {
+  const [permitted, setPermitted] = useState<boolean | null>();
+  const enabled = gridUploadsEnabled();
   useEffect(() => {
     if (!enabled) return;
     let disposed = false;
-    const unsubscribe = subscribeGridSessionInvalidation(() => setPermitted(false));
-    void getGridSessionPermissions().then(session => { if (!disposed) setPermitted(session?.canUpload === true); });
+    const unsubscribe = subscribeGridSessionInvalidation(() => setPermitted(null));
+    void getGridSessionPermissions().then(session => { if (!disposed) setPermitted(session ? session.canUpload === true : null); });
     return () => { disposed = true; unsubscribe(); };
   }, [enabled]);
-  return enabled && permitted;
+  return !enabled ? "disabled" : permitted === undefined ? "loading" : permitted === null ? "unavailable" : permitted ? "available" : "denied";
+}
+
+function useUploadAvailable(): boolean {
+  return useUploadAccess() === "available" && !!siteSettings().upload;
 }
 
 export function UploadDropzone({ children }: { children: ReactNode }) {
@@ -37,37 +35,39 @@ export function UploadDropzone({ children }: { children: ReactNode }) {
   const reset = () => { depth.current = 0; setDragging(false); internal.current = false; };
   const externalFiles = (event: DragEvent) => browsing && !internal.current && event.dataTransfer.types.includes("Files")
     && !event.dataTransfer.types.some(type => type.startsWith("application/vnd.mediaservice."));
-  return <div className="contents" data-upload-dropzone="" onDragStartCapture={() => { internal.current = true; setDragging(false); }}
-    onDragEndCapture={reset} onDragEnterCapture={event => {
+  return <div className="contents" data-upload-dropzone={available ? "" : undefined} onDragStartCapture={available ? () => { internal.current = true; setDragging(false); } : undefined}
+    onDragEndCapture={available ? reset : undefined} onDragEnterCapture={available ? event => {
       if (!externalFiles(event)) return;
       event.preventDefault();
       depth.current++;
       setDragging(true);
-    }} onDragOverCapture={event => {
+    } : undefined} onDragOverCapture={available ? event => {
       if (!externalFiles(event)) return;
       event.preventDefault();
       event.dataTransfer.dropEffect = available ? "copy" : "none";
-    }} onDragLeaveCapture={() => { if (--depth.current <= 0) { depth.current = 0; setDragging(false); } }}
-    onDropCapture={event => {
+    } : undefined} onDragLeaveCapture={available ? () => { if (--depth.current <= 0) { depth.current = 0; setDragging(false); } } : undefined}
+    onDropCapture={available ? event => {
       const files = externalFiles(event) ? Array.from(event.dataTransfer.files) : [];
       if (externalFiles(event)) event.preventDefault();
       reset();
       if (!available || !files.length) return;
       const batch = submitUploadFiles(files);
       if (batch) pushNavigate(navigate, { to: "/upload", search: { batch } });
-    }}>
+    } : undefined}>
     {children}
-    {dragging && <div className="fixed inset-2 z-[200] pointer-events-none border-2 border-dashed border-grid-accent bg-grid-bg/95 flex items-center justify-center text-grid-text">
+    {available && dragging && <div className="fixed inset-2 z-[200] pointer-events-none border-2 border-dashed border-grid-accent bg-grid-bg/95 flex items-center justify-center text-grid-text">
       <span className="text-lg font-medium">{available ? "Upload files" : "Uploads unavailable"}</span>
     </div>}
   </div>;
 }
 
-export function UploadEntry() {
+export function UploadEntry({ withActivity = false }: { withActivity?: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const available = useUploadAvailable();
-  return <>
+  if (!available) return null;
+  return <div className="upload-primary">
+    {withActivity && <UploadActivity split />}
     <input ref={input} type="file" multiple aria-label="Upload files" className="hidden" onChange={event => {
       const files = Array.from(event.target.files ?? []);
       event.target.value = "";
@@ -77,18 +77,19 @@ export function UploadEntry() {
     }} />
     <button type="button" disabled={!available} onClick={() => input.current?.click()} aria-label="Upload files"
       title={available ? "Upload files" : "Uploads disabled, permission or configuration unavailable"}
-      className="w-9 h-9 shrink-0 flex items-center justify-center rounded hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5" aria-hidden="true">
-        <path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6" />
-      </svg>
+      className="upload-entry" data-unavailable={!available || undefined}>
+      <span className="upload-face">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-4 shrink-0" aria-hidden="true">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 15v6h16v-6" />
+        </svg>
+        <span data-toolbar-label="upload">Upload</span>
+      </span>
     </button>
-  </>;
+  </div>;
 }
 
-const activePhases = new Set<UploadPhase>(["waiting", "preparing", "transferring", "processing", "visibility"]);
-const attentionPhases = new Set<UploadPhase>(["failed", "blocked", "uncertain", "interrupted"]);
-const outstanding = (batch: UploadBatch) => batch.attempts.some(attempt => activePhases.has(attempt.phase)
-  || attentionPhases.has(attempt.phase) && attempt.phase !== "blocked");
+const outstanding = (batch: UploadBatch) => batch.attempts.some(attempt => activeUploadPhases.has(attempt.phase)
+  || attentionUploadPhases.has(attempt.phase) && !attempt.notificationDismissed);
 const batchReference = (id: string) => `Batch ${id.replace(/^local-/, "").slice(0, 8)}`;
 
 export function UploadBatchSelector({ batch }: { batch?: string }) {
@@ -103,52 +104,12 @@ export function UploadBatchSelector({ batch }: { batch?: string }) {
   </select>;
 }
 
-export function UploadActivity() {
-  const batches = useUploadJobsStore(state => state.batches);
-  const persistence = useLocalPersistenceStore();
-  const location = useRouterState({ select: state => state.location });
+export function UploadActivity({ toolbar = false, split = false }: { toolbar?: boolean; split?: boolean }) {
   const navigate = useNavigate();
-  const batchId = location.pathname === "/upload" ? (location.search as { batch?: string }).batch : undefined;
-  const batch = batches.find(item => item.id === batchId) ?? batches.at(-1);
-  const issue = (batch && persistence.batchIssues[batch.id]) ?? Object.values(persistence.batchIssues)[0]
-    ?? persistence.descriptorIssue ?? persistence.historyIssue;
-  if (!batch && !issue) return null;
-  const attempts = batch?.attempts ?? [];
-  const ready = new Set(attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : [])).size;
-  const processing = attempts.filter(attempt => activePhases.has(attempt.phase)).length;
-  const attention = attempts.filter(attempt => attentionPhases.has(attempt.phase)).length;
-  const otherOutstanding = batches.filter(item => item !== batch && outstanding(item)).length;
-  return <div className="shrink-0 border-b border-grid-separator bg-grid-bg text-grid-text text-sm">
-    {batch && <details onKeyDown={containPillActivation}>
-      <summary className="cursor-pointer px-3 py-1.5 break-words">
-        <span aria-live="polite">Upload activity: {attempts.length} {attempts.length === 1 ? "file" : "files"}; {ready} {ready === 1 ? "image" : "images"} {batch.restored ? "known" : "available"}</span>
-        <span className="ml-2 text-grid-text-muted">{batchReference(batch.id)} / {processing} processing / {attention} need attention{otherOutstanding ? ` / ${otherOutstanding} other outstanding batches` : ""}</span>
-      </summary>
-      <div className="max-h-[min(40dvh,20rem)] overflow-y-auto px-3 pb-2" aria-label="Upload activity">
-        <div className="flex flex-wrap items-center gap-3 py-2">
-          <UploadBatchSelector batch={batch.id} />
-          <button className="underline" onClick={() => pushNavigate(navigate, { to: "/upload", search: { batch: batch.id } })}>Open batch</button>
-        </div>
-        {batch.restored && <p className="mb-2 text-grid-text-muted">Restored local record. Unfinished submissions were not resumed.</p>}
-        <ul className="space-y-2">{attempts.map((attempt, index) => <li key={attempt.id} data-upload-attempt={attempt.id} className="border-t border-grid-separator pt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="min-w-0 break-all">{attempt.name}</span>
-          <span className="text-grid-text-muted">{attempt.phase === "complete" && batch.restored ? "Known image" : phaseLabels[attempt.phase]}</span>
-          {attempt.imageId && attempts.findIndex(item => item.imageId === attempt.imageId) !== index && <span className="text-grid-text-muted">Same canonical image as another file</span>}
-          {attempt.submission && attempt.submission.outcome !== "accepted" && <span className="text-grid-text-muted">Submission {attempt.submission.outcome} during {attempt.submission.stage}</span>}
-          {attempt.submission?.queued && attempt.submission.queued !== "acknowledged" && (
-            attempt.phase === "complete" && attempt.submission.outcome === "accepted" && attempt.imageId
-              ? <details className="text-grid-text-muted"><summary className="cursor-pointer underline">Upload receipt</summary>
-                <span>Queued update {attempt.submission.queued}; file transfer acknowledged</span></details>
-              : <span className="text-grid-text-muted">Queued update {attempt.submission.queued}; file transfer acknowledged</span>
-          )}
-          {attempt.message && <span className="w-full text-grid-text-muted">{attempt.message}</span>}
-          {attempt.imageId && <button className="underline" onClick={() => pushNavigate(navigate, { to: "/upload", search: { batch: batch.id, image: attempt.imageId }, state: { _detailEntryImageId: attempt.imageId } })}>Open image</button>}
-          {attempt.statusId && attentionPhases.has(attempt.phase) && <button className="underline" onClick={() => checkUploadAttempt(attempt.id)}>Check status</button>}
-        </li>)}</ul>
-      </div>
-    </details>}
-    {issue && <div className="px-3 py-2 text-grid-text"><p role="status">{issue}</p>
-      {Object.keys(persistence.batchIssues).length > 0 && <button type="button" className="underline mt-1" onClick={retainUploadBatches}>Try local storage again</button>}
-    </div>}
-  </div>;
+  const available = useUploadAvailable();
+  if (!available) return null;
+  return <UploadProgress toolbar={toolbar} split={split} renderBatchControls={batch => <div className="upload-popup-header">
+    <UploadBatchSelector batch={batch.id} />
+    <button type="button" className="upload-link" onClick={() => pushNavigate(navigate, { to: "/upload", search: { batch: batch.id } })}>Open batch</button>
+  </div>} />;
 }

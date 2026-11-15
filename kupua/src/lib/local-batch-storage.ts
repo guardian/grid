@@ -23,10 +23,14 @@ const descriptorSchema = z.object({
     phase: z.enum(["waiting", "preparing", "transferring", "processing", "visibility", "complete", "failed", "blocked", "uncertain", "interrupted"]),
     statusId: imageId.optional(), imageId: imageId.optional(), processingComplete: z.boolean().optional(),
     message: z.string().optional(),
+    notificationDismissed: z.boolean().optional(),
+    serverError: z.string().optional(),
     submission: z.object({
       outcome: z.enum(["accepted", "blocked", "failed", "uncertain"]),
       stage: z.enum(["preparation", "transfer", "queued"]), imageId: imageId.optional(),
       queued: z.enum(["acknowledged", "blocked", "rejected", "uncertain"]).optional(),
+      failureKind: z.enum(["server", "failed", "size", "session"]).optional(), maxFileBytes: z.number().optional(),
+      httpStatus: z.number().optional(),
     }).optional(),
   })),
 });

@@ -508,6 +508,7 @@ Update one line when a unit's state changes; this is not a session diary.
 | U3 | representative one-file ingestion/job checks complete 14 November: local hosted/Vite and deployed TEST succeeded with readable/indexed canonical identity; processing completed on Search; laptop-to-TEST remains blocked by storage CORS; broader batch/editor/recovery work remains separate |
 | U4 | complete locally 14 November: multi-file entry, retained/recent navigation and explicit recovery over one engine; final full unit/E2E/build/type gates pass; no U2/U5 or durable/server-side batch guarantee |
 | U2 | complete locally 14 November: real Upload Form density, sparse retained drafts and passive-arrival integration; cold-review repairs and final full gates pass; no new saves, live-upload or real-editor performance claim |
+| Post-U2 UI polish | implemented locally 15 November: toolbar/activity presentation, Kahuna-like Form proportions and upload-access gating; cold-review repairs and final full gates pass; operator visual acceptance remains separate, U5 and R27 are not started |
 | U5-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**
@@ -1032,6 +1033,49 @@ No dependency, backend/transport change, live upload, infrastructure change or
 performance workload was used. The prototype comparison remains historical stand-in
 evidence. The adapted research driver names the real Form workload separately; it
 does not supply a new result or require repeating the campaign.
+
+### Post-U2 UI Polish Checkpoint (15 November 2026)
+
+The operator selected toolbar/activity presentation, a first-pass Kahuna-like Form
+layout and hidden Upload entry/drop UI when permission is denied or the startup
+upload switch is off. This is separately selected polish, not U5 or final Upload parity.
+
+- Search ends with My recent uploads, a joined status/blue Upload control and Settings;
+  labels fit the available toolbar width. Upload uses shared Home/Search navigation,
+  batch selection, activity, sort/order and submission controls.
+- Activity is a temporary cross-batch round, not history. Attention takes precedence
+  over running and completion, individual errors can be acknowledged, and Recheck is
+  read-only. All-success activity clears on navigation; old successes do not return
+  after reload. Retained batches and submission receipts have independent lifetimes.
+  Queued failures remain diagnostics/descriptor facts rather than a receipt-history UI.
+- Form has a centered 900px maximum, proportional previews bounded to 256px and aligned
+  desktop labels; compact result areas stack naturally. The existing measured host,
+  field markers, compensation, drafts and arrival policy remain. R27 sticky previews
+  were not selected. Existing fields/controls were not silently removed.
+- Permission loading, denial, disabled preference and session-read failure are distinct.
+  Refused direct batch/detail routes admit empty membership and an explanation;
+  fullscreen images close on session invalidation. UI gating does not replace command
+  admission or automatically replay/cancel independently owned work.
+
+Cold independent reviews covered lifecycle/transport/persistence, layout/input/toolbar,
+and access/presentation, followed by repair verification. Failing-first witnesses
+established quoted-credential leakage, popup keyboard leakage, short-screen Sort
+visibility/Tab/reopening defects and retained fullscreen after session loss; these were
+repaired. Existing tests also gained decoded portrait geometry and activity-round
+replacement witnesses, without another runner or fixture engine. The earlier
+unavailable-preview width and delayed-permission remount defects remain covered.
+
+Final frozen-source gates passed: **3,900 unit tests across 117 files**, **611/611 local
+E2E with retries disabled**, normal build and E2E/performance typechecks. Compiled-hosted
+journeys remain within the full browser gate; no new normal hosted output outside
+Kupua was authorised. No live upload, backend/infrastructure change, dependency,
+performance campaign, commit or push was made. Current mechanics live in the
+[component guide](00%20Architecture%20and%20philosophy/component-detail.md#form-density-componentsmeasuredgridtsx),
+[state guide](00%20Architecture%20and%20philosophy/state-management.md#search-and-upload-scope-admission)
+and [upload contract](../../src/dal/grid-api/README.md#upload-transport-and-jobs).
+Further operator visual judgment and any selected performance checks remain distinct
+from these functional gates. U5, sticky previews, duplicate detection and automatic
+follow-up edits are not supplied by this checkpoint.
 
 ### U3. Real Upload Transport and Route-Independent Jobs
 
@@ -1712,6 +1756,12 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | R18 | **U1 source constraint:** [scope fingerprints](../../src/lib/image-offset-cache.ts) include immutable membership and revision, and [history storage](../../src/lib/history-snapshot.ts) retains those fingerprints per entry. Short browser URLs therefore do not imply small stored snapshots; membership can be repeated across retained entries. | **U4 decided:** 2 MiB for descriptors and 1 MiB for history, counting keys/JSON as UTF-16 bytes, with the existing 50-entry history LRU. Keep complete membership/revision fingerprints rather than introducing snapshot references. Descriptor refusal never evicts older records or work; it warns, protects unretained work and permits storage-only retry. History refusal retains bounded in-page snapshots and warns; cached reads preserve LRU promotion. Benefit: explicit limits without weakened qualification. **Deferred hypothesis:** compact snapshot references may reduce repeated membership if representative usage reaches these budgets frequently. Cost/risk remains revision lookup, reload availability and identity isolation; that demonstrated pressure, not this implementation alone, is the trigger. |
 | R19 | **U1 observed lifecycle constraint:** moving [URL synchronization](../../src/hooks/useUrlSearchSync.ts) into the parent route broke all eight existing direct-Forward detail history cases; restoring a first-child synchronization owner made those cases pass unchanged. Existing [return](../../src/hooks/useReturnFromDetail.ts) and placement effects depend on this ordering. | **Deferred refactoring hypothesis:** make this admission-before-consumer boundary explicit if the route/detail effect structure is reorganized again. Benefit: a presentation move need not accidentally change navigation settlement. Cost/risk: lifecycle coordination across history, continuity, detail and layout, with meaningful regression risk; retain the existing direct-detail assertions. Trigger: another required route/detail ownership change demonstrates that the documented first-child boundary is insufficient. No history-policy rewrite or new navigation engine is authorized by this finding. |
 
+**Polish follow-up for R7:** the same expected `[superseded, observed]` versus
+actual `[observed, observed]` bulk-editor receipt pair recurred in an early polish
+focused run. The final 611-case full gate passed without a causal repair to that
+path. R7 remains an unexplained intermittent, not a repaired Upload regression;
+retain its request-hold/observation invariant for a future recurrence.
+
 **U3 resource follow-up for R14:** [browser hashing](../../src/lib/upload-commands.ts)
 uses WebCrypto's whole-file SHA-1 with one active file, not an incremental digest.
 This is a source constraint, not a measured large-file or phone failure. A proven
@@ -1928,3 +1978,40 @@ or a display-only default. Respect the separate editing gate, server capability
 and metadata-write outcome handling; enabling uploads must not silently enable
 this edit. Confirm missing/empty-description and duplicate semantics against the
 owning metadata boundary when implementing, without automatic mutation replay.
+
+### Decide Whether Rare Duplicate Uploads Warrant an Existence Check
+
+**Deferred operator decision, 14 November 2026; not an acceptance gate or
+implementation authorization.** The operator reports a rare but confusing Kahuna
+workflow: a user uploads an image already in Grid, sees it in the current upload
+batch, then cannot find it in My recent uploads after reload when its original
+uploader is someone else. Preserving the original uploader is correct; the
+uploader-scoped recent query is also correct. The problem is explaining an existing
+image's successful re-upload, not changing attribution or promising permanent batch
+history. This is an operator-reported experience, not a new runtime reproduction.
+
+**Possible benefit:** when prior existence is confirmed, show "File already in Grid"
+with links on the filename and "in Grid", so the user can find the existing image
+and understand why it need not appear in their uploader-scoped recent results.
+Do not infer prior existence merely because two submitted files share an image ID:
+signed uploads calculate that ID before sending bytes, and repeated files can also
+represent a newly created image in the same submission.
+
+**Options to assess if selected:** one authenticated lookup per signed-upload file,
+bounded groups through the existing POST `/images/mget` endpoint, or a separately
+approved authoritative server signal. Kahuna currently hashes files and prepares
+signed URLs together without a pre-upload image-existence lookup. Grid's mget accepts
+up to 200 distinct IDs per request, with existing client chunking. A returned image
+is positive evidence; omission or a failed lookup must not establish that an image
+is new. Preserve authorization and distinguish unavailable reads from absence.
+
+**Cost and decision:** a per-file check adds a request and latency to every upload
+to clarify a rare case. Grouping reduces requests but requires hashes before the
+lookup and can delay the first transfer; preserve bounded hashing resources and do
+not silently change upload concurrency. Decide whether the user benefit justifies
+that habitual cost before choosing either approach. Do not add the check merely
+to match the mock, skip normal upload processing, rewrite the uploader, or add
+automatic replay. Until separately selected, duplicate-specific pre-upload lookups
+must not be enabled as part of the toolbar/activity polish.
+
+A cheaper option is to compare the uploader on images already returned in batch results with the signed-in user, explaining the different-uploader case after indexing without extra requests or pre-upload delay, but without detecting reuploads of the user's own images.

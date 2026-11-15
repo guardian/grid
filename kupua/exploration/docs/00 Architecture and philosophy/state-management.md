@@ -54,6 +54,14 @@ an explicit unavailable state with Search as an alternative; it makes no batch
 page/count reads. Its return affordance is hidden there. Existing direct-ES search
 and the adapter remain unchanged; the Upload workplan forbids extending that path.
 
+`useUploadAccess` in [UploadActivity](../../../src/components/UploadActivity.tsx)
+combines the startup upload preference with the shared session permission projection,
+distinguishing loading, denial and unavailable reads. Refused Upload routes admit an
+empty scope, hide batch/density/detail controls and close their fullscreen preview.
+Entry and drag handlers disappear, but the drop wrapper's child tree stays stable
+across asynchronous permission resolution. This presentation gate does not replace
+command admission, cancel independent jobs or grant authority from retained membership.
+
 `uploadBatchMembership` holds immutable canonical-ID snapshots independently of
 the route. Job-owned membership deduplicates IDs in submitted-filename order and
 advances its revision on change. `SearchParams.imageScope` carries key, revision,
@@ -63,6 +71,16 @@ short `batch`, not membership. This is not selection, an image cache or authorit
 resources. [Local descriptors](../../../src/lib/local-batch-storage.ts) restore
 known members/revision and lightweight outcomes, never files, requests, credentials,
 capabilities or image bodies. Unfinished work restores interrupted, without replay.
+
+Jobs also own transient `activityAttemptIds`, separate from batch membership/history.
+New submissions join an active round; when no job is active, a new submission retains
+unacknowledged attention entries but replaces old successful entries. Navigation clears
+the indicator only when all represented attempts are complete. Reload restores only
+unacknowledged attention, never historical successes. Dismissing an error removes its
+indicator membership and records `notificationDismissed` in the descriptor when storage
+permits, without cancelling a request or deleting the batch/image. Safe server error
+text and original submission receipts remain lightweight descriptor facts; identical
+diagnostics are suppressed independently for queued and terminal failures.
 
 Resolved batches clear unrelated search filters and admit paid/free images.
 Missing batches and unavailable recent identity admit explicit empty scopes;

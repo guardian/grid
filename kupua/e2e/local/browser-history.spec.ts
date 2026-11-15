@@ -43,7 +43,7 @@ test("Upload requires media-api without reading resolved membership through dire
     await expect(page.getByText("Upload requires media-api mode.", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => (window as any).__u1ModeControl.reads)).toBe(0);
     await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await kupua.waitForResults();
     expect(new URL(page.url()).pathname).toBe("/search");
     expect(await page.evaluate(() => (window as any).__kupua_store__.getState().params.imageScope)).toBeUndefined();
