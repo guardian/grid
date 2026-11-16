@@ -351,6 +351,7 @@ module.controller('grImageMetadataCtrl', [
       function updateSingleImage() {
         // Alias for convenience in view
         ctrl.identifiers = Object.fromEntries(
+          // exclude bbc specific ingest-source identifier from view
           Object.entries(ctrl.singleImage.data.identifiers)
             .filter(([key]) => key !== 'ingest-source')
         );
