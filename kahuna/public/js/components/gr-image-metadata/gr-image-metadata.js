@@ -350,7 +350,10 @@ module.controller('grImageMetadataCtrl', [
 
       function updateSingleImage() {
         // Alias for convenience in view
-        ctrl.identifiers = ctrl.singleImage.data.identifiers;
+        ctrl.identifiers = Object.fromEntries(
+          Object.entries(ctrl.singleImage.data.identifiers)
+            .filter(([key]) => key !== 'ingest-source')
+        );
 
         ctrl.additionalMetadata = Object.fromEntries(
           Object.entries(ctrl.singleImage.data.aliases)
