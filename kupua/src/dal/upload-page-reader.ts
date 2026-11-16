@@ -8,8 +8,10 @@ export class UploadPageReader {
   parts(params: SearchParams): [SearchParams, SearchParams] {
     const scope = params.recentUploadScope!;
     const batch = scope.batch;
+    const descendingFilename = batch?.submittedOrder && params.orderBy === "-__submittedFilename";
+    const orderedBatch = descendingFilename ? { ...batch, ids: [...batch.ids].reverse() } : batch;
     return [
-      { nonFree: "true", imageScope: batch ?? { key: `${scope.key}:empty`, revision: 0, ids: [] }, orderBy: params.orderBy, ids: params.ids },
+      { nonFree: "true", imageScope: orderedBatch ?? { key: `${scope.key}:empty`, revision: 0, ids: [] }, orderBy: descendingFilename ? undefined : params.orderBy, ids: params.ids },
       { nonFree: "true", orderBy: "-uploadTime", ids: params.ids,
         recentUploadScope: { key: `${scope.key}:other`, uploadedBy: scope.uploadedBy, excludedIds: batch?.ids ?? [] } },
     ];
@@ -27,7 +29,7 @@ export class UploadPageReader {
       batch: counts[0].status === "fulfilled" ? counts[0].value : 0,
       other: counts[1].status === "fulfilled" ? counts[1].value : 0,
       ...(counts[0].status === "rejected" ? { batchError: "Batch images are unavailable." } : {}),
-      ...(counts[1].status === "rejected" ? { otherError: "My other uploads are unavailable. Reload after signing in to a human account." } : {}),
+      ...(counts[1].status === "rejected" ? { otherError: "My other uploads are unavailable. Reload after signing in." } : {}),
     };
   }
 

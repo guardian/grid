@@ -114,6 +114,32 @@ directive in one place, copy the change to the other.
 
 Playwright E2E: ports :3000 and :3030 must be free for the normal and forced-seek projects; ask the user to stop the app only when they have said it is running. Perf surfaces require :3000 free. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.
 
+**Directive: Proportionate coverage and E2E runtime.** Suite wall-clock time is a
+development constraint. Before adding or extending E2E coverage, inspect the
+nearest owning tests, fixtures and helpers for an existing witness and a cheaper
+way to cover the behavioral gap. Amend existing journeys and reuse setup and
+transitions first. Add a new E2E case, file or setup only when existing coverage
+cannot clearly own the behavior; explain the gap and material runtime cost.
+
+- Keep pure rules and data contracts in unit/integration tests; use E2E for
+	behavior that needs a real browser or cross-boundary workflow. Cover materially
+	different paths, not exhaustive permutations or duplicate guarantees.
+- Look locally for low-risk consolidation, redundant navigation, repeated setup
+	and unnecessary waits when touching tests. Make worthwhile small improvements
+	in the touched area, but do not turn the task into a suite audit, infrastructure
+	rewrite or unrelated refactor. Flag larger opportunities separately. Do not
+	create sprawling, unrelated journeys merely to keep the test count unchanged.
+- Wait for observable readiness or completion, not arbitrary sleeps. Timeouts
+	are failure bounds, not synchronization. Configure unrelated processing or
+	polling deterministically in existing fixtures rather than waiting through it;
+	retain realistic timing where that behavior is the subject of the test.
+- Never buy speed by weakening assertions, deleting the only behavioral witness,
+	adding retries, or increasing timeouts to conceal a failure. Preserve required
+	validation gates and operator instructions about when suites may run.
+- In the closeout, briefly explain meaningful coverage additions, removals and
+	reuse, and distinguish measured runtime from estimates. Test-count or coverage
+	quotas are not a substitute for judgment.
+
 **Directive: Ask rather than spiral.** If the agent has attempted a fix or approach and
 it didn't work, or if there are multiple plausible interpretations of a request with
 meaningfully different implementation costs, **ask the user** instead of guessing and

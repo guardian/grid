@@ -1,4 +1,5 @@
 import type { Image } from "@/types/image";
+import { format, isSameDay, subDays } from "date-fns";
 
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -19,6 +20,14 @@ export function formatGridDate(iso: string | undefined): string {
   } catch {
     return iso;
   }
+}
+
+export function formatRecentGridDate(timestamp: number, now = new Date()): string {
+  const date = new Date(timestamp);
+  const day = isSameDay(date, now) ? "today"
+    : isSameDay(date, subDays(now, 1)) ? "yesterday"
+    : format(date, date.getFullYear() === now.getFullYear() ? "d MMM" : "d MMM yyyy");
+  return `${day}, ${timeFormatter.format(date)}`;
 }
 
 export function getGridDatePresentation(image: Image, orderBy: string | undefined) {

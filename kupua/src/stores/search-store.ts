@@ -425,6 +425,7 @@ interface SearchState {
   _pendingFocusAfterSeek: {
     edge: "first" | "last";
     focusedImageId: string | null;
+    focusIntent: number;
     signal?: AbortSignal;
   } | null;
 
@@ -1997,7 +1998,7 @@ async function _findAndFocusImage(
         // Phantom promotion: position around image but don't set focusedImageId.
         // Use _phantomFocusImageId + sortAroundFocusGeneration so Effect #9
         // handles scroll positioning (same path as explicit focus).
-        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance";
+        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance" || continuity?.suppressPulse;
         set({
           ...(!retainExplicitFocus && {
             focusedImageId: null,
@@ -2131,7 +2132,7 @@ async function _findAndFocusImage(
                 _focusedImageKnownOffset: null,
               }),
               _phantomFocusImageId: imageId,
-              ...(!get()._isInitialLoad && continuity?.provenance !== "maintenance" && { _phantomPulseImageId: imageId }),
+              ...(!get()._isInitialLoad && continuity?.provenance !== "maintenance" && !continuity?.suppressPulse && { _phantomPulseImageId: imageId }),
               sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1,
             }
           : {
@@ -2142,7 +2143,7 @@ async function _findAndFocusImage(
             }) : {}),
       });
 
-      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad && continuity?.provenance !== "maintenance") {
+      if (presentationCurrent() && phantomOnly && !get()._isInitialLoad && continuity?.provenance !== "maintenance" && !continuity?.suppressPulse) {
         setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
       }
       set({ _isInitialLoad: false });
@@ -2418,7 +2419,9 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     // exploration/docs/audit-history-back-forward-back-forward-bug.md.
     set({ loading: true, error: null, sortAroundFocusStatus: null, ...(!options?.frozenUntil && { newCount: 0, tickerCounts: null, tickersLastUpdated: null }),
       ...(options?.frozenUntil && options.frozenNewCount !== undefined && { newCount: options.frozenNewCount, newCountSince: options.frozenUntil }),
-      ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null, ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
+      ...(!params.aiQuery && { aiPoolTotal: null }), _pendingFocusDelta: null, _pendingFocusAfterSeek: null, _phantomFocusImageId: null,
+      ...(options?.continuity?.suppressPulse && { _phantomPulseImageId: null }),
+      ...(options?.phantomOnly && !options.retainExplicitFocus && { focusedImageId: null, _focusedImageKnownOffset: null }) });
     if (import.meta.env.DEV) {
       _searchLifecycle = {
         ..._searchLifecycle,
@@ -2595,12 +2598,12 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
             ? { sortAroundFocusGeneration: get().sortAroundFocusGeneration + 1 }
             : { _scrollReset: { gen: get()._scrollReset.gen + 1, sortOnly: false } }),
           ...(focusedInAiResults && phantomOnly && !placementRetired
-            ? { _phantomFocusImageId: targetId!, _phantomPulseImageId: targetId! }
+            ? { _phantomFocusImageId: targetId!, ...(!completionContinuity?.suppressPulse && { _phantomPulseImageId: targetId! }) }
             : { _phantomFocusImageId: null }),
           _isInitialLoad: false,
         });
 
-        if (focusedInAiResults && phantomOnly && !placementRetired) {
+        if (focusedInAiResults && phantomOnly && !placementRetired && !completionContinuity?.suppressPulse) {
           setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
         }
 
@@ -2788,7 +2791,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         }
         if (options?.traceAction) traceInteraction(options.traceAction, "t_store_ready", options.traceInteractionId, { total: result.total });
 
-        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance";
+        const suppressPulse = get()._isInitialLoad || continuity?.provenance === "maintenance" || continuity?.suppressPulse;
 
         // Identify images that arrived after the frozen-until boundary
         // (the user clicked "N new" to refresh — these are the new arrivals).
@@ -4118,7 +4121,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       if (!displayCoordinates && orderingRevision !== getOrderingRevision()) {
         if (orderingAttempts === 0) throw new Error("Image ordering changed during navigation. Please try again.");
         if (pendingFocus && get()._pendingFocusAfterSeek?.signal === signal) {
-          set({ _pendingFocusAfterSeek: { edge: pendingFocus.edge, focusedImageId: pendingFocus.focusedImageId } });
+          set({ _pendingFocusAfterSeek: { edge: pendingFocus.edge, focusedImageId: pendingFocus.focusedImageId, focusIntent: pendingFocus.focusIntent } });
         }
         return await get().seek(globalOffset, traceAction, traceInteractionId, purpose, restoreFocusIntent, orderingAttempts - 1);
       }

@@ -83,6 +83,11 @@ describe("applySearchContextTransitions", () => {
 });
 
 describe("canonicalizeSearchParams", () => {
+  it("preserves filename direction only in an explicit batch-ordering context", () => {
+    expect(canonicalizeSearchParams({ orderBy: "-__submittedFilename" }, true).orderBy).toBe("-__submittedFilename");
+    expect(canonicalizeSearchParams({ orderBy: "-__submittedFilename" }).orderBy).toBe("-uploadTime");
+  });
+
   it.each([
     [undefined, undefined],
     ["", "-uploadTime"],

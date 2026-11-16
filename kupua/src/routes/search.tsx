@@ -25,7 +25,6 @@ import { rootRoute } from "./__root";
 import { searchParamsSchema } from "@/lib/search-params-schema";
 import { SearchBar } from "@/components/SearchBar";
 import { StatusBar } from "@/components/StatusBar";
-import { SearchFilters } from "@/components/SearchFilters";
 import { ImageTable } from "@/components/ImageTable";
 import { ImageGrid } from "@/components/ImageGrid";
 import { JustifiedGrid } from "@/components/JustifiedGrid";
@@ -34,6 +33,7 @@ import { RESIDENT_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIM
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { Scrubber } from "@/components/Scrubber";
+import { UPLOAD_SECTION_LABELS } from "@/lib/upload-section-layout";
 import { FacetFilters, AggCircuitBreaker } from "@/components/FacetFilters";
 import { CollectionTree } from "@/components/CollectionTree";
 import { useCollectionStore } from "@/stores/collection-store";
@@ -61,7 +61,7 @@ import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-fr
 import type { LabelEditContext } from "@/lib/label-operation";
 import { LabelOperationReceipts } from "@/components/LabelEditor";
 import { useIsCompact } from "@/hooks/useShell";
-import { UploadActivity, UploadBatchSelector, UploadEntry, useUploadAccess } from "@/components/UploadActivity";
+import { UploadActivity, UploadEntry, useUploadAccess, useToolbarUploadFit } from "@/components/UploadActivity";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { DetailNavigation } from "@/components/DetailNavigation";
 import { resetToHome } from "@/lib/reset-to-home";
@@ -131,6 +131,7 @@ function SearchPage() {
   const { image, batch, section } = useBrowsingSearch();
   const { path, imageScope, recentUploadScope, recentStatus, uploadStatus } = useBrowsingContext();
   const upload = path === "/upload";
+  const toolbarRef = useToolbarUploadFit(upload);
   const navigate = useNavigate();
   const router = useRouter();
   const engineScope = useSearchStore(state => state.params.imageScope?.key ?? state.params.recentUploadScope?.key);
@@ -254,7 +255,7 @@ function SearchPage() {
       if (store.params.recentUploadScope?.combined) {
         const sections = store.uploadSections;
         const upper = globalPosition < (sections?.batch ?? 0);
-        return `${upper ? "Batch" : "My other uploads"}: ${globalPosition - (upper ? 0 : sections?.batch ?? 0) + 1} of ${upper ? sections?.batch ?? 0 : sections?.other ?? 0}`;
+        return UPLOAD_SECTION_LABELS[upper ? "batch" : "other"];
       }
       if (store.params.imageScope?.submittedOrder && !store.params.orderBy) return null;
       return interpolateNullZoneSortLabel(
@@ -321,6 +322,11 @@ function SearchPage() {
       onSeek={(offset, interactionId) => seek(offset, "scrubber-seek", interactionId)}
       onBrowsePosition={(offset) => useSearchStore.getState().queueBrowsePosition(offset)}
       getSortLabel={getSortLabel}
+      getPositionLabel={recentUploadScope?.combined ? (globalPosition) => {
+        const sections = useSearchStore.getState().uploadSections;
+        const upper = globalPosition < (sections?.batch ?? 0);
+        return `${(globalPosition - (upper ? 0 : sections?.batch ?? 0) + 1).toLocaleString("en-GB")} of ${(upper ? sections?.batch ?? 0 : sections?.other ?? 0).toLocaleString("en-GB")}`;
+      } : undefined}
       onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}
       twoTier={twoTier}
@@ -351,18 +357,15 @@ function SearchPage() {
         // trap silently swallows ImageDetail's Backspace/arrow shortcuts.
         inert={showImageDetail || undefined}
       >
-        {upload ? <header role="toolbar" aria-label={uploadStatus ? "Navigation" : "Upload controls"}
+        {upload ? <header ref={toolbarRef} role="toolbar" aria-label="Navigation"
           className="upload-toolbar @container/detail-toolbar relative z-30 flex items-center gap-1.5 px-3 py-1.5 h-11 shrink-0 bg-grid-bg border-b border-grid-separator text-grid-text">
           <DetailNavigation destination="search" onBack={() => returnToBrowsing(navigate, "/search")} onHome={() => {
             captureBrowsingDeparture(router.state.location);
             void resetToHome(() => pushNavigateAsPopstate(navigate, { to: "/search", search: DEFAULT_SEARCH }), undefined, router.history);
           }} />
-          <div className="flex flex-1 min-w-0 h-9 items-center gap-2 overflow-x-auto hide-scrollbar">
-            {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadBatchSelector batch={batch} />}
-            {!uploadStatus && <UploadActivity toolbar />}
-            {UPLOAD_BROWSING_ENABLED && !uploadStatus && batch && <div role="group" aria-label="Batch sort" className="ml-auto flex shrink-0 items-center gap-1"><span className="text-xs hidden wide:inline">Batch sort</span><SearchFilters.Sort alwaysVisible /></div>}
-          </div>
-          {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadEntry />}
+          <div className="flex-1 min-w-0" />
+          {!uploadStatus && <UploadActivity toolbar />}
+          {!uploadStatus && <UploadEntry />}
           <SettingsMenu />
         </header> : <SearchBar />}
         {RESIDENT_PREVIEW_ENABLED && <div className="px-3 py-1 text-xs bg-grid-cell text-grid-text-muted" role="note">
@@ -407,7 +410,7 @@ function SearchPage() {
             : upload && !UPLOAD_BROWSING_ENABLED ? <div role="status" className="p-6 text-grid-text-muted">Upload requires media-api mode.</div>
             : upload && imageScope?.ids.length === 0 ? <div role="status" className="p-6 text-grid-text-muted">
             <p>{batch ? imageScope.revision > 0 ? "This batch has no available images yet." : "This local batch is unavailable in this tab."
-              : recentStatus === "loading" ? "Loading my recent uploads..." : "My recent uploads are unavailable. Reload after signing in to a human account."}</p>
+              : recentStatus === "loading" ? "Loading my recent uploads..." : "My recent uploads are unavailable. Reload after signing in."}</p>
             {batch && imageScope.revision === 0 && <button type="button" className="mt-3 cursor-pointer underline" onClick={() => navigate({ to: "/upload", search: {} })}>Recent uploads</button>}
           </div> : density === "form" && (upload || import.meta.env.DEV) ? <MeasuredGrid handleRange={handleRange} />
             : density === "justified" ? <JustifiedGrid handleRange={handleRange} />

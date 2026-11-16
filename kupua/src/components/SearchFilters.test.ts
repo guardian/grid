@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isAiSortOptionEnabled } from "./SearchFilters";
+import { isAiSortOptionEnabled, isBatchSortOptionEnabled } from "./SearchFilters";
+
+describe("isBatchSortOptionEnabled", () => {
+  it("omits only the three irrelevant batch fields", () => {
+    expect(["uploadTime", "credit", "usagesDateAdded", "dateAddedToCollection", "uploadedBy"]
+      .filter(isBatchSortOptionEnabled)).toEqual(["uploadTime", "credit"]);
+  });
+});
 
 describe("isAiSortOptionEnabled", () => {
   it.each(["relevance", "uploadTime"])("enables %s", (field) => {

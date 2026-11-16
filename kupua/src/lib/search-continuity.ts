@@ -9,6 +9,7 @@ import { resolveAnchorVirtIndex } from "@/lib/grid-scroll-anchor";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
 import type { HistorySnapshot } from "@/lib/history-snapshot";
+import { useUploadLayoutStore } from "@/stores/upload-layout-store";
 
 export type SearchPlacement = { kind: "ratio"; ratio: number; includesHeader?: boolean } | { kind: "start" } | { kind: "centre" };
 
@@ -17,6 +18,7 @@ export interface SearchContinuity {
   targetId: string | null;
   placement: SearchPlacement;
   focus: "target" | "none" | "retain";
+  suppressPulse?: boolean;
   neighbours?: string[];
   fallback?: "top";
   anchorOffset?: number;
@@ -30,6 +32,16 @@ export interface OwnedSearchContinuity extends SearchContinuity {
 }
 
 let captured: { key: string; generation: number; sortOnly: boolean; continuity: SearchContinuity } | null = null;
+
+export function stopFollowingUploadBatch(): void {
+  const layout = useUploadLayoutStore.getState();
+  if (!layout.followingBatch) return;
+  const state = useSearchStore.getState();
+  if (state.params.recentUploadScope?.batch?.key === `upload:${layout.followingBatch}`) {
+    state.setFocusedImageId(state.focusedImageId);
+  }
+  layout.stopFollowingBatch();
+}
 
 export function historySearchContinuity(snapshot: HistorySnapshot | undefined, params: UrlSearchParams): SearchContinuity {
   const matching = snapshot?.searchKey === buildSearchKey(params) ? snapshot : undefined;
@@ -53,6 +65,10 @@ export function captureSearchContinuity(
   const sortOnly = transition === true;
   const maintenance = transition === "membership";
   const state = useSearchStore.getState();
+  const followingBatch = useUploadLayoutStore.getState().followingBatch;
+  if (maintenance && followingBatch && state.params.recentUploadScope?.batch?.key === `upload:${followingBatch}`) {
+    return { provenance: "maintenance", targetId: null, placement: { kind: "start" }, focus: "retain" };
+  }
   const selection = useSelectionStore.getState();
   const selectedAnchor = sortOnly && !state.params.imageScope && !state.params.recentUploadScope && selection.selectedIds.size > 0 ? selection.anchorId : null;
   const focusTarget = sortOnly && getEffectiveFocusMode() !== "explicit" ? null : state.focusedImageId;

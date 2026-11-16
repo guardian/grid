@@ -378,9 +378,11 @@ if (process.argv.includes("--serve-readback")) {
     VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" });
   const { createServer } = await import("vite");
   const continuation = process.argv.includes("--continuation");
+  const upload = process.argv.includes("--upload");
+  if (upload) Object.assign(process.env, { VITE_GRID_LOADER_ORIGIN: "https://loader.example.test", VITE_GRID_AUTH_ORIGIN: "https://auth.example.test" });
   const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),
-    cacheDir: resolve(root, "node_modules/.cache/a3-readback-vite"), plugins: [labelEditorPlugin(continuation ? "continuation" : "readback")],
+    cacheDir: resolve(root, "node_modules/.cache/a3-readback-vite"), plugins: [labelEditorPlugin(upload ? "upload" : continuation ? "continuation" : "readback")],
     server: { host: "127.0.0.1", port: 3067, strictPort: true } });
   await server.listen();
-  console.log(`Synthetic fixture: http://127.0.0.1:3067/${continuation ? "__continuation" : "__readback"}`);
+  console.log(`Synthetic fixture: http://127.0.0.1:3067/${upload || continuation ? "__continuation" : "__readback"}`);
 }

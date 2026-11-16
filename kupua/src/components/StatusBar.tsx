@@ -32,7 +32,6 @@ import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useIsCompact } from "@/hooks/useShell";
 import { SelectionImageActions } from "./ImageActions";
-import { UploadOrientation } from "./UploadSections";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -79,16 +78,17 @@ function useNarrow() {
 }
 
 const STATUS_FITS = [
-  { key: "full", actions: "full", controls: true, badges: true, matches: true },
-  { key: "short", actions: "short", controls: true, badges: true, matches: true },
-  { key: "icons", actions: "icons", controls: true, badges: true, matches: true },
-  { key: "condensed", actions: "icons", controls: false, badges: true, matches: true },
-  { key: "counts", actions: "icons", controls: false, badges: false, matches: true },
-  { key: "minimal", actions: "icons", controls: false, badges: false, matches: false },
+  { key: "full", actions: "full", controls: true, badges: true, shortBadges: false, matches: true },
+  { key: "short", actions: "short", controls: true, badges: true, shortBadges: false, matches: true },
+  { key: "icons", actions: "icons", controls: true, badges: true, shortBadges: false, matches: true },
+  { key: "condensed", actions: "icons", controls: false, badges: true, shortBadges: false, matches: true },
+  { key: "ticker-short", actions: "icons", controls: false, badges: false, shortBadges: true, matches: true },
+  { key: "counts", actions: "icons", controls: false, badges: false, shortBadges: true, matches: false },
+  { key: "minimal", actions: "icons", controls: false, badges: false, shortBadges: false, matches: false },
 ] as const;
 const STATUS_FIT_GAP = 12;
 const STATUS_EXPANSION_GAP = 20;
-type StatusLabelKind = "controls" | "badges" | "matches" | "full" | "short";
+type StatusLabelKind = "controls" | "badges" | "shortBadges" | "matches" | "full" | "short";
 
 function useStatusBarFit() {
   const ref = useRef<HTMLDivElement>(null);
@@ -113,6 +113,7 @@ function useStatusBarFit() {
         const style = getComputedStyle(label);
         const parent = getComputedStyle(label.parentElement!);
         const kind: StatusLabelKind = label.classList.contains("status-control-label") ? "controls"
+          : label.classList.contains("status-badge-short") ? "shortBadges"
           : label.classList.contains("status-badge-label") ? "badges"
           : label.classList.contains("status-matches-label") ? "matches"
           : label.classList.contains("image-action-full") ? "full" : "short";
@@ -229,7 +230,7 @@ export const StatusBar = memo(function StatusBar() {
     <div
       ref={barRef}
       data-status-fit="full"
-      className="status-bar @container flex items-stretch gap-0 h-9 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative"
+      className={`status-bar @container flex items-stretch gap-0 h-9 pointer-coarse:h-[38px] bg-grid-bg border-b border-grid-separator text-sm text-grid-text-muted shrink-0 select-none relative${path === "/upload" ? " justify-end" : ""}`}
       data-coarse-pointer={isCoarsePointer ? "true" : undefined}
       data-selection-mode={selectedCount > 0 ? "true" : undefined}
     >
@@ -254,15 +255,15 @@ export const StatusBar = memo(function StatusBar() {
         <span className="status-control-label text-sm">Browse</span>
       </button>}
 
-      <div className="w-px bg-grid-separator shrink-0" />
+      {path === "/search" && <div className="w-px bg-grid-separator shrink-0" />}
 
       {/* Only the summary scrolls horizontally; layout/panel controls stay reachable. */}
-      <div className="min-w-0 flex-1 flex items-center overflow-x-auto hide-scrollbar" data-testid="result-summary">
+      {path === "/search" && <div className="min-w-0 flex-1 flex items-center overflow-x-auto hide-scrollbar" data-testid="result-summary">
       <div className="flex w-max shrink-0 items-center">
       {/* Result count — seeded from sessionStorage across reload.
            Show when settled (storeReady) even if 0; show cached during loading
            only if > 0 (avoids blank-then-number flash on first load). */}
-      {path === "/upload" ? <UploadOrientation /> : (storeReady || displayTotal > 0) && (
+      {(storeReady || displayTotal > 0) && (
         <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text shrink-0">
           {displayPool !== null && "Best "}
           {displayTotal.toLocaleString()}
@@ -311,11 +312,12 @@ export const StatusBar = memo(function StatusBar() {
               }}
               className={`px-1.5 pointer-coarse:py-1 rounded-sm cursor-pointer text-sm leading-tight flex items-center shrink-0 whitespace-nowrap transition-opacity ${isActive ? "opacity-60" : "hover:opacity-90"}`}
               style={{ backgroundColor: ticker.backgroundColour, color: "white" }}
-              title={buildTickerTooltip(ticker, tickersLastUpdated)}
+              title={[ticker.name, buildTickerTooltip(ticker, tickersLastUpdated)].filter(Boolean).join("\n")}
               aria-pressed={isActive}
               aria-label={`${ticker.value.toLocaleString()} ${ticker.name}`}
             >
-              {ticker.value.toLocaleString()}<span className="status-badge-label ml-[0.25em]">{ticker.name}</span>
+              {ticker.value.toLocaleString()}<span className="status-badge-label status-badge-full ml-[0.25em]">{ticker.name}</span>
+              <span className="status-badge-label status-badge-short ml-[0.25em]">{ticker.shortName ?? ticker.name}</span>
             </button>
           );
         })}
@@ -323,7 +325,7 @@ export const StatusBar = memo(function StatusBar() {
       </div>
 
       </div>
-      </div>
+      </div>}
 
        {/* Selection count + clear -- desktop model only.
          In the compact shell the SelectionFab handles this. */}

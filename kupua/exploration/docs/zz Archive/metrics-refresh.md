@@ -11,6 +11,11 @@
 > paired campaign only when a concrete migration decision requires them. The
 > RTT probe's acceptance of failed/non-2xx responses and its direct-ES-only
 > route remain a small harness-quality follow-up.
+>
+> **16 November 2026 amendment:** the
+> [current-state timing-display investigation](#section-a--in-app-timings-current-state-16-november-2026)
+> below supplements this archive. It documents the current application display,
+> not a replacement perf-harness model or an authorized implementation plan.
 
 **Date:** 2026-05-29  
 **Purpose:** Assess what the e2e-perf harness measures, what it misses, and what
@@ -97,7 +102,118 @@ was slow.
 
 ---
 
-## Section A+ — The Blue Dot: In-App Timing Display
+## Section A+ — In-App Timings: Current State, 16 November 2026
+
+This source-based investigation supersedes the historical display description
+immediately below. No timing repairs, preference switch or busy-dot change were
+implemented as part of the investigation. The rest of this document remains a
+historical snapshot, including its proposed instrumentation and harness claims.
+
+### Display and Busy Signal
+
+[SearchBar](../../../src/components/SearchBar.tsx) renders the numeric readout and
+one pulsating busy dot at Tailwind's `lg` breakpoint and above (currently viewport
+width >=1024px). This is a width condition, not desktop-device or `wide`-shell
+detection. Narrow desktop windows hide them; sufficiently wide touch devices can
+show them. The [Upload route](../../../src/routes/search.tsx) uses its own
+navigation toolbar and does not render this readout or dot.
+
+The dot appears after any of `loading || aggLoading || isReconciling ||
+isRangeWalking` remains true for 150ms. These cover search/seek activity, filter
+aggregations, selection reconciliation and server-backed range selection. It
+disappears when those flags clear. It is not a signal for every background read,
+thumbnail transfer, image decode or paint. Its color comes from the accent theme;
+the historical name "blue dot" is not a separate timing category.
+
+### Numeric Fields and Boundaries
+
+The optional fields appear in the following order, separated by slashes. Their
+names are available through hover tooltips, not printed beside each number.
+
+| Field | Current meaning and display |
+|-------|-----------------------------|
+| `took` | ES-reported execution time from the last primary search response. Not total browser latency. |
+| `fetchDuration` | Client-observed page-request duration, including the transport/server path and client response processing within that adapter method. With `took`, shown only when `fetchDuration - took > 20ms`; without `took`, shown as `~Nms`. |
+| `seekTime` | Client wall-clock time from an actual seek's execution to result publication in the search store. Includes the reads and local processing awaited on that path, but not subsequent React rendering or paint. Resident-buffer reuse can avoid this timed path. |
+| `aggTook` | ES-reported execution time for the primary filter-aggregation request. Not the total duration of all facet work. |
+| `rangeWalkTime` | Client wall-clock time for the server-backed range operation, including applicable endpoint revalidation, walking and retries, ending before selection membership is committed. Entirely local ranges do not produce this timing. |
+
+Sources: [search store](../../../src/stores/search-store.ts),
+[range-selection hook](../../../src/hooks/useRangeSelection.ts), and
+[selection store](../../../src/stores/selection-store.ts).
+
+These are independently retained last-operation values, not additive stages of
+one action. Some can belong to earlier actions or contexts. A missing field is
+not zero, and field presence alone does not establish freshness or ownership.
+None is a complete "user action until visibly ready" measurement.
+
+### Applicability Across Data Topologies
+
+| Data path | Primary search | Filter aggregation | Actual seek / server-backed range |
+|-----------|----------------|--------------------|-----------------------------------|
+| Direct ES, local or tunneled | Adapter supplies `took` and `fetchDuration`. | Adapter supplies `took` and `fetchDuration`; header displays `aggTook`. | Client operation timings apply when those paths execute. |
+| Media-api, local API, locally hosted, deployed or proper hosted | Adapter supplies `fetchDuration`, not isolated ES `took`; ordinary search displays the client duration. | Adapter supplies `fetchDuration`, but the header currently does not display it. | Client operation timings apply when those paths execute. |
+| Synthetic or sampled preview | Timing availability depends on the fixture/wrapper; not evidence of real backend performance. | Same limitation. | Local operation duration is not a production-topology benchmark. |
+
+The distinction follows the selected datasource, not the deployment's name.
+See [datasource selection](../../../src/dal/index.ts),
+[direct-ES adapter](../../../src/dal/es-adapter.ts),
+[API search adapter](../../../src/dal/grid-api-search-adapter.ts), and
+[API datasource](../../../src/dal/api-data-source.ts).
+
+The same client-clock definition can include different costs in different
+topologies: proxies, tunnels, authentication, server processing and response
+handling. `fetchDuration - took` is non-ES elapsed time, not pure network RTT.
+The initial search also awaits parallel work such as ticker counts; its displayed
+page-request duration is not necessarily the duration of the whole search action.
+
+### Known Display Gaps and Bounded Repair Direction
+
+- **API aggregations:** the store already saves `aggFetchDuration`, but SearchBar
+   subscribes to and renders only `aggTook`. A client-duration fallback can repair
+   this without an extra request or backend instrumentation.
+- **AI freshness:** the API AI adapter returns `fetchDuration`, but the AI search
+   completion branch does not publish it to the store. A previous ordinary-search
+   duration can therefore remain visible. Direct-ES AI supplies the final ranked
+   query's `took`, excluding embedding and other preparatory work; it is not total
+   AI-search duration.
+- **Ownership and wording:** retained values need clear operation labels and
+   context invalidation, rather than implying one slash-separated breakdown.
+   Existing references to ES round trips are too transport-specific for generic
+   client-operation timings. Unavailable timings should not inherit old values.
+
+These are findings and possible repairs, not completed changes. Keeping direct ES
+working does not require inventing an ES timing for API responses. Exposing
+isolated server execution time would be a separate backend/contract task.
+
+### Optional Readout, Measurement Cost and Busy-Dot Decision
+
+A numeric-diagnostics switch in the user menu ("Hello, Joshua") is under
+consideration, not implemented. Whether the busy dot should remain user-facing
+independently of that switch is also undecided. The two serve different purposes:
+numbers support diagnosis; a busy signal can reassure someone waiting for results.
+
+The dot indicates that the app believes an operation is in flight. It does not
+prove forward progress, detect a stall or guarantee eventual completion. Keeping
+it as reassurance would therefore need deliberate visibility and accessibility
+decisions: it is currently width-limited and `aria-hidden`, so it is not a
+universal user-facing status affordance. No such redesign is authorized here.
+
+Hiding or unmounting the readout would not automatically stop measurement. The
+basic timings mostly add timestamp reads, subtraction and fields in existing
+store updates; direct-ES `took` already arrives in the response. They require no
+additional requests, polling or continuous sampling. Their expected incremental
+cost is very small relative to the operations measured, but isolated overhead
+has not been benchmarked. This is not a claim about detailed tracing or probes.
+
+Conditional mounting could remove the numeric readout's subscriptions and render
+work; CSS hiding alone would not. Keeping cheap collection while making display
+optional is the proportionate candidate, rather than a new collection-off
+framework. Busy-dot subscriptions, its delay timer and pulse are a separate UI
+cost. Operational elapsed-time checks such as the aggregation circuit breaker
+must remain regardless of diagnostic-display preference.
+
+## Historical Section A+ — The Blue Dot: In-App Timing Display (May 2026)
 
 The SearchBar already shows a live timing readout next to a pulsating blue dot
 (visible at `lg` breakpoint and above). These numbers are computed inside the app

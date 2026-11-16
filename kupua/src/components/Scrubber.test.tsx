@@ -168,8 +168,13 @@ describe("Scrubber seek-mode position sync", () => {
     scrollContainer.scrollTop = 3000;
     scrolling.container = scrollContainer;
     const view = render(<Scrubber {...seekModeProps(mode === "seek"
-      ? { currentPosition: 650000 } : { total: 800, bufferLength: 800 })} />);
+      ? { currentPosition: 650000 } : { total: 800, bufferLength: 800 })}
+      getSortLabel={() => "My other uploads"} getPositionLabel={position => `${(position + 1).toLocaleString()} of 9,000,004`} />);
     act(() => fireResizeObserver(TRACK_HEIGHT));
+    const slider = screen.getByRole("slider");
+    Object.defineProperty(slider, "clientHeight", { value: TRACK_HEIGHT });
+    slider.getBoundingClientRect = () => ({ top: 0, left: 0, bottom: 600, right: 20,
+      x: 0, y: 0, width: 20, height: 600, toJSON: () => ({}) });
     const thumb = view.container.querySelector<HTMLElement>("[data-scrubber-thumb]")!;
     const tooltip = view.container.querySelector<HTMLElement>("[data-position-label]")!.parentElement!;
     expect(getThumbTop(view.container)).toBeGreaterThan(100);
@@ -178,6 +183,16 @@ describe("Scrubber seek-mode position sync", () => {
     expect(thumb.style.getPropertyValue("--scrubber-motion-duration")).toBe("100ms");
     expect(tooltip.style.top).toBe("0px");
     expect(tooltip.style.transform).toBe(`translateY(${Math.max(0, Math.min(TRACK_HEIGHT - 28, getThumbTop(view.container)!))}px)`);
+    expect(tooltip.querySelector("[data-sort-label]")?.textContent).toBe("My other uploads");
+    const currentLabel = tooltip.querySelector("[data-position-label]")?.textContent;
+    expect(currentLabel).toBe(`${(mode === "seek" ? 650001 : 1).toLocaleString()} of 9,000,004`);
+    fireEvent.mouseMove(slider, { clientY: 200 });
+    const hoverLabel = tooltip.querySelector("[data-position-label]")?.textContent;
+    expect(hoverLabel).not.toBe(currentLabel);
+    expect(hoverLabel).not.toBe("1 of 9,000,004");
+    expect(hoverLabel).toMatch(/^[\d,]+ of 9,000,004$/);
+    fireEvent.click(slider, { clientY: 200 });
+    expect(tooltip.querySelector("[data-position-label]")?.textContent).toBe(hoverLabel);
   });
 
   it("B18 follows the current owner through supersession and cancellation", () => {

@@ -792,6 +792,53 @@ commit while retaining free text and cancelling pending typing.
 Home, Refine and Settings share immediate local pointer-pressed feedback, cleared on
 release, cancellation, leaving the control or blur; it does not depend on delayed touch hover.
 
+Compact browser Search places recent-upload entry and Upload/activity inside Settings;
+the group is right-aligned and retains an active-work indication on the Settings trigger.
+Installed compact Search instead keeps a labelled Uploads entry to the right of the
+reserved cutout band, followed by icon-only Upload/activity and Settings. These installed
+Search rules do not move Upload-page controls or change the desktop fitting policy.
+
+## Upload Sections (`components/UploadSections.tsx`, `stores/upload-layout-store.ts`)
+
+Upload composes one addressed batch above My other uploads through the same bounded
+view/layout engine. The page-level file prompt retains a disabled Apply label placeholder;
+the separate batch heading contains retained-batch selection and batch-only sort. Navigation
+keeps activity and Upload reachable independently of header overflow. Chooser labels use
+local-calendar Today/Yesterday, then day/month with year outside the current year, a
+24-hour time and canonical-image count; full timestamps remain in tooltips.
+
+Filename ordering supports both directions by reversing retained membership order locally;
+the synthetic filename sort never reaches the API. The lower section remains newest-first
+and excludes only the open batch's canonical members. Its count/order summary shares the
+heading row when space permits; the Search link has a leading magnifier and is icon-only
+in compact mode. Narrow fine-pointer windows wrap the full desktop labels rather than
+clipping the action. Failed lower reads do not masquerade as a successful zero count.
+
+`upload-layout-store` owns measured intro/batch/other chrome heights, fresh-batch following
+and section-jump cancellation generations, not a second browsing buffer or placement owner.
+Fresh entry/submission arms following at the top; deliberate browsing, field focus, detail
+entry or context departure releases it. Later membership changes preserve the existing
+represented image/field through shared continuity instead of dragging an editor to the top.
+Natural Form height, retained drafts and result-container-based stacking remain view-owned.
+
+Section headers do not collapse or hide results. Their background and chevron jump to the
+section start; nested chooser/sort/Search controls retain their own actions. The chevron
+indicates whether the section has been passed and is derived again after history restoration.
+Measured sticky insets apply to shared keyboard paging and focus visibility. Both sections
+share their heading names with the scrubber, which shows one section-relative position/count
+line through `getPositionLabel` in rendered and imperative hover/drag updates. Search keeps
+the default global position formatter.
+
+Batch/read warnings are context-deduplicated warning toasts, published only for settled,
+matching scope reads. Successful empty batches have no generic unavailable-image message;
+pending attempts remain represented by activity. Search activity offers Go to recent uploads
+through the existing newest-batch/top/Form fresh-entry policy, without its own batch chooser.
+Its popup is capped at 560px and constrained to viewport gutters. No metadata saves, batch
+arrows, Templates or additional editing families are enabled by this presentation layer.
+
+The [Upload workplan](../gradually-growing-teeth.upload-workplan.md#u45-unified-upload-page-and-navigation)
+owns the broader entry/return and section contracts.
+
 ## AI Search Input (`components/AiSearchInput.tsx`)
 
 Owns the expandable semantic-query editor, gated by the startup AI-capability result.
@@ -847,6 +894,13 @@ polling or React render loop is introduced. Expansion reserves extra room to avo
 The observer/frame is released on unmount, and zero-width hidden bars skip measurement.
 Detail keeps its separate named-container rules. This presentation budget never changes
 target ownership, authority, command preparation or drafts.
+
+After action/control labels shrink, ticker names shorten from GNM-owned to GNM and
+agency picks to agency before the matches suffix is dropped; the final fallback hides
+ticker names while retaining numbers. Unknown/custom ticker names keep their full wording
+until that final fallback. `ticker-display` derives abbreviations from stable `is:` values,
+without changing API/config identities or filter clauses. Accessible names and tooltips
+retain full ticker names.
 
 `ImageActions` shares Share URL, Full frame, Download, Delete and Library controls with
 image detail and the floaty. `image-actions.ts` evaluates operation-specific readiness

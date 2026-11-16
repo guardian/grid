@@ -88,6 +88,7 @@ function applyTooltipContent(
   trackEl: HTMLElement,
   tooltipEl: HTMLElement,
   sortLabel?: string | null,
+  positionLabel?: string,
 ): void {
   const tipH = tooltipEl.offsetHeight || 28;
   tooltipEl.style.transform = `translateY(${Math.max(0, Math.min(trackEl.clientHeight - tipH, topPx))}px)`;
@@ -108,8 +109,8 @@ function applyTooltipContent(
   // Update the position text — find the text node that contains "X of Y"
   // It's after the sort label span in the new layout.
   const reportedTotal = Number(tooltipEl.dataset.resultCount ?? total);
-  const label = position < reportedTotal ? `${(position + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}`
-    : (position + 1).toLocaleString();
+  const label = positionLabel ?? (position < reportedTotal ? `${(position + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}`
+    : (position + 1).toLocaleString());
   const positionEl = tooltipEl.querySelector("[data-position-label]");
   if (positionEl) positionEl.textContent = label;
 }
@@ -123,12 +124,13 @@ function applyThumbPosition(
   thumbEl: HTMLElement | null,
   tooltipEl: HTMLElement | null,
   sortLabel?: string | null,
+  positionLabel?: string,
 ): void {
   if (!thumbEl || !trackEl || total <= 0) return;
   const top = thumbTopFromPosition(position, total, visibleCount, trackEl);
   setThumbOffset(thumbEl, top);
   if (tooltipEl) {
-    applyTooltipContent(position, total, top, trackEl, tooltipEl, sortLabel);
+    applyTooltipContent(position, total, top, trackEl, tooltipEl, sortLabel, positionLabel);
   }
 }
 
@@ -175,6 +177,7 @@ interface ScrubberProps {
    * or null if no label available. Called during drag and for the current position.
    */
   getSortLabel?: (globalPosition: number) => string | null;
+  getPositionLabel?: (globalPosition: number) => string;
   /**
    * Called once on the first user interaction (click, drag, or keyboard).
    * Used to lazily trigger data fetches (e.g. keyword distribution for sort labels)
@@ -210,6 +213,7 @@ export function Scrubber({
   onSeek,
   onBrowsePosition,
   getSortLabel,
+  getPositionLabel,
   onFirstInteraction,
   trackTicks,
   twoTier = false,
@@ -335,6 +339,8 @@ export function Scrubber({
   // Ref-stabilise getSortLabel
   const getSortLabelRef = useRef(getSortLabel);
   getSortLabelRef.current = getSortLabel;
+  const getPositionLabelRef = useRef(getPositionLabel);
+  getPositionLabelRef.current = getPositionLabel;
 
   const dragPositionRef = useRef<number | null>(null);
 
@@ -553,7 +559,7 @@ export function Scrubber({
       notifyFirstInteraction();
       const pos = positionFromY(e.clientY);
 
-      applyThumbPosition(pos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
+      applyThumbPosition(pos, total, thumbVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
 
       if (isScrollMode) {
         // All data in buffer or indexed mode — scroll the content container
@@ -634,7 +640,7 @@ export function Scrubber({
         latestPosition = pos;
 
         // Move thumb + tooltip via direct DOM writes (60fps, no React)
-        applyThumbPosition(pos, total, dragVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos));
+        applyThumbPosition(pos, total, dragVisibleCount, trackRef.current, thumbRef.current, tooltipRef.current, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
 
         if (isScrollMode) {
           // Small result set or indexed mode — scroll content directly
@@ -700,7 +706,7 @@ export function Scrubber({
         if (tipEl && trackEl) {
           const pos = effectivePosition;
           const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
-          applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
+          applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
         }
         return;
       }
@@ -712,7 +718,7 @@ export function Scrubber({
       const pos = positionFromY(e.clientY);
       const rect = trackEl.getBoundingClientRect();
       const cursorTop = Math.max(0, Math.min(trackEl.clientHeight, e.clientY - rect.top));
-      applyTooltipContent(pos, total, cursorTop, trackEl, tipEl, getSortLabelRef.current?.(pos));
+      applyTooltipContent(pos, total, cursorTop, trackEl, tipEl, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
 
       // --- Debug instrumentation (DEV only) ---
       // Computes THREE candidate position mappings so the diagnostic test
@@ -794,7 +800,7 @@ export function Scrubber({
       if (tipEl && trackEl && total > 0) {
         const pos = effectivePosition;
         const top = thumbTopFromPosition(pos, total, thumbVisibleCount, trackEl);
-        applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos));
+        applyTooltipContent(pos, total, top, trackEl, tipEl, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
       }
     }
   }, [tooltipFlashing, total, effectivePosition, thumbVisibleCount]);
@@ -1036,9 +1042,9 @@ export function Scrubber({
   // Render
   // -------------------------------------------------------------------------
 
-  const positionLabel = effectivePosition < reportedTotal
+  const positionLabel = getPositionLabel?.(effectivePosition) ?? (effectivePosition < reportedTotal
     ? `${(effectivePosition + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}`
-    : (effectivePosition + 1).toLocaleString();
+    : (effectivePosition + 1).toLocaleString());
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
   const accessibleSortLabel = sortLabel ? sortLabelText(sortLabel) : null;
 

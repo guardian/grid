@@ -32,8 +32,9 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects, type ScrollGeometry } from "@/hooks/useScrollEffects";
 import { useMeasuredLayout, type MeasuredCells } from "@/hooks/useMeasuredLayout";
-import { composeUploadLayout, fixedUploadLayout, type SectionLayout } from "@/lib/upload-section-layout";
-import { UploadSectionHeading } from "./UploadSections";
+import { composeUploadLayout, fixedUploadLayout, getUploadStickyInset, type SectionLayout } from "@/lib/upload-section-layout";
+import { UploadPageChrome, UploadSectionHeading } from "./UploadSections";
+import { useUploadLayoutStore } from "@/stores/upload-layout-store";
 import { measuredLayoutRowKey } from "@/lib/windowed-measured-layout";
 import { imageRatio, type ImageLayout } from "@/lib/justified-layout";
 import type { LayoutWindow } from "@/lib/windowed-justified-layout";
@@ -583,15 +584,16 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   const layoutSearchKey = buildSearchKey(searchParams);
   const uploadSections = useSearchStore(state => state.uploadSections);
   const combined = searchParams.recentUploadScope?.combined === true;
+  const uploadChrome = useUploadLayoutStore(state => state.chrome);
   const sectionWindow = combined ? { batch: uploadSections?.batch ?? 0, present: !!searchParams.batch } : undefined;
   const rowScale = justifiedRowScale(effectiveJustifiedOffset, containerWidth);
   const geometryIdentity = variableLayout ? resultsGeometryIdentity(results) : results;
   const { layout: measuredLayout, captureInput, retireInput } = useMeasuredLayout(parentRef, results, containerWidth,
-    { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, uploadSections: sectionWindow }, measuredCells);
+    { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, uploadSections: sectionWindow, uploadChrome: combined ? uploadChrome : undefined }, measuredCells);
   const justifiedLayout = useMemo(() => {
     if (measuredLayout) return measuredLayout;
     if (combined) return composeUploadLayout(results, containerWidth,
-      { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale }, uploadSections?.batch ?? 0, !!searchParams.batch,
+      { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale, uploadChrome }, uploadSections?.batch ?? 0, !!searchParams.batch,
       (resident, context, previous) => layoutFactory ? layoutFactory(resident, containerWidth, context, previous)
         : fixedUploadLayout(context.indexed ? context.total : resident.length, containerWidth, columns, rowHeight, context.indexed ? 0 : context.bufferOffset),
       committedLayout.current as SectionLayout | undefined);
@@ -602,7 +604,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     }
     return layoutFactory(results, containerWidth, { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale },
       committedLayout.current);
-  }, [layoutFactory, measuredLayout, geometryIdentity, bufferOffset, twoTier, total, displayEnd, containerWidth, layoutSearchKey, rowScale, combined, uploadSections?.batch, searchParams.batch, columns, rowHeight]);
+  }, [layoutFactory, measuredLayout, geometryIdentity, bufferOffset, twoTier, total, displayEnd, containerWidth, layoutSearchKey, rowScale, combined, uploadSections?.batch, searchParams.batch, columns, rowHeight, uploadChrome]);
   useLayoutEffect(() => {
     committedLayout.current = justifiedLayout;
     if (justifiedLayout) onLayoutCommit?.(justifiedLayout);
@@ -1181,11 +1183,13 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   useEffect(() => {
     const el = parentRef.current;
     if (!el) return;
+    const previewTarget = (target: Element) => target.closest("[data-measured-cell]")
+      ? target.closest('[data-cell-id][aria-label="Open image"]') : target.closest("[data-image-id]");
     const onMiddleUp = (e: MouseEvent) => {
       if (e.button !== 1 || (e.target as Element).closest("[data-form-content]")) return;
-      const cell = (e.target as HTMLElement).closest("[data-image-id]");
+      const cell = previewTarget(e.target as Element);
       if (!cell) return;
-      const id = cell.getAttribute("data-image-id");
+      const id = cell.getAttribute("data-image-id") ?? cell.getAttribute("data-cell-id");
       if (!id) return;
       e.preventDefault();
       setFocusedImageId(id);
@@ -1197,7 +1201,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       if (e.button !== 1 || (e.target as Element).closest("[data-form-content]")) return;
       // Only suppress Firefox autoscroll when clicking on a cell — gap clicks
       // should let Firefox start its autoscroll indicator normally.
-      if ((e.target as Element).closest("[data-image-id]")) e.preventDefault();
+      if (previewTarget(e.target as Element)) e.preventDefault();
     };
     el.addEventListener("mouseup", onMiddleUp);
     el.addEventListener("mousedown", onMiddleDown);
@@ -1236,6 +1240,9 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     virtualizer,
     scrollRef: parentRef,
     headerHeight: 0, // grid has no header inside the scroll container
+    ...(combined ? { getStickyInset: (scrollTop = parentRef.current?.scrollTop ?? 0) => getUploadStickyInset(scrollTop,
+      twoTier || bufferOffset === 0 ? uploadChrome.intro : 0, uploadChrome,
+      (justifiedLayout as SectionLayout | undefined)?.headers.find(header => header.section === "other")?.top) } : {}),
     focusedImageId,
     setFocusedImageId,
     virtualizerCount: logicalItemCount,
@@ -1286,7 +1293,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       ref={parentRef}
       role="region"
       aria-label={measuredCells ? "Image results form" : variableLayout ? "Image results justified" : "Image results grid"}
-      className={`${combined ? "@container/upload-results " : ""}${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain`}
+      className={`${combined ? "@container/upload-results " : "pt-1 "}${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar overscroll-y-contain`}
       data-selection-mode={inSelectionMode ? "true" : undefined}
       style={{ ...(variableLayout ? { overflowAnchor: "none" as const } : {}), touchAction: measuredCells ? "auto" : "pan-y" }}
       onClick={handleBackgroundClick}
@@ -1373,7 +1380,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
             </ThumbnailLoadingContext.Provider>
           );
         })}
-        {combined && (justifiedLayout as SectionLayout | undefined)?.headers?.map(header => <UploadSectionHeading key={header.section} {...header} />)}
+        {combined && <UploadPageChrome scrollRef={parentRef} showIntro={twoTier || bufferOffset === 0} />}
+        {combined && (justifiedLayout as SectionLayout | undefined)?.headers?.map(header => <UploadSectionHeading key={header.section} {...header} scrollRef={parentRef} />)}
         {terminalView && <div role="status" className="absolute inset-x-0 text-center text-sm text-grid-text-muted pointer-events-none"
           style={{ top: (parentRef.current?.scrollTop ?? 0) + (parentRef.current?.clientHeight ?? 0) / 2 }}>
           {terminalView === "start" ? "Start of results" : "End of results"}

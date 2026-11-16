@@ -8,7 +8,8 @@ import { pushNavigate } from "@/lib/orchestration/search";
 import { addToast } from "@/stores/toast-store";
 import { Chevron } from "./Chevron";
 import { containPillActivation } from "./SearchPill";
-import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
+import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
+import { formatRecentGridDate } from "@/lib/format-grid-date";
 
 function StatusIcon({ status }: { status: "complete" | "active" | "error" }) {
   if (status === "active") return <svg className="upload-status-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -38,14 +39,18 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   const label = failed ? uploadFailureLabel(attempt) : null;
   const recheckable = Boolean(attempt.statusId && (attempt.phase === "uncertain" || attempt.phase === "interrupted"));
   const serverError = attempt.serverError ? redactUploadError(attempt.serverError) : undefined;
+  const batchDate = formatRecentGridDate(batch.createdAt);
+  const batchLabel = location.pathname === "/upload" && location.search.batch === batch.id ? "Current batch"
+    : batchDate.charAt(0).toUpperCase() + batchDate.slice(1);
   const errorText = serverError ? `File: ${attempt.name}\nMedia ID: ${attempt.statusId ?? "Not available"}\n\n${JSON.stringify({ data: { status: "FAILED", errorMessage: serverError } }, null, 2)}` : "";
   const openImage = async () => {
     if (location.pathname !== "/upload" || location.search.image || location.search.batch !== batch.id) {
       let pending = Promise.resolve();
-      pushNavigate((options: Parameters<typeof navigate>[0]) => { pending = Promise.resolve(navigate(options)); }, {
-        to: "/upload", search: { batch: batch.id }, state: withFreshKupuaKey({ _uploadAddressed: true }),
+      const key = pushNavigate((options: Parameters<typeof navigate>[0]) => { pending = Promise.resolve(navigate(options)); }, {
+        to: "/upload", search: { batch: batch.id }, state: { _uploadAddressed: true },
       });
       await pending;
+      if (getCurrentKupuaKey() !== key) return;
     }
     pushNavigate(navigate, { to: "/upload", search: { batch: batch.id, image: attempt.imageId, section: "batch" },
       state: { _detailEntryImageId: attempt.imageId, _uploadAddressed: true } });
@@ -67,8 +72,8 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
       {serverError ? <button type="button" className="upload-link upload-row-action" aria-expanded={details} onClick={() => setDetails(value => !value)}>{label}</button>
         : label && <span className="upload-row-label">{label}</span>}
       {recheckable && <button type="button" className="upload-link upload-row-action" onClick={() => checkUploadAttempt(attempt.id)}>Recheck</button>}
-      {showBatch && <span className="upload-row-batch">Batch {batch.id.replace(/^local-/, "").slice(0, 8)}</span>}
-      {failed && <button type="button" className="upload-dismiss" title="Dismiss error" aria-label={`Dismiss error for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
+      {showBatch && <span className="upload-row-batch">{batchLabel}</span>}
+      {failed && <button type="button" className="upload-dismiss" title="Acknowledge error" aria-label={`Acknowledge error for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
     </div>
     {details && serverError && <section className="upload-error-detail" role="region" aria-label={`Upload error for ${attempt.name}`}>
       <div className="flex items-center gap-2"><span className="text-xs text-grid-text-muted">Server response</span>
@@ -114,9 +119,10 @@ export function UploadProgress({ toolbar = false, split = false, renderBatchCont
       const left = visual?.offsetLeft ?? 0;
       const right = left + (visual?.width ?? innerWidth);
       const bottom = (visual?.offsetTop ?? 0) + (visual?.height ?? innerHeight);
-      const edge = Math.min(bounds.right, right - 12);
+      const maxWidth = Math.max(0, Math.min(560, right - left - 24));
+      const edge = Math.min(Math.max(bounds.right, left + 12 + maxWidth), right - 12);
       const next = { top: bounds.bottom + 4, right: innerWidth - edge,
-        maxWidth: Math.max(0, Math.min(560, edge - left - 12)), maxHeight: Math.max(0, bottom - bounds.bottom - 16) };
+        maxWidth, maxHeight: Math.max(0, bottom - bounds.bottom - 16) };
       setPosition(current => current.top === next.top && current.right === next.right && current.maxWidth === next.maxWidth && current.maxHeight === next.maxHeight ? current : next);
     };
     place();

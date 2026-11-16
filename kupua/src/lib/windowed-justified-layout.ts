@@ -8,6 +8,7 @@ export const JUSTIFIED_BLOCK_SIZE = 48;
 export interface LayoutWindow {
   uploadSection?: "batch" | "other";
   uploadSections?: { batch: number; present: boolean };
+  uploadChrome?: { intro: number; batch: number; other?: number };
   bufferOffset: number;
   total: number;
   indexed: boolean;

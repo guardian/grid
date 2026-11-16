@@ -1458,7 +1458,9 @@ U3 local/deployed evidence and the deleted unused CSP patch remain separate.
 
 ### U4.5. Unified Upload Page and Navigation
 
-**Implemented and independently reviewed, 15 November 2026. Local validation has the operator-approved KUP-053 E2E exception.**
+**Implemented and independently reviewed.** Current page controls, fresh-arrival following,
+jump-only section headings, responsive placement and scrubber presentation are described in
+the [Upload component reference](00%20Architecture%20and%20philosophy/component-detail.md#upload-sections-componentsuploadsectionstsx-storesupload-layout-storets).
 **Depends on:** U1/U3/U4, U2 and the current post-U2 UI baseline.
 **Goal:** a familiar Upload page with one clearly bounded batch above all other
 uploads, useful retained-batch access and predictable navigation. Finish this unit

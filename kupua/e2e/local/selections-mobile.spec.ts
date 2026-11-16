@@ -386,7 +386,7 @@ test("holding the reveal button does not select or open a protected thumbnail", 
   await button.locator("..").screenshot({ path: test.info().outputPath("reveal-icon-only.png") });
 });
 
-test("installed phone moves controls above a full-width search without changing browser layout", async ({ page }) => {
+test("installed phone keeps navigation above search and Filters beside it without changing browser layout", async ({ page }) => {
   const toolbar = page.getByRole("toolbar", { name: "Search and filter controls" });
   const search = toolbar.getByRole("search");
   const browserBox = await search.boundingBox();
@@ -403,10 +403,14 @@ test("installed phone moves controls above a full-width search without changing 
   await page.reload();
   await expect(search).toBeVisible();
   const installedBox = (await search.boundingBox())!;
+  const filtersBox = (await toolbar.getByRole("button", { name: "Filters and sort" }).boundingBox())!;
   expect(installedBox.x).toBeCloseTo(12, 0);
-  expect(installedBox.width).toBeCloseTo(page.viewportSize()!.width - 24, 0);
+  expect(installedBox.x + installedBox.width).toBeCloseTo(filtersBox.x, 0);
+  expect(filtersBox.x + filtersBox.width).toBeCloseTo(page.viewportSize()!.width, 0);
+  expect(installedBox.y + installedBox.height / 2).toBeCloseTo(filtersBox.y + filtersBox.height / 2, 0);
+  expect(filtersBox.height).toBeGreaterThanOrEqual(44);
   for (const control of [toolbar.getByRole("link", { name: "Grid" }),
-    toolbar.getByRole("button", { name: "Filters and sort" }), toolbar.getByRole("button", { name: "Settings", exact: true })]) {
+    toolbar.getByRole("button", { name: "Settings", exact: true })]) {
     const box = (await control.boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual(installedBox.y);
     expect(box.height).toBeGreaterThanOrEqual(44);

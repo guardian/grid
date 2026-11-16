@@ -62,7 +62,7 @@ describe("API query forwarding", () => {
     const batchIds = ["a".repeat(40), "b".repeat(40)];
     const others = Array.from({ length: 130 }, (_, index) => `other-${index}`);
     const calls = stubMediaApi({
-      "/images/count": body => ({ total: body.ids ? batchIds.length : others.length, tickerCounts: {} }),
+      "/images/count": body => ({ total: body.ids ? batchIds.filter(id => (body.ids as string[]).includes(id)).length : others.length, tickerCounts: {} }),
       "/images/search-after": body => {
         const ids = body.ids ? batchIds.filter(id => (body.ids as string[]).includes(id)) : others;
         const cursor = body.sortValues as SortValues | undefined;
@@ -98,6 +98,15 @@ describe("API query forwarding", () => {
     const positions = await source.fetchPositionIndex(scope, new AbortController().signal);
     expect(positions?.ids).toEqual([...batchIds, ...others]);
     expect(positions?.sortValues.at(-1)).toEqual([1, 129, "other-129"]);
+    const descending = { ...scope, orderBy: "-__submittedFilename", length: 1 };
+    const lastFilename = await source.searchAfter(descending, null);
+    expect(lastFilename.hits.map(image => image.id)).toEqual([batchIds[1]]);
+    const firstFilename = await source.searchAfter(descending, lastFilename.sortValues[0]);
+    expect(firstFilename.hits.map(image => image.id)).toEqual([batchIds[0]]);
+    expect(await source.countBefore(descending, firstFilename.sortValues[0])).toBe(1);
+    expect((await source.searchAfter(descending, firstFilename.sortValues[0], null, undefined, true)).hits.map(image => image.id)).toEqual([batchIds[1]]);
+    expect((await source.fetchPositionIndex(descending, new AbortController().signal))?.ids).toEqual([...batchIds].reverse().concat(others));
+    expect(calls.every(call => !String(call.body.orderBy).includes("__submittedFilename"))).toBe(true);
     expect(calls.filter(call => !call.body.ids).every(call => call.body.uploadedBy === "uploader@example.invalid"
       && call.body.orderBy === "-uploadTime" && String(call.body.q).includes(batchIds[0]))).toBe(true);
     const controller = new AbortController();

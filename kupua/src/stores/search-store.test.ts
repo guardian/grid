@@ -3952,7 +3952,7 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
     // Set the stale intent — simulates Home/End seek in flight when a new
     // query fires before the seek resolves.
     useSearchStore.setState({ _pendingFocusAfterSeek: {
-      edge: "first", focusedImageId: "img-0", signal: new AbortController().signal,
+      edge: "first", focusedImageId: "img-0", focusIntent: state()._focusIntent, signal: new AbortController().signal,
     } });
 
     await actions().search();
@@ -3981,8 +3981,9 @@ describe("pending-intent cleanup on search() and seek() (audit #1, #2)", () => {
 
 describe("search generation counter", () => {
   it.each([
-    ["maintenance", false], ["maintenance", true], ["user", false],
-  ] as const)("retains %s continuity (off-page=%s) with feedback only for navigation and no duplicate scope count", async (provenance, offPage) => {
+    ["maintenance", false, false], ["maintenance", true, false], ["user", false, false],
+    ["history", false, true], ["history", true, true], ["history", false, false],
+  ] as const)("retains %s continuity (off-page=%s, suppress-pulse=%s) with feedback only for navigation and no duplicate scope count", async (provenance, offPage, suppressPulse) => {
     const imageScope = { key: "upload:local-arrivals", revision: 1,
       ids: Array.from({ length: 500 }, (_, index) => `img-${index}`), submittedOrder: true };
     actions().setParams({ imageScope });
@@ -3991,12 +3992,12 @@ describe("search generation counter", () => {
     const counts = vi.spyOn(mock, "countWithTickers");
     const generation = state().sortAroundFocusGeneration;
     actions().setParams({ imageScope: { ...imageScope, revision: 2, ids: [...imageScope.ids, "img-501"] } });
-    await actions().search(undefined, { continuity: { provenance, targetId, focus: "retain", placement: { kind: "ratio", ratio: -0.4 } } });
+    await actions().search(undefined, { continuity: { provenance, targetId, focus: "retain", placement: { kind: "ratio", ratio: -0.4 }, suppressPulse } });
     await waitFor(() => !state().loading);
     expect(state().imagePositions.has(targetId)).toBe(true);
     expect(state().sortAroundFocusGeneration).toBeGreaterThan(generation);
     expect(state()._searchContinuity?.placement).toEqual({ kind: "ratio", ratio: -0.4 });
-    expect(state()._phantomPulseImageId).toBe(provenance === "user" ? targetId : null);
+    expect(state()._phantomPulseImageId).toBe(provenance !== "maintenance" && !suppressPulse ? targetId : null);
     expect(counts).not.toHaveBeenCalled();
   });
 

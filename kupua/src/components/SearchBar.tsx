@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { splitFieldTerms, joinFieldTerms, parseFieldChips, serializeFieldChips } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { useIsCompact } from "./PanelLayout";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
-import { UploadEntry, useUploadAccess, enterUploads } from "./UploadActivity";
+import { RecentUploadsEntry, UploadEntry, useUploadAccess, useToolbarUploadFit } from "./UploadActivity";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
@@ -30,54 +30,7 @@ import { pressFeedback } from "@/lib/dom-utils";
 import { beginTraceInteraction } from "@/lib/perceived-trace";
 import { hasCollectionFilter, type UrlSearchParams } from "@/lib/search-params-schema";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
-
-function useToolbarUploadFit() {
-  const ref = useRef<HTMLElement>(null);
-  const update = useRef<(() => void) | null>(null);
-  useLayoutEffect(() => {
-    const toolbar = ref.current;
-    if (!toolbar) return;
-    let frame = 0;
-    const measure = () => {
-      if (!toolbar.clientWidth) return;
-      const style = getComputedStyle(toolbar);
-      const children = [...toolbar.children].filter(child => child.getClientRects().length > 0);
-      const labels = [...toolbar.querySelectorAll<HTMLElement>("[data-toolbar-label]")].map(label => ({
-        kind: label.dataset.toolbarLabel,
-        width: label.getBoundingClientRect().width + 6,
-        active: getComputedStyle(label).position !== "fixed",
-      }));
-      const occupied = children.reduce((width, child) => {
-        if (child.matches(".results-query")) return width + 160;
-        const childStyle = getComputedStyle(child);
-        return width + child.getBoundingClientRect().width
-          + (parseFloat(childStyle.marginLeft) || 0) + (parseFloat(childStyle.marginRight) || 0);
-      }, (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0)
-        + Math.max(0, children.length - 1) * (parseFloat(style.columnGap) || 0));
-      const base = occupied - labels.reduce((width, label) => width + (label.active ? label.width : 0), 0);
-      const fits = ["full", "short", "icons"] as const;
-      const current = Math.max(0, fits.indexOf(toolbar.dataset.uploadFit as typeof fits[number]));
-      const fit = fits.find((candidate, index) => base + labels.reduce((width, label) => width + (
-        candidate !== "icons" && (label.kind === "upload" || label.kind === candidate) ? label.width : 0
-      ), 0) <= toolbar.clientWidth - (index < current ? 20 : 12)) ?? "icons";
-      if (toolbar.dataset.uploadFit !== fit) toolbar.dataset.uploadFit = fit;
-    };
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(() => {
-      if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); });
-    });
-    observer?.observe(toolbar);
-    for (const element of toolbar.querySelectorAll(":scope > *, [data-toolbar-label]")) observer?.observe(element);
-    update.current = measure;
-    measure();
-    return () => {
-      update.current = null;
-      observer?.disconnect();
-      if (frame) cancelAnimationFrame(frame);
-    };
-  }, []);
-  useLayoutEffect(() => { update.current?.(); });
-  return ref;
-}
+import { useIsInstalled } from "@/hooks/useShell";
 
 export function SearchBar() {
   const toolbarRef = useToolbarUploadFit();
@@ -138,6 +91,8 @@ export function SearchBar() {
   const urlAiText = searchParams.aiQuery ?? null;
   const urlQuery = searchParams.query ?? "";
   const isCompact = useIsCompact();
+  const installed = useIsInstalled();
+  const compactBrowser = isCompact && !installed;
   // Compact shell: the search bar edits free text only; chips live in Refine.
   const split = useMemo(() => splitFieldTerms(urlQuery), [urlQuery]);
   const splitRef = useRef(split);
@@ -488,21 +443,14 @@ export function SearchBar() {
       >●</span>
 
       {UPLOAD_BROWSING_ENABLED && uploadAccess === "available" && <>
-        <button type="button" aria-label="My recent uploads" title="My recent uploads"
-          className="image-action flex shrink-0 h-11 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover cursor-pointer text-grid-text-muted border-l border-grid-separator"
-          onClick={() => enterUploads(navigate)}>
-          <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2ZM11 12l2.03 2.71L16 11l4 5H8l3-4ZM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2Z" />
-          </svg>
-          <span data-toolbar-label="full">My recent uploads</span>
-          <span data-toolbar-label="short">Uploads</span>
-        </button>
-        <UploadEntry withActivity />
+        {!compactBrowser && <RecentUploadsEntry shortLabel={isCompact && installed} />}
+        {!compactBrowser && <div className="results-upload"><UploadEntry withActivity /></div>}
       </>}
 
       {/* Settings menu — three-dot, far right */}
       <div className="results-settings shrink-0">
-        <SettingsMenu showViewControls={!searchParams.image} />
+        <SettingsMenu showViewControls={!searchParams.image}
+          uploadMenu={compactBrowser && UPLOAD_BROWSING_ENABLED && uploadAccess === "available" ? "search" : undefined} />
       </div>
     </header>
   );

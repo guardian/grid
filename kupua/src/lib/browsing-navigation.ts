@@ -55,7 +55,7 @@ export function returnToBrowsing(navigate: NavigateFn, path: BrowsingPath): void
   const destination = departures.get(path);
   markPushSnapshot();
   consumeUserInitiatedFlag();
-  const state = withFreshKupuaKey();
+  const state = withFreshKupuaKey(path === "/search" ? { _suppressRestorePulse: true } : undefined);
   const snapshot = destination?.key ? snapshotStore.get(destination.key) : undefined;
   if (snapshot && typeof state.kupuaKey === "string") snapshotStore.set(state.kupuaKey, snapshot);
   void navigate({ to: path, search: destination?.search ?? (path === "/search" ? DEFAULT_SEARCH : {}), state });

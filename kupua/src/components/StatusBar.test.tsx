@@ -459,6 +459,8 @@ describe("StatusBar AI totals", () => {
       tickersLastUpdated: new Date(Date.now() - 120_000).toISOString() });
     const view = render(<StatusBar />);
     const previousTitle = tickerBadge()?.getAttribute("title");
+    expect(previousTitle?.startsWith(ticker.name)).toBe(true);
+    expect(tickerBadge()?.querySelector(".status-badge-short")?.textContent).toBe("GNM");
     expect(formatDistanceToNow).toHaveBeenCalled();
     vi.mocked(formatDistanceToNow).mockClear();
 

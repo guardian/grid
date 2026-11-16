@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { createElement, type ContextType, type PropsWithChildren } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,7 +19,7 @@ import { ElasticsearchDataSource } from "@/dal/es-adapter";
 import { parseSortField } from "@/dal/adapters/elasticsearch/sort-builders";
 import type { SearchParams, SortValues } from "@/dal/types";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
-import { getFixedRowCount, getItemLayoutRow } from "@/lib/scroll-geometry-ref";
+import { getFixedRowCount, getItemLayoutRow, type SpatialNavigation } from "@/lib/scroll-geometry-ref";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
@@ -27,6 +28,8 @@ import { useDataWindow } from "./useDataWindow";
 import { clearDensityFocusRatio, useScrollEffects } from "./useScrollEffects";
 import { buildMeasuredLayout } from "@/lib/windowed-measured-layout";
 import type { ScrollGeometry } from "./useScrollEffects";
+import { BrowsingContext } from "@/lib/browsing-context";
+import { fixedUploadLayout } from "@/lib/upload-section-layout";
 
 const routeParams = { nonFree: "true" };
 const initialSearch = useSearchStore.getState();
@@ -62,9 +65,11 @@ afterEach(() => {
   useUiPrefsStore.setState(initialPreferences, true);
 });
 
-async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial = false, columns = 1, measured = false) {
+async function mountNavigation(windowed: boolean, mode: "explicit" | "selection" | "phantom" | "none", total = windowed ? 12000 : 300, orderBy = "-uploadTime", spatial: boolean | SpatialNavigation = false, columns = 1, measured = false,
+  browsing: ContextType<typeof BrowsingContext> = { path: "/search" }) {
   const source = new MockDataSource(total, orderBy === "-uploadTime" ? undefined : [{ field: "lastModified", ratio: 1 }]);
-  const params = { nonFree: "true", orderBy, length: windowed ? 200 : total };
+  const params = { nonFree: "true", orderBy, length: windowed ? 200 : total,
+    ...(browsing.recentUploadScope ? { recentUploadScope: browsing.recentUploadScope } : {}) };
   const firstPage = await source.searchAfter(params, null, null);
   const origin = firstPage.hits[0].id;
   useSearchStore.setState({
@@ -114,9 +119,10 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
   const irregular = { getRow, getItemRow: (index: number) => getRow(Math.floor(index / 2)),
     rowAtOffset: (offset: number) => getRow(Math.max(0, Math.floor(offset / 300) * 2 + (offset % 300 >= 100 ? 1 : 0))),
     neighbour: (index: number, row: number) => Math.max(0, row) * 2 + index % 2 };
-  let geometry: ScrollGeometry = spatial ? { layout: irregular, spatial: irregular, headerOffset: 0, preserveScrollLeftOnSort: false,
+  const spatialLayout = typeof spatial === "object" ? spatial : irregular;
+  let geometry: ScrollGeometry = spatial ? { layout: spatialLayout, spatial: spatialLayout, headerOffset: 0, preserveScrollLeftOnSort: false,
     window: { width: 1000, getItemId: () => undefined, findItemIndex: () => undefined,
-      rowAtOffset: irregular.rowAtOffset, prepareSeek: () => { throw new Error("Unused fixture operation"); } } }
+      rowAtOffset: spatialLayout.rowAtOffset, prepareSeek: () => { throw new Error("Unused fixture operation"); } } }
     : { rowHeight: 32, columns, itemOffset: 0, headerOffset: 0, preserveScrollLeftOnSort: true };
   const findImageIndex = (imageId: string) => {
     const state = useSearchStore.getState();
@@ -130,6 +136,7 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     return seekWork;
   });
   const onEnter = vi.fn();
+  let stickyInset = (_scrollTop = container.scrollTop) => 0;
   renderHook(() => {
     const state = useSearchStore();
     const twoTier = isTwoTierFromTotal(state.total);
@@ -147,18 +154,20 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
       total: state.total, bufferOffset: state.bufferOffset, loadMore, focusedImageId: state.focusedImageId,
       findImageIndex, twoTier });
     useListNavigation({ virtualizer, scrollRef: parentRef,
-      ...(measuredLayout ? { spatial: measuredLayout.spatial } : spatial ? { spatial: irregular }
+      ...(measuredLayout ? { spatial: measuredLayout.spatial } : spatial ? { spatial: spatialLayout }
         : { columnsPerRow: columns, rowHeight: 32, itemOffset: twoTier ? 0 : state.bufferOffset }), headerHeight: 0,
       focusedImageId: state.focusedImageId, setFocusedImageId: state.setFocusedImageId, virtualizerCount,
+      getStickyInset: scrollTop => stickyInset(scrollTop),
       getImage: (index) => {
         const current = useSearchStore.getState();
         return current.results[index - (twoTier ? current.bufferOffset : 0)];
       }, findImageIndex, resultsLength: state.results.length, total: state.total, loadMore,
       onEnter, imageParam: undefined, flatIndexToRow: (index) => getItemLayoutRow(geometry, index).index, bufferOffset: state.bufferOffset, seek });
-  });
+  }, { wrapper: ({ children }: PropsWithChildren) => createElement(BrowsingContext.Provider, { value: browsing }, children) });
   scrollToIndex.mockClear();
   return {
     origin, source, scrollToIndex, seek, container, onEnter,
+    setStickyInset: (getInset: typeof stickyInset) => { stickyInset = getInset; },
     dispatchKey: (key: string, target: HTMLElement = container) => {
       const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
       target.dispatchEvent(event);
@@ -184,6 +193,23 @@ async function mountNavigation(windowed: boolean, mode: "explicit" | "selection"
     },
   };
 }
+
+it.each([false, true])("spatial paging exposes unread rows when Upload headers become sticky (already-sticky=%s)", async alreadySticky => {
+  const layout = fixedUploadLayout(300, 1000, 1, 32);
+  const fixture = await mountNavigation(false, "none", 300, "-uploadTime", layout);
+  const inset = (scrollTop = fixture.container.scrollTop) => alreadySticky || scrollTop >= 100 ? 84 : 0;
+  fixture.setStickyInset(inset);
+  fixture.container.scrollTop = alreadySticky ? 320 : 0;
+  const nextUnread = layout.rowAtOffset(fixture.container.scrollTop + fixture.container.clientHeight)!;
+  act(() => fixture.dispatchKey("PageDown"));
+  expect(nextUnread.top).toBeGreaterThanOrEqual(fixture.container.scrollTop + inset());
+  expect(nextUnread.top + nextUnread.height).toBeLessThanOrEqual(fixture.container.scrollTop + fixture.container.clientHeight);
+  const top = layout.rowAtOffset(fixture.container.scrollTop + inset())!;
+  const previousUnread = layout.getRow(top.index - 1);
+  act(() => fixture.dispatchKey("PageUp"));
+  expect(previousUnread.top).toBeGreaterThanOrEqual(fixture.container.scrollTop + inset());
+  expect(previousUnread.top + previousUnread.height).toBeLessThanOrEqual(fixture.container.scrollTop + fixture.container.clientHeight);
+});
 
 it("measured indexed arrows target the unloaded neighbour rather than its whole span", async () => {
   const fixture = await mountNavigation(true, "explicit", 12000, "-uploadTime", false, 1, true);
@@ -977,6 +1003,20 @@ describe.each(["direct-ES", "media-api"] as const)("L37 %s newer End owns public
 });
 
 describe("KUP-013 End producer and post-seek consumer", () => {
+  it("moves combined Upload focus to both sought edges without touching dormant Search selection", async () => {
+    const selectedIds = new Set(["img-5"]);
+    useSelectionStore.setState({ selectedIds, anchorId: "img-5" });
+    const fixture = await mountNavigation(true, "explicit", 12000, "-uploadTime", false, 1, false,
+      { path: "/upload", recentUploadScope: { key: "upload:page:none", uploadedBy: "uploader@example.invalid", combined: true } });
+    await fixture.pressEnd();
+    expect(useSearchStore.getState().focusedImageId).toBe(useSearchStore.getState().results.at(-1)!.id);
+    await act(async () => { fixture.dispatchKey("Home"); await fixture.finishSeek(); });
+    expect(useSearchStore.getState().focusedImageId).toBe(useSearchStore.getState().results[0]!.id);
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+    expect(useSelectionStore.getState().anchorId).toBe("img-5");
+    expect(useSearchStore.getState()._pendingFocusAfterSeek).toBeNull();
+  });
+
   for (const windowed of [false, true]) {
     for (const mode of ["explicit", "selection", "phantom", "none"] as const) {
       it(`${windowed ? "windowed" : "resident"} End preserves ${mode} focus policy and reaches the tail`, async () => {
@@ -1031,7 +1071,7 @@ describe("KUP-013 End producer and post-seek consumer", () => {
     });
   }
 
-  for (const change of ["focus", "clear-focus", "selection", "phantom"] as const) {
+  for (const change of ["focus", "focus-roundtrip", "clear-focus", "selection", "phantom"] as const) {
     it(`retains newer ${change} intent during an explicit End seek`, async () => {
       const fixture = await mountNavigation(true, "explicit");
       const held = fixture.holdRead();
@@ -1039,6 +1079,10 @@ describe("KUP-013 End producer and post-seek consumer", () => {
       expect(held.read).toHaveBeenCalledOnce();
       act(() => {
         if (change === "focus") useSearchStore.getState().setFocusedImageId("img-1");
+        if (change === "focus-roundtrip") {
+          useSearchStore.getState().setFocusedImageId("img-1");
+          useSearchStore.getState().setFocusedImageId(fixture.origin);
+        }
         if (change === "clear-focus") useSearchStore.getState().setFocusedImageId(null);
         if (change === "selection") useSelectionStore.getState().add(["img-1"]);
         if (change === "phantom") useUiPrefsStore.getState().setFocusMode("phantom");

@@ -12,7 +12,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useBrowsingSearch } from "@/lib/browsing-context";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { DateFilter } from "./DateFilter";
 import { SORT_DROPDOWN_OPTIONS, DESC_BY_DEFAULT } from "@/lib/field-registry";
@@ -25,6 +25,10 @@ const SUBMITTED_FILENAME_SORT = "__submittedFilename";
 
 export function isAiSortOptionEnabled(field: string): boolean {
   return field === "relevance" || field === "uploadTime";
+}
+
+export function isBatchSortOptionEnabled(field: string): boolean {
+  return field !== "usagesDateAdded" && field !== "dateAddedToCollection" && field !== "uploadedBy";
 }
 
 /** Parse the primary sort field and direction from the orderBy param */
@@ -75,9 +79,10 @@ function FilterControls({ inSheet = false }: { inSheet?: boolean }) {
 
 function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: boolean; alwaysVisible?: boolean }) {
   const params = useBrowsingSearch();
+  const { path } = useBrowsingContext();
   const updateSearch = useUpdateSearchParams();
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; right: number; maxHeight: number }>();
+  const [position, setPosition] = useState<{ top?: number; bottom?: number; right: number; maxHeight: number }>();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -90,9 +95,10 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
   // When AI query is active, prepend a "Relevance" option and treat
   // -relevance as the default sort (so the indicator dot is suppressed).
   const hasAiChip = !!params.aiQuery;
+  const sortableFields = path === "/upload" ? SORTABLE_FIELDS.filter(option => isBatchSortOptionEnabled(option.value)) : SORTABLE_FIELDS;
   const effectiveSortableFields = hasAiChip
-    ? [{ label: "Relevance", value: "relevance" }, ...SORTABLE_FIELDS]
-    : submittedOrderAvailable ? [{ label: "Submitted filename", value: SUBMITTED_FILENAME_SORT }, ...SORTABLE_FIELDS] : SORTABLE_FIELDS;
+    ? [{ label: "Relevance", value: "relevance" }, ...sortableFields]
+    : submittedOrderAvailable ? [{ label: "Filename", value: SUBMITTED_FILENAME_SORT }, ...sortableFields] : sortableFields;
   const defaultSort = hasAiChip ? "-relevance" : submittedOrderAvailable ? SUBMITTED_FILENAME_SORT : "-uploadTime";
 
   const currentLabel =
@@ -106,7 +112,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
       const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
       beginTraceInteraction(action, { sort: value, focusedId: focusedImageId });
       if (value === SUBMITTED_FILENAME_SORT) {
-        updateSearch({ orderBy: undefined });
+        updateSearch({ orderBy: value === sortField && !sortDesc ? `-${value}` : undefined });
       } else if (value === sortField) {
         const newPrimary = sortDesc ? value : `-${value}`;
         updateSearch({ orderBy: newPrimary });
@@ -124,7 +130,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
     const action = focusedImageId ? "sort-around-focus" : "sort-no-focus";
     beginTraceInteraction(action, { sort: sortField, dir: sortDesc ? "asc" : "desc", focusedId: focusedImageId });
     const newPrimary = sortDesc ? sortField : `-${sortField}`;
-    updateSearch({ orderBy: newPrimary });
+    updateSearch({ orderBy: newPrimary === SUBMITTED_FILENAME_SORT ? undefined : newPrimary });
   }, [sortField, sortDesc, updateSearch, focusedImageId]);
 
   // Close dropdown on outside click
@@ -155,13 +161,20 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
     if (!open || !alwaysVisible) return;
     const place = () => {
       const bounds = dropdownRef.current?.getBoundingClientRect();
-      if (bounds) setPosition({ top: bounds.bottom + 4, right: Math.max(8, innerWidth - bounds.right), maxHeight: Math.max(0, innerHeight - bounds.bottom - 12) });
+      if (!bounds) return;
+      const below = Math.max(0, innerHeight - bounds.bottom - 12);
+      const above = Math.max(0, bounds.top - 12);
+      const openAbove = below < (menuRef.current?.scrollHeight ?? 0) && above > below;
+      setPosition({ ...(openAbove ? { bottom: innerHeight - bounds.top + 4 } : { top: bounds.bottom + 4 }),
+        right: Math.max(8, innerWidth - bounds.right), maxHeight: openAbove ? above : below });
     };
     const toolbar = dropdownRef.current?.closest('[role="toolbar"]');
+    const scroller = dropdownRef.current?.closest('[role="region"]');
     place();
     window.addEventListener("resize", place);
     toolbar?.addEventListener("scroll", place, true);
-    return () => { window.removeEventListener("resize", place); toolbar?.removeEventListener("scroll", place, true); };
+    scroller?.addEventListener("scroll", place, { passive: true });
+    return () => { window.removeEventListener("resize", place); toolbar?.removeEventListener("scroll", place, true); scroller?.removeEventListener("scroll", place); };
   }, [open, alwaysVisible]);
   const menu = open && <div ref={menuRef} role="listbox" aria-label="Sort field"
     className={alwaysVisible ? "fixed z-[80] popup-menu overflow-y-auto overscroll-contain" : "absolute top-full right-0 mt-1 popup-menu"}
@@ -173,7 +186,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
       return <button key={opt.value} type="button" role="option" tabIndex={isPrimary ? 0 : -1} disabled={disabled}
         aria-selected={isPrimary} aria-disabled={disabled} data-sort-key={opt.value}
         onClick={disabled ? undefined : () => handleSelectField(opt.value)}
-        className={`popup-item text-left focus-visible:bg-grid-hover ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}>
+        className={`popup-item w-full text-left focus-visible:bg-grid-hover ${disabled ? "opacity-45 cursor-not-allowed" : ""}`}>
         <span className="w-4 flex items-center justify-center text-grid-accent shrink-0">
           {isPrimary && <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d={sortDesc ? "M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" : "M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"} />
@@ -221,7 +234,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Sort by: ${currentLabel}`}
-        className={`relative flex items-center gap-1 px-2 py-1 border border-grid-border rounded-l text-sm transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
+        className={`relative flex items-center gap-1 h-8 px-2 py-1 border border-grid-border rounded-l text-sm transition-colors cursor-pointer select-none whitespace-nowrap hover:text-grid-text-bright hover:border-grid-text-muted ${
           open
             ? "text-grid-text-bright border-grid-text-muted"
             : "text-grid-text-muted"
@@ -241,11 +254,10 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
            at w-4 h-4 (16px) to match the sort field button's text-sm line height,
            keeping both button borders aligned within ~1px. */}
       <button
-        disabled={sortField === SUBMITTED_FILENAME_SORT}
         onClick={handleToggleDirection}
-        aria-label={sortField === SUBMITTED_FILENAME_SORT ? "Submitted filename order" : sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
-        className="px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer select-none"
-        title={sortField === SUBMITTED_FILENAME_SORT ? "Submitted filename order" : sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
+        aria-label={sortDesc ? "Sort descending, click to sort ascending" : "Sort ascending, click to sort descending"}
+        className="h-8 px-1.5 py-1 border border-grid-border border-l-0 rounded-r text-sm text-grid-text-muted hover:text-grid-text-bright hover:border-grid-text-muted focus:text-grid-text-bright focus:border-grid-text-muted focus:outline-none transition-colors cursor-pointer select-none"
+        title={sortDesc ? "Descending — click to sort ascending" : "Ascending — click to sort descending"}
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           {sortDesc

@@ -887,7 +887,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
             </span>
           )}
 
-          {path === "/upload" && <span className="text-xs text-grid-text-muted truncate max-w-48" data-inspection-section={batchOrigin ? "batch" : "other"}>{batchOrigin ? `Batch ${searchParams.batch?.replace(/^local-/, "").slice(0, 8)}` : "My other uploads"}</span>}
+          {path === "/upload" && <span className="text-xs text-grid-text-muted truncate max-w-48" data-inspection-section={batchOrigin ? "batch" : "other"}>{batchOrigin ? "from batch" : "My other uploads"}</span>}
 
           <span className="flex-1" />
 

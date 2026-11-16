@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatGridDate, getGridDatePresentation } from "./format-grid-date";
+import { formatGridDate, formatRecentGridDate, getGridDatePresentation } from "./format-grid-date";
 import type { Image } from "@/types/image";
 
 afterEach(() => vi.restoreAllMocks());
@@ -37,6 +37,17 @@ describe("formatGridDate", () => {
     expect(dateMethod).not.toHaveBeenCalled();
     expect(timeMethod).not.toHaveBeenCalled();
     expect(constructor).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("formatRecentGridDate", () => {
+  it.each([
+    [new Date(2026, 10, 16, 0, 1), "today, 00:01"],
+    [new Date(2026, 10, 15, 23, 59), "yesterday, 23:59"],
+    [new Date(2026, 10, 14, 12, 24), "14 Nov, 12:24"],
+    [new Date(2025, 10, 14, 12, 24), "14 Nov 2025, 12:24"],
+  ])("uses a local calendar label for %s", (date, expected) => {
+    expect(formatRecentGridDate(date.getTime(), new Date(2026, 10, 16, 0, 5))).toBe(expected);
   });
 });
 

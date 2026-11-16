@@ -61,6 +61,7 @@ export type ListNavigationConfig = {
    * Table has a sticky header; grid has none. Used for page calculation.
    */
   headerHeight: number;
+  getStickyInset?: (scrollTop?: number) => number;
 
   /** Current focused image ID (from useDataWindow). */
   focusedImageId: string | null;
@@ -195,8 +196,10 @@ export function useListNavigation(config: ListNavigationConfig): void {
       return;
     }
     const row = current.spatial.getItemRow(index);
-    const bottom = row.top + (row.anchorHeight ?? row.height) + current.headerHeight;
-    const target = row.top < element.scrollTop ? row.top
+    const top = row.top + current.headerHeight;
+    const inset = current.getStickyInset?.() ?? 0;
+    const bottom = top + (row.anchorHeight ?? row.height);
+    const target = top < element.scrollTop + current.headerHeight + inset ? row.top - inset
       : bottom > element.scrollTop + element.clientHeight ? bottom - element.clientHeight : element.scrollTop;
     element.scrollTop = Math.max(0, Math.min(element.scrollHeight - element.clientHeight, target));
     element.dispatchEvent(new Event("scroll"));
@@ -245,14 +248,16 @@ export function useListNavigation(config: ListNavigationConfig): void {
     const el = config.scrollRef.current;
     if (!el || config.virtualizerCount === 0) return;
     if (config.spatial) {
-      const height = el.clientHeight - config.headerHeight;
-      const edge = direction === "down" ? el.scrollTop + height : el.scrollTop;
+      const inset = config.getStickyInset?.() ?? 0;
+      const height = Math.max(1, el.clientHeight - config.headerHeight - inset);
+      const edge = direction === "down" ? el.scrollTop + el.clientHeight - config.headerHeight : el.scrollTop + inset;
       const row = config.spatial.rowAtOffset(edge);
       if (!row) return;
       const aligned = Math.abs(row.top - edge) < 0.001;
       let target = direction === "down"
         ? aligned ? config.spatial.getRow(Math.max(0, row.index - 1)).top : row.top
         : (aligned ? row.top : row.top + row.height) - height;
+      target -= direction === "down" ? config.getStickyInset?.(target) ?? 0 : inset;
       if (direction === "down" ? target <= el.scrollTop : target >= el.scrollTop) {
         target = el.scrollTop + (direction === "down" ? height : -height);
       }
@@ -594,6 +599,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
                 _pendingFocusAfterSeek: {
                   edge: "first",
                   focusedImageId: hasFocus ? c.focusedImageId : null,
+                  focusIntent: useSearchStore.getState()._focusIntent,
                 },
               });
               c.seek(0);
@@ -626,7 +632,8 @@ export function useListNavigation(config: ListNavigationConfig): void {
             if (c.bufferOffset + c.resultsLength < c.total || hasOrderingUncertainty() || !useSearchStore.getState().canReuseResidentResults()) {
               // Always signal "last" so effect #6 scrolls to the end.
               // Focus permission belongs to the initiating keyboard action.
-              useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null } });
+              useSearchStore.setState({ _pendingFocusAfterSeek: { edge: "last", focusedImageId: hasFocus ? c.focusedImageId : null,
+                focusIntent: useSearchStore.getState()._focusIntent } });
               c.seek(Math.max(0, c.total - 1));
             } else {
               const store = useSearchStore.getState();

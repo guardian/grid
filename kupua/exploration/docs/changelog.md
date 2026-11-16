@@ -24,6 +24,50 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 November 2026 - Upload polish, arrival continuity and responsive navigation
+
+Separated the centered Kahuna-style file prompt and disabled Apply label placeholder
+from navigation and the batch heading. Retained-batch choices use local-calendar
+Today/Yesterday, otherwise day/month with year when needed, 24-hour time and unique
+image count, with full timestamp tooltips. Filename supports ascending and descending
+batch order without sending a synthetic sort to the API; lower uploads remain
+newest-first. Form keeps natural measured height, bounded desktop proportions and
+container-responsive field stacking, with drafts retained outside virtual rows.
+
+Fresh entry and submission follow the current batch at the top while initial images
+arrive. Deliberate browsing, editing or departure releases following so later arrivals
+preserve the represented field/image through the existing continuity owner. Measured
+section chrome is shared with Grid, Table, Justified and keyboard navigation rather
+than introducing another placement engine. Sticky-aware paging and focus visibility,
+empty-leading-section neighbour bounds and captured focus intent protect movement
+through section boundaries and asynchronous seeks.
+
+Section headings jump back to their starts rather than collapsing results; their
+chevrons reflect the represented section after scrolling and history restoration.
+The other-uploads count and newest-first summary sit alongside the heading, with a
+heading-sized Search link and leading magnifier, reduced to an icon in compact mode.
+Narrow desktop headers wrap instead of clipping commands. Scrubber tooltips share
+section names with the headings and show one comma-formatted section-relative count
+below, including hover/drag updates; ordinary Search retains global counts.
+
+Kept Upload/activity reachable outside navigation overflow and reserved installed
+compact cutout space. Compact browser Search moves upload controls into Settings;
+installed compact Search keeps labelled Uploads beside icon-only Upload/activity
+to the right of the reserved band. Activity popups respect viewport gutters, omit
+the Search-side batch chooser and use Go to recent uploads for fresh newest-batch
+entry. Detail shows from batch without an opaque identifier. Back-to-search pulse
+suppression is consumed once, while stale Activity continuations respect the
+authoritative history key returned by navigation.
+
+Successful empty batches no longer display a generic unavailable-images message.
+Missing retained batches and failed reads remain distinct warning toasts, gated to
+the settled current scope; failed lower reads do not report a misleading zero count.
+Responsive status fitting shortens ticker names to GNM/agency before dropping matches
+and finally ticker names, preserving full accessible names, tooltips and filter identity.
+Existing browser journeys cover these states with owned PWA emulation, isolated warning
+checkpoints and deterministic crowded-count fixtures rather than extra setup or sleeps.
+Metadata saving, batch arrows, Templates and further editing remain separate work.
+
 ### 16 November 2026 - Streamline E2E coverage and fixture setup
 
 Combined repeated scrubber initial-state, End/Home, selection-affordance,

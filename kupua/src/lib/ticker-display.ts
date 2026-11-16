@@ -3,11 +3,17 @@ import { gridConfig, type TickerDefinition } from "@/lib/grid-config";
 
 export interface DisplayTicker extends TickerCountResult {
   name: string;
+  shortName?: string;
   searchClause: string;
   backgroundColour: string;
   /** The `is:` value the badge applies. */
   isValue: string;
 }
+
+const shortTickerNames: Readonly<Record<string, string>> = {
+  "GNM-owned": "GNM",
+  "agency-pick": "agency",
+};
 
 /**
  * Tickers to show, in a stable order: configured definitions first (preserving the
@@ -31,7 +37,9 @@ export function displayTickers(
     const searchClause = count.searchClause ?? def?.searchClause;
     const backgroundColour = count.backgroundColour ?? def?.backgroundColour;
     if (!searchClause?.startsWith("is:") || searchClause.length <= 3 || !backgroundColour) continue;
-    shown.push({ ...count, name, searchClause, backgroundColour, isValue: searchClause.slice(3) });
+    const isValue = searchClause.slice(3);
+    const shortName = shortTickerNames[isValue];
+    shown.push({ ...count, name, searchClause, backgroundColour, isValue, ...(shortName ? { shortName } : {}) });
   }
   return shown;
 }

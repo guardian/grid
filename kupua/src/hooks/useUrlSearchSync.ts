@@ -45,6 +45,7 @@ import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 import { useSelectionStore } from "@/stores/selection-store";
 import { claimTraceInteraction, consumeTraceInteraction } from "@/lib/perceived-trace";
 import { traceActionsForNavigation } from "@/lib/orchestration/perceived-navigation";
+import { useUploadLayoutStore } from "@/stores/upload-layout-store";
 
 // Track the kupuaKey of the entry we're currently "on". Updated at the
 // end of every effect run. On popstate, history.state already reflects
@@ -101,6 +102,7 @@ export function useUrlSearchSync() {
   const membershipDeferred = useRef(false);
   const [membershipCompletion, setMembershipCompletion] = useState(0);
   useEffect(() => useSearchStore.subscribe((state, previous) => {
+    if (state._focusIntent !== previous._focusIntent) useUploadLayoutStore.getState().stopFollowingBatch();
     if (membershipDeferred.current && previous.loading && !state.loading) {
       membershipDeferred.current = false;
       setMembershipCompletion(value => value + 1);
@@ -131,6 +133,10 @@ export function useUrlSearchSync() {
   // When URL search params change → push to store and search
   useEffect(() => {
     if (unmountedRef.current) return;
+    const followingBatch = useUploadLayoutStore.getState().followingBatch;
+    if (followingBatch && (path !== "/upload" || routeSearch.batch !== followingBatch || routeSearch.image)) {
+      useUploadLayoutStore.getState().stopFollowingBatch();
+    }
     if (path === "/upload" && recentStatus === "loading") return;
     const observedParams = searchParamsSchema.parse(location.search);
     if (buildSearchKey(observedParams) !== buildSearchKey(searchParams) || observedParams.image !== searchParams.image) return;
@@ -161,7 +167,7 @@ export function useUrlSearchSync() {
       defaultsResolution.current = "resolved";
     }
 
-    const canonicalParams = canonicalizeSearchParams(searchParams);
+    const canonicalParams = canonicalizeSearchParams(searchParams, path === "/upload" && !!routeSearch.batch);
     const needsCanonicalReplace = URL_PARAM_KEYS.some(
       (key) => canonicalParams[key] !== searchParams[key],
     );
@@ -325,6 +331,12 @@ export function useUrlSearchSync() {
       const kupuaKey = getCurrentKupuaKey();
       const snapshot = qualifyBrowsingSnapshot(kupuaKey ? snapshotStore.get(kupuaKey) : undefined, searchOnly);
       continuity = historySearchContinuity(snapshot, searchOnly);
+      if (path === "/search" && history.state?._suppressRestorePulse === true) {
+        continuity.suppressPulse = true;
+        const state = { ...history.state };
+        delete state._suppressRestorePulse;
+        history.replaceState(state, "");
+      }
       if (!searchOnly.aiQuery && path === "/search") {
         const current = useSearchStore.getState();
         arrivalState = restoreArrivalState(snapshot, buildSearchKey(searchOnly), {

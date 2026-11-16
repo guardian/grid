@@ -5,7 +5,13 @@ import type { LayoutRow, SpatialNavigation, WindowGeometry } from "./scroll-geom
 import { prepareDestinationSeek } from "./destination-seek";
 import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow } from "./scroll-geometry-ref";
 
+export const UPLOAD_SECTION_LABELS = { batch: "Your current batch", other: "My other uploads" } as const;
 export const UPLOAD_SECTION_HEIGHT = 72;
+export function getUploadStickyInset(scrollTop: number, intro: number, chrome: NonNullable<LayoutWindow["uploadChrome"]>, otherTop?: number): number {
+  return (scrollTop >= intro ? chrome.batch : 0)
+    + (otherTop !== undefined && scrollTop >= otherTop - chrome.batch ? chrome.other ?? UPLOAD_SECTION_HEIGHT : 0);
+}
+
 type SourceLayout = ImageLayout & { window?: WindowGeometry; spatial?: SpatialNavigation; isEstimatedSpan?: (index: number) => boolean; measurements?: ReadonlyMap<string, number> };
 export type SectionLayout = SourceLayout & { window: WindowGeometry; spatial: SpatialNavigation;
   isEstimatedSpan: (index: number) => boolean; measurements: ReadonlyMap<string, number>;
@@ -16,21 +22,23 @@ export function composeUploadLayout(images: readonly (Image | undefined)[], widt
   previous?: SectionLayout): SectionLayout {
   const windowStart = context.bufferOffset;
   const windowEnd = windowStart + images.length;
-  let height = 0;
+  let height = (context.indexed || windowStart === 0 ? context.uploadChrome?.intro ?? 0 : 0)
+    + (context.uploadChrome?.batch ?? 0);
   let rowCount = 0;
   let spatialCount = 0;
-  let unassignedHeaders = 0;
+  let unassignedHeaders = height;
   const headers: SectionLayout["headers"] = [];
   const sources = ([{ section: "batch" as const, start: 0, end: boundary, present: batchPresent },
     { section: "other" as const, start: boundary, end: context.total, present: true }]).map((part, sectionIndex) => {
     const first = Math.max(part.start, Math.min(part.end, windowStart));
     const end = Math.max(first, Math.min(part.end, windowEnd));
     const slice = images.slice(Math.max(0, first - windowStart), Math.max(0, end - windowStart));
-    const showHeader = part.present && (context.indexed || part.start >= windowStart && part.start <= windowEnd);
+    const showHeader = part.section === "other" && part.present && (context.indexed || part.start <= windowEnd);
     if (showHeader) {
       headers.push({ section: part.section, top: height });
-      height += UPLOAD_SECTION_HEIGHT;
-      unassignedHeaders += UPLOAD_SECTION_HEIGHT;
+      const headerHeight = context.uploadChrome?.other ?? UPLOAD_SECTION_HEIGHT;
+      height += headerHeight;
+      unassignedHeaders += headerHeight;
     }
     const layout = factory(slice, { ...context, bufferOffset: first - part.start, total: part.end - part.start,
       uploadSection: part.section, searchKey: `${context.searchKey}:${part.section}` }, previous?.sourceLayouts[sectionIndex]);
@@ -80,6 +88,7 @@ export function composeUploadLayout(images: readonly (Image | undefined)[], widt
       return local && spatialRow(source, local);
     },
     neighbour: (index, target) => {
+      target = Math.max(0, Math.min(spatialCount - 1, target));
       const source = sourceForItem(index);
       if (spatialSource(target) !== source) return spatial.getRow(target).firstItemIndex;
       return (source.layout.spatial ?? source.layout).neighbour(index - source.itemOffset, target - source.firstSpatialRow) + source.itemOffset;

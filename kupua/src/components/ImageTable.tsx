@@ -18,8 +18,9 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
-import { composeUploadLayout, fixedUploadLayout } from "@/lib/upload-section-layout";
-import { UploadSectionHeading } from "./UploadSections";
+import { composeUploadLayout, fixedUploadLayout, getUploadStickyInset } from "@/lib/upload-section-layout";
+import { UploadPageChrome, UploadSectionHeading } from "./UploadSections";
+import { useUploadLayoutStore } from "@/stores/upload-layout-store";
 import { useHeaderHeight } from "@/hooks/useHeaderHeight";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
@@ -440,10 +441,11 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const sections = useSearchStore(state => state.uploadSections);
+  const uploadChrome = useUploadLayoutStore(state => state.chrome);
   const sectionLayout = useMemo(() => searchParams.recentUploadScope?.combined
-    ? composeUploadLayout(results, 1, { bufferOffset, total, indexed: twoTier, searchKey: buildSearchKey(searchParams) }, sections?.batch ?? 0, !!searchParams.batch,
+    ? composeUploadLayout(results, 1, { bufferOffset, total, indexed: twoTier, searchKey: buildSearchKey(searchParams), uploadChrome }, sections?.batch ?? 0, !!searchParams.batch,
       (resident, context) => fixedUploadLayout(context.indexed ? context.total : resident.length, 1, 1, ROW_HEIGHT)) : undefined,
-  [results, bufferOffset, total, twoTier, searchParams, sections?.batch]);
+  [results, bufferOffset, total, twoTier, searchParams, sections?.batch, uploadChrome]);
 
   // C.1: Measure the actual rendered header height via ResizeObserver.
   // Falls back to TABLE_HEADER_HEIGHT (36) on the first frame before the DOM
@@ -840,10 +842,11 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // ---------------------------------------------------------------------------
 
   useListNavigation({
-    columnsPerRow: 1,
+    ...(sectionLayout ? { spatial: sectionLayout, getStickyInset: (scrollTop = parentRef.current?.scrollTop ?? 0) => getUploadStickyInset(scrollTop,
+      twoTier || bufferOffset === 0 ? uploadChrome.intro : 0, uploadChrome,
+      sectionLayout.headers.find(header => header.section === "other")?.top) } : { columnsPerRow: 1, rowHeight: ROW_HEIGHT }),
     virtualizer,
     scrollRef: parentRef,
-    rowHeight: ROW_HEIGHT,
     headerHeight, // C.1: ResizeObserver-measured; same value as HEADER_HEIGHT on steady state
     focusedImageId,
     setFocusedImageId,
@@ -1234,7 +1237,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         style={{ height: (sectionLayout?.height ?? virtualizer.getTotalSize()) + headerHeight }}
         className="relative inline-block min-w-full leading-[0]"
       >
-        {sectionLayout?.headers.map(header => <UploadSectionHeading key={header.section} section={header.section} top={header.top + headerHeight} />)}
+        {sectionLayout && <UploadPageChrome scrollRef={parentRef} showIntro={twoTier || bufferOffset === 0} topOffset={headerHeight} />}
+        {sectionLayout?.headers.map(header => <UploadSectionHeading key={header.section} section={header.section} top={header.top + headerHeight} scrollRef={parentRef} topOffset={headerHeight} />)}
         {/* Header: inline-flex so the browser sizes it from its children
             — no JS-computed width, correct at any browser zoom level. */}
         <div

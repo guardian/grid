@@ -139,6 +139,7 @@ function isAllowedSort(token: string, allowed: ReadonlySet<string>): boolean {
 
 export function canonicalizeSearchParams(
   params: UrlSearchParams,
+  allowSubmittedOrder = false,
 ): UrlSearchParams {
   const canonical = { ...params };
   const hasCollection = hasCollectionFilter(canonical.query);
@@ -151,6 +152,8 @@ export function canonicalizeSearchParams(
   if (canonical.aiQuery) {
     const aiTokens = new Set(["relevance", "uploadTime"]);
     canonical.orderBy = token && isAllowedSort(token, aiTokens) ? token : AI_SORT;
+  } else if (allowSubmittedOrder && token === "-__submittedFilename") {
+    canonical.orderBy = token;
   } else if (token && isAllowedSort(token, ORDINARY_SORT_TOKENS)) {
     canonical.orderBy = token;
   } else if (canonical.orderBy === undefined && !hasCollection) {

@@ -35,11 +35,15 @@ function subscribeInstalled(cb: () => void) {
   return () => installedMql?.removeEventListener("change", cb);
 }
 
-/** Installed compact chrome can use the cutout area without changing browser-tab viewports. */
-export function useAppCutout(enabled: boolean) {
-  const installed = useSyncExternalStore(subscribeInstalled,
+export function useIsInstalled(): boolean {
+  return useSyncExternalStore(subscribeInstalled,
     () => !!installedMql?.matches || (navigator as Navigator & { standalone?: boolean }).standalone === true,
     () => false);
+}
+
+/** Installed compact chrome can use the cutout area without changing browser-tab viewports. */
+export function useAppCutout(enabled: boolean) {
+  const installed = useIsInstalled();
   useLayoutEffect(() => {
     if (!enabled || !installed) return;
     const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');

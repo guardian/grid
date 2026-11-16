@@ -62,6 +62,7 @@ import { useReturnFromDetail } from "./useReturnFromDetail";
 import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, getFixedRowCount, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { buildMeasuredLayout } from "@/lib/windowed-measured-layout";
+import { useUploadLayoutStore } from "@/stores/upload-layout-store";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
@@ -95,6 +96,7 @@ beforeEach(() => {
   });
   vi.stubGlobal("cancelAnimationFrame", (handle: number) => { frames.delete(handle); });
   clearDensityFocusRatio();
+  useUploadLayoutStore.setState({ followingBatch: null });
   anchor.viewportId = null;
   anchor.visibleIds = null;
   const results = Array.from({ length: 800 }, (_, index) => ({ id: `image-${index + 200}` }) as Image);
@@ -3599,6 +3601,24 @@ describe("P1 non-uniform resident continuity", () => {
     expect(getScrollGeometry).toThrow("Window preparation requires fixed-row geometry");
   });
 
+  it("keeps fresh batch arrivals at the top until the user takes control", () => {
+    const targetId = useSearchStore.getState().results[20]!.id;
+    useSearchStore.setState({ focusedImageId: targetId, params: {
+      recentUploadScope: { key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+        batch: { key: "upload:local-arrivals", revision: 1, ids: [targetId], submittedOrder: true } },
+    } });
+    useUploadLayoutStore.setState({ followingBatch: "local-arrivals" });
+    expect(searchContinuity.captureSearchContinuity("membership")).toMatchObject({
+      provenance: "maintenance", targetId: null, placement: { kind: "start" }, focus: "retain",
+    });
+    const intent = useSearchStore.getState()._focusIntent;
+    searchContinuity.stopFollowingUploadBatch();
+    expect(useSearchStore.getState()._focusIntent).toBe(intent + 1);
+    expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);
+    useUploadLayoutStore.setState({ followingBatch: "local-different" });
+    expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);
+  });
+
   it("recent-upload sort ignores dormant library selection without clearing it", () => {
     const [focused, selected] = useSearchStore.getState().results.filter((image): image is Image => !!image);
     const selectedIds = new Set([selected.id]);
@@ -3650,14 +3670,26 @@ describe("P1 non-uniform resident continuity", () => {
     try {
       act(() => { useSearchStore.getState().setFocusedImageId("img-50"); });
       view.container.scrollTop = 3200;
-      act(() => { window.history.replaceState({ kupuaKey: key }, ""); router.notify("BACK");
+      act(() => { window.history.replaceState({ kupuaKey: key, _suppressRestorePulse: true }, ""); router.notify("BACK");
         routeParams = { ...routeParams }; view.changeGeometry(irregularGeometry(10)); });
       await act(async () => { await search.mock.results[0].value; });
       expect(view.container.scrollTop).toBe(1690);
       expect(useSearchStore.getState().focusedImageId).toBe(focusMode === "explicit" ? "img-26" : null);
       expect(useSearchStore.getState()._searchContinuity).toMatchObject({ provenance: "history", targetId: "img-26", phase: "placed" });
+      expect(useSearchStore.getState()._phantomPulseImageId).toBeNull();
+      const returnedState = window.history.state;
+      const otherKey = `${key}-other`;
+      snapshotStore.set(otherKey, snapshot);
+      act(() => { window.history.replaceState({ kupuaKey: otherKey }, ""); router.notify("BACK");
+        routeParams = { ...routeParams }; view.changeGeometry(irregularGeometry(10)); });
+      await act(async () => { await search.mock.results[1].value; });
+      act(() => { useSearchStore.setState({ _phantomPulseImageId: null });
+        window.history.replaceState(returnedState, ""); router.notify("BACK");
+        routeParams = { ...routeParams }; view.changeGeometry(irregularGeometry(10)); });
+      await act(async () => { await search.mock.results[2].value; });
+      expect(useSearchStore.getState()._phantomPulseImageId).toBe(focusMode === "phantom" ? "img-26" : null);
     } finally {
-      snapshotStore.delete(key); snapshotStore.delete("p1-source");
+      snapshotStore.delete(key); snapshotStore.delete(`${key}-other`); snapshotStore.delete("p1-source");
       window.history.replaceState(oldHistory, "");
     }
   });

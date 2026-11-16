@@ -36,6 +36,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
   if (cells && parent.current && (current.current.readings !== readings || current.current.cells !== cells ||
       current.current.width !== width || current.current.images !== images ||
       current.current.context.bufferOffset !== context.bufferOffset || current.current.context.total !== context.total ||
+      current.current.context.uploadChrome !== context.uploadChrome ||
       current.current.context.searchKey !== context.searchKey)) {
     const element = parent.current;
     const source = committedLayout.current;
@@ -85,7 +86,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     next.window.correctionAnchor = committedReadings.current !== readings && correctionAnchor ? correctionAnchor
       : anchorId ? { id: anchorId, beforeOffset: 0, afterOffset: 0 } : undefined;
     return next;
-  }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, context.uploadSections?.batch, context.uploadSections?.present, cells, readings, correctionAnchor]);
+  }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, context.uploadSections?.batch, context.uploadSections?.present, context.uploadChrome, cells, readings, correctionAnchor]);
   useLayoutEffect(() => { committedLayout.current = layout; }, [layout]);
   const measureRef = useRef(() => {});
   const observerRef = useRef<ResizeObserver | null>(null);

@@ -75,22 +75,54 @@ it("preserves the page input and focus when delayed upload permission resolves",
   expect(document.activeElement).toBe(input);
 });
 
+it.each([false, true])("opens an activity image only while its list navigation remains current (superseded=%s)", async superseded => {
+  const previousHistory = window.history.state;
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  router.navigate.mockImplementationOnce(options => {
+    window.history.replaceState(options.state, "");
+    return pending;
+  });
+  load([{ id: "done", name: "done.jpg", size: 1, phase: "complete", imageId: "a".repeat(40) }]);
+  render(<UploadProgress split />);
+  try {
+    fireEvent.click(screen.getByRole("button", { name: /^Upload activity:/ }));
+    fireEvent.click(screen.getByRole("button", { name: "done.jpg" }));
+    expect(router.navigate).toHaveBeenCalledTimes(1);
+    if (superseded) window.history.replaceState({ kupuaKey: "newer-navigation" }, "");
+    await act(async () => { release(); await pending; });
+    expect(router.navigate).toHaveBeenCalledTimes(superseded ? 1 : 2);
+    if (!superseded) expect(router.navigate.mock.calls[1][0].search.image).toBe("a".repeat(40));
+  } finally {
+    await act(async () => { release(); await pending; });
+    window.history.replaceState(previousHistory, "");
+  }
+});
+
 it("shows one priority status, orders errors before running and complete files, and dismisses only the chosen error", () => {
   load([
     { id: "done", name: "done.jpg", size: 1, phase: "complete", imageId: "a".repeat(40) },
     { id: "running", name: "running.jpg", size: 1, phase: "processing" },
     { id: "unknown", name: "unknown.jpg", size: 1, phase: "uncertain", statusId: "b".repeat(40) },
   ]);
+  useUploadJobsStore.setState(state => ({
+    batches: [...state.batches, { id: "local-older", createdAt: 0,
+      attempts: [{ id: "older-error", name: "older.jpg", size: 1, phase: "failed" as const }] }],
+    activityAttemptIds: new Set([...state.activityAttemptIds, "older-error"]),
+  }));
   render(<UploadProgress split />);
-  fireEvent.click(screen.getByRole("button", { name: "Upload activity: 1 need attention" }));
+  fireEvent.click(screen.getByRole("button", { name: "Upload activity: 2 need attention" }));
   const panel = screen.getByRole("region", { name: "Upload activity" });
   expect([...panel.querySelectorAll("[data-upload-attempt]")].map(element => element.getAttribute("data-upload-attempt")))
-    .toEqual(["unknown", "running", "done"]);
+    .toEqual(["unknown", "older-error", "running", "done"]);
   expect(screen.queryByText("Image available")).toBeNull();
   expect(screen.queryByText("Processing")).toBeNull();
   fireEvent.click(within(panel).getByRole("button", { name: "Recheck" }));
   expect(checkUploadAttempt).toHaveBeenCalledWith("unknown");
-  fireEvent.click(within(panel).getByRole("button", { name: "Dismiss error for unknown.jpg" }));
+  fireEvent.click(within(panel).getByRole("button", { name: "Acknowledge error for older.jpg" }));
+  expect(screen.getByRole("button", { name: "Upload activity: 1 need attention" })).toBeTruthy();
+  expect(useUploadJobsStore.getState().batches[1].attempts[0].notificationDismissed).toBe(true);
+  fireEvent.click(within(panel).getByRole("button", { name: "Acknowledge error for unknown.jpg" }));
   expect(screen.getByRole("button", { name: "Upload activity: 1 in progress" })).toBeTruthy();
   expect(useUploadJobsStore.getState().batches[0].attempts.find(attempt => attempt.id === "unknown")?.notificationDismissed).toBe(true);
   expect(screen.queryByRole("button", { name: /Dismiss all/i })).toBeNull();

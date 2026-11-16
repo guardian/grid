@@ -14,7 +14,7 @@ describe("displayTickers", () => {
     }, configured);
     expect(shown).toEqual([
       { name: "ACME-owned", value: 7, searchClause: "is:ACME-owned", backgroundColour: "#123456", isValue: "ACME-owned" },
-      { name: "agency picks", value: 3, searchClause: "is:agency-pick", backgroundColour: "#abcdef", isValue: "agency-pick", subCounts: { X: 3 } },
+      { name: "agency picks", shortName: "agency", value: 3, searchClause: "is:agency-pick", backgroundColour: "#abcdef", isValue: "agency-pick", subCounts: { X: 3 } },
     ]);
   });
 
@@ -27,12 +27,15 @@ describe("displayTickers", () => {
   it("appends complete server-only tickers in response order and skips incomplete or non-is: ones", () => {
     const shown = displayTickers({
       "zeta": { value: 1, searchClause: "is:zeta", backgroundColour: "#000001" },
+      "GNM-owned": { value: 678, searchClause: "is:GNM-owned", backgroundColour: "#005689" },
       "no colour": { value: 1, searchClause: "is:x" },
       "free text": { value: 1, searchClause: "credit:Reuters", backgroundColour: "#000002" },
       "ACME-owned": { value: 7 },
       "alpha": { value: 2, searchClause: "is:alpha", backgroundColour: "#000003" },
     }, configured);
-    expect(shown.map((ticker) => ticker.name)).toEqual(["ACME-owned", "zeta", "alpha"]);
+    expect(shown.map(ticker => [ticker.name, ticker.shortName ?? ticker.name])).toEqual([
+      ["ACME-owned", "ACME-owned"], ["zeta", "zeta"], ["GNM-owned", "GNM"], ["alpha", "alpha"],
+    ]);
   });
 
   it("skips a configured ticker the server did not return", () => {

@@ -18,6 +18,8 @@ import { readHomeView, writeHomeView, type HomeView } from "@/lib/home-view";
 import { useIsCompact } from "@/hooks/useShell";
 import { pressFeedback } from "@/lib/dom-utils";
 import { HiJoshuaContext } from "./HiJoshua";
+import { RecentUploadsEntry, UploadEntry } from "./UploadActivity";
+import { activeUploadPhases, useUploadJobsStore } from "@/stores/upload-jobs-store";
 
 function ZoomRow() {
   const density = useUiPrefsStore((s) => s.density);
@@ -79,12 +81,14 @@ function subscribeFullscreen(change: () => void) {
   return () => document.removeEventListener("fullscreenchange", change);
 }
 
-export function SettingsMenu({ inset = false, showViewControls = false }: { inset?: boolean; showViewControls?: boolean }) {
+export function SettingsMenu({ inset = false, showViewControls = false, uploadMenu }: { inset?: boolean; showViewControls?: boolean; uploadMenu?: "search" | "upload" }) {
   const fullscreen = useSyncExternalStore(subscribeFullscreen, () => !!imageFullscreenElement(), () => false);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const openJoshua = useContext(HiJoshuaContext);
+  const uploading = useUploadJobsStore(state => uploadMenu === "search" && state.batches.some(batch =>
+    batch.attempts.some(attempt => activeUploadPhases.has(attempt.phase))));
 
   const isCompact = useIsCompact();
   const effectiveMode = useEffectiveFocusMode();
@@ -110,7 +114,8 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
         menuRef.current &&
         !menuRef.current.contains(e.target as Node) &&
         buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
+        !buttonRef.current.contains(e.target as Node) &&
+        !(uploadMenu && (e.target as Element).closest?.(".upload-activity-popup"))
       ) {
         setOpen(false);
       }
@@ -128,7 +133,7 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
       document.removeEventListener("pointerdown", handleClick, true);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [open, fullscreen, closeWithFocus]);
+  }, [open, fullscreen, closeWithFocus, uploadMenu]);
 
   const handleModeChange = useCallback(
     (mode: FocusMode) => {
@@ -155,8 +160,9 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
         aria-label="Settings"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="tap-feedback w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors text-grid-text-muted hover:text-grid-text"
-        title="Settings"
+        className="tap-feedback relative w-11 h-11 flex items-center justify-center hover:bg-grid-hover transition-colors text-grid-text-muted hover:text-grid-text"
+        title={uploading ? "Settings - uploads in progress" : "Settings"}
+        aria-description={uploading ? "Uploads in progress" : undefined}
       >
         {/* Material Design more_vert icon */}
         <svg
@@ -169,6 +175,7 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
           <circle cx="12" cy="12" r="2" />
           <circle cx="12" cy="19" r="2" />
         </svg>
+        {uploading && <span className="upload-settings-dot" aria-hidden="true" />}
       </button>
 
       {open && (
@@ -177,6 +184,10 @@ export function SettingsMenu({ inset = false, showViewControls = false }: { inse
           role="menu"
           className="absolute right-[5px] top-full mt-1 w-56 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain bg-grid-bg border border-grid-border rounded shadow-lg z-50 py-1"
         >
+          {uploadMenu && <div className="settings-upload-controls flex items-center gap-2 px-3 py-2 border-b border-grid-separator" data-upload-menu={uploadMenu} role="group" aria-label="Upload controls">
+            {uploadMenu === "search" && <RecentUploadsEntry shortLabel onOpen={() => setOpen(false)} />}
+            <UploadEntry withActivity={uploadMenu === "search"} onSubmitted={() => setOpen(false)} />
+          </div>}
           {showViewControls && <ZoomRow />}
 
           {/* Focus mode section */}

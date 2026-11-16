@@ -27,7 +27,7 @@ import { canExtendForward, getDisplayEnd, getSearchGeneration, getTerminalDirect
 import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry, getItemLayoutRow, getLayoutRow, requireFixedRowGeometry, type LayoutGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
-import { captureSearchContinuity, saveSearchContinuity } from "@/lib/search-continuity";
+import { captureSearchContinuity, saveSearchContinuity, stopFollowingUploadBatch } from "@/lib/search-continuity";
 import { EXTEND_THRESHOLD, SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
@@ -444,6 +444,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
     const markInput = () => {
+      stopFollowingUploadBatch();
       scrollIntentRef.current?.();
       scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
     };
@@ -462,6 +463,7 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const onScrubber = (event: Event) => {
       if (!(event.target instanceof Element) || !event.target.closest("[data-testid='scrubber-track']")) return;
       if (event instanceof WheelEvent && (event.ctrlKey || event.deltaY === 0)) return;
+      stopFollowingUploadBatch();
       densityPlacementRef.current = null;
     };
     const stopInput = () => { scrollInputRef.current = null; };
@@ -644,7 +646,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
       const store = useSearchStore.getState();
       const mayMoveFocus = pendingFocus.focusedImageId !== null &&
         store.focusedImageId === pendingFocus.focusedImageId &&
-        getEffectiveFocusMode() === "explicit" && (store.params.imageScope || useSelectionStore.getState().selectedIds.size === 0);
+        store._focusIntent === pendingFocus.focusIntent &&
+        getEffectiveFocusMode() === "explicit" && (store.params.imageScope || store.params.recentUploadScope || useSelectionStore.getState().selectedIds.size === 0);
       if (pendingFocus.edge === "first") {
         if (mayMoveFocus) {
           const firstImg = store.results.find(image => image && !image.__availability);
