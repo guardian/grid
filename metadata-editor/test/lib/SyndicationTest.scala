@@ -2,14 +2,130 @@ package lib
 
 import com.gu.mediaservice.model._
 import org.joda.time.DateTime
+import org.mockito.ArgumentMatchers.any
+import org.mockito.Mockito.when
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import play.api.libs.json.{JsObject, JsValue, Json}
 
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
-import scala.collection.Map
+import scala.collection.immutable.Map
 
-class SyndicationTest extends AnyFunSpec with Matchers with Syndication with MockitoSugar {
+class SyndicationTest extends AnyFunSpec with Matchers with Syndication with MockitoSugar with ScalaFutures {
+  private implicit val ec: ExecutionContext = ExecutionContext.parasitic
+
+  private class PublishingFixture(photoshoot: Option[Photoshoot] = None) extends Syndication {
+    override val syndicationStore: SyndicationStore = mock[SyndicationStore]
+    override val config: EditsConfig = mock[EditsConfig]
+    override val editsStore: EditsStore = mock[EditsStore]
+    override val notifications: Notifications = mock[Notifications]
+
+    val write: Promise[JsObject] = Promise[JsObject]()
+    val deletion: Promise[Unit] = Promise[Unit]()
+    val publication: Promise[Unit] = Promise[Unit]()
+    var published: List[Map[String, Option[SyndicationRights]]] = Nil
+
+    when(syndicationStore.jsonAdd(any[String], any[String], any[Map[String, JsValue]])(any[ExecutionContext]))
+      .thenReturn(write.future)
+    when(syndicationStore.deleteItem(any[String])(any[ExecutionContext])).thenReturn(deletion.future)
+
+    override def getPhotoshootForImage(id: String)(implicit ec: ExecutionContext): Future[Option[Photoshoot]] =
+      Future.successful(photoshoot)
+
+    override def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
+                                              (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] =
+      Future.successful(Map.empty)
+
+    override def publish(images: Map[String, Option[SyndicationRights]], subject: String)
+                        (implicit ec: ExecutionContext): Future[Unit] =
+      if (images.isEmpty) Future.successful(())
+      else {
+        published = published :+ images
+        publication.future
+      }
+  }
+
+  describe("syndication persistence and publication") {
+    val id = "image-id"
+    val rights = SyndicationRights(None, Nil, Nil)
+
+    for (photoshoot <- List(None, Some(Photoshoot("test photoshoot")))) {
+      val context = if (photoshoot.isDefined) "with a photoshoot" else "without a photoshoot"
+
+      it(s"waits for persistence before publishing and completing a save $context") {
+        val f = new PublishingFixture(photoshoot)
+        val result = f.setSyndicationAndPublish(id, rights)
+
+        f.published shouldBe empty
+        result.isCompleted shouldBe false
+        f.write.success(Json.obj())
+        f.published shouldBe List(Map(id -> Some(rights)))
+        result.isCompleted shouldBe false
+        f.publication.success(())
+        result.futureValue shouldBe rights
+      }
+
+      it(s"waits for persistence before publishing and completing a deletion $context") {
+        val f = new PublishingFixture(photoshoot)
+        val result = f.deleteSyndicationAndPublish(id)
+
+        f.published shouldBe empty
+        result.isCompleted shouldBe false
+        f.deletion.success(())
+        f.published shouldBe List(Map(id -> None))
+        result.isCompleted shouldBe false
+        f.publication.success(())
+        result.futureValue
+      }
+    }
+
+    it("propagates save failures without publishing") {
+      val f = new PublishingFixture
+      val failure = new RuntimeException("save failed")
+      val result = f.setSyndicationAndPublish(id, rights)
+
+      f.write.failure(failure)
+
+      result.failed.futureValue shouldBe failure
+      f.published shouldBe empty
+    }
+
+    it("propagates deletion failures without publishing") {
+      val f = new PublishingFixture
+      val failure = new RuntimeException("delete failed")
+      val result = f.deleteSyndicationAndPublish(id)
+
+      f.deletion.failure(failure)
+
+      result.failed.futureValue shouldBe failure
+      f.published shouldBe empty
+    }
+
+    it("propagates publication failures after saving") {
+      val f = new PublishingFixture
+      val failure = new RuntimeException("publish failed")
+      val result = f.setSyndicationAndPublish(id, rights)
+      f.write.success(Json.obj())
+
+      f.publication.failure(failure)
+
+      result.failed.futureValue shouldBe failure
+    }
+
+    it("propagates publication failures after deletion") {
+      val f = new PublishingFixture
+      val failure = new RuntimeException("publish failed")
+      val result = f.deleteSyndicationAndPublish(id)
+      f.deletion.success(())
+
+      f.publication.failure(failure)
+
+      result.failed.futureValue shouldBe failure
+    }
+  }
 
   describe("Syndication Rights date functions") {
 
