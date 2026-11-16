@@ -4,6 +4,9 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { build } from 'esbuild';
+import { buildCallGraph } from './callgraph.ts';
+import { endpointPaths, loadApiRoutes } from './api-routes.ts';
+import { loadCoverage, loadCoverageSummary } from './coverage.ts';
 import { createLibrary } from './library.ts';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -44,7 +47,18 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   ].map(([source, destination]) => cp(path.join(fontsDir, source), path.join(outputDir, 'fonts', destination))));
   await rm(path.join(outputDir, 'icons.js'), { force: true });
   await Promise.all([...media].map(([destination, source]) => cp(source, path.join(outputDir, destination))));
-  await writeFile(path.join(outputDir, 'library.json'), JSON.stringify(manifest));
+  const summary = await loadCoverageSummary(path.resolve(directory, '../coverage-reports'));
+  await writeFile(path.join(outputDir, 'library.json'), JSON.stringify(summary ? { ...manifest, coverage: summary } : manifest));
+  const loaded = await loadCoverage(path.resolve(directory, '../coverage-reports/features'));
+  const coverage = loaded?.coverage ?? null;
+  for (const [file, data] of [['coverage.json', coverage], ['source-coverage.json', loaded?.sources]] as const) {
+    if (data) await writeFile(path.join(outputDir, file), JSON.stringify(data));
+    else await rm(path.join(outputDir, file), { force: true });
+  }
+  const callGraph = await buildCallGraph(path.resolve(directory, '../../kahuna'), coverage);
+  const routes = await loadApiRoutes(path.resolve(directory, '../..'));
+  for (const endpoint of callGraph.endpoints) endpoint.paths = endpointPaths(routes, endpoint.kind, endpoint.label);
+  await writeFile(path.join(outputDir, 'callgraph.json'), JSON.stringify(callGraph));
   // Only prune filenames produced by this exporter, leaving other files in media/ alone.
   for (const file of await readdir(path.join(outputDir, 'media'))) {
     if (/^[a-f0-9]{16}\.(webm|mp4)$/.test(file) && !media.has(`media/${file}`)) {
@@ -53,7 +67,11 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   }
   for (const warning of warnings) console.warn(warning);
   const scenarios = manifest.features.flatMap((feature) => feature.scenarios);
-  console.log(`Feature library: ${manifest.features.length} features, ${scenarios.length} scenarios, ${media.size} videos.\nBuilt ${outputDir}`);
+  console.log(`Feature library: ${manifest.features.length} features, ${scenarios.length} scenarios, ${media.size} videos.`);
+  console.log(coverage ? `Coverage: ${coverage.features.length} features, ${coverage.scenarios.length} scenarios, ${coverage.functions.length} covered functions.` : 'Coverage: no coverage-reports found.');
+  const matched = callGraph.coverage.filter((node) => node !== -1).length;
+  console.log(`Call graph: ${callGraph.files.length} files, ${callGraph.functions.length} functions, ${callGraph.calls.length} calls, ${callGraph.endpoints.length} network endpoints; ${matched}/${callGraph.coverage.length} covered functions matched.`);
+  console.log(`Built ${outputDir}`);
   return outputDir;
 }
 

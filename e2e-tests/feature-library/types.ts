@@ -95,4 +95,65 @@ export interface LibraryManifest {
   /** Report start is epoch milliseconds; duration is milliseconds. Null means no report was found. */
   report: { startedAt: number; duration: number } | null;
   features: Feature[];
+  /** Browser code coverage percentages from the combined e2e coverage report; absent when no report was found. */
+  coverage?: CoverageSummary;
+}
+
+export interface CoverageSummary {
+  lines: number;
+  functions: number;
+  branches: number;
+}
+
+/** Serialized as coverage.json: which browser functions each feature's scenarios executed. */
+export interface CoverageManifest {
+  /** Features with a browser coverage report; slug is the report directory name. */
+  features: { name: string; slug: string }[];
+  /** Scenarios with a browser coverage report; feature indexes into features. */
+  scenarios: { feature: number; name: string; slug: string }[];
+  /** Covered functions only; line is one-based in the original (source-mapped) file. */
+  functions: { name: string; file: string; line: number }[];
+  /** Indexes into features/functions; count is the number of calls during that feature's tests. */
+  links: { feature: number; fn: number; count: number }[];
+  /** As links, for each individual scenario. */
+  scenarioLinks: { scenario: number; fn: number; count: number }[];
+}
+
+/** Serialized as source-coverage.json: source text and line-by-line coverage for each feature and scenario. */
+export interface SourceCoverage {
+  /** Every source file the browser loaded during the tests; source is the source-mapped original. */
+  files: { path: string; source: string }[];
+  /**
+   * Aligned with CoverageManifest features/scenarios: file index → one character per line,
+   * '+' run, '~' partly run (some branches), '-' not run, '.' not executable. Files nothing ran are omitted.
+   */
+  features: Record<number, string>[];
+  scenarios: Record<number, string>[];
+}
+
+/** Serialized as callgraph.json: a static call graph of Kahuna's browser code with precomputed layout. */
+export interface CallGraph {
+  /** Source files under kahuna/; the nodes of the module view, sized by function count. */
+  files: { path: string; x: number; y: number; radius: number }[];
+  /** Importer → imported file indexes. */
+  imports: [number, number][];
+  functions: { name: string; file: number; line: number; x: number; y: number }[];
+  /** Caller → callee function indexes, resolved by name; enclosing functions also link to their callbacks. */
+  calls: [number, number][];
+  /** Graph function index for each CoverageManifest function, or -1 when it could not be matched. */
+  coverage: number[];
+  /** Horizontal bands of the layered layout, top to bottom, in layout coordinates. */
+  functionRows: { label: string; top: number; bottom: number; count: number }[];
+  moduleRows: { label: string; top: number; bottom: number; count: number }[];
+  /**
+   * Network endpoints found by static analysis, with positions in the bottom band of each view. kind is fetch,
+   * an HTTP method, or a Theseus relation lookup (follow/perform/link/action); label is the URL or relation name.
+   */
+  endpoints: {
+    kind: string; label: string; function: { x: number; y: number }; module: { x: number; y: number };
+    /** URL paths the Grid services advertise for this relation, e.g. `GET media-api /images/{id}`; empty if unknown. */
+    paths: string[];
+  }[];
+  /** Function index → endpoint index for each function that makes that request. */
+  network: [number, number][];
 }
