@@ -126,7 +126,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
     logger.info("Got index exists result: " + indexExistsResponse.result)
     logger.info("Index exists: " + indexExistsResponse.result.exists)
     if (!indexExistsResponse.result.exists) {
-      createImageIndex(index)
+      createImageIndex(index).fold(error => throw error.asException, _ => ())
     }
   }
 

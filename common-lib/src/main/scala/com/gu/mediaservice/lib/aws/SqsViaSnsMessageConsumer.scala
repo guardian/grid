@@ -23,8 +23,10 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
   private implicit val ctx: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool)
 
-  def startSchedule(): Unit =
+  def startSchedule(): Unit = {
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
+    ()
+  }
 
   def chooseProcessor(subject: String): Option[JsValue => Future[Unit]]
 

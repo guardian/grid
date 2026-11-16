@@ -161,7 +161,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
                       s"Received retrievable update for ${retrievableContent.retrievableContent.id} without content"
                     )
                 }
-              }).recover {
+              }).failed.foreach {
                 case e: ContentApiError =>
                   logger.error(logMarker, s"CAPI error when fetching content update for ${event.payloadId}: ${e.httpStatus} ${e.httpMessage} ${e.errorResponse}", e)
                 case e =>
@@ -172,9 +172,7 @@ abstract class CrierEventProcessor(config: UsageConfig, usageGroupOps: UsageGrou
 
         case _ => logger.warn(logMarker, s"Unsupported event type $EventType")
       }
-    }.recover {
-      case e => logger.error(logMarker, s"Failed to process event ${event.payloadId}", e)
-    }
+    }.fold(e => logger.error(logMarker, s"Failed to process event ${event.payloadId}", e), identity)
   }
 }
 

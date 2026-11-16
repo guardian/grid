@@ -19,13 +19,17 @@ import play.api.mvc.{PlayBodyParsers, Request, Result}
 import play.api.test.Helpers._
 import play.api.test.{FakeRequest, Helpers}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
 
 class EditsControllerUsageRightsAuthTest extends AnyFunSpec with Matchers with MockitoSugar with BeforeAndAfterAll {
   implicit val actorSystem: ActorSystem = ActorSystem("edits-controller-test")
   implicit val ec: ExecutionContext = ExecutionContext.global
 
-  override protected def afterAll(): Unit = actorSystem.terminate()
+  override protected def afterAll(): Unit = {
+    Await.result(actorSystem.terminate(), 5.seconds)
+    super.afterAll()
+  }
 
   private val imageId = "abc123"
   private val user = UserPrincipal("Test", "User", "test.user@example.com")

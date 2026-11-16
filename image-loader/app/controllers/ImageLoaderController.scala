@@ -459,24 +459,24 @@ class ImageLoaderController(auth: Authentication,
       }
   }
 
-  private def updateUploadStatusTable(
+  private[controllers] def updateUploadStatusTable(
     uploadAttempt: Future[UploadStatusUri],
     digestedFile: DigestedFile
   )(implicit logMarker: LogMarker): Future[Unit] = {
 
-    def reportFailure(error: Throwable): Unit = {
+    def reportFailure(error: Throwable): Nothing = {
       val errorMessage = s"an error occurred while updating image upload status, error:$error"
       logger.error(logMarker, errorMessage, error)
-      Future.failed(new Exception(errorMessage))
+      throw new Exception(errorMessage, error)
     }
 
-    def reportScanamoError(error: ScanamoError): Unit = {
+    def reportScanamoError(error: ScanamoError): Nothing = {
       val errorMessage = error match {
         case ConditionNotMet(_) => s"ConditionNotMet error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
         case _ => s"an error occurred while updating image upload status, image-id:${digestedFile.digest}, error:$error"
       }
       logger.error(logMarker, errorMessage)
-      Future.failed(new Exception(errorMessage))
+      throw new Exception(errorMessage)
     }
 
     uploadAttempt.transformWith {

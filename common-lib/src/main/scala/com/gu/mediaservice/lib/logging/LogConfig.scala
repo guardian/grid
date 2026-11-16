@@ -84,9 +84,7 @@ object LogConfig {
         val appender = makeLogstashAppender(config, rootLogger.getLoggerContext)
         rootLogger.addAppender(appender)
         rootLogger.info("Local logstash log shipping configured")
-      } recover {
-        case e => rootLogger.error("LogConfig Failed!", e)
-      }
+      }.fold(e => rootLogger.error("LogConfig Failed!", e), identity)
     }
   }
 
@@ -116,9 +114,7 @@ object LogConfig {
 
         rootLogger.addAppender(appender)
         rootLogger.info("Configured Logback")
-      } recover {
-        case e => rootLogger.error("LogConfig Failed!", e)
-      }
+      }.fold(e => rootLogger.error("LogConfig Failed!", e), identity)
     }
   }
 

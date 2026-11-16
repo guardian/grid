@@ -58,7 +58,7 @@ class NodeTest extends AnyFunSpec with Matchers with OptionValues {
   }
 
 
-  describe("hackmap") {
+  it("hackmap") {
     val wrongList = List(
       TestNodeData(List("all"), "All"),
       TestNodeData(List("all", "lower"), "LOWER"),

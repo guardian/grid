@@ -21,6 +21,12 @@ class ElasticSearchTest extends ElasticSearchTestBase {
     "images" - {
 
       "indexing" - {
+        "propagates index creation errors" in {
+          intercept[Exception] {
+            ES.createIndexIfMissing("Invalid-index-name")
+          }
+        }
+
         "can index and retrieve images by id" in {
           val id = UUID.randomUUID().toString
 

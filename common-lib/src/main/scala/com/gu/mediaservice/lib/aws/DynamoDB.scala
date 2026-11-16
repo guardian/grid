@@ -62,6 +62,7 @@ class DynamoDB[T](config: CommonConfig, tableName: String, lastModifiedKey: Opti
     table.deleteItem(
       Key.builder().partitionValue(id).build()
     )
+    ()
   }
   def booleanGet(id: String, key: String)
                 (implicit ex: ExecutionContext): Future[Boolean] = {

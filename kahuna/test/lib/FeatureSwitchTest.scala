@@ -64,7 +64,7 @@ class FeatureSwitchesTest extends AnyFreeSpec with Matchers{
     }
 
     "getFeatureSwitchValue" - {
-      "should return the value of a feature switch" - {
+      "should return the value of a feature switch" in {
         val matches = featureSwitchController.getFeatureSwitchCookies(mockCookieRetriever)
         val clientSwitchValues = featureSwitchController.getClientSwitchValues(matches)
         val exampleValue1 = featureSwitchController.getFeatureSwitchValue(clientSwitchValues, "example-switch")

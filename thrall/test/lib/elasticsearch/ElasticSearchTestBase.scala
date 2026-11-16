@@ -64,6 +64,7 @@ trait ElasticSearchTestBase extends AnyFreeSpec with Matchers with Fixtures with
       } yield count
       eventualCount.futureValue.result.count shouldBe 0
     }
+    ()
   }
 
   override def afterAll(): Unit = {

@@ -68,7 +68,7 @@ object EnactS3Changes {
     def audit(writer: BufferedWriter, entry: AuditEntry): Unit = {
       val value = Json.toJsObject(entry)
       val json = writeToString[JsValue](value)
-      writer.append(s"$json\n")
+      writer.write(s"$json\n")
     }
     val OK = "OK"
     val SKIPPED = "SKIPPED"

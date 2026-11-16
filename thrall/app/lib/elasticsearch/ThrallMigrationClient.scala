@@ -59,7 +59,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   def pauseMigration(): Unit = adjustMigrationAlias("pause") {
     case InProgress(migrationIndexName) =>
-      assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS)
+      assignAliasTo(migrationIndexName, MigrationStatusProvider.PAUSED_ALIAS).fold(error => throw error.asException, _ => ())
   }
   def resumeMigration(): Unit = adjustMigrationAlias("resume") {
     case Paused(migrationIndexName) =>
@@ -68,7 +68,7 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
 
   def previewMigrationCompletion(): Unit = adjustMigrationAlias("preview complete") {
     case running: Running =>
-      assignAliasTo(running.migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS)
+      assignAliasTo(running.migrationIndexName, MigrationStatusProvider.COMPLETION_PREVIEW_ALIAS).fold(error => throw error.asException, _ => ())
   }
   def unPreviewMigrationCompletion(): Unit = adjustMigrationAlias("unpreview complete") {
     case CompletionPreview(migrationIndexName) =>
@@ -81,13 +81,14 @@ trait ThrallMigrationClient extends MigrationStatusProvider {
       logger.error(logMarker, s"Could not start migration to $newIndexName when migration status is $currentStatus")
       throw new MigrationAlreadyRunningError
     }
-    for {
+    val result = for {
       _ <- createImageIndex(newIndexName)
       _ = logger.info(logMarker, s"Created index $newIndexName")
       _ <- assignAliasTo(newIndexName, imagesMigrationAlias)
       _ = logger.info(logMarker, s"Assigned migration index $imagesMigrationAlias to $newIndexName")
       _ = refreshAndRetrieveMigrationStatus()
     } yield ()
+    result.fold(error => throw error.asException, identity)
   }
 
   def completeMigration(logMarker: LogMarker)(implicit ec: ExecutionContext): Future[Unit] = {
