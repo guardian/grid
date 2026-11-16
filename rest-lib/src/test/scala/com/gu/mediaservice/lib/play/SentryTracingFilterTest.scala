@@ -1,6 +1,6 @@
 package com.gu.mediaservice.lib.play
 
-import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode}
+import com.gu.mediaservice.lib.config.SentryConfig
 import io.sentry.{ITransaction, Sentry, SentryEvent, SpanStatus}
 import io.sentry.transport.NoOpTransport
 import org.apache.pekko.actor.ActorSystem
@@ -48,9 +48,7 @@ class SentryTracingFilterTest extends AnyFunSuiteLike with Matchers with ScalaFu
     environment = "TEST",
     tracesSampleRate = tracesSampleRate,
     replayOnErrorSampleRate = 0,
-    consoleCaptureLevels = Seq("error"),
-    userMode = SentryUserMode.Anonymous,
-    userSalt = None
+    consoleCaptureLevels = Seq("error")
   )
 
   private val disabled = config(None, 0)

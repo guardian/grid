@@ -39,8 +39,6 @@ instance that served the page, not an individual user or browser session.
 | `sentry.dsn` | unset | Enables reporting; absent or unusable values disable it. |
 | `sentry.localOptIn` | `false` | Required to allow reporting in DEV, even with a DSN. |
 | `sentry.console.levels` | `["error"]` | Browser console events to capture; `[]` disables console capture. Previously both warnings and errors were captured. |
-| `sentry.user.mode` | `anonymous` | Browser user identity: a salted identifier, or `email` when explicitly approved. |
-| `sentry.user.salt` | unset | Secret HMAC salt; without it anonymous mode sends no personal user identifier. Never commit or expose this salt to the browser. |
 | `sentry.tracesSampleRate` | `0` | Fraction of browser/server transactions sampled, from 0 to 1 inclusive. Zero disables tracing; invalid/non-finite values fail startup. |
 | `sentry.replay.onErrorSampleRate` | `0` | Fraction of browser sessions sent as replay after an error, from 0 to 1 inclusive. Zero omits the replay integration. |
 
@@ -60,12 +58,11 @@ configuration. Events carry service (`app`), stage, release and request ID tags.
 limited to method, route/URL and User-Agent; cookies, request bodies and other headers are not attached.
 Client errors remain with Play, and a reporting failure must not change the HTTP response.
 
-Browser identity is resolved on the server. The `anonymous` mode sends a stable pseudonymous
-identifier, not the user's email. Events remain linkable to the same user, and anyone holding the
-secret HMAC salt can reproduce identifiers from candidate email addresses. Rotating the salt breaks
-correlation. Machine identities are sent as service IDs.
-Email mode sends personal data to Sentry and requires data-protection approval before enabling.
-These identity controls do not add authenticated user identity to server error events.
+Browser identity is resolved on the server. For authenticated users, the browser sends their email
+address with Sentry events so they can be correlated with the affected user's account. Machine and
+inner-service callers are identified by their service ID. User identities are not attached to
+server error events. Legacy `sentry.user.mode` and `sentry.user.salt` settings are ignored and should
+be removed from deployment configuration.
 
 Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
 continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
