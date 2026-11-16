@@ -29,7 +29,7 @@ class KahunaController(
 
   /**
    * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
-   * that this Sentry configuration includes email only when the configured user mode permits it.
+   * that email is supplied only for authenticated users when Sentry reporting is enabled.
    */
   private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
     val sentry = config.sentryConfig

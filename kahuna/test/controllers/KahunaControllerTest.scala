@@ -2,7 +2,8 @@ package controllers
 
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation}
-import com.gu.mediaservice.lib.config.{SentryConfig, SentryUserMode, ServiceHosts, Services}
+import com.gu.mediaservice.lib.config.{ServiceHosts, Services}
+import com.gu.mediaservice.lib.config.SentryConfig
 import lib.KahunaConfig
 import org.mockito.Mockito.when
 import org.scalatest.funsuite.AnyFunSuite
@@ -17,10 +18,9 @@ import scala.concurrent.ExecutionContext
 class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
   private implicit val ec: ExecutionContext = ExecutionContext.global
   private val email = "someone@example.com"
-  private val salt = "test-only-hmac-secret"
   private val user = UserPrincipal("Some", "One", email)
   private val enabled = SentryConfig(
-    Configuration("sentry.dsn" -> "https://key@sentry.example.com/1", "sentry.user.salt" -> salt),
+    Configuration("sentry.dsn" -> "https://key@sentry.example.com/1"),
     stage = "TEST",
     isDev = false
   )
@@ -28,6 +28,7 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
   private def clientConfig(sentry: SentryConfig, principal: Option[Principal] = Some(user)): JsObject = {
     val config = mock[KahunaConfig]
     when(config.sentryConfig).thenReturn(sentry)
+    when(config.services).thenReturn(new Services("example.com", ServiceHosts.guardianPrefixes, Set.empty))
     when(config.services).thenReturn(new Services("example.com", ServiceHosts.guardianPrefixes, Set.empty))
     val controller = new KahunaController(
       authentication = mock[Authentication],
@@ -44,30 +45,14 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
     (config \ "userEmail").asOpt[String] shouldBe None
   }
 
-  test("anonymous mode serializes only the derived user id, never email or the secret") {
+  test("serializes the signed-in user's email without obfuscation") {
     val config = clientConfig(enabled)
-    (config \ "userId").as[String] shouldBe
-      enabled.userIdentity(email, isPersonalData = true).flatMap(_.id).get
-    (config \ "userEmail").asOpt[String] shouldBe None
-    Json.stringify(config) should not include email
-    Json.stringify(config) should not include salt
-  }
-
-  test("anonymous mode without a salt serializes no personal identity") {
-    assertNoIdentity(clientConfig(enabled.copy(userSalt = None)))
-  }
-
-  test("email mode serializes email rather than a derived id") {
-    val config = clientConfig(enabled.copy(userMode = SentryUserMode.Email))
     (config \ "userEmail").as[String] shouldBe email
     (config \ "userId").asOpt[String] shouldBe None
-    Json.stringify(config) should not include salt
   }
 
-  test("disabled reporting serializes no identity in either mode") {
-    Seq(SentryUserMode.Anonymous, SentryUserMode.Email).foreach { mode =>
-      assertNoIdentity(clientConfig(enabled.copy(dsn = None, userMode = mode)))
-    }
+  test("disabled reporting serializes no identity") {
+    assertNoIdentity(clientConfig(enabled.copy(dsn = None)))
   }
 
   test("an unauthenticated page has no Sentry identity") {

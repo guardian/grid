@@ -78,24 +78,6 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
     deployed("sentry.console.levels" -> Seq.empty[String]).consoleCaptureLevels shouldBe empty
   }
 
-  test("defaults to anonymous user reporting") {
-    deployed().userMode shouldBe SentryUserMode.Anonymous
-  }
-
-  test("only reports email when explicitly configured to") {
-    deployed("sentry.user.mode" -> "email").userMode shouldBe SentryUserMode.Email
-  }
-
-  test("fails fast on an unrecognised user mode rather than silently falling back") {
-    a[RuntimeException] should be thrownBy deployed("sentry.user.mode" -> "full-name")
-  }
-
-  test("refuses to identify users anonymously without a salt, since an unsalted hash is reversible") {
-    deployed("sentry.dsn" -> dsn).canIdentifyUserAnonymously shouldBe false
-    deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "  ").canIdentifyUserAnonymously shouldBe false
-    deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "a-secret").canIdentifyUserAnonymously shouldBe true
-  }
-
   test("derives the ingest origin from the DSN so the CSP can allow exactly that host") {
     deployed("sentry.dsn" -> dsn).ingestOrigin shouldBe Some("https://o0.ingest.us.sentry.io")
   }
@@ -117,36 +99,18 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
     c.userIdentity("media-api", isPersonalData = false) shouldBe Some(SentryUserIdentity(id = Some("media-api")))
   }
 
-  test("sends an email only when the mode explicitly asks for it") {
-    val c = deployed("sentry.dsn" -> dsn, "sentry.user.mode" -> "email")
+  test("sends a signed-in user's email when reporting is enabled") {
+    val c = deployed("sentry.dsn" -> dsn)
     c.userIdentity("someone@example.com", isPersonalData = true) shouldBe
       Some(SentryUserIdentity(email = Some("someone@example.com")))
   }
 
-  test("sends a salted identifier, never the email, in anonymous mode") {
-    val c = deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "a-secret")
-    val identity = c.userIdentity("someone@example.com", isPersonalData = true)
-
-    identity.flatMap(_.email) shouldBe None
-    identity.flatMap(_.id) should not be empty
-    identity.flatMap(_.id) should not contain "someone@example.com"
-  }
-
-  test("sends no identifier in anonymous mode when no salt is configured") {
-    val c = deployed("sentry.dsn" -> dsn)
-    c.userIdentity("someone@example.com", isPersonalData = true) shouldBe None
-  }
-
-  test("produces a stable identifier for the same user and a different one for another") {
-    val c = deployed("sentry.dsn" -> dsn, "sentry.user.salt" -> "a-secret")
-    val first = c.userIdentity("someone@example.com", isPersonalData = true)
-
-    first shouldBe c.userIdentity("someone@example.com", isPersonalData = true)
-    first should not be c.userIdentity("someone-else@example.com", isPersonalData = true)
-  }
-
-  test("produces different identifiers under different salts, so rotating the salt breaks correlation") {
-    val identity = "someone@example.com"
-    SentryConfig.anonymise("salt-one", identity) should not be SentryConfig.anonymise("salt-two", identity)
+  test("sends email even when obsolete identity mode and salt settings remain configured") {
+    deployed(
+      "sentry.dsn" -> dsn,
+      "sentry.user.mode" -> "anonymous",
+      "sentry.user.salt" -> "obsolete-secret"
+    ).userIdentity("someone@example.com", isPersonalData = true) shouldBe
+      Some(SentryUserIdentity(email = Some("someone@example.com")))
   }
 }
