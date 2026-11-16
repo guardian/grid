@@ -23,7 +23,6 @@ import {
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
   ELASTICSEARCH_PORT,
-  GRID_ALIAS,
   GRID_IMAGE,
   IMGOPS_ALIAS,
   IMGOPS_CONTEXT,
@@ -236,7 +235,6 @@ function gridContainer(
 ): GenericContainer {
   const container = new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
-    .withNetworkAliases(GRID_ALIAS)
     .withExtraHosts(proxyHosts.map((host) => ({ host, ipAddress: 'host-gateway' })))
     .withLabels({ [ROLE_LABEL]: 'the Grid services', ...gridRouteLabels() })
     .withExposedPorts(

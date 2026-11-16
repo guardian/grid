@@ -50,8 +50,6 @@ export const ELASTICSEARCH_ALIAS = 'elasticsearch';
 export const ELASTICSEARCH_PORT = 9200;
 export const LOCALSTACK_ALIAS = 'localstack';
 export const LOCALSTACK_PORT = 4566;
-/** Network alias the CI reverse proxy uses to reach the grid-e2e-ci app container. */
-export const GRID_ALIAS = 'grid-e2e-ci';
 
 export type ServiceConfig = {
   port: number;
