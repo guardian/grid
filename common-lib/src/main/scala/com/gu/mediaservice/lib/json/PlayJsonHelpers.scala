@@ -14,7 +14,7 @@ trait PlayJsonHelpers {
 
   def logParseErrors(parseResult: JsResult[_]): Unit =
     parseResult.fold(
-      _ map { case (path, errors) =>
+      _ foreach { case (path, errors) =>
         logger.error(s"Validation errors at $path: [${errors.map(_.message).mkString(", ")}]")
       },
       _ => ())

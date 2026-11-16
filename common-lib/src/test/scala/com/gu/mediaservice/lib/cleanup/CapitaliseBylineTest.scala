@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.cleanup
 
 import org.scalatest.funspec.AnyFunSpec
+import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
 
@@ -64,11 +65,11 @@ class CapitaliseBylineTest extends AnyFunSpec with Matchers with MetadataHelper 
 
   // Helpers
 
-  def expectUnchanged(in: String): Unit = {
+  def expectUnchanged(in: String): Assertion = {
     expectCleaned(in, in)
   }
 
-  def expectCleaned(in: String, out: String): Unit = {
+  def expectCleaned(in: String, out: String): Assertion = {
     val cleaned = CapitaliseByline.clean(createImageMetadata("byline" -> in)).byline
 
     cleaned should be (Some(out))

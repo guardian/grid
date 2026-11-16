@@ -75,9 +75,13 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
     Await.ready(saveImages(images), 1.minute)
     // allow the cluster to distribute documents... eventual consistency!
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+    ()
   }
 
-  override def afterAll(): Unit = purgeTestImages
+  override def afterAll(): Unit = {
+    purgeTestImages
+    ()
+  }
 
   describe("Native elastic search sanity checks") {
 
@@ -178,6 +182,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       val deletes = images.map(i => executeAndLog(deleteById(index, i.id), s"Deleting quota test image ${i.id}"))
       Await.ready(Future.sequence(deletes), fiveSeconds)
       eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe expectedNumberOfImages)
+      ()
     }
   }
 
@@ -224,7 +229,7 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
       SearchParams(searchRequest)
     }
 
-    def expectMatches(queryText: String, expected: Set[String], fixtureImages: Seq[Image] = usageImages): Unit = {
+    def expectMatches(queryText: String, expected: Set[String], fixtureImages: Seq[Image] = usageImages): org.scalatest.Assertion = {
       withClue(queryText) {
         whenReady(ES.search(searchParams(Some(queryText), fixtureImages)), timeout, interval) { result =>
           result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"usage-search-$suffix")

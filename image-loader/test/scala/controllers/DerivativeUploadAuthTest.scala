@@ -6,10 +6,10 @@ import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, SimplePermission}
 import com.gu.mediaservice.lib.config.{CommonConfig, ServiceHosts, Services}
 import com.gu.mediaservice.lib.aws.S3Object
-import com.gu.mediaservice.lib.logging.LogMarker
+import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import lib._
 import lib.storage.ImageLoaderStore
-import model.{Projector, Uploader}
+import model.{Projector, Uploader, UploadStatus}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.{Materializer, SystemMaterializer}
 import org.apache.pekko.util.{ByteString, Timeout}
@@ -19,6 +19,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
+import org.scanamo.ScanamoError
 import play.api.libs.crypto.CookieSigner
 import play.api.libs.ws.WSRequest
 import play.api.mvc.RequestHeader
@@ -46,7 +47,8 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
     canUpload: Boolean,
     store: ImageLoaderStore = mock[ImageLoaderStore],
     uploader: Uploader = mock[Uploader],
-    config: ImageLoaderConfig = mock[ImageLoaderConfig]
+    config: ImageLoaderConfig = mock[ImageLoaderConfig],
+    uploadStatusTable: UploadStatusTable = mock[UploadStatusTable]
   ): ImageLoaderController = {
     val controllerComponents = stubControllerComponents()
 
@@ -83,7 +85,7 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
       mock[Downloader],
       store,
       None,
-      mock[UploadStatusTable],
+      uploadStatusTable,
       mock[Notifications],
       config,
       uploader,
@@ -97,15 +99,19 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
     )(executionContext, materializer)
   }
 
-  private def withTemporaryDirectory(test: java.nio.file.Path => Unit): Unit = {
+  private def withTemporaryDirectory[A](test: java.nio.file.Path => A): A = {
     val temporaryDirectory = Files.createTempDirectory("derivative-upload-auth-test")
     try {
       test(temporaryDirectory)
     } finally {
       val files = Files.list(temporaryDirectory)
-      try files.forEach(path => Files.deleteIfExists(path))
+      try files.forEach { path =>
+        Files.deleteIfExists(path)
+        ()
+      }
       finally files.close()
       Files.deleteIfExists(temporaryDirectory)
+      ()
     }
   }
 
@@ -232,6 +238,38 @@ class DerivativeUploadAuthTest extends AnyFunSuite with Matchers with MockitoSug
       val files = Files.list(temporaryDirectory)
       try files.count() shouldBe 0L
       finally files.close()
+    }
+  }
+
+  test("propagates upload status table request failures") {
+    withTemporaryDirectory { temporaryDirectory =>
+      val uploadStatusTable = mock[UploadStatusTable]
+      val failure = new RuntimeException("status update failed")
+      when(uploadStatusTable.updateStatus(anyString(), any[UploadStatus])).thenReturn(Future.failed(failure))
+      val controller = controllerFor(temporaryDirectory, canUpload = true, uploadStatusTable = uploadStatusTable)
+
+      val result = controller.updateUploadStatusTable(
+        Future.successful(model.UploadStatusUri("/uploadStatus/image-id")),
+        DigestedFile(temporaryDirectory.resolve("image").toFile, "image-id")
+      )(MarkerMap())
+
+      intercept[Exception](Await.result(result, 10.seconds)).getCause shouldBe failure
+    }
+  }
+
+  test("propagates upload status table Scanamo errors") {
+    withTemporaryDirectory { temporaryDirectory =>
+      val uploadStatusTable = mock[UploadStatusTable]
+      val failure = mock[ScanamoError]
+      when(uploadStatusTable.updateStatus(anyString(), any[UploadStatus])).thenReturn(Future.successful(Left(failure)))
+      val controller = controllerFor(temporaryDirectory, canUpload = true, uploadStatusTable = uploadStatusTable)
+
+      val result = controller.updateUploadStatusTable(
+        Future.successful(model.UploadStatusUri("/uploadStatus/image-id")),
+        DigestedFile(temporaryDirectory.resolve("image").toFile, "image-id")
+      )(MarkerMap())
+
+      intercept[Exception](Await.result(result, 10.seconds)).getMessage should include("image-id")
     }
   }
 }

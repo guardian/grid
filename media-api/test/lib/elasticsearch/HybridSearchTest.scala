@@ -91,6 +91,7 @@ class HybridSearchTest extends AnyFunSpec
     purgeTestImages
     Await.ready(saveImages(testImages), 1.minute)
     eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(totalImages shouldBe testImages.size)
+    ()
   }
 
   describe("AI / hybrid search") {

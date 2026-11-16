@@ -12,6 +12,12 @@ class MigrationStatusProviderTest extends ElasticSearchTestBase {
     "status should return as NotRunning on a clean ES" in {
       assert(ES.refreshAndRetrieveMigrationStatus() === NotRunning)
     }
+    "starting a migration propagates index creation errors" in {
+      intercept[Exception] {
+        ES.startMigration("Invalid-migration-index")
+      }
+      assert(ES.refreshAndRetrieveMigrationStatus() === NotRunning)
+    }
     "starting a migration should change the migration status" in {
       val newIndexName = "images-test-migration"
       ES.startMigration(newIndexName)

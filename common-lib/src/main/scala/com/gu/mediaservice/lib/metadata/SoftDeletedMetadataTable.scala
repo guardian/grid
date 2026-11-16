@@ -23,7 +23,7 @@ class SoftDeletedMetadataTable(config: CommonConfig) {
   }
 
   def setStatuses(imageStatuses: Set[ImageStatusRecord])(implicit ex: ExecutionContext): Future[Unit] = {
-    if (imageStatuses.isEmpty) Future.successful(List.empty[String])
+    if (imageStatuses.isEmpty) Future.successful(())
     else ScanamoAsync(client).exec(softDeletedMetadataTable.putAll(imageStatuses))
   }
 

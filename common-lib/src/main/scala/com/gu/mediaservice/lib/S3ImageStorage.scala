@@ -32,6 +32,7 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
     logger.info(logMarker, s"Deleted image $key from bucket $bucket")
     client.deleteObject(
       DeleteObjectRequest.builder().bucket(bucket).key(key).build())
+    ()
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {

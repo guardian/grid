@@ -21,6 +21,7 @@ object Files {
       val channel = Channels.newChannel(from.openStream)
       val output = new FileOutputStream(to)
       output.getChannel.transferFrom(channel, 0, java.lang.Long.MAX_VALUE)
+      ()
     }
 
   def tempFileFromURL(from: URL, prefix: String, suffix: String, tempDir: File): Future[File] =
@@ -31,6 +32,9 @@ object Files {
     yield tempFile
 
   def delete(file: File): Future[Unit] =
-    Future(file.delete())
+    Future {
+      file.delete()
+      ()
+    }
 
 }

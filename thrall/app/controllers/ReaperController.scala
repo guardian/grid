@@ -70,8 +70,10 @@ class ReaperController(
         try {
           if (store.doesObjectExist(reaperBucket, CONTROL_FILE_NAME)) {
             logger.info("Reaper is paused")
-            es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _))
-            es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
+            Future.sequence(Seq(
+              es.countTotalSoftReapable(isReapable).map(metrics.softReapable.increment(Nil, _)),
+              es.countTotalHardReapable(isReapable, config.hardReapImagesAge).map(metrics.hardReapable.increment(Nil, _))
+            )).failed.foreach(e => logger.error("Failed to update paused reaper metrics", e))
           } else {
             val deletedBy = "reaper"
             Future.sequence(Seq(

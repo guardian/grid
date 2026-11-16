@@ -520,7 +520,7 @@ class MediaApi(
           deleteQuietly(tempPath)
           throw e
       } finally {
-        Try(inputStream.close())
+        Try(inputStream.close()).getOrElse(())
       }
     }).flatMap { tempPath =>
       ExifTool.stripMetadataRetaining(tempPath.toFile, DownloadMetadata.retainedTags(image)).map(_ => tempPath).recoverWith { case e =>
@@ -536,7 +536,10 @@ class MediaApi(
         .withHeaders("Content-Disposition" -> contentDisposition)
     }
 
-  private def deleteQuietly(path: Path): Unit = Try(Files.deleteIfExists(path))
+  private def deleteQuietly(path: Path): Unit = {
+    Try(Files.deleteIfExists(path))
+    ()
+  }
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(

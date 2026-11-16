@@ -19,15 +19,17 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
         .build()
     ).messages().asScala.headOption
 
-  def deleteMessage(message: SQSMessage): Unit =
-      client.deleteMessage(
-        DeleteMessageRequest.builder()
-          .queueUrl(queueUrl)
-          .receiptHandle(message.receiptHandle())
-          .build()
-      )
+  def deleteMessage(message: SQSMessage): Unit = {
+    client.deleteMessage(
+      DeleteMessageRequest.builder()
+        .queueUrl(queueUrl)
+        .receiptHandle(message.receiptHandle())
+        .build()
+    )
+    ()
+  }
 
-  def makeMessageVisible(message: SQSMessage): Unit =
+  def makeMessageVisible(message: SQSMessage): Unit = {
     client.changeMessageVisibility(
       ChangeMessageVisibilityRequest.builder()
         .queueUrl(queueUrl)
@@ -35,6 +37,8 @@ class SimpleSqsMessageConsumer (queueUrl: String, config: CommonConfig) {
         .visibilityTimeout(0)
         .build()
     )
+    ()
+  }
 
   def getStatus: Map[String, String] = {
     client.getQueueAttributes(
