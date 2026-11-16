@@ -26,7 +26,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
   def startSchedule(): Unit =
     actorSystem.scheduler.scheduleOnce(0.seconds)(processMessages())
 
-  def chooseProcessor(subject: String): Option[JsValue => Future[Any]]
+  def chooseProcessor(subject: String): Option[JsValue => Future[Unit]]
 
   @tailrec
   final def processMessages(): Unit = {
@@ -53,7 +53,7 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
     metric.recordOne(1L, dimensions)
   }
 
-  private def deleteOnSuccess(msg: SQSMessage)(f: Future[Any]): Unit =
+  private def deleteOnSuccess(msg: SQSMessage)(f: Future[Unit]): Unit =
     f.foreach { _ => deleteMessage(msg) }
 
   private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {

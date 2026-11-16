@@ -68,19 +68,21 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   def deleteSyndicationAndPublish(id: String)
                                  (implicit ec: ExecutionContext): Future[Unit] = {
     publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
-      syndicationStore.deleteItem(id)
-      // Always publish, in case there is no photoshoot
-      publish(Map(id -> None), UpdateImageSyndicationMetadata)
+      syndicationStore.deleteItem(id).flatMap { _ =>
+        // Always publish, in case there is no photoshoot
+        publish(Map(id -> None), UpdateImageSyndicationMetadata)
+      }
     }
   }
 
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
     publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
-      val result = syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap (syndicationRight)).map(_=>syndicationRight)
-      // Always publish, in case there is no photoshoot
-      publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
-      result
+      for {
+        _ <- syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
+        // Always publish, in case there is no photoshoot
+        _ <- publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
+      } yield syndicationRight
     }
 
   def getSyndicationForImage(id: String)
