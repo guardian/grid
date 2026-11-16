@@ -5,7 +5,7 @@ import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { openUploadPageAs } from '../common.steps.ts';
-import { expectNoEditPermission, waitForMetadataSave } from './media-api.assertions.ts';
+import { expectNoEditPermission, waitForMetadataSave } from '../utils/api/media-api.assertions.ts';
 import {
   BATCH_SIZE,
   batchJobs,

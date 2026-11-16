@@ -65,6 +65,11 @@ async function createStack(
     { StackName: stackName },
   );
 
+  return describeStack(cfn, stackName);
+}
+
+/** Logical -> physical resource ids for an already-applied stack. */
+async function describeStack(cfn: CloudFormationClient, stackName: string): Promise<StackProps> {
   const { StackResources = [] } = await cfn.send(
     new DescribeStackResourcesCommand({ StackName: stackName }),
   );
@@ -83,6 +88,10 @@ export function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> 
     CORE_STACK_NAME,
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
   );
+}
+
+export function describeCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
+  return describeStack(cfn, CORE_STACK_NAME);
 }
 
 export function createAuthStack(cfn: CloudFormationClient): Promise<StackProps> {

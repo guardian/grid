@@ -78,7 +78,7 @@ class Crops(config: CropperConfig, store: CropStore, imageOperations: ImageOpera
             quality,
             config.tempDir,
             cropType)(cropLogMarker)
-          optimisedFile = imageOperations.optimiseImage(file, cropType)(cropLogMarker)
+          optimisedFile = imageOperations.optimiseCrop(file, cropType)(cropLogMarker)
           filename = outputFilename(apiImage, crop.specification.bounds, dimensions.width, cropType)
           sizing <- store.storeCropSizing(optimisedFile, filename, cropType, crop, dimensions)(cropLogMarker)
           _ <- delete(file)

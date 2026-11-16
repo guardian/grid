@@ -25,7 +25,7 @@ class ImageCollectionsController(authenticated: Authentication, config: Collecti
 
   import CollectionsManager.onlyLatest
 
-  def getCollections(id: String) = authenticated.async { req =>
+  def getCollections(id: String) = authenticated.allowInnerService.async { req =>
     imageCollectionsStore.get(id).map { collections =>
       respond(onlyLatest(collections))
     } recover {

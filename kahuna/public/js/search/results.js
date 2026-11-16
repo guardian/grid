@@ -40,9 +40,7 @@ import {
   VALIDIMAGES
 } from "../util/constants/sendToCapture-config";
 import { sendTelemetryForNoResults, sendTelemetryForAiSearchPreviewClick } from '../services/telemetry';
-import { getFeatureSwitchActive } from '../components/gr-feature-switch-panel/gr-feature-switch-panel';
 import { structureCqlQueryString } from '../components/gr-cql-input/syntax';
-import { structureQuery } from './structured-query/syntax';
 
 export var results = angular.module('kahuna.search.results', [
     'kahuna.services.scroll-position',
@@ -210,9 +208,7 @@ results.controller('SearchResultsCtrl', [
         ctrl.needsQuery = $stateParams.useAISearch && (!$stateParams.query || !$stateParams.query.trim());
 
         const query = $stateParams.query ?? '';
-        const structuredQuery = getFeatureSwitchActive('use-cql-chips')
-          ? structureCqlQueryString(query)
-          : structureQuery(query);
+        const structuredQuery = structureCqlQueryString(query);
         ctrl.canOfferAiSearch = !!$window._clientConfig.aiSearchEnabled &&
           !$stateParams.useAISearch &&
           structuredQuery.some(({ type, value }) => type === 'text' && !!value.trim());

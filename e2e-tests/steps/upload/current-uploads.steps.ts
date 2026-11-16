@@ -1,14 +1,20 @@
 import * as path from 'node:path';
+import type { Page } from '@playwright/test';
 import { Given, Then, When, expect } from '../setup.ts';
+import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { openUploadPageAs } from '../common.steps.ts';
+import { expectNoDeletePermission } from '../utils/api/media-api.assertions.ts';
 import {
   failDelete,
   failIngest,
   filesToUpload,
+  gifImage,
   holdIngest,
   testImages,
   uniqueImage,
   uploadPage,
 } from './setup.ts';
+import { setTestClientConfig } from '../utils/test-config.ts';
 const { fileName: uploadingFile } = testImages.smaller;
 
 Given('I have several uploads in progress', async ({ page }) => {
@@ -74,14 +80,35 @@ Then('I should see a preview thumbnail with the file name and size', async ({ pa
 });
 
 Then("I should see the job's status", async ({ page }) => {
-  await expect(uploadPage(page).job(uploadingFile).locator('.job-status')).toBeVisible();
+  await expect(uploadPage(page).jobStatus(uploadingFile)).toBeVisible();
 });
 
 Then('the job should be marked as an upload error with the error message', async ({ page }) => {
-  await expect(uploadPage(page).job(uploadingFile).locator('.job-status')).toContainText(
-    'upload error',
-  );
+  await expect(uploadPage(page).jobStatus(uploadingFile)).toContainText('upload error');
 });
+
+When('I upload a file that is not a JPG, PNG or TIFF', async ({ page, testContext }) => {
+  const gif = gifImage();
+  testContext.uploadedImagePath = gif.path;
+  await setTestClientConfig(page, {
+    shouldUploadStraightToBucket: false,
+  });
+  await uploadPage(page).fileInput.setInputFiles(gif.path);
+});
+
+Then(
+  'the job should show an error explaining only JPG, PNG and TIFF are supported',
+  async ({ page, testContext }) => {
+    const systemName = await page.evaluate(() => window._clientConfig.systemName);
+    const capitalised = systemName.charAt(0).toUpperCase() + systemName.slice(1);
+    const status = uploadPage(page).jobStatus(path.basename(testContext.uploadedImagePath!));
+
+    await expect(status).toContainText('upload error');
+    await expect(status).toContainText(
+      `${capitalised} only supports JPG, PNG and TIFF images. Please convert the image and try again.`,
+    );
+  },
+);
 
 Then('I should be able to remove the failed job after confirming', async ({ page }) => {
   const job = uploadPage(page).job(uploadingFile);
@@ -113,13 +140,17 @@ Given('an image is uploaded', async ({ page, testContext }) => {
   await expect(uploadPage(page).deleteJobButton).toBeVisible();
 });
 
-Given('then deleted using the delete button at the bottom of the job form', async ({ page }) => {
+async function deleteCurrentUpload(page: Page): Promise<void> {
   const remove = uploadPage(page).deleteJobButton;
   await remove.click();
   await remove.click();
   // The section clears only once the soft-delete is committed (the app polls for it), so
   // waiting for it to disappear guarantees the re-upload below sees the image as deleted.
   await expect(uploadPage(page).currentUploads).toBeHidden();
+}
+
+Given('then deleted using the delete button at the bottom of the job form', async ({ page }) => {
+  await deleteCurrentUpload(page);
 });
 
 Given('the same image is uploaded again', async ({ page, testContext }) => {
@@ -130,9 +161,48 @@ Given('I have delete permission', async () => {
   // Precondition satisfied by the default e2e permissions (delete_image is granted).
 });
 
-Then('it should be present in my current uploads', async ({ page }) => {
+Then('it should be present in (my )current uploads', async ({ page }) => {
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
+
+Given('an image is uploaded by a user that is not me', async ({ page, testContext }) => {
+  // Uploaded as the full-access account; the scenario switches to the restricted one after.
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+  await expect(uploadPage(page).deleteJobButton).toBeVisible();
+});
+
+Given('then deleted', async ({ page }) => {
+  await deleteCurrentUpload(page);
+});
+
+Given('the same image is uploaded again by me', async ({ page, testContext }) => {
+  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+  await uploadPage(page).fileInput.setInputFiles(testContext.uploadedImagePath!);
+});
+
+Given('I do not have delete permissions', async ({ page, testContext }) => {
+  await expectNoDeletePermission(page, testContext.uploadedImagePath!, TEST_ACCOUNTS.fullAccess);
+});
+
+Then('I should see the undelete button', async ({ page }) => {
+  await expect(uploadPage(page).undeleteJobButton).toBeVisible();
+});
+
+Then('the undelete button is disabled', async ({ page }) => {
+  await expect(uploadPage(page).undeleteJobButton).toBeDisabled();
+});
+
+Then(
+  'there should be a message indicating that I do not have permission to undelete',
+  async ({ page }) => {
+    const { deletionStatus, undeleteJobButton } = uploadPage(page);
+    const message = 'Only the uploader or a user with delete permission can';
+    await expect(deletionStatus).toContainText(message);
+    await expect(undeleteJobButton).toHaveAccessibleDescription(new RegExp(message));
+  },
+);
 
 Then('I should be able to undelete it', async ({ page }) => {
   const undelete = uploadPage(page).undeleteJobButton;

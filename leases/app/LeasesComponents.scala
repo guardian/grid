@@ -11,7 +11,7 @@ class LeasesComponents(context: Context) extends GridComponents(context, new Lea
   val store = new LeaseStore(config)
   val notifications = new LeaseNotifier(config, store)
 
-  val controller = new MediaLeaseController(auth, store, config, notifications, controllerComponents)
+  val controller = new MediaLeaseController(auth, store, config, notifications, authorisation, wsClient, controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, controller, management, InnerServiceStatusCheckController)

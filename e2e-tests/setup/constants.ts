@@ -13,7 +13,7 @@ export const AUTH_STACK_NAME = 'grid-dev-auth';
 export const OIDC_CLIENT_ID = 'grid-local-id';
 export const OIDC_CLIENT_SECRET = 'grid-local-secret';
 export const OIDC_PORT = 9014;
-export const OIDC_HOST = `oidc.media.${DOMAIN}`;
+export const OIDC_HOST = 'oidc.localhost';
 export const OIDC_ISSUER = `http://${OIDC_HOST}:${OIDC_PORT}`;
 export const OIDC_CONTEXT = path.join(REPO_ROOT, 'dev', 'oidc-provider');
 export const OIDC_IMAGE = 'grid-e2e-oidc-provider';
@@ -21,6 +21,8 @@ export const TEST_ACCOUNTS = {
   fullAccess: `grid-e2e-account@${EMAIL_DOMAIN}`,
   restricted: `grid-e2e-restricted-account@${EMAIL_DOMAIN}`,
   noUpload: `grid-e2e-no-upload-account@${EMAIL_DOMAIN}`,
+  /** Can upload but must never do so, and owns no seeded images, so its upload history stays empty. */
+  noHistory: `grid-e2e-no-history-account@${EMAIL_DOMAIN}`,
 } as const;
 export type TestAccount = (typeof TEST_ACCOUNTS)[keyof typeof TEST_ACCOUNTS];
 /** Saved browser session for TEST_ACCOUNTS.fullAccess, written by setup/auth.setup.ts. */
