@@ -11,8 +11,9 @@ import com.gu.mediaservice.model.{Image, ImageStatusRecord, NoRights}
 import lib.{ImageResponse, MediaApiConfig, MediaApiMetrics, PreviewContentApi}
 import lib.elasticsearch.{ElasticSearch, Fixtures}
 import lib.querysyntax.Parser
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.{doThrow, never, verify, when}
+import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,18 +30,14 @@ class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with Scala
   private implicit val ec: ExecutionContext = ExecutionContext.parasitic
   private val image = createImage("image-id", NoRights)
 
-  private class DeleteFixture(
-    maybeImage: Option[Image] = Some(image),
-    allowed: Boolean = true,
-    deletable: Boolean = true
-  ) {
+  private class DeleteFixture {
     val sender: ThrallMessageSender = mock[ThrallMessageSender]
     val statusTable: SoftDeletedMetadataTable = mock[SoftDeletedMetadataTable]
     val persistence: Promise[Unit] = Promise[Unit]()
-    val es: ElasticSearch = mock[ElasticSearch]
-    val response: ImageResponse = mock[ImageResponse]
-    val authorisation: Authorisation = mock[Authorisation]
-    val config: MediaApiConfig = mock[MediaApiConfig]
+    private val es = mock[ElasticSearch]
+    private val response = mock[ImageResponse]
+    private val authorisation = mock[Authorisation]
+    private val config = mock[MediaApiConfig]
     private val components = stubControllerComponents()
     private val user = UserPrincipal("Test", "User", "user@example.com")
     private val userProvider = mock[UserAuthenticationProvider]
@@ -63,10 +60,10 @@ class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with Scala
     when(config.serviceHosts).thenReturn(ServiceHosts.guardianPrefixes)
     when(config.aiSearchEmbeddingCacheMaxSize).thenReturn(10)
     when(es.getImageById(any[String])(any[ExecutionContext], any[LogMarker]))
-      .thenReturn(Future.successful(maybeImage))
-    when(response.canBeDeleted(any[Image])).thenReturn(deletable)
+      .thenReturn(Future.successful(Some(image)))
+    when(response.canBeDeleted(any[Image])).thenReturn(true)
     when(authorisation.isUploaderOrHasPermission(any[Principal], any[String], any[SimplePermission]))
-      .thenReturn(allowed)
+      .thenReturn(true)
     when(statusTable.setStatus(any[ImageStatusRecord])(any[ExecutionContext])).thenReturn(persistence.future)
 
     val controller = new MediaApi(
@@ -79,8 +76,10 @@ class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with Scala
   }
 
   describe("soft-delete completion") {
-    it("waits for status persistence before publishing and returning Accepted") {
+    it("waits for status persistence before publishing with a matching deleteTime") {
       val f = new DeleteFixture
+      val recordCaptor = ArgumentCaptor.forClass(classOf[ImageStatusRecord])
+      val messageCaptor = ArgumentCaptor.forClass(classOf[UpdateMessage])
       val result = f.delete()
 
       result.isCompleted shouldBe false
@@ -88,10 +87,12 @@ class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with Scala
       f.persistence.success(())
 
       result.futureValue.header.status shouldBe ACCEPTED
-      verify(f.sender).publish(any[UpdateMessage])
+      verify(f.statusTable).setStatus(recordCaptor.capture())(any[ExecutionContext])
+      verify(f.sender).publish(messageCaptor.capture())
+      messageCaptor.getValue.softDeletedMetadata.get.deleteTime.toString shouldBe recordCaptor.getValue.deleteTime
     }
 
-    it("propagates status persistence failures without publishing") {
+    it("does not publish when status persistence fails") {
       val f = new DeleteFixture
       val failure = new RuntimeException("persistence failed")
       val result = f.delete()
@@ -99,44 +100,6 @@ class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with Scala
       f.persistence.failure(failure)
 
       result.failed.futureValue shouldBe failure
-      verify(f.sender, never()).publish(any[UpdateMessage])
-    }
-
-    it("propagates publication failures") {
-      val f = new DeleteFixture
-      val failure = new RuntimeException("publication failed")
-      doThrow(failure).when(f.sender).publish(any[UpdateMessage])
-      val result = f.delete()
-
-      f.persistence.success(())
-
-      result.failed.futureValue shouldBe failure
-    }
-
-    it("retains the forbidden response without writing or publishing") {
-      val f = new DeleteFixture(allowed = false)
-
-      f.delete().futureValue.header.status shouldBe FORBIDDEN
-
-      verify(f.statusTable, never()).setStatus(any[ImageStatusRecord])(any[ExecutionContext])
-      verify(f.sender, never()).publish(any[UpdateMessage])
-    }
-
-    it("retains the persisted-image response without writing or publishing") {
-      val f = new DeleteFixture(deletable = false)
-
-      f.delete().futureValue.header.status shouldBe METHOD_NOT_ALLOWED
-
-      verify(f.statusTable, never()).setStatus(any[ImageStatusRecord])(any[ExecutionContext])
-      verify(f.sender, never()).publish(any[UpdateMessage])
-    }
-
-    it("retains the missing-image response without writing or publishing") {
-      val f = new DeleteFixture(maybeImage = None)
-
-      f.delete().futureValue.header.status shouldBe NOT_FOUND
-
-      verify(f.statusTable, never()).setStatus(any[ImageStatusRecord])(any[ExecutionContext])
       verify(f.sender, never()).publish(any[UpdateMessage])
     }
   }

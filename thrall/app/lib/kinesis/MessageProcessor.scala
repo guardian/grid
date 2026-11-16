@@ -154,13 +154,16 @@ class MessageProcessor(
     // if we cannot delete the image as it's "protected", succeed and delete
     // the message anyway.
     logger.info(marker, "ES6 Deleting image: " + message.id)
-    es.deleteImage(message.id).flatMap { _ =>
-      Future.sequence(List(
+    (for {
+      _ <- es.ensureImageDeletable(message.id)
+      // Delete S3 objects before removing the ES document so a failed S3 delete can be retried.
+      _ <- Future.sequence(List(
         store.deleteOriginal(message.id),
         store.deleteThumbnail(message.id),
         store.deletePNG(message.id)
-      )).map(_ => ())
-    }.recover {
+      ))
+      _ <- es.forceDeleteImage(message.id)
+    } yield ()).recover {
       case ImageNotDeletable =>
         logger.info(marker, "Could not delete image")
     }
