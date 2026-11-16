@@ -241,7 +241,7 @@ class ElasticSearch(
 
 
   def updateImageUsages(id: String, usages: Seq[Usage], lastModified: DateTime)
-                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val replaceUsagesScript = loadUpdatingModificationPainless(
       s"""
          | def lastUpdatedDate = ctx._source.usagesLastModified != null ? Date.from(Instant.from(DateTimeFormatter.ISO_DATE_TIME.parse(ctx._source.usagesLastModified))) : null;
@@ -258,11 +258,11 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES6 updating usages on image $id for index $indexName"
     ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def updateImageSyndicationRights(id: String, rights: Option[SyndicationRights], lastModified: DateTime)
-                                  (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                                  (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
     val replaceSyndicationRightsScript =
       """
@@ -273,18 +273,18 @@ class ElasticSearch(
 
     val scriptSource = loadUpdatingModificationPainless(replaceSyndicationRightsScript)
 
-    List(migrationAwareUpdater(
+    migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("syndicationRights", rightsParameter)),
       logMessageFromIndexName = indexName => s"ES6 updating syndicationRights on image $id in index $indexName with rights $rightsParameter"
-    ).map(_ => ElasticSearchUpdateResponse()))
+    ).map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def updateEmbedding(id: String, embedding: Embedding, lastModified: DateTime)
-                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
     if (!includeDenseVectorMappings) {
       logger.info(s"Skipping embedding update for image $id: dense vector mappings are disabled")
-      List(Future.successful(ElasticSearchUpdateResponse()))
+      Future.successful(List(ElasticSearchUpdateResponse()))
     } else {
 
       val replaceEmbeddingScript = "ctx._source.embedding = params.embedding;"
@@ -298,12 +298,12 @@ class ElasticSearch(
         logMessageFromIndexName = indexName => s"ES6 updating embedding on image $id in index $indexName"
       ).incrementOnFailure(metrics.map(_.failedEmbeddingUpdates)) { case _ => true }
 
-      List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+      eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
     }
   }
 
   def applyImageMetadataOverride(id: String, metadata: Edits, lastModified: DateTime)
-                                (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                                (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
     val photoshootSuggestionScript =
       """
@@ -337,7 +337,7 @@ class ElasticSearch(
     if (metadata.lastModified.isEmpty) logger.warn(logMarker, "edit object missing last modified value")
     val appliedLastModified = metadata.lastModified.getOrElse(lastModified)
 
-    List(migrationAwareUpdater(
+    migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(
         indexName = indexName,
         id = id,
@@ -346,7 +346,7 @@ class ElasticSearch(
         ("userMetadata", metadataParameter)
       ),
       logMessageFromIndexName = indexName => s"ES6 updating user metadata on image $id in index $indexName with lastModified $appliedLastModified"
-    ).map(_ => ElasticSearchUpdateResponse()))
+    ).map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   private def softDeletedMetadataAsPainlessScript(softDeletedMetadata: SoftDeletedMetadata) = {
@@ -361,23 +361,23 @@ class ElasticSearch(
   }
 
   def applySoftDelete(id: String, softDeletedMetadata: SoftDeletedMetadata, lastModified: DateTime)
-                     (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                     (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
-    List(migrationAwareUpdater(
+    migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(
         indexName,
         id,
         softDeletedMetadataAsPainlessScript(softDeletedMetadata),
       ),
       logMessageFromIndexName = indexName => s"ES7 soft delete image $id in $indexName by ${softDeletedMetadata.deletedBy}"
-    ).map(_ => ElasticSearchUpdateResponse()))
+    ).map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def applyUnSoftDelete(id: String, lastModified: DateTime)
-                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val applyUnSoftDeleteScript = "ctx._source.remove(\"softDeletedMetadata\");"
 
-    List(migrationAwareUpdater(
+    migrationAwareUpdater(
       requestFromIndexName = indexName => prepareUpdateRequest(
         indexName,
         id,
@@ -385,7 +385,7 @@ class ElasticSearch(
         lastModified
       ),
       logMessageFromIndexName = indexName => s"ES7 un soft delete image $id in $indexName"
-    ).map(_ => ElasticSearchUpdateResponse()))
+    ).map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   private def getNextBatchOfImageIdsForDeletion(query: Query, count: Int, deletionType: String)
@@ -542,7 +542,7 @@ class ElasticSearch(
   }
 
   def deleteImage(id: String)
-                 (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchDeleteResponse]] = {
+                 (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchDeleteResponse]] = {
     // search for the image first, and then only delete and succeed
     // this is because the delete query does not respond with anything useful
     // TODO: is there a more efficient way to do this?
@@ -553,17 +553,18 @@ class ElasticSearch(
       nestedQuery(path = "usages", query = existsQuery("usages"))
     )
 
-    (migrationStatus match {
+    val indices = migrationStatus match {
       case running: Running => List(imagesCurrentAlias, running.migrationIndexName)
       case _ => List(imagesCurrentAlias)
-    }).map { index =>
+    }
+    Future.traverse(indices) { index =>
       deleteFromIndex(id, index, deletableImage).map { _ => ElasticSearchDeleteResponse() }
     }
   }
 
   def deleteSingleImageUsage(
                               id: String, usageId: String, lastModified: DateTime
-                            )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                            )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val deleteSingleUsageScript = loadUpdatingModificationPainless("ctx._source.usages.removeIf(usage -> usage.id == params.usageId);")
 
     val eventualUpdateResponse = migrationAwareUpdater(
@@ -572,17 +573,17 @@ class ElasticSearch(
       notFoundSuccessful = true
     ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(response => {
+    eventualUpdateResponse.map { response =>
       if (response.status == 404) {
         logger.warn("Attempted to delete usage for non-existent image.")
       }
-      ElasticSearchUpdateResponse()
-    }))
+      List(ElasticSearchUpdateResponse())
+    }
   }
 
   def deleteAllImageUsages(
     id: String, lastModified: DateTime
-  )(implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+  )(implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val deleteUsagesScript = loadUpdatingModificationPainless("ctx._source.remove('usages');")
 
     val eventualUpdateResponse = migrationAwareUpdater(
@@ -591,16 +592,16 @@ class ElasticSearch(
       notFoundSuccessful = true
     ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
-    List(eventualUpdateResponse.map(response => {
+    eventualUpdateResponse.map { response =>
       if(response.status == 404){
         logger.warn("Attempted to delete usages for non-existent image.")
       }
-      ElasticSearchUpdateResponse()
-    }))
+      List(ElasticSearchUpdateResponse())
+    }
   }
 
   def updateUsageStatus(id: String, usages: Seq[Usage], lastModified: DateTime)
-                       (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                       (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
   val updateUsageStatusScript =
     s"""
@@ -617,17 +618,17 @@ class ElasticSearch(
 
     val usageParameters = JsDefined(Json.toJson(usages.head)).toOption.map(_.as[Usage]).map(i => asNestedMap(Json.toJson(i))).orNull
 
-    List(migrationAwareUpdater(
+    migrationAwareUpdater(
       requestFromIndexName = indexName =>
         prepareUpdateRequest(indexName, id, scriptSource, lastModified, ("usage", usageParameters)),
       logMessageFromIndexName = indexName =>
         s"ES6 updating usagesRights on image $id and usages id ${usageParameters.get("id")} " +
           s"in index $indexName with usage $usageParameters"
-    ).map(_ => ElasticSearchUpdateResponse()))
+    ).map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def deleteSyndicationRights(id: String, lastModified: DateTime)
-                             (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                             (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val deleteSyndicationRightsScript = s"""
         | $modificationDateFormatting
         | ctx._source.remove('syndicationRights');
@@ -640,11 +641,11 @@ class ElasticSearch(
       notFoundSuccessful = true
     ).incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def replaceImageLeases(id: String, leases: Seq[MediaLease], lastModified: DateTime)
-                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val replaceLeasesScript =
       """
         | ctx._source.leases = ["leases": params.leases, "lastModified": params.lastModified];
@@ -659,7 +660,7 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES6 updating all leases on image $id in index $indexName with: ${leases.toString}"
     ).incrementOnFailure(metrics.map(_.failedSyndicationRightsUpdates)){case _ => true}
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   private def prepareScript(scriptSource: String, lastModified: DateTime, params: (String, Object)*) =
@@ -672,7 +673,7 @@ class ElasticSearch(
     prepareUpdateRequest(indexName, id, prepareScript(scriptSource, lastModified, params:_*))
 
   def addImageLease(id: String, lease: MediaLease, lastModified: DateTime)
-                   (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                   (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
 
     val addLeaseScript =
       """| if (ctx._source.leases == null || ctx._source.leases.leases == null) {
@@ -692,11 +693,11 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES6 adding lease on image $id in index $indexName with: $leaseParameter"
     ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)){case _ => true}
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def removeImageLease(id: String, leaseId: Option[String], lastModified: DateTime)
-                      (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                      (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val removeLeaseScript =
       """|
          | for(int i = 0; i < ctx._source.leases.leases.size(); i++) {
@@ -717,11 +718,11 @@ class ElasticSearch(
       notFoundSuccessful = true
     ).incrementOnFailure(metrics.map(_.failedUsagesUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def updateImageExports(id: String, exports: Seq[Crop], lastModified: DateTime)
-                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val addExportsScript =
     """| if (ctx._source.exports == null) {
        |   ctx._source.exports = params.exports;
@@ -743,11 +744,11 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES6 updating exports on image $id in index $indexName"
     ).incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def deleteImageExports(id: String, lastModified: DateTime)
-                        (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                        (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val deleteExportsScript = "ctx._source.remove('exports');"
 
     val scriptSource = loadUpdatingModificationPainless(deleteExportsScript)
@@ -758,11 +759,11 @@ class ElasticSearch(
       notFoundSuccessful = true
     ).incrementOnFailure(metrics.map(_.failedExportsUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   def setImageCollections(id: String, collections: Seq[Collection], lastModified: DateTime)
-                         (implicit ex: ExecutionContext, logMarker: LogMarker): List[Future[ElasticSearchUpdateResponse]] = {
+                         (implicit ex: ExecutionContext, logMarker: LogMarker): Future[List[ElasticSearchUpdateResponse]] = {
     val setImagesCollectionScript = "ctx._source.collections = params.collections;"
     val setImageCollectionsScript = loadUpdatingModificationPainless(setImagesCollectionScript)
 
@@ -777,7 +778,7 @@ class ElasticSearch(
       logMessageFromIndexName = indexName => s"ES6 setting collections on image $id in index $indexName"
     ).incrementOnFailure(metrics.map(_.failedCollectionsUpdates)) { case _ => true }
 
-    List(eventualUpdateResponse.map(_ => ElasticSearchUpdateResponse()))
+    eventualUpdateResponse.map(_ => List(ElasticSearchUpdateResponse()))
   }
 
   private val scrollPageSize = 10000
