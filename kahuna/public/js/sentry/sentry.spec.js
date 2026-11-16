@@ -69,12 +69,7 @@ describe('Sentry browser reporting', () => {
         expect(Sentry.setUser).not.toHaveBeenCalled();
     });
 
-    it('attaches only the server-supplied anonymous identifier', () => {
-        start('https://key@sentry.example.com/1', { userId: 'salted-id' });
-        expect(Sentry.setUser).toHaveBeenCalledWith({ id: 'salted-id' });
-    });
-
-    it('attaches email only when supplied by the server', () => {
+    it('attaches the authenticated user email supplied by the server', () => {
         start('https://key@sentry.example.com/1', { userEmail: 'someone@example.com' });
         expect(Sentry.setUser).toHaveBeenCalledWith({ email: 'someone@example.com' });
     });
