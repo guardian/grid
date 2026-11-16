@@ -397,7 +397,7 @@ class MediaApi(
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.getImageById(id) map {
+    elasticSearch.getImageById(id) flatMap {
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted){
@@ -416,15 +416,15 @@ class MediaApi(
                   ))
                 )
               )
+              Accepted
             }
-            Accepted
           } else {
-            ImageDeleteForbidden
+            Future.successful(ImageDeleteForbidden)
           }
         } else {
-          ImageCannotBeDeleted
+          Future.successful(ImageCannotBeDeleted)
         }
-      case _ => ImageNotFound(id)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
