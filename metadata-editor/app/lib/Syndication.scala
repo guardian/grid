@@ -7,7 +7,7 @@ import com.gu.mediaservice.syntax.MessageSubjects
 import org.joda.time.DateTime
 import play.api.libs.json.{JsNull, JsString, Reads}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 trait Syndication extends Edit with MessageSubjects with GridLogging {
 
@@ -25,8 +25,12 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     result
   }
 
-  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](id: String, unchangedPhotoshoot: Boolean = false, photoshoot: Option[Photoshoot] = None)(f: () => Future[T])
-                                                                  (implicit ec: ExecutionContext): Future[T] =
+  private[lib] def publishChangedSyndicationRightsForPhotoshoot[T](
+    id: String,
+    unchangedPhotoshoot: Boolean = false,
+    photoshoot: Option[Photoshoot] = None,
+    directRightsUpdate: Option[Option[SyndicationRights]] = None
+  )(f: () => Future[T])(implicit ec: ExecutionContext): Future[T] =
     for {
       oldPhotoshootMaybe <- getPhotoshootForImage(id)
       newPhotoshootMaybe = if (unchangedPhotoshoot) None else photoshoot  // if None, the get rights calls (below) will return none.
@@ -37,7 +41,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
-      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
+      directRights = directRightsUpdate.map(rights => id -> allImageRightsInOldPhotoshootAfter.get(id).orElse(rights)).toMap
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(directRights ++ oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
     } yield {
       logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
       logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
@@ -66,23 +71,21 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
   }
 
   def deleteSyndicationAndPublish(id: String)
-                                 (implicit ec: ExecutionContext): Future[Unit] = {
-    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true) { () =>
-      syndicationStore.deleteItem(id).flatMap { _ =>
-        // Always publish, in case there is no photoshoot
-        publish(Map(id -> None), UpdateImageSyndicationMetadata)
-      }
+                                 (implicit ec: ExecutionContext): Future[Unit] =
+    publishChangedSyndicationRightsForPhotoshoot[Unit](id, unchangedPhotoshoot = true, directRightsUpdate = Some(None)) { () =>
+      syndicationStore.deleteItem(id)
     }
-  }
 
   def setSyndicationAndPublish(id: String, syndicationRight: SyndicationRights)
                               (implicit ec: ExecutionContext): Future[SyndicationRights] =
-    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](id, unchangedPhotoshoot = true) { () =>
-      for {
-        _ <- syndicationStore.jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
-        // Always publish, in case there is no photoshoot
-        _ <- publish(Map(id -> Some(syndicationRight)), UpdateImageSyndicationMetadata)
-      } yield syndicationRight
+    publishChangedSyndicationRightsForPhotoshoot[SyndicationRights](
+      id,
+      unchangedPhotoshoot = true,
+      directRightsUpdate = Some(Some(syndicationRight))
+    ) { () =>
+      syndicationStore
+        .jsonAdd(id, syndicationRightsFieldName, DynamoDB.caseClassToMap(syndicationRight))
+        .map(_ => syndicationRight)
     }
 
   def getSyndicationForImage(id: String)
@@ -165,12 +168,13 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       .recover { case NoItemFound => None }
 
   def publish(imagesInPhotoshoot: Map[String, Option[SyndicationRights]], subject: String)
-             (implicit ec: ExecutionContext): Future[Unit] = Future {
-    for (kv <- imagesInPhotoshoot) {
-      val (k, v) = kv
-      val updateMessage = UpdateMessage(subject = subject, id = Some(k), syndicationRights = v)
-      notifications.publish(updateMessage)
-    }
-  }
+             (implicit ec: ExecutionContext): Future[Unit] =
+    if (imagesInPhotoshoot.isEmpty) Future.successful(())
+    else Future(blocking {
+      for ((k, v) <- imagesInPhotoshoot) {
+        val updateMessage = UpdateMessage(subject = subject, id = Some(k), syndicationRights = v)
+        notifications.publish(updateMessage)
+      }
+    })
 
 }

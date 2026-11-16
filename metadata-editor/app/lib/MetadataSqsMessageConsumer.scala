@@ -5,6 +5,7 @@ import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.Try
 
 class MetadataSqsMessageConsumer(config: EditsConfig, metadataEditorMetrics: MetadataEditorMetrics, store: EditsStore) extends SqsViaSnsMessageConsumer(
   config.queueUrl, config, metadataEditorMetrics.snsMessage) {
@@ -14,7 +15,6 @@ class MetadataSqsMessageConsumer(config: EditsConfig, metadataEditorMetrics: Met
       case "image-deleted" => processDeletedImage
     }
 
-  def processDeletedImage(message: JsValue): Future[Unit] = Future {
-      withImageId(message)(id => store.deleteItem(id))
-  }.flatten
+  def processDeletedImage(message: JsValue): Future[Unit] =
+    Future.fromTry(Try(withImageId(message)(store.deleteItem))).flatten
 }

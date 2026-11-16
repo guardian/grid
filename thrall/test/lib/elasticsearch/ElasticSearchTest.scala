@@ -306,8 +306,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
       "deleting exports for a non-existant image is not an error" in {
         val id = UUID.randomUUID().toString
-        val result = Await.result(ES.deleteImageExports(id, now), fiveSeconds)
-        result should have length 1
+        Await.result(ES.deleteImageExports(id, now), fiveSeconds)
       }
     }
 
@@ -356,8 +355,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(ES.removeImageLease(id, lease.id, now), fiveSeconds)
-        result should have length 1
+        Await.result(ES.removeImageLease(id, lease.id, now), fiveSeconds)
       }
 
       "removing a lease should update the leases last modified time" in {
@@ -502,9 +500,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete all usages for an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(ES.deleteAllImageUsages(id, now), fiveSeconds)
-
-        result should have length 1
+        Await.result(ES.deleteAllImageUsages(id, now), fiveSeconds)
       }
 
       "can delete all usages for an image" in {
@@ -641,9 +637,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete syndication rights from an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(ES.deleteSyndicationRights(id, now), fiveSeconds)
-
-        result should have length 1
+        Await.result(ES.deleteSyndicationRights(id, now), fiveSeconds)
       }
     }
 
@@ -917,6 +911,46 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           requestedImageMigrationJson.as[Image].identifiers shouldEqual Map("test" -> "done")
 
           ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+        }
+      }
+
+      "deletes" - {
+        "when migration alias exists, but does not contain doc to be deleted" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+          try {
+            val id = UUID.randomUUID().toString
+            val image = createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"))
+            Await.result(ES.directInsert(image, ES.imagesCurrentAlias), fiveSeconds)
+            ES.client.execute(refreshIndex(ES.imagesCurrentAlias)).futureValue
+
+            Await.result(ES.deleteImage(id), fiveSeconds)
+
+            ES.executeAndLog(get(ES.imagesCurrentAlias, id), "").await.result.found shouldBe false
+          } finally {
+            ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+            ES.refreshAndRetrieveMigrationStatus()
+          }
+        }
+
+        "when migration index contains doc, both are deleted" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+          try {
+            val id = UUID.randomUUID().toString
+            val image = createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"))
+            Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
+            ES.client.execute(refreshIndex(ES.imagesCurrentAlias)).futureValue
+
+            Await.result(ES.deleteImage(id), fiveSeconds)
+
+            ES.executeAndLog(get(ES.imagesCurrentAlias, id), "").await.result.found shouldBe false
+            ES.executeAndLog(get(ES.imagesMigrationAlias, id), "").await.result.found shouldBe false
+          } finally {
+            ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+            ES.refreshAndRetrieveMigrationStatus()
+          }
         }
       }
     }

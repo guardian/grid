@@ -403,19 +403,23 @@ class MediaApi(
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            val deleteTime = DateTime.now(DateTimeZone.UTC)
+            val deletedBy = request.user.accessor.identity
+            val imageStatusRecord = ImageStatusRecord(id, deletedBy, deleteTime.toString, isDeleted = true)
             softDeletedMetadataTable.setStatus(imageStatusRecord)
             .map { _ =>
-              messageSender.publish(
-                UpdateMessage(
-                  subject = SoftDeleteImage,
-                  id = Some(id),
-                  softDeletedMetadata = Some(SoftDeletedMetadata(
-                    deleteTime = DateTime.now(DateTimeZone.UTC),
-                    deletedBy = request.user.accessor.identity
-                  ))
+              blocking {
+                messageSender.publish(
+                  UpdateMessage(
+                    subject = SoftDeleteImage,
+                    id = Some(id),
+                    softDeletedMetadata = Some(SoftDeletedMetadata(
+                      deleteTime = deleteTime,
+                      deletedBy = deletedBy
+                    ))
+                  )
                 )
-              )
+              }
               Accepted
             }
           } else {

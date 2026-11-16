@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.sqs.model.{Message => SQSMessage}
 import com.gu.mediaservice.lib.ImageId
 import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.json.PlayJsonHelpers._
+import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.metrics.Metric
 import org.joda.time.DateTime
 import org.joda.time.format.ISODateTimeFormat
@@ -16,8 +17,9 @@ import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
-abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends SimpleSqsMessageConsumer(queueUrl, config) with ImageId {
+abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, metric: Metric[Long]) extends SimpleSqsMessageConsumer(queueUrl, config) with ImageId with GridLogging {
   val actorSystem = ActorSystem("MessageConsumer")
 
   private implicit val ctx: ExecutionContext =
@@ -54,7 +56,10 @@ abstract class SqsViaSnsMessageConsumer(queueUrl: String, config: CommonConfig, 
   }
 
   private def deleteOnSuccess(msg: SQSMessage)(f: Future[Unit]): Unit =
-    f.foreach { _ => deleteMessage(msg) }
+    f.onComplete {
+      case Success(_) => deleteMessage(msg)
+      case Failure(e) => logger.error(s"Failed to process SQS message ${msg.messageId}", e)
+    }
 
   private def extractSNSMessage(sqsMessage: SQSMessage): Option[SNSMessage] = {
     val result = Json.fromJson[SNSMessage](Json.parse(sqsMessage.body()))

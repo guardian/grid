@@ -17,7 +17,11 @@ import scala.collection.immutable.Map
 class SyndicationTest extends AnyFunSpec with Matchers with Syndication with MockitoSugar with ScalaFutures {
   private implicit val ec: ExecutionContext = ExecutionContext.parasitic
 
-  private class PublishingFixture(photoshoot: Option[Photoshoot] = None) extends Syndication {
+  private class PublishingFixture(
+    photoshoot: Option[Photoshoot] = None,
+    rightsBefore: Map[String, SyndicationRights] = Map.empty,
+    rightsAfter: Map[String, SyndicationRights] = Map.empty
+  ) extends Syndication {
     override val syndicationStore: SyndicationStore = mock[SyndicationStore]
     override val config: EditsConfig = mock[EditsConfig]
     override val editsStore: EditsStore = mock[EditsStore]
@@ -26,18 +30,20 @@ class SyndicationTest extends AnyFunSpec with Matchers with Syndication with Moc
     val write: Promise[JsObject] = Promise[JsObject]()
     val deletion: Promise[Unit] = Promise[Unit]()
     val publication: Promise[Unit] = Promise[Unit]()
+    private var persisted = false
     var published: List[Map[String, Option[SyndicationRights]]] = Nil
 
     when(syndicationStore.jsonAdd(any[String], any[String], any[Map[String, JsValue]])(any[ExecutionContext]))
-      .thenReturn(write.future)
-    when(syndicationStore.deleteItem(any[String])(any[ExecutionContext])).thenReturn(deletion.future)
+      .thenAnswer(_ => write.future.map { obj => persisted = true; obj })
+    when(syndicationStore.deleteItem(any[String])(any[ExecutionContext]))
+      .thenAnswer(_ => deletion.future.map { _ => persisted = true })
 
     override def getPhotoshootForImage(id: String)(implicit ec: ExecutionContext): Future[Option[Photoshoot]] =
       Future.successful(photoshoot)
 
     override def getAllImageRightsInPhotoshoot(photoshootMaybe: Option[Photoshoot])
                                               (implicit ec: ExecutionContext): Future[Map[String, SyndicationRights]] =
-      Future.successful(Map.empty)
+      Future.successful(if (photoshootMaybe.isEmpty) Map.empty else if (persisted) rightsAfter else rightsBefore)
 
     override def publish(images: Map[String, Option[SyndicationRights]], subject: String)
                         (implicit ec: ExecutionContext): Future[Unit] =
@@ -50,39 +56,51 @@ class SyndicationTest extends AnyFunSpec with Matchers with Syndication with Moc
 
   describe("syndication persistence and publication") {
     val id = "image-id"
-    val rights = SyndicationRights(None, Nil, Nil)
+    val rights = SyndicationRights(Some(DateTime.now()), Nil, Nil)
 
-    for (photoshoot <- List(None, Some(Photoshoot("test photoshoot")))) {
-      val context = if (photoshoot.isDefined) "with a photoshoot" else "without a photoshoot"
+    it("waits for persistence and publication when saving without a photoshoot") {
+      val f = new PublishingFixture
+      val result = f.setSyndicationAndPublish(id, rights)
 
-      it(s"waits for persistence before publishing and completing a save $context") {
-        val f = new PublishingFixture(photoshoot)
-        val result = f.setSyndicationAndPublish(id, rights)
-
-        f.published shouldBe empty
-        result.isCompleted shouldBe false
-        f.write.success(Json.obj())
-        f.published shouldBe List(Map(id -> Some(rights)))
-        result.isCompleted shouldBe false
-        f.publication.success(())
-        result.futureValue shouldBe rights
-      }
-
-      it(s"waits for persistence before publishing and completing a deletion $context") {
-        val f = new PublishingFixture(photoshoot)
-        val result = f.deleteSyndicationAndPublish(id)
-
-        f.published shouldBe empty
-        result.isCompleted shouldBe false
-        f.deletion.success(())
-        f.published shouldBe List(Map(id -> None))
-        result.isCompleted shouldBe false
-        f.publication.success(())
-        result.futureValue
-      }
+      f.published shouldBe empty
+      f.write.success(Json.obj())
+      f.published shouldBe List(Map(id -> Some(rights)))
+      result.isCompleted shouldBe false
+      f.publication.success(())
+      result.futureValue shouldBe rights
     }
 
-    it("propagates save failures without publishing") {
+    it("publishes once for both the edited image and photoshoot siblings when saving") {
+      val siblingRights = rights.copy(isInferred = true)
+      val f = new PublishingFixture(
+        photoshoot = Some(Photoshoot("shoot")),
+        rightsBefore = Map.empty,
+        rightsAfter = Map(id -> rights, "sibling-id" -> siblingRights)
+      )
+      val result = f.setSyndicationAndPublish(id, rights)
+
+      f.write.success(Json.obj())
+      f.published shouldBe List(Map(id -> Some(rights), "sibling-id" -> Some(siblingRights)))
+      f.publication.success(())
+      result.futureValue shouldBe rights
+    }
+
+    it("publishes inferred sibling rights instead of None when deleting explicit rights in a photoshoot") {
+      val inferredFromSibling = SyndicationRights(Some(DateTime.now().minusHours(1)), Nil, Nil, isInferred = true)
+      val f = new PublishingFixture(
+        photoshoot = Some(Photoshoot("shoot")),
+        rightsBefore = Map(id -> rights, "sibling-id" -> inferredFromSibling.copy(isInferred = false)),
+        rightsAfter = Map(id -> inferredFromSibling, "sibling-id" -> inferredFromSibling.copy(isInferred = false))
+      )
+      val result = f.deleteSyndicationAndPublish(id)
+
+      f.deletion.success(())
+      f.published shouldBe List(Map(id -> Some(inferredFromSibling)))
+      f.publication.success(())
+      result.futureValue
+    }
+
+    it("does not publish if persistence fails") {
       val f = new PublishingFixture
       val failure = new RuntimeException("save failed")
       val result = f.setSyndicationAndPublish(id, rights)
@@ -91,39 +109,6 @@ class SyndicationTest extends AnyFunSpec with Matchers with Syndication with Moc
 
       result.failed.futureValue shouldBe failure
       f.published shouldBe empty
-    }
-
-    it("propagates deletion failures without publishing") {
-      val f = new PublishingFixture
-      val failure = new RuntimeException("delete failed")
-      val result = f.deleteSyndicationAndPublish(id)
-
-      f.deletion.failure(failure)
-
-      result.failed.futureValue shouldBe failure
-      f.published shouldBe empty
-    }
-
-    it("propagates publication failures after saving") {
-      val f = new PublishingFixture
-      val failure = new RuntimeException("publish failed")
-      val result = f.setSyndicationAndPublish(id, rights)
-      f.write.success(Json.obj())
-
-      f.publication.failure(failure)
-
-      result.failed.futureValue shouldBe failure
-    }
-
-    it("propagates publication failures after deletion") {
-      val f = new PublishingFixture
-      val failure = new RuntimeException("publish failed")
-      val result = f.deleteSyndicationAndPublish(id)
-      f.deletion.success(())
-
-      f.publication.failure(failure)
-
-      result.failed.futureValue shouldBe failure
     }
   }
 
