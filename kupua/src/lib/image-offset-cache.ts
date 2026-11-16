@@ -84,7 +84,12 @@ export function buildSearchKey(params: SearchParams | Record<string, unknown>): 
       !URL_DISPLAY_KEYS.has(k) &&
       k !== "offset" && k !== "length" && k !== "batch" &&
       v != null && v !== "")
-    .map(([key, value]) => [key, key === "recentUploadScope" ? { key: (value as NonNullable<SearchParams["recentUploadScope"]>).key } : value])
+    .map(([key, value]) => {
+      if (key !== "recentUploadScope") return [key, value];
+      const scope = value as NonNullable<SearchParams["recentUploadScope"]>;
+      return [key, { key: scope.key, ...(scope.combined ? { combined: true, batch: scope.batch } : {}),
+        ...(scope.excludedIds ? { excludedIds: scope.excludedIds } : {}) }];
+    })
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify(entries);
 }

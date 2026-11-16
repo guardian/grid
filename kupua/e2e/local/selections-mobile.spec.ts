@@ -240,8 +240,13 @@ test("phone keeps an unfinished field available after leaving the searchbox", as
   await expect(editor).toContainText("credit");
   expect(new URL(page.url()).searchParams.get("query")).toBeNull();
   await page.getByRole("button", { name: "Settings", exact: true }).tap();
-  await editor.click();
-  await editor.press("End");
+  const creditValue = editor.locator("chip-wrapper").filter({ hasText: "credit" }).locator("chip-value");
+  await expect(creditValue).toHaveText("");
+  await creditValue.tap();
+  await expect.poll(() => page.locator("cql-input").evaluate((element: any) => {
+    const { selection } = element.editorView.state;
+    return { node: selection.$from.parent.type.name, empty: selection.empty };
+  })).toEqual({ node: "chipValue", empty: true });
   await editor.pressSequentially("Getty");
   await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe("credit:Getty");
 });

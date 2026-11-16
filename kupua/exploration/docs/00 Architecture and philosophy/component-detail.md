@@ -54,7 +54,7 @@ revisioned in-memory batch membership shared by fixtures and completed jobs.
 departure capture and existing snapshot/density restoration. Upload omits the
 search toolbar, selection controls and list panels; shared Grid/Table/Justified,
 detail and crop navigate within the admitted route. It mounts no second engine.
-Empty/missing membership cannot become a library query. Job-owned batches default
+Empty/missing membership cannot become an unrestricted batch query. Job-owned batches default
 to submitted-filename order through bounded, search-qualified ID pages in the same
 API datasource; explicit library sorts stay server-owned. The
 [Upload workplan](../gradually-growing-teeth.upload-workplan.md#u1-route-safe-browsing-and-scope-admission)
@@ -76,14 +76,29 @@ so resolving permission cannot remount Search or discard an input draft. Direct
 Upload visits admit empty membership and an explanation when refused, including
 batch/detail URLs; fullscreen presentation is cleared through its existing exit owner.
 Later submissions create separate batches. A minimum
-selector width keeps short batch references readable as compact toolbars wrap. The selector
-shows five recent choices plus outstanding/current older work, without deleting
-older URLs. `lib/local-batch-storage.ts` persists allowlisted tab-local descriptors,
+selector width keeps submission labels readable as compact toolbars wrap. The selector
+shows five recent choices plus outstanding/current older work; Earlier batches reaches
+every retained in-memory record without changing retention. `lib/local-batch-storage.ts` persists allowlisted tab-local descriptors,
 not files, grants or images. Reload restores known members and interrupted attempts;
 storage failure is visible and protects unretained work. Retrying local storage is
 not an upload retry. Recent uploads uses an identity-scoped library query, not batch
 or submission history. Form density is available in Upload; metadata saves and
 applicators remain U5.
+
+Upload renders one open batch above My other uploads in the same scroll container.
+`dal/upload-page-reader.ts` composes the independent source orders and tagged cursors
+under the existing search store. Lower reads are newest-first, human-uploader scoped
+and exclude only the open batch's canonical IDs through the existing CQL mapper.
+`lib/upload-section-layout.ts` composes actual section space, local/global offsets
+and native spatial navigation; headings are not image records. Form keeps bounded
+measured spans; fixed Grid retains column phase, and Justified retains separate
+bounded packing snapshots. Heading content stays viewport-width and horizontally
+sticky inside Table's wider column extent, without another scroll owner or a
+vertical-height change. The persistent status and scrubber identify the section.
+Detail/fullscreen traversal stays within its captured source; crop returns through
+that image. Required read errors remain explicit, and a partial source page cannot
+be appended across an unread gap. View all your uploads leaves for ordinary Search
+with the current human's email in `uploadedBy`, without the batch exclusion.
 Startup upload admission is independent of metadata editing. `components/UploadProgress.tsx`
 renders a temporary activity round, not upload history. Search joins its separately
 clickable status segment to the left of the blue Upload button; Upload places activity

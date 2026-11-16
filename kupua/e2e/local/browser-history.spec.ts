@@ -15,9 +15,29 @@
  *   npx playwright test e2e/local/browser-history.spec.ts --headed
  */
 
-import { test, expect, waitForFixtureSetup } from "../shared/helpers";
+import { test, expect, waitForFixtureSetup, type KupuaHelpers } from "../shared/helpers";
 
 const PHANTOM_HISTORY_DESCRIBE = "Snapshot restore — phantom mode departure update";
+
+async function startMockedHistory(kupua: KupuaHelpers, setup: () => Promise<void>) {
+  const page = kupua.page;
+  let directReads = 0;
+  await page.route("**/es/**", route => {
+    directReads++;
+    return route.fulfill({ status: 503, body: "" });
+  });
+  const entry = "**/src/main.tsx*";
+  await page.route(entry, async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `await (${setup.toString()})();\n${await response.text()}` });
+  });
+  try {
+    await kupua.startSearch();
+    expect(directReads).toBe(0);
+  } finally {
+    await page.unroute(entry);
+  }
+}
 
 test("Upload requires media-api without reading resolved membership through direct ES", async ({ kupua, page }) => {
   await kupua.startSearch();
@@ -495,8 +515,7 @@ test.describe("KUP-014 deferred producer ownership", () => {
       ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
       : route.fallback());
     await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
-    await kupua.startSearch();
-    await page.evaluate(async () => {
+    await startMockedHistory(kupua, async () => {
       const mockPath = "/src/dal/mock-data-source.ts";
       const { MockDataSource } = await import(mockPath);
       const source = new MockDataSource(20);
@@ -510,9 +529,7 @@ test.describe("KUP-014 deferred producer ownership", () => {
       const store = (window as any).__kupua_store__;
       (window as any).__deferredProducer = { originalSource: store.getState().dataSource, aiCalls: () => aiCalls };
       store.setState({ dataSource: source, focusedImageId: null });
-      await store.getState().search();
     });
-    await kupua.waitForResults();
   });
 
   test.afterEach(async ({ page }) => {
@@ -851,8 +868,7 @@ test.describe("KUP-008 pending AI sort ownership", () => {
       return route.continue();
     });
     await page.route("**/bedrock/**", (route) => route.fulfill({ json: { available: true } }));
-    await kupua.startSearch();
-    await page.evaluate(async () => {
+    await startMockedHistory(kupua, async () => {
       const mockPath = "/src/dal/mock-data-source.ts";
       const { MockDataSource } = await import(mockPath);
       const store = (window as any).__kupua_store__;
@@ -875,9 +891,7 @@ test.describe("KUP-008 pending AI sort ownership", () => {
       });
       (window as any).__kupua_pendingAiTest__ = { pending, originalSource, counts: () => countCalls };
       store.setState({ dataSource: source, focusedImageId: null });
-      await store.getState().search();
     });
-    await kupua.waitForResults();
   });
 
   test.afterEach(async ({ page }) => {

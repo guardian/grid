@@ -32,6 +32,7 @@ import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useIsCompact } from "@/hooks/useShell";
 import { SelectionImageActions } from "./ImageActions";
+import { UploadOrientation } from "./UploadSections";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -261,7 +262,7 @@ export const StatusBar = memo(function StatusBar() {
       {/* Result count — seeded from sessionStorage across reload.
            Show when settled (storeReady) even if 0; show cached during loading
            only if > 0 (avoids blank-then-number flash on first load). */}
-      {(storeReady || displayTotal > 0) && (
+      {path === "/upload" ? <UploadOrientation /> : (storeReady || displayTotal > 0) && (
         <span role="status" aria-live="polite" aria-atomic="true" className="px-2 flex items-center whitespace-nowrap select-text shrink-0">
           {displayPool !== null && "Best "}
           {displayTotal.toLocaleString()}

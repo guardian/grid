@@ -104,28 +104,13 @@ test.describe("CollectionTree — with mock service", () => {
     );
   });
 
-  test("renders root-level nodes in left panel", async ({ kupua }) => {
+  test("renders root nodes and expands and collapses their children", async ({ kupua }) => {
     await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
     await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
     await expect(kupua.page.getByText("Travel", { exact: true })).toBeVisible();
-  });
-
-  test("child nodes hidden until parent is expanded", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.page.keyboard.press("Alt+[");
-
-    await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
-    // Football is a child of Sport — should not be visible yet
     await expect(kupua.page.getByText("Football", { exact: true })).not.toBeVisible();
-  });
-
-  test("clicking the collapse chevron hides child nodes", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.page.keyboard.press("Alt+[");
-
-    await expect(kupua.page.getByText("Sport", { exact: true })).toBeVisible({ timeout: 5000 });
 
     // Expand
     await kupua.page.getByRole("button", { name: "Expand" }).click();
@@ -136,10 +121,11 @@ test.describe("CollectionTree — with mock service", () => {
     await expect(kupua.page.getByText("Football", { exact: true })).not.toBeVisible();
   });
 
-  test("clicking a collection node adds filter and auto-switches sort", async ({ kupua }) => {
+  test("selecting, reselecting and clearing a collection preserves filter and sort semantics", async ({ kupua }) => {
     await kupua.startSearch();
     await kupua.page.keyboard.press("Alt+[");
 
+    const defaultSort = new URL(kupua.page.url()).searchParams.get("orderBy") ?? "-uploadTime";
     const travelNode = kupua.page.getByText("Travel", { exact: true });
     await expect(travelNode).toBeVisible({ timeout: 5000 });
 
@@ -153,24 +139,10 @@ test.describe("CollectionTree — with mock service", () => {
     const url = new URL(kupua.page.url());
     expect(url.searchParams.get("query")).toContain("collection");
     expect(url.searchParams.get("orderBy")).toBe("-dateAddedToCollection");
-  });
-
-  test("clearing a collection query reverts sort to previous", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.page.keyboard.press("Alt+[");
-
-    // Capture the default sort before clicking a collection
-    const defaultSort = new URL(kupua.page.url()).searchParams.get("orderBy") ?? "-uploadTime";
-
-    const travelNode = kupua.page.getByText("Travel", { exact: true });
-    await expect(travelNode).toBeVisible({ timeout: 5000 });
-
-    // Click collection → sort should auto-switch
+    const urlAfterFirstClick = kupua.page.url();
     await travelNode.click();
-    await kupua.page.waitForURL(
-      (url: URL) => url.searchParams.get("orderBy") === "-dateAddedToCollection",
-      { timeout: 5000 },
-    );
+    await kupua.page.waitForTimeout(500);
+    expect(kupua.page.url()).toBe(urlAfterFirstClick);
 
     // Clear query via the clear button → sort should revert
     await kupua.page.getByRole("button", { name: /clear/i }).click();
@@ -181,25 +153,6 @@ test.describe("CollectionTree — with mock service", () => {
 
     const revertedSort = new URL(kupua.page.url()).searchParams.get("orderBy") ?? "-uploadTime";
     expect(revertedSort).toBe(defaultSort);
-  });
-
-  test("clicking an active collection node is a no-op", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.page.keyboard.press("Alt+[");
-
-    const travelNode = kupua.page.getByText("Travel", { exact: true });
-    await expect(travelNode).toBeVisible({ timeout: 5000 });
-
-    // Add filter
-    await travelNode.click();
-    await kupua.page.waitForURL((url: URL) => url.href.includes("collection"), { timeout: 5000 });
-    const urlAfterFirstClick = kupua.page.url();
-
-    // Click again — should be a no-op (active collection click does nothing)
-    await travelNode.click();
-    // Brief wait to confirm no navigation fires
-    await kupua.page.waitForTimeout(500);
-    expect(kupua.page.url()).toBe(urlAfterFirstClick);
   });
 });
 

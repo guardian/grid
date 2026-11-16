@@ -1,13 +1,49 @@
 import { describe, expect, it, vi } from "vitest";
 import { Virtualizer } from "@tanstack/react-virtual";
 import type { Image } from "@/types/image";
-import { buildMeasuredLayout } from "./windowed-measured-layout";
+import { buildMeasuredLayout, measuredLayoutRowKey } from "./windowed-measured-layout";
+import { composeUploadLayout, fixedUploadLayout, UPLOAD_SECTION_HEIGHT } from "./upload-section-layout";
 
 const images = Array.from({ length: 1000 }, (_, index) => ({ id: `image-${index + 5000}` }) as Image);
 const context = { bufferOffset: 5000, total: 65000, indexed: true, searchKey: "measured" };
 const options = { estimatedHeight: 320, estimate: () => 320, measurements: new Map<string, number>() };
 
 describe("bounded measured window geometry", () => {
+  it("gives independently unloaded section spans unique virtualizer keys", () => {
+    const layout = composeUploadLayout(images.slice(0, 200), 800, { ...context, bufferOffset: 0, total: 9000000 }, 250, true,
+      (resident, scope) => buildMeasuredLayout(resident, 800, scope, options));
+    const keys = Array.from({ length: layout.rowCount }, (_, index) => measuredLayoutRowKey(layout, index));
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("preserves Grid columns and logical Form navigation inside an unloaded section span", () => {
+    const grid = composeUploadLayout(images.slice(0, 12), 900, { ...context, bufferOffset: 250, total: 1000, indexed: false }, 250, true,
+      (resident, scope) => fixedUploadLayout(resident.length, 900, 3, 100, scope.bufferOffset));
+    expect(grid.spatial.neighbour(1, 1)).toBe(4);
+    const shifted = fixedUploadLayout(200, 900, 3, 100, 200);
+    expect(shifted.getBox(0)?.left).toBe(fixedUploadLayout(400, 900, 3, 100).getBox(200)?.left);
+    const measured = composeUploadLayout(images.slice(0, 200), 800, context, 250, true,
+      (resident, scope) => buildMeasuredLayout(resident, 800, scope, options));
+    expect(measured.spatial.getItemRow(100).index).toBe(100);
+    expect(measured.spatial.getRow(101).top - measured.spatial.getRow(100).top).toBe(320);
+  });
+
+  it("composes section extents without catalogue-sized rows and preserves lower local positions across upper growth", () => {
+    const loaded = images.slice(0, 200);
+    const build = (batch: number) => composeUploadLayout(loaded, 800,
+      { ...context, total: 1_000_000 + batch, bufferOffset: batch + 5000 }, batch, true,
+      (resident, scope) => buildMeasuredLayout(resident, 800, scope, options));
+    const before = build(250);
+    const after = build(251);
+    expect(before.rowCount).toBe(203);
+    expect(after.rowCount).toBe(203);
+    expect(before.headers.map(header => header.section)).toEqual(["batch", "other"]);
+    expect(before.getItemRow(5250).top).toBe(5250 * 320 + 2 * UPLOAD_SECTION_HEIGHT);
+    expect(after.getItemRow(5251).top - before.getItemRow(5250).top).toBe(320);
+    expect(after.window.findItemIndex(loaded[0].id)).toBe(5251);
+    expect(after.getItemRow(5252).top - after.getItemRow(5251).top).toBe(320);
+  });
+
   it("keeps correction work bounded while the native extent covers the entire indexed result", () => {
     for (const total of [12000, 65000]) {
       const estimate = vi.fn(options.estimate);

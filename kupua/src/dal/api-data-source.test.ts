@@ -44,6 +44,89 @@ const queryCases = [
 ];
 
 describe("API query forwarding", () => {
+  it("retains the independently readable lower section when the upper page fails", async () => {
+    stubMediaApi({
+      "/images/count": body => ({ total: body.ids ? 2 : 130 }),
+      "/images/search-after": body => body.ids ? failure(503) : { data: [entity("other-0")], total: 130, sortValues: [[0, "other-0"]] },
+    });
+    const result = await new ApiDataSource().searchAfter({ length: 4, recentUploadScope: {
+      key: "upload:page:failed", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:failed", revision: 1, ids: ["a".repeat(40), "b".repeat(40)], submittedOrder: true },
+    } }, null);
+    expect(result.hits.map(image => image.id)).toEqual(["other-0"]);
+    expect(result.uploadSections).toMatchObject({ batch: 2, other: 130, batchError: "Batch images are unavailable." });
+    expect(result.uploadOffset).toBe(2);
+  });
+
+  it("composes an ordered batch and other uploads through one bounded page with section-qualified cursors", async () => {
+    const batchIds = ["a".repeat(40), "b".repeat(40)];
+    const others = Array.from({ length: 130 }, (_, index) => `other-${index}`);
+    const calls = stubMediaApi({
+      "/images/count": body => ({ total: body.ids ? batchIds.length : others.length, tickerCounts: {} }),
+      "/images/search-after": body => {
+        const ids = body.ids ? batchIds.filter(id => (body.ids as string[]).includes(id)) : others;
+        const cursor = body.sortValues as SortValues | undefined;
+        const cursorIndex = cursor ? ids.indexOf(String(cursor.at(-1)).replace(/\u0000$/, "")) : -1;
+        const matching = !cursor ? ids : ids.filter((_, index) => body.reverse ? index < cursorIndex + (String(cursor.at(-1)).endsWith("\u0000") ? 1 : 0) : index > cursorIndex);
+        const page = body.reverse ? matching.slice(-Number(body.length ?? 200)) : matching.slice(0, Number(body.length ?? 200));
+        return { data: page.map(entity), total: ids.length, sortValues: page.map(id => [ids.indexOf(id), id]) };
+      },
+      "/images/keys": body => ({ keys: (body.ids ? batchIds : others).map(id => ({ id, sortValues: [(body.ids ? batchIds : others).indexOf(id), id] })), after: null }),
+      "/images/window": body => {
+        const start = Number(body.offset);
+        const page = others.slice(start, start + Number(body.length));
+        return { data: page.map(entity), total: others.length, offset: start, sortValues: page.map(id => [others.indexOf(id), id]) };
+      },
+      "/images/rank": body => ({ rank: others.indexOf(String((body.sortValues as SortValues).at(-1))) }),
+    });
+    const source = new ApiDataSource();
+    const scope = { nonFree: "true", length: 4, recentUploadScope: {
+      key: "upload:page:open", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:open", revision: 1, ids: batchIds, submittedOrder: true },
+    } };
+    const first = await source.searchAfter(scope, null);
+    expect(first.hits.map(image => image.id)).toEqual([...batchIds, ...others.slice(0, 2)]);
+    expect(first.total).toBe(132);
+    expect(first.sortValues).toEqual([[0, 0, batchIds[0]], [0, 1, batchIds[1]], [1, 0, others[0]], [1, 1, others[1]]]);
+    const second = await source.searchAfter(scope, first.sortValues.at(-1)!);
+    expect(second.hits.map(image => image.id)).toEqual(others.slice(2, 6));
+    expect(await source.countBefore(scope, second.sortValues[0])).toBe(4);
+    const distant = await source.searchAfter({ ...scope, offset: 102 }, null);
+    expect(distant.hits.map(image => image.id)).toEqual(others.slice(100, 104));
+    const previous = await source.searchAfter(scope, first.sortValues[2], null, undefined, true);
+    expect(previous.hits.map(image => image.id)).toEqual(batchIds);
+    const positions = await source.fetchPositionIndex(scope, new AbortController().signal);
+    expect(positions?.ids).toEqual([...batchIds, ...others]);
+    expect(positions?.sortValues.at(-1)).toEqual([1, 129, "other-129"]);
+    expect(calls.filter(call => !call.body.ids).every(call => call.body.uploadedBy === "uploader@example.invalid"
+      && call.body.orderBy === "-uploadTime" && String(call.body.q).includes(batchIds[0]))).toBe(true);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(source.searchAfter(scope, null, null, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("qualifies every other-upload read with the open batch exclusion, including pages beyond 50", async () => {
+    const excludedIds = ["a".repeat(40), "b".repeat(40)];
+    const calls = stubMediaApi({
+      "/images/window": () => ({ data: [entity("other-100")], total: 300, sortValues: [[100, "other-100"]], offset: 100 }),
+      "/images/count": () => ({ total: 300, tickerCounts: {} }),
+      "/images/rank": () => ({ rank: 100 }),
+      "/images/keys": () => ({ keys: [], after: null }),
+    });
+    const source = new ApiDataSource();
+    const scope = { ...params, recentUploadScope: { key: "upload:other:local-open", uploadedBy: "uploader@example.invalid", excludedIds } };
+    expect((await source.searchAfter({ ...scope, offset: 100 }, null)).hits.map(image => image.id)).toEqual(["other-100"]);
+    expect(await source.count(scope)).toBe(300);
+    expect(await source.countBefore(scope, [100, "other-100"])).toBe(100);
+    await source.fetchPositionIndex(scope, new AbortController().signal);
+    expect(calls.map(call => call.path)).toEqual(["/images/window", "/images/count", "/images/rank", "/images/keys"]);
+    for (const { body } of calls) {
+      expect(body).toMatchObject({ q: excludedIds.map(id => `-id:"${id}"`).join(" "), uploadedBy: "uploader@example.invalid" });
+      expect(body).not.toHaveProperty("free");
+      expect(body).not.toHaveProperty("ids");
+    }
+  });
+
   it("pages submitted membership in filename order with bounded hydration, missing members and qualified local cursors", async () => {
     const ids = Array.from({ length: 500 }, (_, index) => index.toString(16).padStart(40, "0"));
     const available = ids.filter((_, index) => index !== 2);

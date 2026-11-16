@@ -83,8 +83,9 @@ test.beforeEach(async ({ kupua }) => {
 // ===========================================================================
 
 test.describe("Grid — tickbox hover affordance", () => {
-  test("hovering a grid cell reveals the tickbox button", async ({ kupua }) => {
+  test("grid hover reveals the tickbox and successive ticks update selection and status", async ({ kupua }) => {
     await kupua.startSearch();
+    await clearSelection(kupua.page);
 
     // Playwright Desktop Chrome uses pointer: fine by default.
     // Hover the first grid cell.
@@ -94,6 +95,14 @@ test.describe("Grid — tickbox hover affordance", () => {
     // The tickbox button should now be visible (CSS hover rule).
     const tickbox = firstCell.locator('button[aria-label="Select image"]');
     await expect(tickbox).toBeVisible({ timeout: 3000 });
+    await tickbox.click();
+    expect(await getSelectionCount(kupua.page)).toBe(1);
+    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
+    await expect(statusBar).toBeVisible({ timeout: 3000 });
+    await expect(statusBar).toContainText("1");
+    await kupua.page.locator('[data-grid-cell]').nth(1).locator('button[aria-checked]').click();
+    expect(await getSelectionCount(kupua.page)).toBe(2);
+    await expect(statusBar).toContainText("2");
   });
 });
 
@@ -102,47 +111,6 @@ test.describe("Grid — tickbox hover affordance", () => {
 // ===========================================================================
 
 test.describe("Grid — click to enter/exit selection mode", () => {
-  test("clicking a tickbox enters selection mode and shows SelectionStatusBar", async ({ kupua }) => {
-    await kupua.startSearch();
-    await clearSelection(kupua.page);
-
-    const firstCell = kupua.page.locator('[data-grid-cell]').first();
-    await firstCell.hover();
-
-    // Click the tickbox
-    const tickbox = firstCell.locator('button[aria-label="Select image"]');
-    await tickbox.click();
-
-    // Selection count should be 1
-    const count = await getSelectionCount(kupua.page);
-    expect(count).toBe(1);
-
-    // SelectionStatusBar should appear with "1 selected"
-    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
-    await expect(statusBar).toBeVisible({ timeout: 3000 });
-    await expect(statusBar).toContainText("1");
-  });
-
-  test("clicking a second tickbox adds to selection", async ({ kupua }) => {
-    await kupua.startSearch();
-    await clearSelection(kupua.page);
-
-    const cells = kupua.page.locator('[data-grid-cell]');
-
-    // Select first
-    await cells.nth(0).hover();
-    await cells.nth(0).locator('button').filter({ hasText: "" }).first().click();
-
-    // Select second — in selection mode, tickboxes are always visible
-    await cells.nth(1).locator('button[aria-checked]').click();
-
-    const count = await getSelectionCount(kupua.page);
-    expect(count).toBe(2);
-
-    const statusBar = kupua.page.locator('[role="status"]', { hasText: "selected" });
-    await expect(statusBar).toContainText("2");
-  });
-
   for (const relationship of ["equal", "distinct"] as const) {
   test(`selection anchor preserves ${relationship} older focus during sort`, async ({ kupua }) => {
     await kupua.startSearch("since=2026-03-15&until=2026-03-20");
@@ -242,18 +210,13 @@ test.describe("Grid — click to enter/exit selection mode", () => {
 // ===========================================================================
 
 test.describe("Table — selection column", () => {
-  test("selection column is present (leftmost) in table view", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.switchToTable();
-
-    const firstHeader = kupua.page.locator('[aria-label="Image results table"] [role="columnheader"]').first();
-    await expect(firstHeader).toHaveAttribute("aria-label", "Selection");
-  });
-
-  test("hovering a table row reveals the tickbox in the selection column", async ({ kupua }) => {
+  test("table selection column leads the row and its hover tick enters selection mode", async ({ kupua }) => {
     await kupua.startSearch();
     await kupua.switchToTable();
     await clearSelection(kupua.page);
+
+    const firstHeader = kupua.page.locator('[aria-label="Image results table"] [role="columnheader"]').first();
+    await expect(firstHeader).toHaveAttribute("aria-label", "Selection");
 
     // Hover the first real data row
     const firstRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]').first();
@@ -261,16 +224,7 @@ test.describe("Table — selection column", () => {
 
     const tickbox = firstRow.locator('button[aria-label="Select image"]');
     await expect(tickbox).toBeVisible({ timeout: 3000 });
-  });
-
-  test("clicking a table tickbox enters selection mode", async ({ kupua }) => {
-    await kupua.startSearch();
-    await kupua.switchToTable();
-    await clearSelection(kupua.page);
-
-    const firstRow = kupua.page.locator('[aria-label="Image results table"] [role="row"][class*="cursor-pointer"]').first();
-    await firstRow.hover();
-    await firstRow.locator('button[aria-label="Select image"]').click();
+    await tickbox.click();
 
     expect(await getSelectionCount(kupua.page)).toBe(1);
 

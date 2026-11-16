@@ -199,7 +199,17 @@ Search and Upload provide permission-aware multi-file picker/drop entry. Each
 submission owns a distinct short local batch reference; internal Grid and in-page
 image drags do not submit files. A small selector shows five recent batches plus
 outstanding work and the selected older record. Search return is separate from
-batch selection. A temporary activity indicator expands current-round file outcomes;
+batch selection; Earlier batches reaches all retained descriptors and in-memory work.
+The Upload page composes one open batch above all other current-human uploads through
+one bounded buffer. `UploadPageReader` prefixes source cursors, translates offsets/ranks
+and keeps lower ordering independent of the batch sort. Existing CQL negated canonical
+IDs apply the open batch exclusion consistently to lower pages/counts/ranks/keys; this
+is neither browser filtering nor a newest-50 limit. Identity and request failures do
+not widen the query. The Upload fingerprint retains section membership/revision but
+omits the in-memory human identity. View all your uploads deliberately opens ordinary
+Search with that user's email in `uploadedBy`, matching Kahuna, without batch exclusion.
+Partial pages keep their actual position and required-read failures remain recognizable.
+A temporary activity indicator expands current-round file outcomes;
 it is not batch history or a canonical-image count. Form density is connected, while
 new post-upload metadata/preset writes remain U5-U7. B2's shared backend status/pending-object
 identities are not repaired: local witnesses prove attempt retention, not concurrent server

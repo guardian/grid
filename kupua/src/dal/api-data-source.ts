@@ -33,6 +33,7 @@ import { apiGetByIds, apiGetImage, apiImageWindow, apiSearchAfter, apiSearchByAi
 import { MAX_RESULT_WINDOW, PAGE_SIZE, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
+import { UploadPageReader } from "./upload-page-reader";
 
 /** media-api's window refuses start offsets at or above this; deeper positions use cursor reads. */
 export const API_WINDOW_OFFSET_LIMIT = 10_000;
@@ -73,6 +74,7 @@ function yieldToMain(): Promise<void> {
 
 export class ApiDataSource implements ImageDataSource {
   readonly offsetReadLimit = API_WINDOW_OFFSET_LIMIT;
+  readonly uploadPage = new UploadPageReader(this);
 
   searchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null> {
     return apiSearchByAi(params, signal);
@@ -126,6 +128,10 @@ export class ApiDataSource implements ImageDataSource {
   }
 
   async countWithTickers(params: SearchParams, signal?: AbortSignal): Promise<CountWithTickersResult> {
+    if (params.recentUploadScope?.combined) {
+      const bounds = await this.uploadPage.bounds(params, signal);
+      return { count: bounds.batch + bounds.other, tickerCounts: {} };
+    }
     const body = buildReadBody(params);
     delete body.sort;
     const json = await postImageRead("/images/count", body, signal) as CountResponse;
@@ -154,6 +160,7 @@ export class ApiDataSource implements ImageDataSource {
     reverse?: boolean,
     seekToEnd?: boolean,
   ): Promise<SearchAfterResult> {
+    if (params.recentUploadScope?.combined) return this.uploadPage.page(params, searchAfterValues, signal, reverse);
     if (params.imageScope?.submittedOrder && !params.orderBy) return this.submittedPage(params, searchAfterValues, signal, reverse);
     // media-api PIT support is dormant: openPit() returns null, so no PIT is ever sent.
     return !searchAfterValues && !reverse && !seekToEnd && (params.offset ?? 0) > 0
@@ -162,6 +169,7 @@ export class ApiDataSource implements ImageDataSource {
   }
 
   async countBefore(params: SearchParams, sortValues: SortValues, signal?: AbortSignal): Promise<number> {
+    if (params.recentUploadScope?.combined) return this.uploadPage.rank(params, sortValues, signal);
     if (params.imageScope?.submittedOrder && !params.orderBy) {
       const position = params.imageScope.ids.indexOf(String(sortValues.at(-1)).replace(/\u0000$/, ""));
       if (position <= 0) return 0;
@@ -295,6 +303,7 @@ export class ApiDataSource implements ImageDataSource {
     _direction: "asc" | "desc",
     signal?: AbortSignal,
   ): Promise<SortDistribution | null> {
+    if (params.recentUploadScope?.combined) return null;
     const BUCKET_SIZE = 10_000;
     const MAX_PAGES = 5;
     const buckets: SortDistBucket[] = [];
@@ -339,6 +348,7 @@ export class ApiDataSource implements ImageDataSource {
     signal?: AbortSignal,
     missingField?: string,
   ): Promise<SortDistribution | null> {
+    if (params.recentUploadScope?.combined) return null;
     const request = { field, ...(missingField ? { missingField } : {}) };
     try {
       const stats = await this.sortProfile<DateStats>(params, { operation: "date-stats", ...request }, signal);
@@ -368,6 +378,7 @@ export class ApiDataSource implements ImageDataSource {
   }
 
   async fetchPositionIndex(params: SearchParams, signal: AbortSignal): Promise<PositionMap | null> {
+    if (params.recentUploadScope?.combined) return this.uploadPage.positions(params, signal);
     const size = Math.min(POSITION_MAP_CHUNK_SIZE, MAX_RESULT_WINDOW);
     const ids: string[] = [];
     const sortValues: SortValues[] = [];

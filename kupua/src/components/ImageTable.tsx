@@ -18,6 +18,8 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { useDataWindow } from "@/hooks/useDataWindow";
+import { composeUploadLayout, fixedUploadLayout } from "@/lib/upload-section-layout";
+import { UploadSectionHeading } from "./UploadSections";
 import { useHeaderHeight } from "@/hooks/useHeaderHeight";
 import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
@@ -430,12 +432,18 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   } = useColumnStore();
   const updateSearch = useUpdateSearchParams();
   const searchParams = useBrowsingSearch();
+  const submittedOrder = !!(searchParams.imageScope?.submittedOrder || searchParams.recentUploadScope?.batch?.submittedOrder);
   const { path } = useBrowsingContext();
   const selectionEnabled = path === "/search";
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const parentRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const sections = useSearchStore(state => state.uploadSections);
+  const sectionLayout = useMemo(() => searchParams.recentUploadScope?.combined
+    ? composeUploadLayout(results, 1, { bufferOffset, total, indexed: twoTier, searchKey: buildSearchKey(searchParams) }, sections?.batch ?? 0, !!searchParams.batch,
+      (resident, context) => fixedUploadLayout(context.indexed ? context.total : resident.length, 1, 1, ROW_HEIGHT)) : undefined,
+  [results, bufferOffset, total, twoTier, searchParams, sections?.batch]);
 
   // C.1: Measure the actual rendered header height via ResizeObserver.
   // Falls back to TABLE_HEADER_HEIGHT (36) on the first frame before the DOM
@@ -493,7 +501,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       }
       pushNavigate(navigate, {
         to: path,
-        search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId,
+          ...(path === "/upload" ? { section: searchParamsRef.current.recentUploadScope?.batch?.ids.includes(imageId) ? "batch" : "other" } : {}) }),
         state: { _detailEntryImageId: imageId },
       });
     },
@@ -618,7 +627,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const virtualizer = useVirtualizer({
     count: virtualizerCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: index => sectionLayout?.getRow(index).height ?? ROW_HEIGHT,
     overscan: 15,
     // Account for sticky header — without this, scrollToIndex considers
     // rows behind the header as "visible" and won't scroll to them.
@@ -632,6 +641,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     // viewport edge at any zoom level.
     scrollPaddingEnd: ROW_HEIGHT * 2,
   });
+
+  useEffect(() => { if (sectionLayout) virtualizer.measure(); }, [sectionLayout, virtualizer]);
 
   // -------------------------------------------------------------------------
   // Shared scroll effects (scroll container registration, scroll handler,
@@ -647,12 +658,12 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     (rowIdx: number) => {
       const el = parentRef.current;
       if (!el) return;
-      const rowCenter = rowIdx * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const rowCenter = (sectionLayout?.getItemRow(rowIdx).top ?? rowIdx * ROW_HEIGHT) + ROW_HEIGHT / 2;
       const usableHeight = el.clientHeight - headerHeight;
       const target = Math.max(0, rowCenter - usableHeight / 2);
       virtualizer.scrollToOffset(target);
     },
-    [virtualizer, headerHeight],
+    [virtualizer, headerHeight, sectionLayout],
   );
 
   useScrollEffects({
@@ -660,13 +671,13 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     parentRef,
     scrollRowToCenter,
     geometry: useMemo(
-      () => ({
+      () => sectionLayout ? { layout: sectionLayout, spatial: sectionLayout.spatial, window: sectionLayout.window, headerOffset: headerHeight, preserveScrollLeftOnSort: true } : ({
         rowHeight: ROW_HEIGHT,
         columns: 1,
         headerOffset: headerHeight,
         preserveScrollLeftOnSort: true,
       }),
-      [headerHeight],
+      [headerHeight, sectionLayout],
     ),
     reportVisibleRange,
     resultsLength: results.length,
@@ -688,7 +699,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // (visible + overscan). We extract loaded images at those indices and feed
   // only those to TanStack Table. The render loop then looks up TanStack Rows
   // by image ID via a Map.
-  const virtualItems = virtualizer.getVirtualItems();
+  const virtualItems = virtualizer.getVirtualItems().map(item => sectionLayout
+    ? { ...item, start: sectionLayout.getItemRow(item.index).top, size: ROW_HEIGHT, end: sectionLayout.getItemRow(item.index).top + ROW_HEIGHT } : item);
 
   // Stable visible-image extraction: off-screen loadRange calls create a new
   // `results` array reference, but the images at the *visible* indices haven't
@@ -1010,7 +1022,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Column header click to sort
   const handleSort = useCallback(
     (field: string) => {
-      const orderBy = searchParams.orderBy ?? (searchParams.imageScope?.submittedOrder ? "" : "-uploadTime");
+      const orderBy = searchParams.orderBy ?? (submittedOrder ? "" : "-uploadTime");
       const primary = orderBy.split(",", 1)[0].trim();
 
       const primaryBare = primary.startsWith("-")
@@ -1024,7 +1036,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         updateSearch({ orderBy: defaultSortFor(field) });
       }
     },
-    [searchParams.orderBy, searchParams.imageScope?.submittedOrder, updateSearch]
+    [searchParams.orderBy, submittedOrder, updateSearch]
   );
 
   /**
@@ -1057,7 +1069,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const sortableFields = REGISTRY_SORTABLE_FIELDS;
 
   // Parse the primary sort from the orderBy param.
-  const orderBy = searchParams.orderBy ?? (searchParams.imageScope?.submittedOrder ? "" : "-uploadTime");
+  const orderBy = searchParams.orderBy ?? (submittedOrder ? "" : "-uploadTime");
   const primarySort = orderBy.split(",", 1)[0].trim();
   const primaryBare = primarySort.startsWith("-")
     ? primarySort.slice(1)
@@ -1198,7 +1210,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         ref={parentRef}
         role="region"
         aria-label="Image results table"
-        className="flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain"
+        className={`${sectionLayout ? "@container/upload-results " : ""}flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain`}
         data-selection-mode={inSelectionMode ? "true" : undefined}
       >
       {/* (C) CSS-variable column widths — a single <style> tag sets
@@ -1219,9 +1231,10 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         role="grid"
         aria-label="Image search results"
         aria-rowcount={total}
-        style={{ height: virtualizer.getTotalSize() + headerHeight }}
+        style={{ height: (sectionLayout?.height ?? virtualizer.getTotalSize()) + headerHeight }}
         className="relative inline-block min-w-full leading-[0]"
       >
+        {sectionLayout?.headers.map(header => <UploadSectionHeading key={header.section} section={header.section} top={header.top + headerHeight} />)}
         {/* Header: inline-flex so the browser sizes it from its children
             — no JS-computed width, correct at any browser zoom level. */}
         <div

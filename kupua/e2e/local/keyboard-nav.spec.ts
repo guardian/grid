@@ -77,7 +77,7 @@ test.describe("KUP-013 End with retained hidden focus", () => {
 // ===========================================================================
 
 test.describe("No-focus mode — scroll only", () => {
-  test("ArrowDown scrolls by one row without setting focus (grid)", async ({ kupua }) => {
+  test("grid row and page scrolling stay aligned and Home returns to zero without focus", async ({ kupua }) => {
     await kupua.startSearch();
 
     // Ensure no focus is set
@@ -95,38 +95,34 @@ test.describe("No-focus mode — scroll only", () => {
     expect(scrollAfter - scrollBefore).toBe(GRID_ROW_HEIGHT);
     // Should NOT have set focus
     expect(focusAfter).toBeNull();
-  });
-
-
-  test("PageDown scrolls by one page without setting focus (grid)", async ({ kupua }) => {
-    await kupua.startSearch();
-
-    const scrollBefore = await kupua.getScrollTop();
-    expect(scrollBefore).toBe(0);
+    await kupua.page.keyboard.press("Home");
+    await expect.poll(() => kupua.getScrollTop()).toBe(0);
+    expect(await kupua.getFocusedImageId()).toBeNull();
 
     await kupua.pageDown();
 
-    const scrollAfter = await kupua.getScrollTop();
-    const focusAfter = await kupua.getFocusedImageId();
+    const pageScroll = await kupua.getScrollTop();
 
     // Should have scrolled by multiple rows (at least one page)
-    expect(scrollAfter).toBeGreaterThan(0);
+    expect(pageScroll).toBeGreaterThan(0);
     // Should be row-aligned
-    expect(scrollAfter % GRID_ROW_HEIGHT).toBe(0);
+    expect(pageScroll % GRID_ROW_HEIGHT).toBe(0);
     // Should NOT have set focus
-    expect(focusAfter).toBeNull();
-  });
-
-  test("Home scrolls to top without setting focus", async ({ kupua }) => {
-    await kupua.startSearch();
-
-    // Scroll down first
-    await kupua.pageDown();
+    expect(await kupua.getFocusedImageId()).toBeNull();
     await kupua.pageDown();
     expect(await kupua.getScrollTop()).toBeGreaterThan(0);
 
     await kupua.page.keyboard.press("Home");
-  await expect.poll(() => kupua.getScrollTop()).toBe(0);
+    await expect.poll(() => kupua.getScrollTop()).toBe(0);
+    expect(await kupua.getFocusedImageId()).toBeNull();
+
+    await kupua.scrollBy(150);
+    const nonAlignedScroll = await kupua.getScrollTop();
+    expect(nonAlignedScroll % GRID_ROW_HEIGHT).not.toBe(0);
+    await kupua.pageDown();
+    const alignedScroll = await kupua.getScrollTop();
+    expect(alignedScroll % GRID_ROW_HEIGHT).toBe(0);
+    expect(alignedScroll).toBeGreaterThan(nonAlignedScroll);
     expect(await kupua.getFocusedImageId()).toBeNull();
   });
 
@@ -231,7 +227,7 @@ test.describe("No-focus mode — table view", () => {
 // ===========================================================================
 
 test.describe("Focus mode — arrow keys", () => {
-  test("ArrowDown then ArrowUp restores the exact focused image (grid)", async ({ kupua }) => {
+  test("vertical and horizontal grid arrows restore the exact focused image", async ({ kupua }) => {
     await kupua.startSearch();
 
     await kupua.focusNthItem(0);
@@ -247,14 +243,6 @@ test.describe("Focus mode — arrow keys", () => {
     await kupua.page.keyboard.press("ArrowUp");
 
     expect(await kupua.getFocusedImageId()).toBe(firstFocused);
-  });
-
-  test("ArrowLeft/Right move focus within row (grid)", async ({ kupua }) => {
-    await kupua.startSearch();
-
-    // Focus first item
-    await kupua.focusNthItem(0);
-    const firstFocused = await kupua.getFocusedImageId();
 
     // ArrowRight should move to next cell
     await kupua.page.keyboard.press("ArrowRight");
@@ -385,32 +373,4 @@ test.describe("Search box key trapping", () => {
     await kupua.page.keyboard.press("ArrowLeft");
     expect(await kupua.getFocusedImageId()).toBeNull();
   });
-
 });
-
-// ===========================================================================
-// Row alignment — snapping
-// ===========================================================================
-
-test.describe("Row alignment", () => {
-  test("PageDown from non-aligned position snaps to row boundary (grid)", async ({ kupua }) => {
-    await kupua.startSearch();
-
-    // Scroll by a non-row-aligned amount manually
-    await kupua.scrollBy(150); // 150px, not a multiple of GRID_ROW_HEIGHT (303)
-    const scrollBefore = await kupua.getScrollTop();
-    expect(scrollBefore % GRID_ROW_HEIGHT).not.toBe(0);
-
-    await kupua.pageDown();
-
-    const scrollAfter = await kupua.getScrollTop();
-    // After PageDown, should be row-aligned
-    expect(scrollAfter % GRID_ROW_HEIGHT).toBe(0);
-    expect(scrollAfter).toBeGreaterThan(scrollBefore);
-  });
-
-});
-
-
-
-

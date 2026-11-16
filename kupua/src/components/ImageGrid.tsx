@@ -32,6 +32,9 @@ import { useListNavigation } from "@/hooks/useListNavigation";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
 import { useScrollEffects, type ScrollGeometry } from "@/hooks/useScrollEffects";
 import { useMeasuredLayout, type MeasuredCells } from "@/hooks/useMeasuredLayout";
+import { composeUploadLayout, fixedUploadLayout, type SectionLayout } from "@/lib/upload-section-layout";
+import { UploadSectionHeading } from "./UploadSections";
+import { measuredLayoutRowKey } from "@/lib/windowed-measured-layout";
 import { imageRatio, type ImageLayout } from "@/lib/justified-layout";
 import type { LayoutWindow } from "@/lib/windowed-justified-layout";
 import { getFixedRowCount, getItemColumn, getItemLayoutRow, getLayoutRow, type WindowGeometry } from "@/lib/scroll-geometry-ref";
@@ -578,12 +581,20 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   widthRef.current = containerWidth;
   const committedLayout = useRef<ImageLayout | undefined>(undefined);
   const layoutSearchKey = buildSearchKey(searchParams);
+  const uploadSections = useSearchStore(state => state.uploadSections);
+  const combined = searchParams.recentUploadScope?.combined === true;
+  const sectionWindow = combined ? { batch: uploadSections?.batch ?? 0, present: !!searchParams.batch } : undefined;
   const rowScale = justifiedRowScale(effectiveJustifiedOffset, containerWidth);
   const geometryIdentity = variableLayout ? resultsGeometryIdentity(results) : results;
   const { layout: measuredLayout, captureInput, retireInput } = useMeasuredLayout(parentRef, results, containerWidth,
-    { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey }, measuredCells);
+    { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, uploadSections: sectionWindow }, measuredCells);
   const justifiedLayout = useMemo(() => {
     if (measuredLayout) return measuredLayout;
+    if (combined) return composeUploadLayout(results, containerWidth,
+      { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale }, uploadSections?.batch ?? 0, !!searchParams.batch,
+      (resident, context, previous) => layoutFactory ? layoutFactory(resident, containerWidth, context, previous)
+        : fixedUploadLayout(context.indexed ? context.total : resident.length, containerWidth, columns, rowHeight, context.indexed ? 0 : context.bufferOffset),
+      committedLayout.current as SectionLayout | undefined);
     if (!layoutFactory) return undefined;
     if (RESIDENT_PREVIEW_ENABLED && (bufferOffset !== 0 || twoTier || results.some(image => !image) ||
         (results.length > 0 && results.length !== total))) {
@@ -591,7 +602,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     }
     return layoutFactory(results, containerWidth, { bufferOffset, total: displayEnd, indexed: twoTier, searchKey: layoutSearchKey, rowScale },
       committedLayout.current);
-  }, [layoutFactory, measuredLayout, geometryIdentity, bufferOffset, twoTier, total, displayEnd, containerWidth, layoutSearchKey, rowScale]);
+  }, [layoutFactory, measuredLayout, geometryIdentity, bufferOffset, twoTier, total, displayEnd, containerWidth, layoutSearchKey, rowScale, combined, uploadSections?.batch, searchParams.batch, columns, rowHeight]);
   useLayoutEffect(() => {
     committedLayout.current = justifiedLayout;
     if (justifiedLayout) onLayoutCommit?.(justifiedLayout);
@@ -839,8 +850,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   useLayoutEffect(() => { committedFixedGeometry.current = fixedGeometry; }, [fixedGeometry]);
   const rowCount = justifiedLayout ? justifiedLayout.rowCount : getFixedRowCount(fixedGeometry, logicalItemCount);
   const measuredRowKey = useCallback((index: number) => {
-    const row = measuredLayout!.getRow(index);
-    return measuredLayout!.window.getItemId(row.firstItemIndex) ?? (index === 0 ? "unloaded-head" : "unloaded-tail");
+    return measuredLayoutRowKey(measuredLayout!, index);
   }, [measuredLayout]);
   const measuredRange = useCallback((range: Range) => {
     const indices = defaultRangeExtractor(range);
@@ -1058,7 +1068,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       }
       pushNavigate(navigate, {
         to: path,
-        search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId }),
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: imageId,
+          ...(path === "/upload" ? { section: searchParamsRef.current.recentUploadScope?.batch?.ids.includes(imageId) ? "batch" : "other" } : {}) }),
         state: { _detailEntryImageId: imageId },
       });
     },
@@ -1275,7 +1286,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       ref={parentRef}
       role="region"
       aria-label={measuredCells ? "Image results form" : variableLayout ? "Image results justified" : "Image results grid"}
-      className={`${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain`}
+      className={`${combined ? "@container/upload-results " : ""}${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar pt-1 overscroll-y-contain`}
       data-selection-mode={inSelectionMode ? "true" : undefined}
       style={{ ...(variableLayout ? { overflowAnchor: "none" as const } : {}), touchAction: measuredCells ? "auto" : "pan-y" }}
       onClick={handleBackgroundClick}
@@ -1305,7 +1316,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                   height: row?.height ?? rowHeight,
                   alignItems: measuredCells ? "flex-start" : undefined,
                   gap: variableLayout ? 4 : CELL_GAP,
-                  padding: variableLayout ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px`
+                  padding: justifiedLayout ? `0 0 0 ${justifiedLayout?.getBox(startIdx)?.left ?? 0}px`
                     : `0 ${CELL_GAP}px 0 ${CELL_GAP + getItemColumn(fixedGeometry, startIdx) * (cellWidth + CELL_GAP)}px`,
                 }}
               >
@@ -1336,7 +1347,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                       isFocused={!!image && image.id === focusedImageId && getEffectiveFocusMode() === "explicit" && !inSelectionMode}
                       cellWidth={justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth}
                       imageOnlyHeight={measuredCells && image ? measuredCells.thumbnailHeight(image, containerWidth)
-                        : justifiedLayout ? justifiedLayout.getBox(imageIdx)?.height
+                        : layoutFactory ? justifiedLayout?.getBox(imageIdx)?.height
                         : level.meta ? undefined : level.thumbHeight}
                       thumbHeight={level.thumbHeight}
                       dateLineOnly={!variableLayout && level.dateOnly}
@@ -1362,6 +1373,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
             </ThumbnailLoadingContext.Provider>
           );
         })}
+        {combined && (justifiedLayout as SectionLayout | undefined)?.headers?.map(header => <UploadSectionHeading key={header.section} {...header} />)}
         {terminalView && <div role="status" className="absolute inset-x-0 text-center text-sm text-grid-text-muted pointer-events-none"
           style={{ top: (parentRef.current?.scrollTop ?? 0) + (parentRef.current?.clientHeight ?? 0) / 2 }}>
           {terminalView === "start" ? "Start of results" : "End of results"}

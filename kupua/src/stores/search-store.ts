@@ -40,6 +40,8 @@ import { useEnrichmentStore } from "@/stores/enrichment-store";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { cursorForPosition } from "@/dal/position-map";
 import { buildSortClause, parseSortField, appDataSource } from "@/dal";
+import { UploadPageReader } from "@/dal/upload-page-reader";
+import type { UploadSections } from "@/dal/types";
 import { IS_LOCAL_ES } from "@/dal/es-config";
 import { decorateParamsForAggregations } from "@/lib/ai-search-params";
 import { FIELD_REGISTRY } from "@/lib/field-registry";
@@ -257,6 +259,7 @@ interface TerminalBoundary {
 }
 
 interface SearchState {
+  uploadSections: UploadSections | null;
   // Data source (swappable between ES and Grid API)
   dataSource: ImageDataSource;
 
@@ -2206,6 +2209,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   api.setState = set;
   return ({
   dataSource: appDataSource,
+  uploadSections: null,
 
   params: {
     query: undefined,
@@ -2655,7 +2659,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         // Fire ticker aggs in parallel with the first page.
         // countWithTickers uses size:0 so it doesn't compete with the main
         // search for ES heap. Errors are non-fatal — null means no tickers.
-      const tickerRequest = params.imageScope ? Promise.resolve(null) : dataSource.countWithTickers(requestParams, signal).catch(() => null);
+      const tickerRequest = params.imageScope || params.recentUploadScope?.combined ? Promise.resolve(null) : dataSource.countWithTickers(requestParams, signal).catch(() => null);
       discovery = {
         phase: "initial-read", replacement: null, resultsPublished: false, signal, searchGeneration: myGeneration, searchKey: buildSearchKey(params), dataSource,
         params: requestParams, frozenUntil: options?.frozenUntil, page: pageRequest,
@@ -2685,6 +2689,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // On popstate restore with a frozenUntil, reuse the original freeze
       // timestamp so the ticker correctly counts new images since the
       // user's original search — not since the back/forward navigation.
+      set({ uploadSections: result.uploadSections ?? null });
       const now = options?.frozenUntil ?? new Date().toISOString();
 
       // Extract cursors from sort values
@@ -2800,14 +2805,14 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         if (_acceptedRefillSearchGeneration === myGeneration) cancelWindowReads(get, set);
         set({
           results: result.hits,
-          bufferOffset: 0,
+          bufferOffset: result.uploadOffset ?? 0,
           total: result.total,
           loading: false,
           took: result.took ?? null,
           fetchDuration: result.fetchDuration ?? null,
           seekTime: null,
           params: { ...params, offset: 0 },
-          imagePositions: buildPositions(result.hits, 0),
+          imagePositions: buildPositions(result.hits, result.uploadOffset ?? 0),
           startCursor,
           endCursor,
           pitId: result.pitId ?? newPitId,
@@ -2961,6 +2966,15 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       if (result.pitId === null) set({ pitId: null });
       if (!sameBoundaryCursor(endCursor, get().endCursor)) {
         set({ _extendForwardInFlight: false, _windowRecovery: windowRecovery(signal) });
+        return;
+      }
+      if (result.uploadSections) {
+        const failure = result.uploadSections.batchError ?? result.uploadSections.otherError;
+        set({ uploadSections: result.uploadSections, error: failure ?? null });
+        if (failure && !result.hits.length) { set({ _extendForwardInFlight: false }); return; }
+      }
+      if (result.uploadOffset !== undefined && result.uploadOffset !== globalEnd) {
+        set({ _extendForwardInFlight: false });
         return;
       }
       if (result.hits.length === 0) {
@@ -3150,6 +3164,11 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
             ? new Map([...result.enrichment ?? [], ...valuedPage.enrichment ?? []])
             : undefined,
         };
+      }
+      if (result.uploadSections) {
+        const failure = result.uploadSections.batchError ?? result.uploadSections.otherError;
+        set({ uploadSections: result.uploadSections, error: failure ?? null });
+        if (failure && !result.hits.length) { set({ _extendBackwardInFlight: false }); return; }
       }
       if (result.hits.length === 0) {
         set({ _extendBackwardInFlight: false,
@@ -3452,6 +3471,12 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       if (total === 0 && (discovery || acquireBounds)) {
         result = { hits: [], total: 0, sortValues: [] };
         exactOffset = true;
+        skipBackwardFetch = true;
+      } else if (params.recentUploadScope?.combined && !(clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD)) {
+        const prepared = await new UploadPageReader(dataSource).seek({ ...params, length: PAGE_SIZE }, fetchStart, signal);
+        result = prepared.page;
+        actualOffset = prepared.offset;
+        exactOffset = clampedOffset >= actualOffset && clampedOffset < actualOffset + result.hits.length;
         skipBackwardFetch = true;
       } else if (clampedOffset + PAGE_SIZE >= total && fetchStart >= DEEP_SEEK_THRESHOLD) {
         result = await searchAfter(
@@ -4258,6 +4283,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       set({
         ...discoveredState,
         results: result.hits,
+        ...(result.uploadSections ? { uploadSections: result.uploadSections } : {}),
         _browseNavigation: navigation && presentationCurrent() ? { ...navigation, phase: "ready" } : null,
         bufferOffset: actualOffset,
         // Total is stable within a search session (frozen params) — always

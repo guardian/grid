@@ -54,8 +54,10 @@ product exposure is within Upload; globally exposing the density is not required
 ### Selected Direction
 
 - Upload is a distinct working context with density controls, sorting, editing,
-  detail and crop navigation. **U0b:** omit Upload selection UI and its metadata
-  panel initially; batch arrows provide the required multi-image application.
+  detail and crop navigation. Show one open batch above all other uploads on the
+  same page, under [U4.5](#u45-unified-upload-page-and-navigation). Omit Upload
+  selection UI and its metadata panel initially; batch arrows provide the required
+  whole-batch application, not subset editing.
   Preserve reuse of selection/panel capabilities later without building them now.
   Initially there is no general CQL search bar or Filters facets.
   Facets-as-selection is a later interaction, not part of this build.
@@ -64,7 +66,7 @@ product exposure is within Upload; globally exposing the density is not required
   Returning to search restores its represented position through existing history
   mechanisms. This is not a general multi-workspace system.
 - A file-picker submission or drop creates an explicit local batch. Multiple
-  submissions are not silently merged. Upload activity, image membership and
+  submissions are never appended to an existing batch or merged. Upload activity, image membership and
   presentation have separate lifetimes.
 - Short local-batch URLs resolve through tab-local state, then use existing POST
   image reads. Backend batch persistence, permanent batch links, private
@@ -103,24 +105,29 @@ product exposure is within Upload; globally exposing the density is not required
 
 ### First-Version Defaults and Planned Witnesses
 
-U0b selects the following bounded direction. Its browser witnesses remain planned;
-the completed geometry proof is not Upload interaction acceptance.
+The following defines the required behavior for the selected units, including
+[U4.5](#u45-unified-upload-page-and-navigation). Unit Status records what is actually
+implemented; the geometry proof alone is not Upload interaction acceptance.
 
-- Show five recent batches in the Upload selector, plus outstanding activity.
+- Show five recent batches in the Upload chooser, plus outstanding work and the
+  selected older batch. Earlier batches expands access to every retained batch.
   The selector limit is not automatic deletion of older membership records.
   Retain lightweight descriptors for the tab session subject to a documented
   storage budget; active jobs and unsaved work are never silently evicted.
-- `/upload` represents recent uploads. `/upload?batch=local-<id>` represents a
-  particular batch; `image` and crop state can retain their current meanings
-  within that context. Exact router structure is selected in U1.
+- Fresh entry through My recent uploads or plain `/upload` shows the top of the
+  combined page with the newest retained batch selected, without detail/crop.
+  Explicit batch references address that upper batch; the lower section contains
+  all other current-user uploads, excluding its canonical members. U4.5 owns
+  section origin, detail/crop and history qualification.
 - A missing local batch produces an unavailable state with explicit alternatives,
   not substitution of the latest batch or a library-wide search.
 - Switching batches may initially reset refinement/position. This does not waive
-  density preservation within the active batch or draft retention. Leaving Upload
-  for search and returning must restore the active batch and its position, as
-  well as restoring the departing library search in the other direction.
+  density preservation or draft retention. History, inspection return and reload
+  retain their addressed batch/section/place; the main doorway deliberately starts
+  at the newest batch. Back to search restores the departing library search.
 - Arrows in current or retained batches capture known canonical image targets
-  and show their count, including offscreen members. Processing files without
+  from the open upper Form section and show their count, including offscreen members.
+  Other uploads and detail/fullscreen/crop have no batch arrows. Processing files without
   canonical images are explicitly excluded in the first version; no instruction
   is silently queued for their later arrival. Recent uploads are not a batch.
   No arrow targets all uploads or all search results; viewport residency never
@@ -261,7 +268,7 @@ decisions below; no new browser witness has run. C1-C4 remain separately owned.
 | C4 | GRID-018 rollout containment and owning roadmap delete/restore lifecycle disposition. | Before broad upload/destructive activation: approve bounded disposable-file trials versus backend repair. Missing search visibility must remain recognizable, not success-by-timeout or automatic re-upload. Existing [GRID-018](bug-backlog.md#grid-018) runtime evidence and [Step 17](gradually-growing-teeth.kupua-edits-steps.md#step-17-soft-delete-and-restore) own these, not a new migration/campaign prerequisite. |
 | C5 | **Resolved by U0b:** mixed activity, editing and navigation. | Compact persistent batch summary with expandable file outcomes; real images alone enter the density. Input interaction edits without opening detail. Omit Upload selection UI and its redundant metadata panel initially; retain explicit image/detail/crop entry and a one-column phone form. Mixed/delayed desktop/compact witnesses are **planned**, not performed. See [U0b workflows](#u0b-interaction-decision-record). |
 | C6 | **Resolved by U0b:** efficient saves, guidance and arrow scope. | Ordinary fields save after a short pause/on leaving the field; rights/leases keep explicit saves and separate substep outcomes. Preserve essential guidance beyond server validity. Arrows capture the batch, field value and known canonical targets, including offscreen images, with explicit pending/unavailable/denied exclusions. No pending-arrival intent in the first version; later drops/recent uploads never join. Retain drafts/receipts and acknowledge uncertainty, not automatic replay. Browser/command witnesses remain **planned**. |
-| C7 | **Resolved by U0b:** current/recent/retained contexts and return. | Current and retained batches have explicit membership and arrows; recent uploads remain an identity-scoped query without batch arrows. Leaving for search and returning retains the active batch, jobs, outcomes, drafts and position. Switching to another batch may initially reset its view, not its work. Missing links show unavailable plus explicit alternatives. Durable batches/navigation panel are later opportunities, not current architecture or acceptance gates. Browser witnesses remain **planned**. |
+| C7 | **Resolved:** one open retained/current batch above all other uploads, with distinct editing and navigation origins. | U4.5 owns the combined page and entry/return table. History, inspection return and reload preserve the addressed batch/section/place; My recent uploads enters at the newest batch and top. Jobs, outcomes and in-memory drafts outlive navigation. The lower query has no batch arrows. Missing links never substitute another batch. Durable batches and selection features remain deferred. |
 
 **Settled:** picker/drop, no URL importer; TEST first/PROD later; preset labels
 required; domain editors excluded; metadata templates deferred, not removed from
@@ -288,7 +295,7 @@ the table qualify shorthand such as Save, apply and replace.
 | P02 | **Required.** [Manager](../../../kahuna/public/js/upload/manager.js#L27) skips above-limit files; [content detection](../../../image-loader/app/model/Uploader.scala#L406) / [error UI](../../../kahuna/public/js/upload/jobs/upload-jobs.js#L153) reject unsupported content. TEST page limit known, loader settings unchecked. | U3/U4: [site settings](../../src/lib/site-settings.ts#L17), [hosted config](../../src/lib/hosted-config.ts#L7), future admission. No size/type/rejection path. | Existing [size-limit specification](../../../e2e-tests/features/upload.feature#L109); **planned:** mixed valid/oversized/unsupported files retain distinct outcomes; valid files proceed, no whole-batch disappearance or invented cap. |
 | P03 | **Required.** TEST selects signed transport. [Manager](../../../kahuna/public/js/upload/manager.js#L40), [loader client](../../../kahuna/public/js/services/api/loader.js#L18), [prepare](../../../image-loader/app/controllers/ImageLoaderController.scala#L273), [status](../../../image-loader/app/controllers/UploadStatusController.scala#L22) connect both source contracts. | U3: [discovery](../../src/lib/grid-api-instance.ts#L53), [targets](../../src/dal/grid-api/proxy-target.ts#L1), [guards](../../src/lib/grid-mutation-policy.ts#L28) need loader admission; no ingestion command. | **Planned:** isolated signed prepare/PUT/queued/status success and failures plus alternate service contract; separately authorized real TEST ingest -> canonical image. Loaded config is not a transport pass. |
 | P04 | **Required lifecycle progress**, not byte percentages. [Jobs](../../../kahuna/public/js/upload/jobs/upload-jobs.js#L46) own stages/failures; [controller](../../../kahuna/public/js/upload/controller.js#L19) guards navigation/unload. | U3 independent jobs + U4 activity display. Existing [batch execution](../../src/lib/batch-execution.ts) schedules labels, not upload jobs. No route-independent upload observation/recovery owner. | Existing [leave warning](../../../e2e-tests/features/upload.feature#L53) / [failure specification](../../../e2e-tests/features/upload.feature#L171); **planned:** held/failed/successful jobs survive density/route changes; one finishing does not discard siblings. |
-| P05 | **Required.** [Current jobs](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L1), [recent query](../../../kahuna/public/js/upload/recent/recent-uploads.js#L22), [all uploads link](../../../kahuna/public/js/upload/view.html#L22). Recent = newest 50 current-human-uploader images, not status rows/batch. | U4: [session schema](../../src/lib/grid-api-instance.ts#L10) drops email; [read builder](../../src/dal/grid-api-search-adapter.ts#L144) already supports uploader. Missing narrow identity read, unfiltered query admission, selector/recent destination; no backend endpoint needed. | Existing [all uploads specification](../../../e2e-tests/features/upload.feature#L48); **planned:** recent/all work after local history loss, unavailable identity never widens query, reauthentication cannot reuse old identity/authority. |
+| P05 | **Required.** [Current jobs](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L1), [recent query](../../../kahuna/public/js/upload/recent/recent-uploads.js#L22), [all uploads link](../../../kahuna/public/js/upload/view.html#L22). Kahuna shows its newest 50 current-human-uploader images, not status history or a batch. | U4/U4.5: the narrow [session identity](../../src/lib/grid-api-instance.ts) and [read builder](../../src/dal/grid-api-search-adapter.ts) supply the uploader query. U4.5 shows all other uploads below the open batch with bounded browsing, plus an identity-private View all your uploads link to ordinary Search. No 50-image acceptance limit or new server batch endpoint. | Existing [all uploads specification](../../../e2e-tests/features/upload.feature#L48); **planned:** lower browsing beyond 50, older batch exclusion and Search entry, useful uploads after local history loss, unavailable identity never widens query, reauthentication cannot reuse old identity/authority. |
 | P06 | **Required.** [Job list](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L7) sorts submitted names; [editor status](../../../kahuna/public/js/edits/image-editor.html#L55) / [file information](../../../kahuna/public/js/edits/image-editor.html#L328) show server validity/cost/restrictions and file facts. Signed path collapses duplicate hashes. | U4/U2: [mget](../../src/dal/grid-api-search-adapter.ts#L192), [ImageGrid](../../src/components/ImageGrid.tsx), [enriched image](../../src/lib/derive-enriched-image.ts) provide reads/display, not per-file identity/order. Canonical IDs must be unique write targets. | **Planned:** out-of-order completion remains name-ordered; same bytes/different submitted names retain attempt outcomes without duplicate canonical edits. Submitted name and existing image's stored filename remain distinct. |
 | P07 | **Required.** [Jobs](../../../kahuna/public/js/upload/jobs/upload-jobs.js#L101) fill missing description from basename before last dot with underscores changed to spaces; [preset service](../../../kahuna/public/js/services/preset-label.js#L8) stores label set locally. Sampled on job-controller initialization, not a metadata template. | U5/U4: [label operation](../../src/lib/label-operation.ts#L76) / [commands](../../src/lib/grid-commands.ts#L1) connect label writes under authority/editing gates. Metadata fallback command and preset control/per-submission capture missing; label executor alone is not follow-up wiring. | Existing [preset specification](../../../e2e-tests/features/upload.feature#L79) / [fallback](../../../e2e-tests/features/upload.feature#L192); **planned:** don't overwrite existing description; capture presets per submission; failed/unknown follow-up visible separately from ingestion success. |
 | P08 | **Ordinary metadata/suggestions required. Domain editors excluded by operator.** [Controller](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L25) / [form](../../../kahuna/public/js/upload/jobs/required-metadata-editor.html#L1): Description/Credit required; Byline, initially present Copyright, Special instructions, configured Image type; domain data carried but no inputs here. Preserve essential-field guidance, not just validity minimum. | U5: [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx#L86) has local drafts and Not sent preparation; [command schema](../../src/lib/grid-commands.ts#L17) only permits labels. [Step 8](gradually-growing-teeth.kupua-edits-steps.md#step-8-editable-metadata-including-configured-domain-fields) owns fresh originals/overrides merge. Saving/retained form drafts missing; no domain editor implementation under this scope. | Existing [autosave specification](../../../e2e-tests/features/upload.feature#L235); **planned:** save/clear preserves unrelated/domain overrides, credit suggestions, eviction/density changes retain drafts/receipts; rejection/unknown never Saved. Reuse metadata-control/mutation suites. |
@@ -453,6 +460,10 @@ view. Metadata suggestions/search links, Home, keyboard shortcuts, selection
 panels and detail/crop navigation must use the admitted context, not hard-coded
 `/search` assumptions or hidden search-bar effects.
 
+Section identity and ordering are explicit in the combined Upload page; one query's
+ordinals or visible rows must not stand in for the other section's navigation or
+editing scope. Apply U4.5's fresh-entry versus history/inspection-return policy.
+
 Keep density independent of the URL. Resolve availability/defaults deliberately:
 the Upload-only form density must not leave ordinary search with an unsupported
 persisted density. Preserve user intent rather than forcing the form view again
@@ -509,6 +520,7 @@ Update one line when a unit's state changes; this is not a session diary.
 | U4 | complete locally 14 November: multi-file entry, retained/recent navigation and explicit recovery over one engine; final full unit/E2E/build/type gates pass; no U2/U5 or durable/server-side batch guarantee |
 | U2 | complete locally 14 November: real Upload Form density, sparse retained drafts and passive-arrival integration; cold-review repairs and final full gates pass; no new saves, live-upload or real-editor performance claim |
 | Post-U2 UI polish | implemented locally 15 November: toolbar/activity presentation, Kahuna-like Form proportions and upload-access gating; cold-review repairs and final full gates pass; operator visual acceptance remains separate, U5 and R27 are not started |
+| U4.5 | implemented and independently reviewed 15 November: unified batch-plus-all-other-uploads page, retained-batch discovery and explicit entry/return navigation; local validation closed with the operator-approved KUP-053 E2E exception; U5 remains separate |
 | U5-U8 | not started; domain editors excluded and U6c templates deferred by U0a operator decision |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**
@@ -516,13 +528,15 @@ The deployed trial used the inherited hosting policy and existing TEST storage
 CORS; it required no shared policy change. Laptop-to-TEST remains a separate,
 blocked topology, not an alternative acceptance gate. See U3's evidence and
 limits below; this is not broad editorial rollout or durable-recovery approval.
-U4 next joins U1/U3's foundations under separate selection; it does not start automatically.
+The Unit Status table and execution order below identify current work; passing
+ingestion checks does not automatically start another unit.
 
-**Recommended execution order:** `U3 -> U4 -> U2 -> U5`, then the remaining required
+**Recommended execution order:** `U3 -> U4 -> U2 -> U4.5 -> U5`, then the remaining required
 U6a/U6b and U7 capabilities, followed by U8 acceptance. Real U2 comes immediately
-after U4's working ingestion/batch-entry milestone and before U5 connects metadata
-saving and batch propagation. U2 supplies the actual image-and-fields density and
-retained editing state, reusing U2-proto's geometry rather than repeating its proof.
+after U4's working ingestion/batch-entry milestone. U2 supplies the actual
+image-and-fields density and retained editing state. U4.5 establishes the combined
+page and its navigation/editing scopes before U5 connects metadata saving and
+batch propagation. Reuse U2-proto's geometry rather than repeating its proof.
 U6c templates remain deferred.
 
 This is a priority order, not a new technical dependency: U2 remains independently
@@ -753,13 +767,13 @@ That is a source fact, not a live mutation observation.
 | Drop or pick files | A submission creates one named local batch, separate from later submissions. Tens of files are normal, not an implied cap; splitting work because of historic failures is not the preferred workload. Keep the preset-label control available and retain its set locally; capture it for each new submission. Changing presets does not silently rewrite earlier batches. | U3/U4/U5; P01-P03/P07. Existing configured size/content rules, separate outcomes for rejected files and follow-up edits. No new ingestion trial in U0b. |
 | Scroll while some files are pending or failed | Keep a compact batch summary visible while editing: ready, still processing and needs attention. Expand it to inspect file-level stages/errors; it must remain usable on a phone without permanently covering the form. Show counts of files separately from unique images where duplicates differ. Real images enter the density in submitted-filename order; pending/error entries are activity, not fake library images. Arrivals do not steal typing focus or reset the view. | U3/U4/U2; P04/P06/P13. Mixed success/processing/rejection, delayed arrival while editing and an offscreen failure remain planned browser witnesses. Geometry is reused, not re-proved. |
 | Complete metadata | The form is an editing surface, with Description/Credit guidance and all applicable field families retained, not merely fields that currently have red borders. Ordinary fields save after a short pause or when leaving the field; suggestions retain their normal choice/blur interaction. Do not require repeated pencil/Save actions for routine completion in this density. Preserve read-only/permission states and distinguish pending, acknowledged-but-not-yet-visible, rejected and uncertain outcomes. An uploaded image is not proof its follow-up edits saved. | U2/U5; P07/P08. Reuse shared field controls/commands; do not change search/detail's existing explicit preparation controls merely to make the form fast. Retained drafts and uncertain-save witnesses remain planned. |
-| Apply a field to the batch | Keep frequent per-field arrows readily available, without a confirmation dialog for every ordinary application. Capture the displayed batch, value/action and known canonical image targets at the click. Include offscreen members; deduplicate canonical IDs. Show target counts and processing/unavailable/denied exclusions rather than claiming all files were edited. A later arrival or drop does not expand that operation. Empty-source destructive clears retain the existing confirmations; additive lists/collections, lease replacement and other operation semantics remain as recorded in U0a. | U4/U5/U6/U7; P09/P10/P12. Captured-target, delayed-arrival, duplicate and partial-outcome witnesses remain planned. No pending-arrival instruction queue in the first version. |
+| Apply a field to the batch | Put frequent per-field arrows only in the open upper Form section, without a confirmation dialog for every ordinary application. Capture that batch, value/action and known canonical targets at the click, including offscreen members and deduplicating IDs. Show counts and processing/unavailable/denied exclusions without hover. Other uploads, other batches and Search selection are never implicit targets; detail/fullscreen/crop have no batch arrows. Later arrivals/drops cannot expand the operation. Preserve existing destructive-clear confirmations and family-specific semantics. | U4.5 supplies section provenance; U5/U6/U7 connect commands. P09/P10/P12 witnesses cover scope, delayed arrival, duplicates and partial outcomes. No pending-arrival instruction queue. |
 | Understand the mixed-batch arrow | Example: 12 files, eight ready images including the source, three processing and one rejected. Assuming the seven other images are editable, show an application to those **seven other images**, with **three processing excluded** and **one rejected file**, while the source's own save has its own result. Later arrival does not imply a saved value. The operator may deliberately apply again with newly displayed counts; unknown earlier outcomes must remain visible, never trigger automatic replay or look like success. | C6 resolved as known-image scope. A future explicit apply-on-arrival option is R13, not a current hidden promise. This example was discussed, not executed. |
 | Choose rights or leases | Keep deliberate Save/Apply for multi-step rights and lease edits; category/lease side effects and partial completion remain visible. Do not autosave a half-completed rights choice or label a partially completed composite Saved. Preserve configured requirements and server authority. | U6a/U6b; P10. C3 still selects the representative configured category at implementation; no new general rights audit. Templates remain deferred. |
 | Open an image or crop | Inputs and their keyboard gestures edit without opening the image. Use an explicit image/detail entry and the existing permitted crop entry, with return to the same batch/place. Do not render a redundant single-image metadata panel beside a form that already contains those fields. Existing detail/crop surfaces remain available, with their own capability and disconnected-operation limits. | U1/U2/U7; P14. Detail/crop round trip and text-entry witnesses remain planned; no crop submission demonstrated. |
 | Select images | **Operator amendment:** omit Upload selection UI and its metadata panel initially. Selection becomes useful when an intentional apply-to-selection surface exists. A batch can be thought of as a selection and arrows as applicators, but that is a product analogy, not approval to unify stores or turn batch membership into the current search selection. Preserve existing search selection behaviour. | U1/U2/U4. No new Upload checkbox/selection-panel acceptance requirement. Future selection remains possible through explicit command targets, not advance UI or a general set framework. |
-| Switch contexts | Distinguish current batch, recent uploads and retained local batches. Current/retained batches have explicit membership and the same arrows; recent uploads are a query, never an implicit batch. Start with five recent batch choices plus outstanding work; this is a display limit, not deletion of older descriptors. An older retained URL still resolves. Opening another batch may initially reset that view's position/refinement, but not drafts/jobs/outcomes. | U1/U4; P05/P09/P15. A richer navigation panel and per-batch view recall are later opportunities, not prerequisites. Missing/empty scope never becomes an unrestricted query. |
-| Leave Upload, then return | Allow ordinary in-app navigation to search without Kahuna's blanket leave warning. Restore the departing search place; returning to Upload restores the active batch and its place, with jobs, outcomes and drafts intact. Jobs do not belong to the visible list. Do not require a completion-notification UI to deliver this round trip. | U1/U3/U4; P04/P15. Hold jobs and a draft, navigate away, resolve some jobs, return: planned fixture witness. Notification presentation is later, not already implemented. |
+| Switch contexts | Keep one open current/retained batch above all other uploads. Choosing another batch replaces only the upper group and changes the lower exclusion; it never combines edit targets. Five quick choices plus outstanding/selected work and Earlier batches reach all retained records. Switching may reset that batch's view, not drafts/jobs/outcomes. | U4.5; P05/P09/P15. No larger navigation panel, selection UI, batch merging or per-batch view-recall system. Missing/empty upper scope never becomes an unrestricted batch query. |
+| Leave Upload, then return | Allow safe in-app navigation without a blanket leave warning. Back to search restores the departing search place. My recent uploads enters at the newest retained batch/top with no detail; browser history, inspection return and reload retain their addressed batch/section/place. Jobs, outcomes and in-memory drafts remain independent of the view. | U4.5 entry/return table; P04/P15. Distinguish fresh entry from return in fixtures while jobs settle. Do not require a completion-notification subsystem or promise durable drafts. |
 | Open a missing batch link or reload | A missing batch explains that its local record is unavailable and offers explicit recent-uploads/search/retained-batch alternatives; never substitute the newest batch. Reload/tab closure differs from in-app navigation: preserve known lightweight membership where storage permits, but do not promise durable drafts, retained file bytes or transfer resumption. Warn where work could be lost; interrupted/uncertain jobs remain recognizable. Storage failure is explicit; active work is not silently evicted to satisfy a selector limit. | U1/U3/U4; P15. No automatic re-upload or mutation replay after authentication/reload. Durable/server batches are deferred B7, not an implied first-version guarantee. |
 | Work on a compact/phone layout | Use one-column forms and the existing touch/input conventions. Status and arrow scope must be readable/tappable, not available only through hover. Avoid duplicate sheets/panels and keep inputs accessible with the keyboard open. Preserve natural heights and the settled placement contract. | U2/U4/U8. New Upload phone/keyboard/suggestion witnesses remain planned; U2's compact geometry witness is not real-form usability evidence. |
 
@@ -811,8 +825,8 @@ evidence are retained with their original limits, not presented as new evidence.
 PROD permission/configuration; C3 the U6a configured rights example; C4 lifecycle/
 GRID-018 disposition. UB8/B9/B10 stay done; B11/B12 stay explicit low-priority
 backend decisions. No U0b workflow established another ordered-read API gap.
-Recommend **U1 next**, separately selected, followed by the U3/U4 ingestion path;
-required editing families still gate final parity. No new broad audit is needed.
+Required editing families still gate final parity. Follow the current Unit Status
+and U4.5 execution sequence; no new broad audit is needed.
 
 ### U1. Route-Safe Browsing and Scope Admission
 
@@ -1442,10 +1456,332 @@ same-name reliability claim follows from the trials. GRID-024 stays deferred;
 successful availability never acknowledges its rejected queued receipt. Existing
 U3 local/deployed evidence and the deleted unused CSP patch remain separate.
 
+### U4.5. Unified Upload Page and Navigation
+
+**Implemented and independently reviewed, 15 November 2026. Local validation has the operator-approved KUP-053 E2E exception.**
+**Depends on:** U1/U3/U4, U2 and the current post-U2 UI baseline.
+**Goal:** a familiar Upload page with one clearly bounded batch above all other
+uploads, useful retained-batch access and predictable navigation. Finish this unit
+before U5; it connects no new metadata writes or batch arrows.
+
+#### Scope and User Model
+
+The operator has selected **all other uploads through bounded progressive browsing**,
+not Kahuna's latest-50 preview. Keep batches: their immediate benefit is preserving
+an exact submission group through navigation and reload, independently of a future
+server service. This unit is not a permanent-history or cross-device feature.
+
+- Show **one open batch** at the top and **My other uploads** below it. They are
+  sibling sections on one page, not mutually exclusive dropdown destinations,
+  nested cards, several stacked batches or independently scrolling panes.
+- A different batch replaces the upper section and brings that section into view.
+  It never appends another group or silently changes an offscreen editing target.
+- Keep the upper batch in submitted-filename order by default, with the existing
+  supported batch sort choices. Keep the lower section newest-upload-first.
+  A batch sort must not reorder the lower section. Label sort controls accordingly.
+- One Upload density preference applies to both sections: Form, Grid, Justified
+  and Table. Preserve the user's choice on batch changes; on entry always choose Form layout. Search keeps
+  its own supported densities; global Form exposure is not selected.
+- The lower query is scoped to the current authenticated human, with paid/free
+  images included and no inherited library query/date/frozen-arrival constraints.
+  Exclude the open batch's canonical members from this lower query so one image
+  is not displayed twice on the page. Do not exclude every retained batch.
+  With no open batch, show the ordinary current-user uploads query.
+- Membership exclusion must affect page reads, counts, keys/ranks and traversal
+  consistently. Do not fetch an unbounded query and filter it in the browser or
+  silently lose results at page boundaries. Reuse existing read contracts; if a
+  necessary backend change is demonstrated, stop for separate permission.
+- Keep the section boundary evident in every density. While working within the
+  batch, its recognizable heading and image count remain available; when browsing
+  other uploads, the section indicator must identify that different scope. Headers
+  must not obscure focused fields, suggestions or phone keyboard space.
+- Distinguish file-attempt counts, unique canonical membership and currently
+  available images. Progress, errors and the transient activity round retain
+  their current owners; disappearing successful activity never deletes a batch.
+
+Each separate picker submission/drop creates and opens a **new** batch, including
+when performed on Upload. No append-to-current, append-to-past, merge, rename,
+manual membership management or automatic application to later arrivals. Pending
+and failed files remain activity, never fabricated library images. Opening a new
+batch must not discard drafts or stop independently owned jobs in earlier ones.
+
+#### Retained-Batch Chooser
+
+Show five recent batch choices plus outstanding work and the selected older batch.
+Provide an **Earlier batches** expansion within this chooser that reaches every
+batch still retained in this tab, including in-memory work whose persistence failed.
+Five is a quick-access limit, not a retention or editing limit. No separate history
+page, Places sidebar, new storage system or server batch object is required.
+
+Use submission date/time, file/image counts and a representative submitted filename
+where space permits; do not rely on opaque short IDs as the main label. Distinguish
+similar submissions and an older open batch from the newest one. Preserve accessible
+names, keyboard operation and usable compact controls without hover-only information.
+The URL still uses a short local reference, not filenames, uploader identity or a
+serialized ID list. Retain the existing storage budgets and explicit failure states;
+do not evict work merely to simplify the chooser.
+
+#### Entry, Return and Search Links
+
+Use the existing `/upload` route. Distinguish the user's navigation action from
+the URL alone; reload and history must not accidentally execute the fresh-entry
+policy. The executor selects the smallest explicit route/history representation
+needed to preserve the page, selected batch, section origin and detail/crop state.
+
+| Action | Required destination and retained state |
+| --- | --- |
+| My recent uploads button, or a fresh plain `/upload` entry | Top of the combined list, newest retained submission selected, no detail/crop open. Newest means newest submission, not last viewed or last successful batch. With no retained batch, start at other uploads. |
+| A new drop/picker submission | Top of the newly created batch, with its independent activity and membership. Do not merge with the previously open batch. |
+| Choose an earlier batch | That batch replaces the upper section and is brought into view. Retain all batches' jobs and outcomes.. Per-batch sort/position recall beyond history is not required. |
+| Browser Back/Forward | Restore the addressed batch, section, view and represented position, including a historical detail/crop state. Preserve existing browser-specific history limits; do not rewrite global history policy. |
+| Back to uploads from detail | Return to the originating batch or other-uploads section and its represented place, even if a newer batch exists. This is a return, not fresh entry. |
+| Back to image from crop | Return to the same image and originating section; the next return goes to its Upload list position. Preserve crop draft and existing capability rules. |
+| Reload or an explicit batch/detail URL | Honor the addressed batch/section/image, not the latest submission. Restore only supported persisted membership/history; do not claim persisted Form drafts, receipt recovery or transfer resumption. |
+| Back to search from the Upload list | Restore the departing library search and represented position without importing batch scope or altering its selection. |
+| Grid/Home | Deliberately start the normal default library search. It is not Back and need not resume the previous query. |
+| View all your uploads | Open ordinary Search with a fresh current-human uploader filter and paid/free images included. Do not inherit unrelated filters, the open batch or its lower-section exclusion; do not auto-select images. |
+| Searchable metadata link within Upload | Open the explicitly requested ordinary library search, leaving Upload scope. Preserve meaningful browser-history return without turning the main My recent uploads button into a resume-detail action. |
+
+Keep the familiar **My recent uploads** entry in Search. It is a doorway that does
+not require submitting files. Add **View all your uploads** beside the lower-section
+heading, as in Kahuna. Resolve its human identity through the existing session
+owner; use the raw email used in Kahuna's
+link (uploadedBy=). Reload/Back must resolve the current authenticated identity. Identity failure
+must not widen to an unrestricted query. The resulting page is ordinary Search,
+including its selection/filter behavior, not Upload hidden under a different path.
+
+Do not add the per-image **Show in search** action in this unit. Its placement and
+destination remain undecided. In particular, do not copy Kahuna's validity/status
+badge as an unexplained navigation link or call navigation an archive/Library action.
+
+#### Detail, Fullscreen and Future Editing Scope
+
+An image opened from the batch retains that section as its traversal origin; show
+an identifiable batch context and an in-batch counter. An image opened below retains
+the other-uploads query origin. Previous/Next in detail or fullscreen must stop at
+the section's end, not cross into the other section. Ordinary page scrolling can
+cross the visible section boundary; it never changes an operation's targets.
+
+Use **Back to uploads** for Upload detail, with its origin distinguishable, and
+**Back to image** for crop. Do not add competing Back-to-search and Back-to-uploads
+buttons in image detail. Batch selection belongs on the Upload list, not in detail,
+fullscreen or crop. Fullscreen may retain minimal context in its existing controls;
+it must not introduce a second editing surface.
+
+The same image opened from Search has Search's context. Do not infer a hidden batch
+scope merely because that identity belongs to a retained batch. Batches reference
+shared canonical images, not independent copies: editing an image later changes its
+canonical state wherever it is displayed, including another batch containing it.
+
+U4.5 establishes explicit section/batch identity for U5's command admission; it does
+not add inactive arrows, a second executor or simulated saves to the ordinary app.
+In U5, arrows belong only to fields in the upper **Form** section. They capture that
+displayed batch's eligible known canonical IDs, including offscreen members, never
+the combined page, lower query, newest batch by accident or Search selection.
+Counts/exclusions must be accessible without hover; routine non-destructive arrows
+do not gain a confirmation dialog per click. Preserve existing destructive-clear
+confirmation semantics. Individual detail/lower-section editing remains single-image.
+
+Upload selection checkboxes and its selection-metadata panel remain absent in all
+densities. Batch-to-Search selection handoff is also deferred. Do not repurpose the
+ordinary Search selection store as the batch registry. Neither opportunity becomes
+a U4.5 or U5 gate.
+
+#### Data, Geometry and Failure Ownership
+
+This is two independently ordered sources under **one active browsing/placement
+owner**, not one query with a decorative heading. Preserve the existing bounded
+data windows and measured layout. Never hydrate every prior upload, allocate
+catalogue-sized geometry, mount two competing singleton browsers or use fixed-height
+clipping to make the composition fit. Section headings are not fake `Image` records.
+
+Before the first product edit, name the minimal composition change and its cheapest
+behavioral check. Explicitly account for section identity, independent cursors/order,
+combined extent, local/global offsets, detail traversal and snapshot qualification.
+Reuse existing ownership rather than cloning stores or inventing a universal
+workspace/set framework. Keep image authority/freshness separate from position and
+section provenance. No exact catalogue-wide pixel/rank guarantee or PIT is added.
+
+Use the existing scroll/compensation owner. A batch completion, membership revision,
+height change or late response must not displace the field/image being read, steal
+input focus, pulse phantom navigation, or publish into another section/batch. A
+growing upper section must not move a reader currently in the lower section.
+Switching the open batch changes the lower exclusion as well: qualify/cancel both
+affected read generations while preserving route-independent upload work.
+Retain bounded reads/DOM/geometry at resident, indexed and seek extents and support
+arbitrary-position browsing of the lower query, not only sequential loading from top.
+The page scrubber/position feedback must distinguish sections; section-local detail
+ordinals are not interchangeable with combined-page positions.
+
+An unresolved/known-empty batch issues no unrestricted batch read and does not
+silently select another batch. Its explicit unavailable/processing/empty state may
+coexist with the independently admitted current-user lower section; that lower
+query is not a fallback for the batch. Conversely, a failed identity/lower read must
+not masquerade as no previous uploads or discard a valid upper batch. Preserve the
+existing whole-Upload refusal on disabled/denied/invalidated access. Missing image
+reads never rewrite retained membership, imply deletion or grant edit authority.
+
+#### Starting Owners and Test Impact
+
+Start with [route admission](../../src/routes/search.tsx),
+[browsing context](../../src/lib/browsing-context.tsx),
+[entry/departure helpers](../../src/lib/browsing-navigation.ts),
+[URL synchronization](../../src/hooks/useUrlSearchSync.ts) and
+[router capture](../../src/router.ts). Then follow the necessary boundary into
+[API reads](../../src/dal/api-data-source.ts),
+[POST mapping](../../src/dal/grid-api-search-adapter.ts),
+[search state](../../src/stores/search-store.ts),
+[data window](../../src/hooks/useDataWindow.ts),
+[measurement](../../src/hooks/useMeasuredLayout.ts) and
+[placement](../../src/hooks/useScrollEffects.ts).
+
+Reuse [Upload controls](../../src/components/UploadActivity.tsx),
+[activity](../../src/components/UploadProgress.tsx),
+[jobs](../../src/stores/upload-jobs-store.ts),
+[descriptors](../../src/lib/local-batch-storage.ts),
+[Form](../../src/components/MeasuredGrid.tsx),
+[ImageGrid](../../src/components/ImageGrid.tsx),
+[ImageTable](../../src/components/ImageTable.tsx),
+[ImageDetail](../../src/components/ImageDetail.tsx),
+[navigation controls](../../src/components/DetailNavigation.tsx),
+[SearchBar](../../src/components/SearchBar.tsx),
+[preferences](../../src/stores/ui-prefs-store.ts) and
+[history snapshots](../../src/lib/history-snapshot.ts).
+Kahuna's [stacked page](../../../kahuna/public/js/upload/view.html) and
+[non-batch recent editors](../../../kahuna/public/js/upload/recent/recent-uploads.html)
+are presentation references, not permission to copy its component-owned jobs or broadcasts.
+
+Identify old-behavior assertions **before** editing them. In particular,
+[grid-mutations journeys](../../e2e/local/grid-mutations.spec.ts) currently assert
+one selected Upload source, six ordinary selector options, no reads for some
+empty/missing scopes, and My recent uploads restoring a previous destination.
+Distinguish intentional changes from regressions: the lower section can now make
+its own identity-scoped reads; the missing batch still cannot widen. Preserve
+history return and geometry assertions rather than weakening them to match fresh
+entry. Amend owning [history](../../e2e/local/browser-history.spec.ts),
+[density](../../e2e/local/browse-density.spec.ts),
+[windowing](../../e2e/local/justified-windowed.spec.ts), API/store and scroll suites
+only where affected. Keep meaningful existing direct-ES refusal and Search tests.
+
+#### Execution and Acceptance
+
+One executor owns the integrated change, with cold review subagents under Section 6.
+Do not delegate overlapping edits to shared navigation, store or geometry owners.
+
+1. **Bounded composition:** implement the smallest real-API-fixture journey with
+   one batch plus a multi-page lower query. Establish correct exclusion, section
+   positions and stale-response ownership before expanding controls. Reuse the
+   real Form/geometry implementation; this is not a new throwaway prototype.
+2. **Page and navigation:** integrate the chooser, section presentation, ordering,
+   density controls, fresh-entry/return table, contextual detail/crop/fullscreen
+   and uploader-scoped Search link. Add no U5 transport or deferred features.
+3. **Integrated closure:** perform desktop/compact browser review, inline cold
+   subagent reviews, findings repair/verification and full required gates on the
+   final source. Do not stop after the first-stage fixture or screenshots.
+
+Compose representative witnesses in existing suites rather than one test per bullet:
+
+- Two submissions remain distinct; switching/reloading the older batch works;
+  more than five batches are discoverable without a remembered URL. Fresh entry
+  opens the newest at top, while history and detail return restore the older one.
+- The lower section contains all accessible other uploads, including pages well
+  beyond 50. Exclusion/count/order remain coherent with duplicate identities,
+  lifecycle omissions and a failed read. Switching batches replaces the exclusion;
+  a held old completion cannot publish over the new page.
+- Both sections use the four densities. Density/reflow, loaded-window maintenance,
+  distant lower-section entry and return retain the represented image/field.
+  Delayed upper arrivals while reading/typing below do not move it. Use a bounded
+  large-logical-total fixture and one representative 250-500-member batch fixture;
+  no catalogue hydration, arbitrary batch cap or new performance campaign.
+- Detail/fullscreen traversal stops within its source section; crop returns through
+  its image to the right section/place. Fresh entry never reopens detail; explicit
+  detail links/history still work. Preserve Search selection and its ordinary history.
+- View all your uploads reaches normal Search with the current-user filter, without
+  inherited filters/exclusion. Its `uploadedBy` URL parameter contains the current
+  user's email, matching Kahuna (operator-confirmed, 15 November 2026); this explicit
+  Search-link behavior does not permit persisting or logging Upload session identity.
+  Missing identity/access cannot produce all-user results. Empty/missing upper and
+  failed lower states remain distinguishable without losing independent usable work.
+- Desktop and coarse-pointer compact controls identify the open batch and active
+  section, expose older choices and survive short/keyboard-sized viewports. Preserve
+  input/IME/draft lifetime through the changed composition. Verify compiled-hosted
+  behavior as well as Vite, using isolated synthetic data and existing fixtures.
+
+Run focused checks immediately after edits, then full units, full local E2E with
+retries disabled, normal build, isolated hosted build, `typecheck:e2e` and
+`typecheck:perf`, with Section 6's repo-root foreground pipefail/tee commands.
+For hosted validation use
+`npm --prefix kupua run build:hosted -- --outDir node_modules/.cache/u4-5-hosted`.
+Do not write the normal hosted bundle outside Kupua without permission. Coordinate
+test ports/server ownership and do not edit source during runs. Suggest the relevant
+jank and perceived campaigns; do not run them. Live TEST reads/uploads from this
+planning discussion grant no permission to a new executor session.
+
+**Stop and ask** if the implementation needs backend/dependency/safeguard changes,
+a new storage system, two competing browsers, whole-result hydration or a serious
+likely performance regression. Explain the concrete user workflow and narrower
+alternatives; do not silently replace All with 50 or waive Form/position preservation.
+
+**Done when:** the combined page and navigation table work through real isolated
+API clients in both frontends; section origins cannot become combined-page edit
+targets; retained batches remain useful; scoped review findings have evidence-backed
+dispositions and final gates pass. Update owning component/state/history/API guides,
+the implementation changelog and any necessary deviations. No commit/push without
+permission. Closeout must explicitly say that U5 saves/arrows, selection features,
+server persistence and per-image Show in search are not supplied by U4.5.
+
+#### Implementation Evidence
+
+**15 November:** isolated real-client journeys cover the combined 650-result lower
+query, distinct submissions, retained-batch discovery, fresh entry versus addressed
+history/reload, section detail/crop return and the explicit uploader-email Search
+link. A 250-file submission with its final transfer held preserves a distant lower
+Form input's node, focus, IME selection, value and screen position when that member
+arrives; density round trips retain its draft. Desktop/compact and compiled-hosted
+witnesses exercise the shared implementation. Table section controls remain
+viewport-contained during horizontal column scrolling.
+
+Actual inline cold GPT-6.1 Sol reviews and independent repair verification covered
+source/cursor/geometry ownership and navigation/identity/workflow boundaries.
+Confirmed findings were repaired, including partial-page publication, failed-read
+terminal handling, approximate/End targets, unloaded-span keys, native spatial
+navigation, Grid phase/Justified context, entry capture, activity/detail return,
+inspection chooser/sort semantics and Table command reachability.
+
+The complete unit surface passed 3,910 tests in 117 files with two workers; original
+assertions and startup deadlines were retained. The
+operator accepted that recorded exception and explicitly requested only relevant
+E2E after the heading repair: all four affected desktop/compact/Form/hosted journeys
+passed, with retries disabled. Normal and Kupua-isolated hosted builds plus both
+browser/performance compiler gates passed on the final source. No full suite was
+rerun after that operator instruction. Default-concurrency unit runs can exceed
+the unchanged startup test's cold-import deadline; two-worker validation avoids
+that resource contention without changing the test.
+
+These are local/synthetic checks, not live TEST/PROD, physical-keyboard or performance
+campaign certification. B13 remains the operator-dispositioned hypothetical limit;
+R34 records a deferred request-local count opportunity. U5 saves/arrows, Upload
+selection, batch-to-Search selection handoff, per-image Show in search, batch
+append/merge and server persistence are not supplied by U4.5.
+
+#### Section 8 Applicability
+
+| Opportunity | Treatment during U4.5 |
+| --- | --- |
+| R1, R15, R29 | Required: explicit combined-page admission, readable/accessibly reachable retained batches, and the entry/return/label corrections above. Do not build R15's larger navigation panel or generalized workspace system. |
+| R9, R10, R19, R22, R31 | Inspect at the touched ownership boundaries and make the smallest necessary changes for section-aware rendering, logical positions, admission ordering and traversal. No blanket host/store extraction; preserve existing geometry and history witnesses. |
+| R4, R5, R20, R21 | Reuse real-client fixtures, coherent query eligibility and privacy controls. No new POST contract is selected; if an actual contract gap requires one, obtain permission and follow the mapper/server replay rule. |
+| R18 | Preserve descriptor/history budgets and failure handling. Recheck that composite snapshots remain qualified and bounded; no snapshot-reference redesign without demonstrated need. |
+| R2, R25, R26 | Preserve existing image/field drafts, but leave cross-surface draft handoff, discard/outstanding-save UX and conflict comparison to their separately selected editing work. |
+| R6, R11-R14, R16-R17, R27-R28, R30 | Deferred unless a concrete failure of U4.5 requires a narrowly justified repair. No Justified rewrite, research tooling rebuild, arrival-intent queue, transport tuning, global Form exposure, sticky preview, zoom, field chooser or speculative persistence/draft optimization. |
+| R7-R8 | Existing intermittent-test evidence, not permission to add retries or weaken expectations. Investigate a recurrence in its owning fixture before attributing it to U4.5. |
+| R23-R24 | Retain the implemented HTTP-LAN identity mint and identity-free history/session contracts; no account-switch framework. |
+| R32-R33, B7 | Explicitly deferred: Search selection handoff, Upload subset editing and durable server batches. They are not prerequisites for this unit or U5. |
+
 ### U5. Required Metadata Saving and Batch Propagation
 
-**Depends on:** U2 plus the existing command/publication foundation. Integrate U4
-targets when available; use fixture identities until then.
+**Depends on:** U2, U4.5 and the existing command/publication foundation. Use U4's
+retained membership and U4.5's explicit upper-batch/other-uploads origins.
 
 Follow roadmap **Step 8**, Kahuna's [required metadata editor](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js)
 and [edits service](../../../kahuna/public/js/edits/service.js), and Kupua's
@@ -1464,7 +1800,14 @@ Connect filename fallback and preset labels as owned follow-up operations with
 their own results. Implement per-field propagation against captured canonical
 targets, including offscreen members. Do not reproduce global UI broadcasts that
 only reach mounted editors or other batches accidentally.
-Use U0b's pause/blur-speed ordinary saves and explicit arrow counts/exclusions.
+Use pause/blur-speed ordinary Form saves in both sections and preserve the explicit
+single-image panel workflow. Batch arrows appear only in the upper Form section,
+including when an older retained batch is open. Capture its IDs and value at the
+click; no lower-query, combined-page, detail or Search-selection target inference.
+Show target counts and exclusions without hover and retain existing destructive-clear
+confirmations. Reloaded membership permits new deliberate actions after fresh
+authority checks, not replay of a prior operation. Switching batches or sections
+cannot retarget an in-flight operation.
 Processing files without canonical images are excluded, not silently queued for
 later edits. Preserve captured intent and outcomes when leaving Upload, but do
 not implement deferred-arrival application merely to keep that future option open.
@@ -1476,10 +1819,14 @@ server-capacity campaign. Keep resource control, operation lifetime and user-fac
 target limits distinct. A larger target set must fit the actual publication/
 freshness ownership, not just a raised constant.
 
-**Witnesses:** real single save and clear; preserved unrelated metadata; viewport
+**Witnesses:** real single save and clear in the selected surfaces; preserved unrelated metadata; viewport
 eviction/density switch during edit and save; delayed stale read cannot undo a
-newer accepted value; apply-to-batch excludes a later submission and unrelated
-selection; partial/unknown outcomes retain drafts/receipts without automatic replay.
+newer accepted value; an older batch's arrow includes offscreen eligible members
+but excludes the lower section, later submissions and unrelated selection; pending
+arrivals do not join captured targets. Partial/unknown outcomes retain drafts/receipts
+without automatic replay. A canonical image shared by two batches is still one
+image: publication must update its returned representations without suggesting
+that a second batch-wide operation was dispatched.
 
 ### U6. Rights, Leases and Templates
 
@@ -1502,6 +1849,12 @@ their current source pointers, reusing any operation family completed meanwhile.
 templates wait for the operations they actually invoke. Each session names one
 representative configured workflow and its meaningful failure path.
 
+Preserve U4.5's scopes: individual controls may edit their own image in the supported
+surfaces, while batch applicators belong only to the open upper Form section and
+capture that retained/current batch. Other uploads and detail/fullscreen/crop never
+gain implicit batch scope. Explicit multi-step Save is not permission for a
+page-wide action, selection UI or automatic application to later arrivals.
+
 **Witness:** an initially unusable uploaded image can be completed and used through
 the same permitted editorial path as in Kahuna. Every required sub-operation's
 outcome is accounted for; a partially applied template is not labelled Saved.
@@ -1520,7 +1873,10 @@ as applicable. Reuse implemented work rather than porting it again.
   to complete the P14 workflow. This is a named dependency, not hidden Upload UI
   work; follow its already-owned crop implementation plan.
 
-**Depends on:** the relevant shared command family and U4 target ownership.
+**Depends on:** the relevant shared command family, U4 membership and U4.5 section
+and navigation ownership. Apply-to-batch operations use the open upper Form section,
+not all displayed images or an implicit Search selection. Detail/crop return and
+traversal preserve their section origin; keep fresh-entry/history behavior intact.
 **Witness:** corresponding P12-P14 rows pass through real connected operations in
 the authorized test setup; duplicate ownership and denied targets remain visible.
 Do not claim Upload complete while a required family is still only preparation UI.
@@ -1533,6 +1889,12 @@ Review desktop and compact workflows in the browser: progress/partial failures,
 long metadata, keyboard/IME editing, suggestions, batch switching, density/detail/
 crop return and the absence of redundant competing metadata panels. Reuse Kupua's
 visual language and inline icons; no new icon/design system dependency.
+Review U4.5's combined page in all four densities, all-other-uploads browsing beyond
+50, reachability of older retained batches, correct fresh-entry/history/inspection
+return and section-bounded detail/fullscreen traversal. Batch arrows appear only
+in the open upper Form section, with accessible target counts/exclusions; individual
+edits below must not acquire batch scope. The lower query excludes the open batch,
+while View all your uploads opens ordinary current-user Search without that exclusion.
 U0b closed through operator review, not a new browser demonstration: its mixed
 batch, delayed arrival, scroll/status orientation and search/Upload return
 witnesses still need execution against the implementation. Upload selection UI
@@ -1550,8 +1912,12 @@ editing -> usable result, including an existing duplicate and a recoverable fail
 where safe. Use disposable approved files; record sanitized outcomes, never
 credentials, signed URLs, personal metadata dumps or raw live responses.
 
-Final acceptance lists every parity row as passed, blocked or configuration-inapplicable
-with evidence. An inherited backend issue must have an explicit disposition; it
+Final acceptance lists every parity row as passed, blocked, configuration-inapplicable
+or operator-deferred/excluded, with evidence and a reference to any operator decision
+that narrows the acceptance claim. Configured-but-deferred templates are not passed
+or configuration-inapplicable, and are not a current completion gate. A required
+unfinished capability remains blocked unless the operator explicitly changes scope.
+An inherited backend issue must have an explicit disposition; it
 cannot be hidden by a success label or silently turned into a mandatory backend
 rewrite. Keep any unverified deployment claim separate from fixture results.
 
@@ -1598,12 +1964,34 @@ behavioural witnesses, not a Cartesian product of every field, density and error
 Remove superseded duplicate scaffolding only when a retained test still proves
 the behaviour. A failing existing assertion requires an explanation, not weakening.
 
-Before closing an implementation unit, obtain cold, independent review. The
-executor chooses focused review remits from the actual changes and risks, rather
-than reusing a blanket audit checklist. Supply the relevant source and acceptance
-boundaries without steering reviewers toward the executor's conclusions. Resolve
-or explicitly disposition findings and rerun the checks affected by any repairs.
-Review does not authorize broader implementation, backend changes or live access.
+**Mandatory inline cold subagent review, for every implementation unit:** the
+executing agent must invoke independent review subagents within its execution
+conversation before closing the unit. A self-review, an earlier unit's review, or
+instructions for somebody to review later do not satisfy this requirement. The
+executor chooses focused remits from the actual changes and risks, with enough
+independent coverage for the integrated result; do not reuse a blanket checklist
+or require a fixed number of findings. Coherent intermediate reviews are useful,
+but do not replace review of the accumulated integration.
+
+Use the operator's review model preference, **GPT-6.1 Sol (openai)**, and reviewers
+that did not author the implementation. If delegation or that model is unavailable,
+report the blocker and request an explicit alternative; do not silently substitute
+self-review. Supply the selected unit, relevant acceptance boundaries, current
+diff/source and neighboring tests without feeding reviewers the executor's preferred
+conclusions. Review delegates are read-only: no edits, live access, independent test
+campaigns, Git mutations or shared-worklog changes. Ask for concrete file/line evidence,
+failure scenarios and scope gaps rather than stylistic enumeration.
+
+The executor must act on every finding: establish a failing witness and repair a
+confirmed in-scope defect; refute an incorrect claim with evidence; or obtain an
+explicit operator disposition for a genuine unresolved acceptance/safety issue.
+For a valid non-blocking out-of-scope opportunity, record or merge it in Section 8
+with evidence, benefit, cost/risk and trigger, and defer it without expanding
+implementation or acceptance. That path cannot dispose of an actual blocker.
+Record the dispositions concisely in the worklog and closeout. Request independent
+verification of substantive repairs, rerun affected focused checks and the required
+full gates on the final source. Review is not permission for unrelated cleanup,
+broader implementation, backend changes or live access.
 
 ## 7. Refactoring and Opportunity Policy
 
@@ -1660,6 +2048,7 @@ source observations, not claims of measured production impact.
 | B10 | Malformed bodies answered 400 on endpoint-specific fields but 422 on shared ones. | **Done 13 November (`32b9519be`; documentation `236322712`).** Wrong JSON type or shape: 400 `invalid-params`, as Grid's other services and mget's shape check. Well-typed but unacceptable value (date, status, empty ID list, vector weight, CQL): 422 `invalid-uri-parameters`. |
 | B11 | [Sort clause reading](../../../media-api/app/lib/elasticsearch/sorts.scala#L40) keeps only `order`, `missing`, `mode` and `nested.path`; other nested or sort-object options, including wrongly typed ones, are silently discarded (B9 cold review, S3). The [final D3 review](zz%20Archive/media-api-work/phase-3-d3-searchafter-code-review-final.md#L162) deliberately left this as silent truncation, judging a 422 over-engineering for a path Kupua cannot produce. Its malformed sort shapes also answer 422, not B10's 400. Unrelated to the removed user [secondary sorts](zz%20Archive/scroll-and-position-preservation-testing-4.2.1-obscure-sorting-decision.md), which concerned a second semantic field, not sort-object options. | Open, low priority. B9 adopted refusal over silent ignoring for body fields; applying the same rule here would reverse that D3 decision and needs an explicit operator choice. Kupua's recorded sort clauses use only the four supported keys, so refusal would not affect it. If done, align malformed sort shapes with B10's 400. |
 | B12 | Endpoint-specific nulls are inconsistent with B9's shared rule: `sortValues: null` and `sort: null` are refused where omission is accepted (B9 cold review, S3). | Open. Either read endpoint nulls as absent or state that the null rule covers shared fields only. Not a Kupua regression. |
+| B13 | **Hypothetical boundary, operator disposition 15 November:** existing CQL supports canonical-ID exclusion through the [shared mapper](../../src/dal/grid-api-search-adapter.ts). Serialized requests with 2,000 exclusions fit the existing 100KB parser limit (approximately 98.3KB including sort/cursor fields); operator-provided read-only local Elasticsearch 8.18.3 validation accepted 500, 1,000 and 2,000 exclusions. This does not certify TEST/PROD limits, full API behavior or performance. The invented 3,000-image case is not workflow evidence; submissions above 1,000 are extraordinarily unlikely in roughly ten years of operator UI use. | **Not a U4.5 blocker or backend prerequisite.** Continue selected open-batch exclusion with existing contracts, no batch cap/rejection, duplicate substitute or frozen lower snapshot. Request-size/clause limits remain a hypothetical opportunity: revisit only if an actual supported workflow fails. Potential benefit is handling that demonstrated failure; cost/risk includes shared parser/query capacity and backend ownership. No new infrastructure/tests for this hypothetical, parser configuration, backend changes, dependencies or live access are authorized. |
 
 Further entries belong here only when a concrete Upload need reaches the new
 endpoint boundary. A change's proximity to that code does not make an unrelated
@@ -1750,7 +2139,7 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | R12 | **Operator report, U0b:** scrolling down while files are uploading loses orientation about remaining activity; even an experienced user cannot confidently predict which processing files an arrow will affect. **Source:** [job list](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L1) puts the remaining count at the section heading and creates editors only after images arrive; [metadata arrows](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L106) reach existing editable recipients, not future arrivals. This is not a new live-upload witness. | **U4 implemented:** compact persistent batch orientation, short references, processing/attention counts and expandable filename-ordered file outcomes, distinct from unique canonical-image counts. Startup compact and compiled-hosted controls have owning browser witnesses. **U5 still owns metadata-arrow scope**, target counts and exclusions; no applicator or pending-arrival intent was built. Benefit: visible activity without returning to the top; cost/risk remains phone space, status accessibility and unlike outcome lifetimes. An in-app completion/attention notice is still a deferred hypothesis, triggered by demonstrated repeated-batch need, not permission for browser notifications or background guarantees. |
 | R13 | **U0b source fact:** pending files have no current editor and do not inherit a metadata-arrow click. **Decision:** first-version arrows capture known canonical images with explicit exclusions. **Operator priority:** familiar parity before speculative improvements. | **Deferred hypothesis:** explicitly retaining an operation for the original batch's processing files could prevent a second manual application and omissions. Cost/risk: repeated arrows, intervening per-image edits, duplicate attempts, failed ingestion, changed authority and cancellation/reload semantics; never silently overwrite newer intent or auto-replay uncertain saves. Trigger: working Upload shows this omission is materially costly and the operator selects those semantics. Keep file-attempt identity, canonical membership and captured command intent separate now; do not build a pending-edit queue, automatic catch-up or template engine in advance. |
 | R14 | **Operator ambition, not a measured failure in U0b:** robust uploads of large files, many files, or both, and recovery without losing trust. Existing transport/status limitations are recorded in B2/B3/B6 and C1/C4; splitting batches after failures is coping behaviour, not evidence of a preferred small workload. | **Deferred improvements selected by evidence:** clearer recovery/reconciliation and, only if justified, stronger transport support. Benefit: less repeated work and fewer lost outcomes. Cost/risk: browser memory/lifecycle limits, uncertain server outcomes and compatibility across loader/signed storage; no safe-resume or exactly-once guarantee exists merely from a local job record. Trigger: a separately authorized representative workflow demonstrates a specific bottleneck/failure or the operator selects a bounded investigation. Preserve independent jobs, separate phase/edit outcomes and bounded client resources now; do not invent a batch cap, resumable-upload subsystem or autonomous performance campaign. Backend amendments follow Section 7's additive-first policy and their owning register. |
-| R15 | **U0b operator opportunity:** a panel for navigating batches, permanence and eventual selection operations. The operator notes that a batch is conceptually a selection, but explicitly rejects immediate material changes from that analogy. Current/recent/retained scopes and short local references are already distinct contracts. | **Deferred hypothesis:** a batch navigator, per-batch position/refinement recall and later selection editing could make revisiting work easier. Cost/risk: panel competition with form content, phone space, retention policy and misleading expectations of durable/shared history; permanence separately depends on B7. Trigger: evaluate real repeated-batch use after U4, then select the navigation/selection surface. Keep the descriptor/resolver and explicit command targets independent of the active view now. Use the small selector initially; no Places sidebar, generalized workspace system or batch/selection-store merger. |
+| R15 | [The current chooser](../../src/components/UploadActivity.tsx) exposes five recent records plus outstanding/selected work, labels them mainly by short IDs, and switches between batch and recent-query views. Older retained records are not discoverable through a complete chooser. The operator wants familiar combined-page orientation and useful return to earlier work, not batch removal. | **Selected for U4.5:** one open batch above all other uploads, recognizable labels and an Earlier batches expansion reaching all retained records. Benefit: exact-group return without a remembered URL or a second page. Cost/risk: phone space, local-history expectations, section provenance and position. A larger navigator and extra per-batch view recall remain deferred; B7 owns permanence and R32/R33 own the separately deferred selection opportunities. No Places sidebar, generalized workspace system or batch/selection-store merger. |
 | R16 | **Settled architecture plus U0b operator opportunity:** the image-and-fields layout is a genuine density, initially exposed only in Upload. Existing browsing, detail and metadata consumers already have different contexts; R1/R2/R9 identify the necessary shared boundaries. | **Deferred exposure:** use the density elsewhere in Grid and preserve coherent transitions between search, Upload and detail. Benefit: the same efficient image/metadata work outside a submission batch. Cost/risk: search-scale hydration, permissions, unavailable persisted density, competing panels and context-specific applicators. Trigger: working Upload density demonstrates reuse value, then select global exposure. Keep activity/batch controls outside the reusable renderer, shared commands/drafts outside rows and one browsing engine now; no separate Upload app or global rollout in U2. |
 | R17 | **Settled U2-proto/field contract plus U0b operator opportunity:** natural variable heights, a global visible-field set and bounded geometry already support layout changes. Desired later controls include zooming and adding/removing visible fields; no particular zoom interaction has been selected. | **Deferred hypotheses:** fewer visible fields or a different form scale/grouping could match different editorial tasks. Benefit: adjust information density without abandoning image context. Cost/risk: hiding essential guidance, preserving focused/dirty fields, grouped-row navigation and mobile legibility; geometry feasibility does not establish real-editor performance. Trigger: select controls after trying real forms. Keep field visibility separate from data/drafts, use layout-sensitive measurements and allow one or more forms per row at the boundary. Do not implement toggles/zoom now, reopen U2's proof or promise every layout is already validated. |
 | R18 | **U1 source constraint:** [scope fingerprints](../../src/lib/image-offset-cache.ts) include immutable membership and revision, and [history storage](../../src/lib/history-snapshot.ts) retains those fingerprints per entry. Short browser URLs therefore do not imply small stored snapshots; membership can be repeated across retained entries. | **U4 decided:** 2 MiB for descriptors and 1 MiB for history, counting keys/JSON as UTF-16 bytes, with the existing 50-entry history LRU. Keep complete membership/revision fingerprints rather than introducing snapshot references. Descriptor refusal never evicts older records or work; it warns, protects unretained work and permits storage-only retry. History refusal retains bounded in-page snapshots and warns; cached reads preserve LRU promotion. Benefit: explicit limits without weakened qualification. **Deferred hypothesis:** compact snapshot references may reduce repeated membership if representative usage reaches these budgets frequently. Cost/risk remains revision lookup, reload availability and identity isolation; that demonstrated pressure, not this implementation alone, is the trigger. |
@@ -1916,6 +2305,17 @@ criteria or approval to implement every opportunity. None reopens U2.
 | R26: changed canonical value beneath a draft | [U5: metadata saving and propagation](#u5-required-metadata-saving-and-batch-propagation) | Assess the behavior when establishing authoritative reads, baseline handling and publication receipts, before connecting the same field through Form and panels. Select any comparison/keep/discard UI explicitly; it is not automatically a U5 gate. If deferred, retain that disposition rather than implying conflict prevention. U8 can exercise the selected behavior in the completed workflow. |
 | R27: form-bounded sticky preview | Operator-led UI polish after U2, before U5 | This is independent of save transport and is the most natural candidate for the planned polish session if the operator wants it. Keep it a bounded layout/interaction change with existing tall-form, field-anchor, density and compact witnesses. If not selected now, leave it for [U8's visual review](#u8-visual-review-and-parity-acceptance); it must not delay U5. |
 | R28: draft-store allocation/localized updates | Evidence-led follow-up after U5; [U8](#u8-visual-review-and-parity-acceptance) is a useful observation point | First use the real editing lifecycle to determine how many drafts remain outstanding and whether typing or memory cost is material. Existing evidence should be checked before selecting any profiling; performance campaigns remain operator-run. Optimize the owning draft store only if cost is attributed to it. There is no scheduled rewrite or additional U8 gate merely from the map-copy observation. |
+
+#### Navigation and Editing-Scope Opportunities
+
+| ID | Evidence and observation | Proposed benefit, cost/risk and trigger |
+| --- | --- | --- |
+| R34 | **U4.5 source observation:** [section bounds](../../src/dal/upload-page-reader.ts) count upper/lower sources for cursor translation; submitted-order paging also performs its own authoritative membership count in [ApiDataSource](../../src/dal/api-data-source.ts). This can repeat a bounded count within one composed read. No latency or backend-work saving was measured. | **Deferred hypothesis:** reuse request-local authoritative count evidence where its query/generation is identical, reducing duplicate work without a new cache. Cost/risk: stale boundaries, lifecycle omissions, independent failures and cursor/rank consistency. Trigger: a selected request-lifetime change or representative evidence attributes meaningful cost here. No timer, parallel cache, transport tuning or performance campaign is selected. |
+| R29 | [SearchBar](../../src/components/SearchBar.tsx) labels `returnToBrowsing(..., "/upload")` as My recent uploads, but [the return owner](../../src/lib/browsing-navigation.ts) restores the departed batch or detail parameters. [DetailNavigation](../../src/components/DetailNavigation.tsx) also labels Upload detail's return Back to search. Hosted TEST reproduced both mismatches even with zero retained batches: the latter returned to Upload Form; leaving an Upload detail via Home and choosing My recent uploads reopened detail. The subsequent two-batch check also restored the older selected batch through that label. | **Selected for U4.5:** keep the familiar main entry label but make fresh entry show the newest batch/top without detail; history and inspection return preserve their actual destination. Upload detail says Back to uploads. Benefit: predictable navigation without removing membership or Form. Cost/risk: departure/history/position and compact controls; preserve meaningful history witnesses. No global history rewrite. |
+| R30 | [Job updates and their subscription](../../src/stores/upload-jobs-store.ts) scan retained batches/attempts, recompute membership and serialize the changed batch on phase updates. [Descriptor saving](../../src/lib/local-batch-storage.ts) synchronously scans stored descriptors to enforce its budget. The selector's five-choice limit does not bound this retained work. This is a source-derived cost and ownership observation, not a measured latency regression. | If a selected lifecycle change or representative profile demonstrates material cost, localize attempt lookup and avoid redundant persistence while preserving interruption recovery. Benefit: less repeated work in longer sessions. Cost/risk: freshness between jobs, membership and storage, and loss of the latest recovery facts. Keep the current small owners unless evidence justifies change; no storage framework, silent eviction or autonomous performance campaign. |
+| R31 | [UploadPage](../../src/routes/search.tsx) currently admits one batch or one recent query; [URL synchronization](../../src/hooks/useUrlSearchSync.ts) and [detail](../../src/components/ImageDetail.tsx) use the active browsing state for query/traversal. The proposed combined page has independently ordered sections and a lower query whose exclusion changes with the open batch. One flat query/ordinal cannot describe both. This is an integration constraint, not a defect in the current single-source view. | **Address in U4.5:** explicit section provenance, independent read qualification and bounded composition under one placement owner. Benefit: no crossed detail traversal, stale section publication or accidental page-wide edit scope. Cost/risk: cursors, counts/ranks, headers, history and upper-arrival compensation while reading below. Select only the adapter needed here; no cloned search stores, catalogue geometry, fake images or universal workspace framework. |
+| R32 | [Batch membership](../../src/lib/browsing-context.tsx), [selection](../../src/stores/selection-store.ts) and [captured label operations](../../src/lib/label-operation.ts) are independent owners. A retained batch could supply an explicit snapshot of canonical image IDs to ordinary Search selection without redefining the upload attempt record. Current UI provides no such handoff. | **Deferred by operator:** consider Select this batch in Search after U5, exposing the captured set visibly and defining replace-versus-add for an existing selection. Benefit: reuse the existing multi-image editor for retained work. Cost/risk: unavailable/denied IDs, pending arrivals, selection hydration, local-reference/history qualification and accidentally retargeting prior operations. Deselecting must not rewrite the batch; later completions must not silently expand the selection. No server persistence or generalized set framework is implied. |
+| R33 | [Upload's route](../../src/routes/search.tsx) omits the selection metadata panel and [ImageGrid](../../src/components/ImageGrid.tsx) enables selection only for Search. Whole-batch Form arrows do not address editing a subset; other Upload densities currently offer browsing and individual detail, not selection editing. | **Deferred by operator:** consider explicit subset selection and the existing multi-image editor within Upload after the basic workflow works. Benefit: apply a change to three images rather than the whole batch, particularly in Grid/Table/Justified. Cost/risk: coexistence with whole-batch arrows, cross-section selection, dormant library selection and redundant Form panels. Keep selected-target and batch-target meanings explicit across densities; decide cross-section behavior separately. No checkbox/panel implementation or U5 gate now. |
 
 ## 9. Completion Report
 

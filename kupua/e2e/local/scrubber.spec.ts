@@ -97,27 +97,14 @@ test.describe.configure({ mode: "parallel" });
 // ---------------------------------------------------------------------------
 
 test.describe("Scrubber — basics", () => {
-  test("scrubber is visible when results exist", async ({ kupua }) => {
+  test("scrubber starts visible at zero with matching ARIA bounds and a clean buffer", async ({ kupua }) => {
     await kupua.startSearch();
     await expect(kupua.scrubber).toBeVisible();
-  });
-
-  test("aria-valuemax equals total - 1", async ({ kupua }) => {
-    await kupua.startSearch();
     const max = await kupua.getScrubberMax();
     const store = await kupua.getStoreState();
     expect(max).toBe(store.total - 1);
-  });
-
-  test("scrubber starts at position 0", async ({ kupua }) => {
-    await kupua.startSearch();
     const pos = await kupua.getScrubberPosition();
     expect(pos).toBe(0);
-  });
-
-  test("initial buffer starts at offset 0 with no errors", async ({ kupua }) => {
-    await kupua.startSearch();
-    const store = await kupua.getStoreState();
     expect(store.bufferOffset).toBe(0);
     expect(store.error).toBeNull();
     expect(store.loading).toBe(false);
@@ -1790,7 +1777,7 @@ test.describe("Bug #7 — Keyword sort seek", () => {
 
 test.describe("Bug #1 — Home after End race", () => {
   test.describe.configure({ timeout: 30_000 });
-  test("End then Home returns to offset 0 with no stale data", async ({ kupua }) => {
+  test("End then Home restores a clean offset zero and cannot scroll above it", async ({ kupua }) => {
     await kupua.startSearch();
 
     // Go to the bottom
@@ -1816,23 +1803,8 @@ test.describe("Bug #1 — Home after End race", () => {
     // Verify no old images above: scroll to the very top
     const scrollTop = await kupua.getScrollTop();
     expect(scrollTop).toBe(0);
-    // The first image in the buffer should be the first in the result set
-    // (it should NOT have been displaced by stale extendBackward data)
-  });
-
-  test("End then Home then scroll up — nothing above position 0", async ({ kupua }) => {
-    await kupua.startSearch();
-
-    await kupua.page.keyboard.press("End");
-    await kupua.waitForSeekComplete();
-    await kupua.page.waitForTimeout(300);
-
-    await kupua.page.keyboard.press("Home");
-    await kupua.waitForSeekComplete();
-    await kupua.page.waitForTimeout(500);
 
     // Try to scroll up — there should be nothing to scroll to
-    const topBefore = await kupua.getScrollTop();
     await kupua.scrollBy(-2000);
     await kupua.page.waitForTimeout(300);
     const topAfter = await kupua.getScrollTop();

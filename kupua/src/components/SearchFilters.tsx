@@ -83,7 +83,7 @@ function SortControls({ inSheet = false, alwaysVisible = false }: { inSheet?: bo
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusedImageId = useSearchStore((s) => s.focusedImageId);
 
-  const submittedOrderAvailable = !!params.imageScope?.submittedOrder;
+  const submittedOrderAvailable = !!(params.imageScope?.submittedOrder || params.recentUploadScope?.batch?.submittedOrder);
   const orderBy = params.orderBy ?? (submittedOrderAvailable ? SUBMITTED_FILENAME_SORT : "-uploadTime");
   const { field: sortField, desc: sortDesc } = parsePrimarySort(orderBy);
 

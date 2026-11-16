@@ -7,6 +7,7 @@ import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
 export function refreshResults(): void {
   resetScrollAndFocusSearch({ skipEagerScroll: true });
   // Clear before reSearch so the multi-panel doesn't flash old reconciled state.
-  if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !useSearchStore.getState().params.imageScope) useSelectionStore.getState().clear();
+  const params = useSearchStore.getState().params;
+  if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !params.imageScope && !params.recentUploadScope) useSelectionStore.getState().clear();
   void useSearchStore.getState().search();
 }

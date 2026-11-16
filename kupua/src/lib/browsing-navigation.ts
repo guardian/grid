@@ -13,6 +13,18 @@ import { useSearchStore } from "@/stores/search-store";
 const departures = new Map<BrowsingPath, { search: Record<string, unknown>; key?: string; density: Density }>();
 
 export function qualifyBrowsingSnapshot(snapshot: HistorySnapshot | undefined, params: SearchParams): HistorySnapshot | undefined {
+  if (snapshot && params.recentUploadScope?.combined && snapshot.searchKey !== buildSearchKey(params)) {
+    try {
+      const previous = Object.fromEntries(JSON.parse(snapshot.searchKey)) as SearchParams;
+      const before = previous.recentUploadScope;
+      const after = params.recentUploadScope;
+      const anchor = snapshot.anchorImageId;
+      if (before?.key !== after.key || !before.combined || (before.batch?.revision ?? 0) >= (after.batch?.revision ?? 0)
+        || previous.orderBy !== params.orderBy
+        || anchor && !!before.batch?.ids.includes(anchor) !== !!after.batch?.ids.includes(anchor)) return undefined;
+      return { ...snapshot, searchKey: buildSearchKey(params), newCountSince: null, newCount: 0 };
+    } catch { return undefined; }
+  }
   if (!snapshot || !params.imageScope || snapshot.searchKey === buildSearchKey(params)) return snapshot;
   try {
     const previous = Object.fromEntries(JSON.parse(snapshot.searchKey)) as SearchParams;
@@ -29,8 +41,10 @@ export function captureBrowsingDeparture(location: {
   pathname: string; search: Record<string, unknown>; state: object;
 }): void {
   if (location.pathname !== "/search" && location.pathname !== "/upload") return;
+  if (useUiPrefsStore.getState().densityContext !== (location.pathname === "/upload" ? "upload" : "search")) return;
   const params = useSearchStore.getState().params;
-  const scopeKey = location.pathname === "/upload" ? location.search.batch ? `upload:${location.search.batch}` : params.recentUploadScope?.key ?? "upload:recent-unavailable" : undefined;
+  const scopeKey = location.pathname === "/upload" ? params.recentUploadScope?.combined
+    ? `upload:page:${location.search.batch ?? "none"}` : location.search.batch ? `upload:${location.search.batch}` : params.recentUploadScope?.key ?? "upload:recent-unavailable" : undefined;
   if ((params.imageScope?.key ?? params.recentUploadScope?.key) !== scopeKey) return;
   const key = (location.state as { kupuaKey?: string }).kupuaKey;
   if (key) snapshotStore.set(key, buildHistorySnapshot());
@@ -49,6 +63,7 @@ export function returnToBrowsing(navigate: NavigateFn, path: BrowsingPath): void
 
 export function restoreBrowsingDensity(path: BrowsingPath): void {
   const state = useUiPrefsStore.getState();
+  if (path === "/upload" && state.densityContext === "upload") return;
   state.setDensityContext(path === "/upload" ? "upload" : "search", departures.get(path)?.density);
 }
 

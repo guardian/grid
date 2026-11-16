@@ -1251,13 +1251,21 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 **Depends on:** steps 1-5; steps 8/10/11 for corresponding completion editors/templates.
 
-The [Upload workplan](gradually-growing-teeth.upload-workplan.md) owns the detailed
-proposed sequence, reusable-density/local-batch contract, source-backed parity checklist
-and deferred opportunities. Confirm current user-facing import capabilities there
-before treating the broader list below as an implementation requirement. Neither
-document supplies implementation or live-write approval.
+The [Upload workplan](gradually-growing-teeth.upload-workplan.md) owns the sequence,
+reusable-density/local-batch contract, source-backed parity checklist and deferred
+opportunities. Its [U4.5](gradually-growing-teeth.upload-workplan.md#u45-unified-upload-page-and-navigation)
+establishes one open batch above all other uploads, explicit entry/return behavior
+and section-bounded navigation before U5 connects ordinary metadata and arrows.
+Batch arrows belong only to the upper Form section and capture the displayed batch;
+other uploads and detail never become implicit batch targets. Upload selections,
+batch-to-Search selection handoff and per-image Show in search remain deferred.
+Neither document supplies live-write approval.
 
-Port file picker, drag/drop, URL import and recent-uploads/job UI. Carry upload permission,
+Complete file picker, drag/drop and the selected upload/job workflows. URL import
+is excluded from the selected Upload scope, domain editors are excluded there, and
+metadata templates remain deferred. Do not implement those merely from this broader
+editing roadmap. Preserve one new batch per submission; no appending or merging.
+Carry upload permission,
 size limits, required metadata and configured upload topology in the hosted allowlist. Kahuna
 supports both service upload and prepare -> signed bucket PUT -> queued-status update -> status
 polling; support the chosen deployed mode and retain a tested contract for the other supported
@@ -1265,9 +1273,11 @@ mode. Signed upload URLs are scoped capabilities, not generic discovered write d
 never persist/log them or send session credentials to the bucket unnecessarily.
 
 Distinguish bytes transferred, queued, processed, indexed/visible, duplicate and failed states.
-Support cancellation/partial batches without claiming rollback, revoke preview object URLs,
-and preserve existing duplicate/soft-deleted-image handling. Reuse the field/rights/template
-commands for required metadata rather than sending a new whole-image payload.
+Retain partial and interrupted outcomes without claiming rollback or automatically
+replaying uploads. Cancellation/resume controls require separate selection; release
+owned file/preview resources and preserve duplicate/soft-deleted-image handling.
+Reuse the shared field/rights commands for required metadata, and template composition
+only if separately selected, rather than sending a new whole-image payload.
 
 Resolve or explicitly contain [GRID-018](bug-backlog.md#grid-018) before broad upload rollout:
 mapping conflict can drop an upload from search after transfer succeeds. A success spinner or
@@ -1284,7 +1294,7 @@ but cannot establish general ingest reliability.
 [status controller](../../../image-loader/app/controllers/UploadStatusController.scala),
 [loader routes](../../../image-loader/conf/routes).
 
-**Done when:** upload/import reach a usable image and required editing, failures remain visible,
+**Done when:** selected file-upload workflows reach a usable image and required editing, failures remain visible,
 and existing duplicates are not silently treated as new items. Verify bucket CORS/CSP and session
 boundaries in the actual selected topology. Backend-only derivative/replica endpoints are not
 automatically new UI actions just because they exist.
@@ -1534,7 +1544,7 @@ and acceptance stay with their steps. "After" refers to this plan's step.
 | Crop creation, ratio constraints, existing crop selection | 13 | KUP-044/047; canonical source and export identity |
 | Full-frame export, single and batch | 13 | Separate crop creation, not original download |
 | Original/optimised/crop download and selected ZIP | 14 | Download policy, usage side effects, byte bounds |
-| Files, URL imports, recent uploads, jobs and required editing | 15 | Configured upload mode; GRID-018 disposition |
+| File uploads, retained batches, other uploads, jobs and required editing | 15 | Upload workplan applicability and U4.5 scope; configured upload mode; GRID-018 disposition; URL import excluded |
 | Photoshoot assignment/removal and syndication workflow | 16 | Fan-out; GRID-009/013; configured exposure |
 | Send to Photo Sales | 16 | Partner side effects; no fire-and-forget success |
 | Soft delete, restore and reaper restore | 17 | GRID-012; explicit GRID-010 decision |

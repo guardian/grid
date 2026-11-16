@@ -2,7 +2,7 @@ import { HOME_HREF } from "@/lib/home-defaults";
 import { pressFeedback } from "@/lib/dom-utils";
 
 interface DetailNavigationProps {
-  destination: "image" | "search";
+  destination: "image" | "search" | "uploads";
   onBack: () => void;
   onHome?: () => void;
 }

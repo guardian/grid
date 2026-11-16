@@ -833,6 +833,51 @@ describe("seek", () => {
 // ---------------------------------------------------------------------------
 
 describe("extendForward", () => {
+  it("does not append a partial Upload page across an unread section gap", async () => {
+    await actions().search();
+    const before = state().results;
+    const hits = before.filter((image): image is NonNullable<typeof image> => !!image).map(image => ({ ...image, id: `lower-${image.id}` }));
+    useSearchStore.setState({ total: 65000, params: { recentUploadScope: { key: "upload:page:gap", uploadedBy: "uploader@example.invalid", combined: true } } });
+    vi.spyOn(mock, "searchAfter").mockResolvedValueOnce({ hits, sortValues: hits.map(image => [1, 123, image.id]), total: 65000, uploadOffset: 250,
+      uploadSections: { batch: 250, other: 64750, batchError: "Batch images are unavailable." } });
+    await runAfterCooldown(() => actions().extendForward());
+    expect(state().results === before).toBe(true);
+    expect(state().error).toBe("Batch images are unavailable.");
+    expect(state()._terminalEnd).toBeNull();
+  });
+
+  it("keeps an approximate Upload seek target inside the actual loaded page", async () => {
+    await actions().search();
+    const hits = state().results.filter((image): image is NonNullable<typeof image> => !!image);
+    vi.spyOn(mock, "count").mockResolvedValue(65000);
+    vi.spyOn(mock, "estimateSortValue").mockResolvedValue(123456789);
+    vi.spyOn(mock, "countBefore").mockResolvedValue(20250);
+    vi.spyOn(mock, "searchAfter").mockResolvedValue({ hits, sortValues: hits.map((image, index) => [123456789 - index, image.id]), total: 65000 });
+    useSearchStore.setState({ total: 65000, positionMap: null, params: { recentUploadScope: { key: "upload:page:approximate", uploadedBy: "uploader@example.invalid", combined: true } } });
+    await actions().seek(20550);
+    expect(state().bufferOffset).toBe(20250);
+    expect(state()._seekTargetGlobalIndex).toBeGreaterThanOrEqual(state().bufferOffset);
+    expect(state()._seekTargetGlobalIndex).toBeLessThan(state().bufferOffset + state().results.length);
+    await actions().seek(64999);
+    expect(state().bufferOffset + state().results.length).toBe(65000);
+    expect(state()._seekTargetGlobalIndex).toBe(64999);
+  });
+
+  it("reports a failed Upload section read without turning it into a terminal boundary", async () => {
+    await actions().search();
+    const before = state().results;
+    const original = mock.searchAfter.bind(mock);
+    vi.spyOn(mock, "searchAfter").mockResolvedValueOnce({ hits: [], total: 10_000, sortValues: [],
+      uploadSections: { batch: 2, other: 9998, otherError: "My other uploads are unavailable. Try reloading." } });
+    await runAfterCooldown(() => actions().extendForward());
+    expect(state().results).toBe(before);
+    expect(state().error).toBe("My other uploads are unavailable. Try reloading.");
+    expect(state()._terminalEnd).toBeNull();
+    vi.mocked(mock.searchAfter).mockImplementation(original);
+    await runAfterCooldown(() => actions().extendForward());
+    expect(state().results.length).toBeGreaterThan(before.length);
+  });
+
   it("appends more images and updates cursors", async () => {
     await actions().search();
     const lenBefore = state().results.length;

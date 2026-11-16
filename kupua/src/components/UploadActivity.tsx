@@ -4,9 +4,23 @@ import { gridUploadsEnabled } from "@/lib/upload-commands";
 import { getGridSessionPermissions, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import { siteSettings } from "@/lib/site-settings";
 import { pushNavigate } from "@/lib/orchestration/search";
+import { setPrevParamsSerialized } from "@/lib/orchestration/search";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
 import { activeUploadPhases, attentionUploadPhases, submitUploadFiles, useUploadJobsStore, type UploadBatch } from "@/stores/upload-jobs-store";
 import { UploadProgress } from "./UploadProgress";
 export { UploadNotices } from "./UploadProgress";
+
+export function enterUploads(navigate: ReturnType<typeof useNavigate>) {
+  setPrevParamsSerialized("");
+  const batch = useUploadJobsStore.getState().batches.at(-1)?.id;
+  pushNavigate(navigate, { to: "/upload", search: batch ? { batch } : {}, state: withFreshKupuaKey({ _uploadFresh: true }) });
+}
+
+function openSubmittedBatch(navigate: ReturnType<typeof useNavigate>, batch: string) {
+  const withinUpload = useUiPrefsStore.getState().densityContext === "upload";
+  pushNavigate(navigate, { to: "/upload", search: { batch }, state: withFreshKupuaKey({ _uploadFresh: !withinUpload, _uploadAddressed: withinUpload }) });
+}
 
 export function useUploadAccess(): "loading" | "available" | "denied" | "disabled" | "unavailable" {
   const [permitted, setPermitted] = useState<boolean | null>();
@@ -52,7 +66,7 @@ export function UploadDropzone({ children }: { children: ReactNode }) {
       reset();
       if (!available || !files.length) return;
       const batch = submitUploadFiles(files);
-      if (batch) pushNavigate(navigate, { to: "/upload", search: { batch } });
+      if (batch) openSubmittedBatch(navigate, batch);
     } : undefined}>
     {children}
     {available && dragging && <div className="fixed inset-2 z-[200] pointer-events-none border-2 border-dashed border-grid-accent bg-grid-bg/95 flex items-center justify-center text-grid-text">
@@ -73,7 +87,7 @@ export function UploadEntry({ withActivity = false }: { withActivity?: boolean }
       event.target.value = "";
       if (!available || !files.length) return;
       const batch = submitUploadFiles(files);
-      if (batch) pushNavigate(navigate, { to: "/upload", search: { batch } });
+      if (batch) openSubmittedBatch(navigate, batch);
     }} />
     <button type="button" disabled={!available} onClick={() => input.current?.click()} aria-label="Upload files"
       title={available ? "Upload files" : "Uploads disabled, permission or configuration unavailable"}
@@ -95,20 +109,26 @@ const batchReference = (id: string) => `Batch ${id.replace(/^local-/, "").slice(
 export function UploadBatchSelector({ batch }: { batch?: string }) {
   const batches = useUploadJobsStore(state => state.batches);
   const navigate = useNavigate();
-  const choices = [...batches].reverse().filter((item, index) => index < 5 || item.id === batch || outstanding(item));
-  return <select aria-label="Upload batch" value={batch ?? ""} className="min-w-48 basis-48 flex-1 max-w-72 h-9 rounded border border-grid-border bg-grid-bg px-2 text-sm text-grid-text"
-    onChange={event => pushNavigate(navigate, { to: "/upload", search: event.target.value ? { batch: event.target.value } : {} })}>
-    <option value="">My recent uploads</option>
+  const [earlier, setEarlier] = useState(false);
+  const choices = [...batches].reverse().filter((item, index) => earlier || index < 5 || item.id === batch || outstanding(item));
+  return <div className="flex items-center min-w-0 gap-1 shrink-0">
+    <select aria-label="Upload batch" value={batch ?? ""} className="min-w-48 w-48 wide:w-64 max-w-72 h-9 rounded border border-grid-border bg-grid-bg px-2 text-sm text-grid-text"
+    onChange={event => pushNavigate(navigate, { to: "/upload", search: event.target.value ? { batch: event.target.value } : {}, state: withFreshKupuaKey({ _uploadAddressed: true }) })}>
+    {!batch && <option value="" disabled>{batches.length ? "Choose a batch" : "No retained batches"}</option>}
     {batch && !choices.some(item => item.id === batch) && <option value={batch} disabled>{batchReference(batch)} (unavailable)</option>}
-    {choices.map(item => <option key={item.id} value={item.id}>{batchReference(item.id)} / {item.attempts.length} {item.attempts.length === 1 ? "file" : "files"}{outstanding(item) ? " / outstanding" : ""}</option>)}
-  </select>;
+    {choices.map(item => <option key={item.id} value={item.id}>{new Date(item.createdAt).toLocaleString()} / {item.attempts[0]?.name ?? batchReference(item.id)} / {item.attempts.length} files / {new Set(item.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : [])).size} images{outstanding(item) ? " / outstanding" : ""}</option>)}
+    </select>
+    {batches.length > 5 && <button type="button" aria-expanded={earlier} className="text-xs px-2 h-9 cursor-pointer underline" onClick={() => setEarlier(value => !value)}>{earlier ? "Recent batches" : "Earlier batches"}</button>}
+  </div>;
 }
 
 export function UploadActivity({ toolbar = false, split = false }: { toolbar?: boolean; split?: boolean }) {
   const navigate = useNavigate();
   const available = useUploadAvailable();
+  const inspecting = useRouterState({ select: state => !!state.location.search.image || !!state.location.search.cropping
+    || !["/search", "/upload"].includes(state.location.pathname) });
   if (!available) return null;
-  return <UploadProgress toolbar={toolbar} split={split} renderBatchControls={batch => <div className="upload-popup-header">
+  return <UploadProgress toolbar={toolbar} split={split} renderBatchControls={inspecting ? undefined : batch => <div className="upload-popup-header">
     <UploadBatchSelector batch={batch.id} />
     <button type="button" className="upload-link" onClick={() => pushNavigate(navigate, { to: "/upload", search: { batch: batch.id } })}>Open batch</button>
   </div>} />;

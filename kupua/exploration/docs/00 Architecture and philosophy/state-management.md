@@ -65,7 +65,9 @@ command admission, cancel independent jobs or grant authority from retained memb
 `uploadBatchMembership` holds immutable canonical-ID snapshots independently of
 the route. Job-owned membership deduplicates IDs in submitted-filename order and
 advances its revision on change. `SearchParams.imageScope` carries key, revision,
-typed IDs and local ordering policy; only IDs reach the server. The URL carries a
+typed IDs and local ordering policy for an individual source. Combined Upload carries
+that batch under `recentUploadScope.batch`, together with an in-memory human identity;
+only mapped query fields reach the server. The URL carries a
 short `batch`, not membership. This is not selection, an image cache or authority.
 [Upload jobs](../../../src/stores/upload-jobs-store.ts) own attempts and active
 resources. [Local descriptors](../../../src/lib/local-batch-storage.ts) restore
@@ -83,9 +85,10 @@ text and original submission receipts remain lightweight descriptor facts; ident
 diagnostics are suppressed independently for queued and terminal failures.
 
 Resolved batches clear unrelated search filters and admit paid/free images.
-Missing batches and unavailable recent identity admit explicit empty scopes;
-known-empty batches publish empty results after existing cancellation, without
-page/count reads. Nonempty Upload scopes use media-api POST ID filters, including the
+Missing/known-empty batches make no batch page/count reads; their explicit state
+can coexist with the independently admitted human-scoped lower query. Missing human
+identity never admits a lower query and does not discard a usable upper batch.
+Nonempty batch sources use media-api POST ID filters, including the
 intersection with singleton cursor probes. Local keys/revisions never reach the
 server. Query keys distinguish scopes and revisions, and existing request
 generations/signals reject obsolete results. Membership revisions, not library
@@ -103,8 +106,21 @@ and cursor fingerprints. Reload obtains the current identity again; loss or
 invalidation cancels admission instead of widening the query. Recent results are
 library uploads, not a local batch or future metadata-arrow target set.
 
+`UploadPageReader` composes those sources through the same bounded store window,
+not another store. Cursor tuples carry a section prefix; section-local ranks are
+translated to combined positions. Lower pages/counts/ranks/keys share the same
+open-batch CQL exclusion, and batch sorting never changes the lower newest-first order.
+`uploadSections` publishes counts and recognizable required-read failures only at
+the existing request-owned commit boundaries. Partial pages retain their true offset;
+extensions cannot close an unread gap or turn a failed request into a terminal boundary.
+Deep lower seeks retain existing approximation, while absolute End uses reverse paging.
+The section layout composes headings and source geometry under the existing compensation
+owner. Upper growth therefore uses the same surviving-image/interior-field continuity
+while reading lower results; it does not redefine the lower query as a frozen snapshot.
+
 Descriptors use a 2 MiB tab-session budget; history uses 1 MiB and its existing
-50-entry LRU. Five visible choices do not delete descriptors. Persistence failure
+50-entry LRU. Five quick choices do not delete descriptors; Earlier batches exposes
+every retained record, including in-memory work whose persistence failed. Persistence failure
 retains in-page state, reports the reload limit and protects unretained batch work
 even after transfer settles. Explicit local-storage retry never submits bytes or
 restarts observation. These are local recovery limits, not durable job storage.

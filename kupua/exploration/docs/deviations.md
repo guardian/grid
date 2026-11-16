@@ -52,13 +52,20 @@ and the remaining command families still belong to U5-U7, not disconnected parit
 ### Recent Uploads in the Shared Browser
 
 Kahuna shows a newest-50 recent-upload preview and links to all uploads in Search.
-Kupua's My recent uploads is the ordinary newest-first uploader-scoped browsing
-context, with normal bounded pages rather than a separate 50-image mini-list or a
-new product cap. This keeps densities, traversal and history in one engine and
-keeps authenticated identity out of browser URLs. The trade-off is that this is a
+Kupua's My recent uploads opens one retained submission above all other uploader-scoped
+images, with normal bounded pages rather than a separate 50-image mini-list or a
+new product cap. The open batch alone is excluded from the lower query, including
+counts, ranks and traversal; other retained batches are not excluded. This keeps
+densities, traversal and history in one engine. Upload URLs use local references,
+not identity; the explicit View all your uploads Search link deliberately uses the
+user's email in `uploadedBy`, matching Kahuna. The trade-off is that the lower section is a
 current library query, not a fixed historical snapshot or a record of submissions;
 duplicates keep the server's existing uploader identity. Local batches remain the
 explicit per-submission working sets. Missing identity never becomes an all-users query.
+Fresh entry chooses newest/Form/top; history and inspection return preserve their
+actual batch/section/place. Earlier batches exposes every retained batch without a
+new history service. This is not server persistence, Upload selection, a Search
+selection handoff or U5's saves/arrows.
 
 ### Settled Upload Receipt History
 

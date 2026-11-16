@@ -7,7 +7,7 @@ import type { UrlSearchParams } from "@/lib/search-params-schema";
 export type BrowsingPath = "/search" | "/upload";
 export type ImageScope = NonNullable<SearchParams["imageScope"]>;
 export type RecentUploadScope = NonNullable<SearchParams["recentUploadScope"]>;
-export type BrowsingParams = UrlSearchParams & { batch?: string; imageScope?: ImageScope; recentUploadScope?: RecentUploadScope };
+export type BrowsingParams = UrlSearchParams & { batch?: string; section?: "batch" | "other"; imageScope?: ImageScope; recentUploadScope?: RecentUploadScope };
 
 export const UPLOAD_BROWSING_ENABLED = import.meta.env.VITE_USE_MEDIA_API === "true";
 

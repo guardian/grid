@@ -27,16 +27,23 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   const requiresLabel = (body: Record<string, unknown>) => body.q === "label:reviewed";
   const matches = (ordinal: number, body: Record<string, unknown>) => ordinal >= 0 && ordinal < logicalTotal
     && !hiddenFromSearch.has(`local-${ordinal}`)
+    && !String(body.q ?? "").includes(`-id:"local-${ordinal}"`)
     && (!requiresLabel(body) || ordinal < (matchingPrefix ?? 0) || projections.has(`local-${ordinal}`))
     && (!excludesLabel(body) || !projections.has(`local-${ordinal}`));
   const scopedOrdinals = (body: Record<string, unknown>) => Array.isArray(body.ids)
     ? (body.ids as string[]).filter(known).map(id => Number(id.slice(6)))
       .filter(ordinal => matches(ordinal, body)).sort((first, second) => first - second)
     : undefined;
-  const currentTotal = (body: Record<string, unknown>) => body.since ? 0 : scopedOrdinals(body)?.length
-    ?? (requiresLabel(body)
+  const currentTotal = (body: Record<string, unknown>): number => {
+    const exclusions = [...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]);
+    if (exclusions.length && !body.ids) {
+      const withoutExclusions = { ...body, q: String(body.q ?? "").replace(/-id:"[^"]+"/g, "").trim() };
+      return currentTotal(withoutExclusions) - new Set(exclusions.filter(id => known(id) && matches(Number(id.slice(6)), withoutExclusions))).size;
+    }
+    return body.since ? 0 : scopedOrdinals(body)?.length ?? (requiresLabel(body)
       ? (matchingPrefix ?? 0) + [...projections.keys()].filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0)).length
-      : logicalTotal - (excludesLabel(body) ? projections.size : 0));
+      : logicalTotal - new Set([...hiddenFromSearch, ...(excludesLabel(body) ? projections.keys() : [])]).size);
+  };
   const pageOrdinals = (body: Record<string, unknown>) => {
     const cursor = body.sortValues as (number | string | null)[] | undefined;
     const reverse = Boolean(body.reverse);
@@ -101,7 +108,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
     const resource = entity("local-0", true);
     const file = uploaded.get(id);
     return { ...resource, uri: `/api/images/${id}`, data: { ...resource.data, id,
-      uploadInfo: { filename: file?.name ?? "fixture.jpg" }, uploadTime: new Date(epoch - (file?.ordinal ?? 0) * 1000).toISOString(),
+      uploadInfo: { filename: file?.name ?? "fixture.jpg" }, uploadTime: new Date(epoch + 1_000_000 - (file?.ordinal ?? 0) * 1000).toISOString(),
     }, links: [...resource.links.map(link => ({ ...link, href: link.href.replace("local-0", id) })),
       { rel: "crops", href: `https://api.example.test/crops/${id}` }],
     };
@@ -141,6 +148,9 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
               if (typeof body.status === "string") uploadStatus = body.status;
               if (typeof body.visible === "boolean") uploadVisible = body.visible;
               if (typeof body.searchable === "boolean") uploadSearchable = body.searchable;
+              if (Array.isArray(body.members)) {
+                for (const member of body.members) uploaded.set(member.id, { name: member.name, ordinal: uploaded.size });
+              }
             }
             return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId });
           }
@@ -185,7 +195,7 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
           };
           if (upload && Array.isArray(body.ids) && body.ids.some(id => /^[a-f0-9]{40}$/.test(String(id)))) {
             if (!body.ids.every(id => /^[a-f0-9]{40}$/.test(String(id)))) return send({ error: "unexpected-upload-scope" }, 403);
-            const members = (body.ids as string[]).filter(id => uploaded.has(id)).sort((first, second) => uploaded.get(first)!.ordinal - uploaded.get(second)!.ordinal);
+            const members = (body.ids as string[]).filter(id => uploaded.has(id) && !String(body.q ?? "").includes(`-id:"${id}"`)).sort((first, second) => uploaded.get(first)!.ordinal - uploaded.get(second)!.ordinal);
             const data = uploadSearchable ? members.map(id => uploadEntity(id)) : [];
             const sortValues = data.map(item => [Date.parse(item.data.uploadTime), item.data.id]);
             if (pathname === "/api/images/mget") return send({ data: uploadVisible ? [...members].reverse().map(id => uploadEntity(id)) : [] });
@@ -197,6 +207,47 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             if (pathname === "/api/images/rank") return send({ rank: members.indexOf(String((body.sortValues as unknown[])?.at(-1))) });
             if (pathname === "/api/images/search-after" || pathname === "/api/images/window") return send({ data, total: data.length,
               sortValues: data.length ? sortValues : [], ...(pathname.endsWith("/window") ? { offset: 0, rawHitCount: data.length } : {}) });
+          }
+          if (upload && body.uploadedBy && !body.ids) {
+            const excluded = new Set([...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]));
+            const prefix = uploadSearchable ? [...uploaded.keys()].filter(id => !excluded.has(id)) : [];
+            const total = prefix.length + currentTotal(body);
+            const values = (id: string) => /^[a-f0-9]{40}$/.test(id)
+              ? [Date.parse(uploadEntity(id).data.uploadTime), id] : tuple(Number(id.slice(6)));
+            const cursor = body.sortValues as (string | number | null)[] | undefined;
+            const cursorId = cursor ? String(cursor.at(-1)).replace(/\u0000$/, "") : undefined;
+            const prefixCursor = cursorId ? prefix.indexOf(cursorId) : -1;
+            const reverse = !!body.reverse;
+            if (pathname === "/api/images/count") { counts.countReads++; return send({ total }); }
+            if (pathname === "/api/images/rank") {
+              counts.rankReads++;
+              return send({ rank: prefixCursor >= 0 ? prefixCursor : prefix.length + Number(cursorId?.slice(6) ?? 0) });
+            }
+            if (["/api/images/search-after", "/api/images/window", "/api/images/keys"].includes(pathname!)) {
+              const length = Number(body.length ?? body.size ?? 200);
+              const offset = Number(body.offset ?? 0);
+              const prefixCandidates = prefix.filter((_, index) => !cursor || (prefixCursor >= 0
+                ? reverse ? index < prefixCursor + (String(cursor!.at(-1)).endsWith("\u0000") ? 1 : 0) : index > prefixCursor : reverse));
+              const selectedPrefix = reverse ? prefixCandidates.slice(-length) : prefixCandidates.slice(offset, offset + length);
+              const localBody = { ...body, offset: !cursor ? Math.max(0, offset - prefix.length) : 0,
+                sortValues: prefixCursor >= 0 ? undefined : cursor, length: length - selectedPrefix.length, size: length - selectedPrefix.length };
+              const locals = reverse && prefixCursor >= 0 ? [] : pageOrdinals(localBody).map(index => `local-${index}`);
+              const selected = reverse ? [...selectedPrefix.slice(Math.max(0, selectedPrefix.length + locals.length - length)), ...locals] : [...selectedPrefix, ...locals];
+              if (pathname === "/api/images/keys") { counts.mapReads++; return send({ keys: selected.map(id => ({ id, sortValues: values(id) })), after: selected.length === length ? values(selected.at(-1)!) : null }); }
+              counts.searchReads++; counts.pageReads++;
+              const payload = { data: selected.map(id => uploaded.has(id) ? uploadEntity(id) : entity(id)), total, sortValues: selected.map(values),
+                ...(pathname.endsWith("/window") ? { offset, rawHitCount: selected.length } : {}) };
+              if (holdNext) {
+                holdNext = false;
+                await new Promise<void>(resolve => {
+                  const release = () => { held.delete(release); response.off("close", release); resolve(); };
+                  held.add(release); response.once("close", release);
+                });
+                if (response.destroyed) { counts.aborted++; return; }
+                counts.staleDelivered++;
+              }
+              return send(payload);
+            }
           }
           if (pathname === "/__readback-control") {
             if (request.method === "POST") {
@@ -226,6 +277,9 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             }
             return send({ ...counts, held: held.size });
           }
+          if (continuation && request.method === "POST" && pathname === "/api/images/sort-profile" && body.operation === "scalar-anchor" && body.field === "uploadTime") {
+            return send({ value: epoch - Math.floor(logicalTotal * (1 - Number(body.percentile) / 100)) * 1000 });
+          }
           if (request.method === "POST" && pathname === "/api/images/sort-profile" && body.operation === "date-stats") {
             counts.profileFailures++;
             return send({ error: "synthetic-optional-profile-unavailable" }, 503);
@@ -238,7 +292,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
             if (scoped) return send({ rank: scoped.filter(candidate => candidate < ordinal).length });
             if (requiresLabel(body)) return send({ rank: Math.min(ordinal, matchingPrefix ?? 0) + [...projections.keys()]
               .filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0) && Number(id.slice(6)) < ordinal).length });
-            const removed = excludesLabel(body) ? [...projections.keys()].filter(id => Number(id.slice(6)) < ordinal).length : 0;
+            const excluded = [...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]);
+            const removed = [...new Set([...hiddenFromSearch, ...excluded, ...(excludesLabel(body) ? projections.keys() : [])])].filter(id => known(id) && Number(id.slice(6)) < ordinal).length;
             return send({ rank: Math.max(0, ordinal - removed) });
           }
           if (continuation && request.method === "POST" && pathname === "/api/images/keys" && currentTotal(body) <= 65_000) {

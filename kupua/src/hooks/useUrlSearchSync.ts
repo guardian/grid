@@ -90,7 +90,7 @@ function cleanParams(
 
 export function useUrlSearchSync() {
   const routeSearch = useBrowsingSearch();
-  const { path, imageScope, recentUploadScope } = useBrowsingContext();
+  const { path, imageScope, recentUploadScope, recentStatus } = useBrowsingContext();
   // Router matches retain extra keys. Preserve known-key order for existing navigation dedup.
   const searchParams = useMemo(() => Object.fromEntries(
     Object.entries(routeSearch).filter(([key]) => Object.hasOwn(searchParamsSchema.shape, key))
@@ -131,6 +131,7 @@ export function useUrlSearchSync() {
   // When URL search params change → push to store and search
   useEffect(() => {
     if (unmountedRef.current) return;
+    if (path === "/upload" && recentStatus === "loading") return;
     const observedParams = searchParamsSchema.parse(location.search);
     if (buildSearchKey(observedParams) !== buildSearchKey(searchParams) || observedParams.image !== searchParams.image) return;
 
@@ -183,9 +184,10 @@ export function useUrlSearchSync() {
       )
     )), ...(path === "/upload" ? { nonFree: "true", imageScope, recentUploadScope } : {}) };
     const previousParams = useSearchStore.getState().params;
-    const previousScope = previousParams.imageScope;
-    const contextChanged = (previousScope?.key ?? previousParams.recentUploadScope?.key) !== (imageScope?.key ?? recentUploadScope?.key);
-    const membershipChanged = !contextChanged && previousScope?.revision !== imageScope?.revision;
+    const previousScope = previousParams.imageScope ?? previousParams.recentUploadScope?.batch;
+    const contextChanged = (previousParams.imageScope?.key ?? previousParams.recentUploadScope?.key) !== (imageScope?.key ?? recentUploadScope?.key);
+    const nextScope = imageScope ?? recentUploadScope?.batch;
+    const membershipChanged = !contextChanged && previousScope?.revision !== nextScope?.revision;
     if (contextChanged) restoreBrowsingDensity(path);
     else admitBrowsingDensityContext(path);
     const serialized = JSON.stringify(searchOnly);
@@ -379,7 +381,7 @@ export function useUrlSearchSync() {
     // means no matching debounce ever fires to clear it), and every future
     // debounced query from the CQL editor is silently dropped.
     setExternalQuery(null);
-  }, [searchParams, routeSearch.batch, path, imageScope, recentUploadScope, location, observedEntryKey, membershipCompletion, setParams, search, navigate]);
+  }, [searchParams, routeSearch.batch, path, imageScope, recentUploadScope, recentStatus, location, observedEntryKey, membershipCompletion, setParams, search, navigate]);
 }
 
 /**

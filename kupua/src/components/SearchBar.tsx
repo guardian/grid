@@ -4,9 +4,8 @@ import { useIsCompact } from "./PanelLayout";
 import { usePanelStore } from "@/stores/panel-store";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
-import { returnToBrowsing } from "@/lib/browsing-navigation";
 import { UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
-import { UploadEntry, useUploadAccess } from "./UploadActivity";
+import { UploadEntry, useUploadAccess, enterUploads } from "./UploadActivity";
 import { useSearch } from "@tanstack/react-router";
 import { useSearchStore } from "@/stores/search-store";
 import { SearchFilters } from "./SearchFilters";
@@ -491,7 +490,7 @@ export function SearchBar() {
       {UPLOAD_BROWSING_ENABLED && uploadAccess === "available" && <>
         <button type="button" aria-label="My recent uploads" title="My recent uploads"
           className="image-action flex shrink-0 h-11 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover cursor-pointer text-grid-text-muted border-l border-grid-separator"
-          onClick={() => returnToBrowsing(navigate, "/upload")}>
+          onClick={() => enterUploads(navigate)}>
           <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2ZM11 12l2.03 2.71L16 11l4 5H8l3-4ZM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2Z" />
           </svg>

@@ -46,9 +46,20 @@ The media-api-only `/upload?batch=local-<id>` route uses the same browsing engin
 and existing detail/crop display parameters. [Browsing navigation](../../../src/lib/browsing-navigation.ts)
 captures departure from search or Upload in the router's `onBeforeNavigate`,
 before the source route disposes its geometry. Each context retains only its URL,
-density and snapshot reference. Explicit Search/Upload controls restore that
-destination through existing continuity; native Back/Forward uses entry snapshots.
+density and snapshot reference. Back to search restores that destination through
+existing continuity; native Back/Forward uses entry snapshots. My recent uploads is
+deliberately fresh entry: newest submission, page top, Form and no detail/crop.
 This is a two-context adapter, not a general workspace or retained-results system.
+
+Upload resolves fresh entry once, after departure capture, and marks its history
+entry `_uploadAddressed`. `_uploadFresh` distinguishes the main doorway from explicit
+batch navigation. Resolution is qualified by the active pathname and addressed search
+fields, so a departing component cannot normalize another navigation. Historical
+no-batch entries remain no-batch even after a submission exists. Reload preserves the
+addressed entry and session density. Synthesized direct-detail list predecessors keep
+the addressed marker; activity links establish an Upload-list predecessor before detail.
+`section=batch|other` qualifies image inspection and survives crop/traversal without
+becoming a data-query filter. Upload detail says Back to uploads; crop says Back to image.
 
 Home captures Upload before preloading the library and clears its internal scope.
 Later route-exit capture must still match the engine's source context; otherwise
@@ -61,15 +72,15 @@ Search is an explicit alternative, not an automatic fallback. Ordinary direct-ES
 search and its history policies remain unchanged.
 
 The ordinary search density policy above is unchanged. Crossing between search
-and Upload restores that context's last density; switching batches need not recall
+and Upload restores its represented density for returns; switching batches need not recall
 each batch's separate view. `BROWSING_DENSITIES` and `availableDensity` explicitly
-admit Grid, Table and Justified in both contexts. Form is not implemented or
-admitted yet; an unsupported stored preference cannot strand search. Density is
+admit Grid, Table and Justified in both contexts, plus Form only in Upload.
+Fresh Upload entry chooses Form; unsupported stored preferences cannot strand Search. Density is
 still absent from the URL and history snapshot shape.
 
 Scope keys and revisions participate in result/cursor fingerprints. For Upload
 only, a newer membership revision can reuse a represented snapshot when batch
-identity and all other query/sort parameters agree and the anchor remains a member.
+identity and all other query/sort parameters agree and the anchor retains its section.
 Its new key is qualified before ordinary continuity restoration, without importing
 library arrival freezes. Another batch, changed sorting or a removed anchor does
 not gain this qualification. Library snapshot matching remains strict.
@@ -84,8 +95,9 @@ return consumers and prevented existing direct-Forward detail placement from set
 This ordering constraint does not change native entry or detail-origin policy.
 
 Missing local membership, including a URL containing `image`, displays unavailable
-with explicit Search/Recent uploads alternatives. Known-empty membership is distinct;
-neither may issue a library-wide query or open an unrelated singleton detail.
+with explicit alternatives. Known-empty membership is distinct; neither may issue
+an unrestricted batch query or open an unrelated batch detail. The independently
+admitted lower human-uploader query can remain usable beside those states.
 `/upload` without a batch is an authenticated recent-library query, not submission
 history. Its identity-free route key stays stable across reload; the current human
 identity is read again and applied only at the API boundary. Loading or unavailable

@@ -6,6 +6,8 @@ import { prepareDestinationSeek } from "@/lib/destination-seek";
 export const JUSTIFIED_BLOCK_SIZE = 48;
 
 export interface LayoutWindow {
+  uploadSection?: "batch" | "other";
+  uploadSections?: { batch: number; present: boolean };
   bufferOffset: number;
   total: number;
   indexed: boolean;

@@ -10,6 +10,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { chooseReflowAnchor } from "@/lib/layout-anchor-policy";
 import { isFocusEligibleForLayoutAnchor } from "@/lib/grid-scroll-anchor";
+import { composeUploadLayout } from "@/lib/upload-section-layout";
 
 export interface MeasuredCells {
   key: string;
@@ -75,13 +76,16 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
       const reading = image && readings.get(image.id);
       if (image && reading?.width === width && reading.key === cells.key) measurements.set(image.id, reading.height);
     }
-    const next = buildMeasuredLayout(images, width, context,
-      { estimatedHeight: cells.estimate(undefined, width), estimate: image => cells.estimate(image, width),
-        anchorHeight: image => cells.thumbnailHeight(image, width), measurements });
+    const options = { estimatedHeight: cells.estimate(undefined, width), estimate: (image: Image | undefined) => cells.estimate(image, width),
+      anchorHeight: (image: Image) => cells.thumbnailHeight(image, width), measurements };
+    const next = context.uploadSections
+      ? composeUploadLayout(images, width, context, context.uploadSections.batch, context.uploadSections.present,
+        (resident, scope) => buildMeasuredLayout(resident, width, scope, options))
+      : buildMeasuredLayout(images, width, context, options);
     next.window.correctionAnchor = committedReadings.current !== readings && correctionAnchor ? correctionAnchor
       : anchorId ? { id: anchorId, beforeOffset: 0, afterOffset: 0 } : undefined;
     return next;
-  }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, cells, readings, correctionAnchor]);
+  }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, context.uploadSections?.batch, context.uploadSections?.present, cells, readings, correctionAnchor]);
   useLayoutEffect(() => { committedLayout.current = layout; }, [layout]);
   const measureRef = useRef(() => {});
   const observerRef = useRef<ResizeObserver | null>(null);

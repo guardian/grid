@@ -18,6 +18,11 @@ export interface MeasuredLayout extends ImageLayout {
   isEstimatedSpan: (rowIndex: number) => boolean;
 }
 
+export function measuredLayoutRowKey(layout: Pick<MeasuredLayout, "getRow" | "window">, index: number): string {
+  const row = layout.getRow(index);
+  return layout.window.getItemId(row.firstItemIndex) ?? `unloaded:${row.firstItemIndex}:${row.lastItemIndex}`;
+}
+
 export function buildMeasuredLayout(
   images: readonly (Image | undefined)[], width: number, context: LayoutWindow,
   options: MeasuredLayoutOptions,

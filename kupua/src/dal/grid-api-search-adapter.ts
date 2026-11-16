@@ -131,7 +131,7 @@ export class SearchAfterApiError extends Error {
  */
 export function buildReadBody(params: SearchParams): Record<string, unknown> {
   const body: Record<string, unknown> = {
-    q: params.query ?? "",
+    q: [params.query ?? "", ...(params.recentUploadScope?.excludedIds ?? []).map(id => `-id:${JSON.stringify(id)}`)].filter(Boolean).join(" "),
     orderBy: params.orderBy,
     sort: buildSortClause(params.orderBy),
   };

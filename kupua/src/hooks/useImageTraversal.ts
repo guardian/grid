@@ -115,7 +115,26 @@ export function useImageTraversal(
   onNavigate: (image: Image, globalIndex: number) => void,
   history?: RouterHistory,
   onCancelled?: () => void,
+  origin?: "batch" | "other",
 ): ImageTraversalResult {
+  const sourceSection = useRef<{ key: string; section: "batch" | "other" } | null>(null);
+  const params = useSearchStore(state => state.params);
+  const sections = useSearchStore(state => state.uploadSections);
+  const scope = params.recentUploadScope;
+  if (!currentImageId || !scope?.combined) sourceSection.current = null;
+  else if (!sourceSection.current || sourceSection.current.key !== scope.key) sourceSection.current = { key: scope.key,
+    section: origin ?? (scope.batch?.ids.includes(currentImageId) ? "batch" : "other") };
+  const limits = () => {
+    const state = useSearchStore.getState();
+    const combined = state.params.recentUploadScope?.combined;
+    const boundary = state.uploadSections?.batch ?? 0;
+    return { start: combined && sourceSection.current?.section === "other" ? boundary : 0,
+      end: combined && sourceSection.current?.section === "batch" ? boundary : getDisplayEnd(state), combined };
+  };
+  const withinSource = (index: number) => {
+    const bounds = limits();
+    return index >= bounds.start && (index < bounds.end || !bounds.combined && canExtendForward());
+  };
   const onCancelledRef = useRef(onCancelled);
   onCancelledRef.current = onCancelled;
   const historyRef = useRef(history);
@@ -158,18 +177,20 @@ export function useImageTraversal(
   const results = useSearchStore((s) => s.results);
   const bufferOffset = useSearchStore((s) => s.bufferOffset);
   const total = useSearchStore(getDisplayEnd);
+  const sectionStart = scope?.combined && sourceSection.current?.section === "other" ? sections?.batch ?? 0 : 0;
+  const sectionEnd = scope?.combined && sourceSection.current?.section === "batch" ? sections?.batch ?? 0 : total;
 
   // Resolve current position
   const currentGlobalIndex = currentImageId ? globalIndexOf(currentImageId) : -1;
 
   // Compute prev/next images (may be null if outside buffer)
-  const prevGlobalIdx = currentGlobalIndex > 0 ? adjacentAvailableIndex(currentGlobalIndex, -1) : -1;
-  const nextGlobalIdx = currentGlobalIndex >= 0 && currentGlobalIndex < total - 1
+  const prevGlobalIdx = currentGlobalIndex > sectionStart ? adjacentAvailableIndex(currentGlobalIndex, -1) : -1;
+  const nextGlobalIdx = currentGlobalIndex >= sectionStart && currentGlobalIndex < sectionEnd - 1
     ? adjacentAvailableIndex(currentGlobalIndex, 1)
     : -1;
 
-  const prevImage = prevGlobalIdx >= 0 ? getImageAtGlobal(prevGlobalIdx) : null;
-  const nextImage = nextGlobalIdx >= 0 ? getImageAtGlobal(nextGlobalIdx) : null;
+  const prevImage = prevGlobalIdx >= sectionStart ? getImageAtGlobal(prevGlobalIdx) : null;
+  const nextImage = nextGlobalIdx >= sectionStart && nextGlobalIdx < sectionEnd ? getImageAtGlobal(nextGlobalIdx) : null;
 
   // ── Proactive extend ────────────────────────────────────────────
   // When the current image is near a buffer edge, trigger an extend
@@ -223,7 +244,7 @@ export function useImageTraversal(
     if (gIdx < 0) { pending.cancel(); return; }
 
     const targetGlobalIdx = adjacentAvailableIndex(gIdx, dir === "forward" ? 1 : -1);
-    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd() && !canExtendForward())) { pending.cancel(); return; }
+    if (!withinSource(targetGlobalIdx)) { pending.cancel(); return; }
     const targetImage = getImageAtGlobal(targetGlobalIdx);
 
     if (targetImage) {
@@ -250,11 +271,10 @@ export function useImageTraversal(
     const gIdx = globalIndexOf(imgId);
     if (gIdx < 0) { onCancelledRef.current?.(); return; }
 
-    const state = useSearchStore.getState();
     const targetGlobalIdx = adjacentAvailableIndex(gIdx, direction === "forward" ? 1 : -1);
 
     // Boundary check
-    if (targetGlobalIdx < 0 || (targetGlobalIdx >= getDisplayEnd(state) && !canExtendForward(state))) {
+    if (!withinSource(targetGlobalIdx)) {
       onCancelledRef.current?.();
       return;
     }
@@ -361,7 +381,7 @@ export function useImageTraversal(
   return {
     prevImage,
     nextImage,
-    canGoNext: nextImage !== null || (currentGlobalIndex >= 0 && canExtendForward()),
+    canGoNext: nextImage !== null || (currentGlobalIndex >= sectionStart && (!scope?.combined || currentGlobalIndex < sectionEnd - 1) && canExtendForward()),
     goToPrev,
     goToNext,
     currentGlobalIndex,

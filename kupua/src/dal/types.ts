@@ -26,7 +26,7 @@ export type SortValues = (string | number | null)[];
 
 export interface SearchParams {
   imageScope?: { key: string; revision: number; ids: readonly string[]; submittedOrder?: boolean };
-  recentUploadScope?: { key: string; uploadedBy: string };
+  recentUploadScope?: { key: string; uploadedBy: string; excludedIds?: readonly string[]; combined?: boolean; batch?: NonNullable<SearchParams["imageScope"]> };
 
   // --- Params that appear in kahuna's URL (search.results state) ---
 
@@ -86,6 +86,7 @@ export interface SearchParams {
 }
 
 export interface SearchResult {
+  uploadSections?: UploadSections;
   hits: Image[];
   total: number;
   /** ES query time in milliseconds (from the `took` field in ES response). */
@@ -100,6 +101,13 @@ export interface SearchResult {
    * Used for `search_after` cursor management.
    */
   sortValues?: SortValues[];
+}
+
+export interface UploadSections {
+  batch: number;
+  other: number;
+  batchError?: string;
+  otherError?: string;
 }
 
 /**
@@ -153,6 +161,8 @@ export interface CountWithTickersResult {
  * sort values and the PIT ID that was used (may have been updated by ES).
  */
 export interface SearchAfterResult {
+  uploadSections?: UploadSections;
+  uploadOffset?: number;
   hits: Image[];
   total: number;
   took?: number;

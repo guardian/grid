@@ -8,6 +8,7 @@ import { pushNavigate } from "@/lib/orchestration/search";
 import { addToast } from "@/stores/toast-store";
 import { Chevron } from "./Chevron";
 import { containPillActivation } from "./SearchPill";
+import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
 
 function StatusIcon({ status }: { status: "complete" | "active" | "error" }) {
   if (status === "active") return <svg className="upload-status-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -28,6 +29,7 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   attempt: UploadAttempt; batch: UploadBatch; showBatch: boolean; onDismiss: (id: string) => void;
 }) {
   const navigate = useNavigate();
+  const location = useRouterState({ select: state => state.location });
   const [details, setDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const outputRef = useRef<HTMLPreElement>(null);
@@ -37,7 +39,17 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   const recheckable = Boolean(attempt.statusId && (attempt.phase === "uncertain" || attempt.phase === "interrupted"));
   const serverError = attempt.serverError ? redactUploadError(attempt.serverError) : undefined;
   const errorText = serverError ? `File: ${attempt.name}\nMedia ID: ${attempt.statusId ?? "Not available"}\n\n${JSON.stringify({ data: { status: "FAILED", errorMessage: serverError } }, null, 2)}` : "";
-  const openImage = () => pushNavigate(navigate, { to: "/upload", search: { batch: batch.id, image: attempt.imageId }, state: { _detailEntryImageId: attempt.imageId } });
+  const openImage = async () => {
+    if (location.pathname !== "/upload" || location.search.image || location.search.batch !== batch.id) {
+      let pending = Promise.resolve();
+      pushNavigate((options: Parameters<typeof navigate>[0]) => { pending = Promise.resolve(navigate(options)); }, {
+        to: "/upload", search: { batch: batch.id }, state: withFreshKupuaKey({ _uploadAddressed: true }),
+      });
+      await pending;
+    }
+    pushNavigate(navigate, { to: "/upload", search: { batch: batch.id, image: attempt.imageId, section: "batch" },
+      state: { _detailEntryImageId: attempt.imageId, _uploadAddressed: true } });
+  };
   const copyError = async () => {
     try { await navigator.clipboard.writeText(errorText); setCopied(true); }
     catch {

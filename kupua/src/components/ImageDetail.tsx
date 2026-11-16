@@ -109,6 +109,10 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const router = useRouter();
   const searchParams = useBrowsingSearch();
   const { path } = useBrowsingContext();
+  const uploadSections = useSearchStore(state => state.uploadSections);
+  const batchOrigin = path === "/upload" && (searchParams.section === "batch" || searchParams.section !== "other" && !!searchParams.recentUploadScope?.batch?.ids.includes(imageId));
+  const inspectionStart = path === "/upload" && !batchOrigin ? uploadSections?.batch ?? 0 : 0;
+  const inspectionTotal = path === "/upload" ? batchOrigin ? uploadSections?.batch ?? 0 : uploadSections?.other ?? 0 : total;
   const cropping = searchParams.cropping === "true";
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
@@ -184,7 +188,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
     // so this synthesised entry can participate in the snapshot system.
     const originKey = mintKupuaKey();
-    history.replaceState({ kupuaKey: originKey }, "", bareListUrl);
+    history.replaceState({ kupuaKey: originKey, ...(path === "/upload" ? { _uploadAddressed: true } : {}) }, "", bareListUrl);
     // Step 2: push the detail URL back with the original TSR state intact
     // (including its kupuaKey, if any). Stamp it so re-mounts skip.
     history.pushState({ ...detailState, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
@@ -410,7 +414,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
   const {
     prevImage, nextImage, canGoNext, goToPrev, goToNext, currentGlobalIndex,
-  } = useImageTraversal(imageId, onNavigate, router.history, () => cancelSwipeRef.current?.());
+  } = useImageTraversal(imageId, onNavigate, router.history, () => cancelSwipeRef.current?.(), path === "/upload" ? batchOrigin ? "batch" : "other" : undefined);
 
   // Close image detail via history.back(). All four close affordances
   // (← Back button, double-click, Backspace, swipe-to-dismiss) share this
@@ -873,15 +877,17 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       {/* Top bar — hidden in fullscreen */}
       {(!isFullscreen || isCompact) && (
         <header inert={cropping || (isCompact && !chromeVisible)} aria-hidden={isCompact && !chromeVisible || undefined} data-visible={isCompact ? chromeVisible : undefined} style={isCompact ? { background: "linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.72))" } : undefined} className={`detail-toolbar @container/detail-toolbar z-30 flex items-center px-3 py-1.5 h-11 shrink-0 ${isCompact ? "chrome-fade absolute inset-x-0 top-0 text-white" : "relative bg-grid-bg border-b border-grid-separator"}`}>
-          <DetailNavigation destination="search" onBack={closeDetail} onHome={goHome} />
+          <DetailNavigation destination={path === "/upload" ? "uploads" : "search"} onBack={closeDetail} onHome={goHome} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
             <span className="detail-position flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">
-              <span className="text-sm leading-4 font-semibold text-grid-text-bright">{(currentGlobalIndex + 1).toLocaleString()}</span>
+              <span className="text-sm leading-4 font-semibold text-grid-text-bright">{(currentGlobalIndex - inspectionStart + 1).toLocaleString()}</span>
               {" "}
-              {currentGlobalIndex < total && <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {total.toLocaleString()}</span>}
+              {currentGlobalIndex - inspectionStart < inspectionTotal && <span className="text-2xs wide:text-sm leading-4 text-grid-text-muted">of {inspectionTotal.toLocaleString()}</span>}
             </span>
           )}
+
+          {path === "/upload" && <span className="text-xs text-grid-text-muted truncate max-w-48" data-inspection-section={batchOrigin ? "batch" : "other"}>{batchOrigin ? `Batch ${searchParams.batch?.replace(/^local-/, "").slice(0, 8)}` : "My other uploads"}</span>}
 
           <span className="flex-1" />
 

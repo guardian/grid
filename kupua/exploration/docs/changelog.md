@@ -24,6 +24,57 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 November 2026 - Streamline E2E coverage and fixture setup
+
+Combined repeated scrubber initial-state, End/Home, selection-affordance,
+collection-tree and keyboard setup into behavioral journeys retaining their
+intermediate assertions. Full mocked label-editor and observation exercises now
+have one local owner; connected writes remain covered across both local transport
+variants and compiled hosting. The hosted owner retains batch and recovery coverage.
+
+Mocked history scenarios configure their existing datasources before the normal
+app entry renders, rather than loading local Elasticsearch results and then
+replacing them. A startup witness rejects direct-ES reads in those fixtures;
+the history scenarios and repeated traversal checks remain unchanged.
+
+The large Upload field-continuity journey seeds already-verified batch members
+through its synthetic service and the real jobs-store membership subscription,
+then releases one genuine held transfer. It retains the large-batch transition,
+lower Form IME/selection/geometry and bounded-buffer checks, while the smaller
+real-file journeys retain multi-file admission coverage. Owned upload work is
+disposed and the document is left before browser-context teardown.
+
+The stale-read witness holds an already-built response rather than postponing
+server projection, so supersession no longer depends on earlier exercises.
+Compact metadata alignment waits for its original exact geometry predicate.
+Mixed-upload ordering checks wait for valid attempts to complete rather than
+treating the early attention badge as batch completion; exact filename-order,
+duplicate-outcome and compact navigation assertions remain unchanged.
+
+The default E2E worker budget is four; the CLI worker override remains available
+for more constrained machines.
+
+### 15 November 2026 - Unified Upload page and section-aware navigation
+
+Composed one open batch above all other current-user uploads through the existing
+bounded browsing and placement owner. Source-qualified cursors, ranks and geometry
+preserve independent batch/newest-first ordering; existing API CQL exclusion keeps
+the open batch out of lower pages, counts and traversal. Form retains natural
+measurement and field continuity, Grid retains column phase, and Justified keeps
+bounded section packing context. Failed reads remain distinguishable from empty
+results and cannot publish across unread gaps or latch false catalogue boundaries.
+
+Added recognizable retained-batch choices and complete Earlier batches access,
+section orientation, batch-only sorting and a current-uploader Search link matching
+Kahuna. Fresh entry selects newest/Form/top; addressed history, detail, crop and
+reload preserve their source rather than executing fresh-entry policy. Activity
+image links establish an Upload-list return, inspection omits the batch chooser,
+and detail/fullscreen navigation stops within its originating section. Search
+selection, upload jobs and in-memory field drafts retain their existing owners.
+Section headings keep their commands inside the viewport while Table columns scroll
+horizontally, without changing their vertical extent or Form measurement.
+No new metadata execution, batch arrows, Upload selection or server batches are enabled.
+
 ### 15 November 2026 - Upload toolbar, activity, access and Form layout polish
 
 Moved recent-upload navigation and file submission immediately before the settings

@@ -32,7 +32,8 @@ export function usePullToRefresh(containerRef: RefObject<HTMLElement | null>): v
     const hide = () => { indicator?.remove(); indicator = null; };
 
     const onStart = (e: TouchEvent) => {
-      const selecting = !useSearchStore.getState().params.imageScope && useSelectionStore.getState().selectedIds.size > 0;
+      const params = useSearchStore.getState().params;
+      const selecting = !params.imageScope && !params.recentUploadScope && useSelectionStore.getState().selectedIds.size > 0;
       startY = !selecting && e.touches.length === 1 && el.scrollTop <= 0 ? e.touches[0].clientY : null;
       if (startY !== null) containerTop = el.getBoundingClientRect().top;
       pull = 0;

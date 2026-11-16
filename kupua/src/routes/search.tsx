@@ -15,7 +15,7 @@
  * the same data layer (`useDataWindow`), focus, and URL-managed search context.
  */
 
-import { createRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createRoute, useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
 import { z } from "zod";
 import { BrowsingContext, useBrowsingContext, useBrowsingSearch, uploadBatchMembership, UPLOAD_BROWSING_ENABLED } from "@/lib/browsing-context";
 import { captureBrowsingDeparture, returnToBrowsing } from "@/lib/browsing-navigation";
@@ -67,6 +67,8 @@ import { DetailNavigation } from "@/components/DetailNavigation";
 import { resetToHome } from "@/lib/reset-to-home";
 import { pushNavigateAsPopstate } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { useUploadJobsStore } from "@/stores/upload-jobs-store";
+import { withCurrentKupuaKey } from "@/lib/orchestration/history-key";
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -78,30 +80,45 @@ export const searchRoute = createRoute({
 export const uploadRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/upload",
-  validateSearch: zodSearchValidator(searchParamsSchema.pick({ orderBy: true, image: true, crop: true, cropping: true }).extend({ batch: z.string().optional() })),
+  validateSearch: zodSearchValidator(searchParamsSchema.pick({ orderBy: true, image: true, crop: true, cropping: true }).extend({ batch: z.string().optional(), section: z.enum(["batch", "other"]).optional() })),
   component: UploadPage,
 });
 
 function UploadPage() {
-  const { batch } = uploadRoute.useSearch();
+  const addressedSearch = uploadRoute.useSearch();
+  const { batch } = addressedSearch;
+  const navigate = useNavigate();
+  const entryLocation = useRouterState({ select: state => state.location });
+  const entryState = entryLocation.state as { _uploadAddressed?: boolean; _uploadFresh?: boolean };
+  const newest = useUploadJobsStore(state => state.batches.at(-1)?.id);
   const access = useUploadAccess();
   const allowed = UPLOAD_BROWSING_ENABLED && access === "available";
+  useEffect(() => {
+    if (!allowed || entryLocation.pathname !== "/upload" || entryState._uploadAddressed) return;
+    if (["batch", "image", "section", "orderBy", "crop", "cropping"].some(key =>
+      (entryLocation.search as Record<string, unknown>)[key] !== (addressedSearch as Record<string, unknown>)[key])) return;
+    const fresh = entryState._uploadFresh || !batch && !addressedSearch.image && !addressedSearch.section;
+    if (fresh) useUiPrefsStore.getState().setDensity("form", "upload");
+    void navigate({ to: "/upload", search: { ...addressedSearch, ...(fresh && !batch && newest ? { batch: newest } : {}) },
+      replace: true, state: withCurrentKupuaKey({ _uploadAddressed: true, _uploadFresh: undefined }) });
+  }, [allowed, entryLocation.pathname, entryLocation.search, entryState._uploadAddressed, entryState._uploadFresh, batch, newest, addressedSearch, navigate]);
   const [identity, setIdentity] = useState<string | null>();
   useEffect(() => subscribeGridSessionInvalidation(() => setIdentity(null)), []);
   useEffect(() => {
-    if (!allowed || batch) return;
+    if (!allowed) return;
     let disposed = false;
     setIdentity(undefined);
     void getGridSessionIdentity().then(value => { if (!disposed) setIdentity(value); });
     return () => { disposed = true; };
-  }, [allowed, batch]);
+  }, [allowed]);
   const membership = uploadBatchMembership(state => batch ? state.batches.get(batch) : undefined);
-  const recentUploadScope = useMemo(() => allowed && !batch && identity ? { key: "upload:recent", uploadedBy: identity } : undefined, [allowed, batch, identity]);
-  const imageScope = useMemo(() => !allowed ? { key: `upload:access-${access}`, revision: 0, ids: [] }
-    : recentUploadScope ? undefined : membership ?? { key: `upload:${batch ?? "recent-unavailable"}`, revision: 0, ids: [] }, [allowed, access, membership, batch, recentUploadScope]);
+  const recentUploadScope = useMemo(() => allowed ? { key: `upload:page:${batch ?? "none"}`, uploadedBy: identity ?? "", combined: true,
+    batch: batch ? membership ?? { key: `upload:${batch}`, revision: 0, ids: [], submittedOrder: true } : undefined } : undefined, [allowed, batch, identity, membership]);
+  const imageScope = useMemo(() => !allowed ? { key: `upload:access-${access}`, revision: 0, ids: [] } : undefined, [allowed, access]);
+  if (allowed && !entryState._uploadAddressed) return <div role="status" className="p-3 text-grid-text-muted">Loading uploads...</div>;
   return <BrowsingContext value={{ path: "/upload", imageScope, recentUploadScope,
     ...(UPLOAD_BROWSING_ENABLED && access !== "available" ? { uploadStatus: access } : {}),
-    ...(!batch && !recentUploadScope ? { recentStatus: identity === undefined ? "loading" : "unavailable" } as const : {}),
+    ...(allowed && !identity ? { recentStatus: identity === undefined ? "loading" : "unavailable" } as const : {}),
   }}><SearchPage /></BrowsingContext>;
 }
 
@@ -111,7 +128,7 @@ function BrowsingSync() {
 }
 
 function SearchPage() {
-  const { image, batch } = useBrowsingSearch();
+  const { image, batch, section } = useBrowsingSearch();
   const { path, imageScope, recentUploadScope, recentStatus, uploadStatus } = useBrowsingContext();
   const upload = path === "/upload";
   const navigate = useNavigate();
@@ -123,7 +140,10 @@ function SearchPage() {
   // Mount range-selection handler once at the route level — passed to
   // ImageGrid and ImageTable so shift-click range works in both views.
   const handleRange = useRangeSelection();
-  const showImageDetail = !!image && !uploadStatus && (!upload || !!recentUploadScope || !!imageScope?.ids.includes(image));
+  const uploadDetailAllowed = recentUploadScope?.combined
+    ? section === "other" || !batch ? !!recentUploadScope.uploadedBy : !!image && !!recentUploadScope.batch?.ids.includes(image)
+    : !!recentUploadScope || !!image && !!imageScope?.ids.includes(image);
+  const showImageDetail = !!image && !uploadStatus && (!upload || uploadDetailAllowed);
   const isGrid = density !== "table";
 
   // Results zoom: + bigger thumbnails, - smaller, 0 default (Alt+key in text fields).
@@ -231,6 +251,11 @@ function SearchPage() {
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
+      if (store.params.recentUploadScope?.combined) {
+        const sections = store.uploadSections;
+        const upper = globalPosition < (sections?.batch ?? 0);
+        return `${upper ? "Batch" : "My other uploads"}: ${globalPosition - (upper ? 0 : sections?.batch ?? 0) + 1} of ${upper ? sections?.batch ?? 0 : sections?.other ?? 0}`;
+      }
       if (store.params.imageScope?.submittedOrder && !store.params.orderBy) return null;
       return interpolateNullZoneSortLabel(
         store.params.orderBy,
@@ -252,7 +277,7 @@ function SearchPage() {
   const fetchSortDistribution = useSearchStore((s) => s.fetchSortDistribution);
   const fetchNullZoneDistribution = useSearchStore((s) => s.fetchNullZoneDistribution);
   const submittedOrder = !!searchParams.imageScope?.submittedOrder && !orderBy;
-  const hasDistributableSort = !submittedOrder && (!!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy));
+  const hasDistributableSort = !recentUploadScope?.combined && !submittedOrder && (!!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy));
   const onScrubberInteraction = useCallback(() => {
     if (hasDistributableSort) fetchSortDistribution();
   }, [hasDistributableSort, fetchSortDistribution]);
@@ -273,7 +298,7 @@ function SearchPage() {
   // Without distribution in seek mode: empty (linear extrapolation is unreliable).
   // Null-zone aware: includes boundary tick + uploadTime-based ticks in the null zone.
   const allDataInBuffer = total <= bufferLength;
-  const ticksEnabled = !submittedOrder && (allDataInBuffer || sortDistribution !== null);
+  const ticksEnabled = !recentUploadScope?.combined && !submittedOrder && (allDataInBuffer || sortDistribution !== null);
   const tickResults = ticksEnabled && resolveDateSortInfo(orderBy) &&
     (sortDistribution?.buckets.length ?? 0) < 2 ? results : null;
   const tickBufferOffset = tickResults ? bufferOffset : 0;
@@ -335,7 +360,7 @@ function SearchPage() {
           <div className="flex flex-1 min-w-0 h-9 items-center gap-2 overflow-x-auto hide-scrollbar">
             {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadBatchSelector batch={batch} />}
             {!uploadStatus && <UploadActivity toolbar />}
-            {UPLOAD_BROWSING_ENABLED && !uploadStatus && <div className="ml-auto flex shrink-0 items-center"><SearchFilters.Sort alwaysVisible /></div>}
+            {UPLOAD_BROWSING_ENABLED && !uploadStatus && batch && <div role="group" aria-label="Batch sort" className="ml-auto flex shrink-0 items-center gap-1"><span className="text-xs hidden wide:inline">Batch sort</span><SearchFilters.Sort alwaysVisible /></div>}
           </div>
           {UPLOAD_BROWSING_ENABLED && !uploadStatus && <UploadEntry />}
           <SettingsMenu />

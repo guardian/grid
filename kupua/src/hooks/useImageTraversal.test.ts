@@ -88,6 +88,26 @@ describe("useImageTraversal — session lifecycle", () => {
     useSearchStore.setState(useSearchStore.getInitialState());
   });
 
+  it("stops Upload inspection at its source section even when both sections are buffered", () => {
+    setupBuffer({ bufferOffset: 0, bufferSize: 5, total: 5 });
+    useSearchStore.setState({ params: { recentUploadScope: { key: "upload:page:open", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:open", revision: 1, ids: ["img-0", "img-1"] } } }, uploadSections: { batch: 2, other: 3 } });
+    const onNavigate = vi.fn();
+    const upper = renderHook(() => useImageTraversal("img-1", onNavigate));
+    expect(upper.result.current.nextImage).toBeNull();
+    expect(upper.result.current.canGoNext).toBe(false);
+    act(() => upper.result.current.goToNext());
+    expect(onNavigate).not.toHaveBeenCalled();
+    upper.unmount();
+    const lower = renderHook(() => useImageTraversal("img-2", onNavigate));
+    expect(lower.result.current.prevImage).toBeNull();
+    act(() => lower.result.current.goToPrev());
+    expect(onNavigate).not.toHaveBeenCalled();
+    act(() => lower.result.current.goToNext());
+    expect(onNavigate).toHaveBeenLastCalledWith(expect.objectContaining({ id: "img-3" }), 3);
+    lower.unmount();
+  });
+
   it("skips unavailable slots in both directions and settles an unavailable tail", () => {
     const { images } = setupBuffer({ bufferOffset: 0, bufferSize: 5, total: 5 });
     images[1].__availability = "unavailable";

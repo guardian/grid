@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 14 November 2026.** The tables below list open defects,
+**Current recorded status: 15 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -45,6 +45,8 @@ The 14 November update adds GRID-024's locally reproduced signed-upload queued-s
 rejection and production-codec explanation. Its backend repair is deferred; U3's
 Kupua-only presentation mitigation is described in the entry below.
 Other dispositions have not been revalidated.
+The 15 November update closes KUP-053 as a corrected mobile test: the original
+journey did not target the unfinished chip's value; the corrected touch journey passes.
 Update this overview when a detailed disposition changes.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
@@ -125,7 +127,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Local fresh/duplicate rejection and current production-codec mismatch confirmed; backend repair deferred | Kupua reconciles availability independently; settled receipt presentation mitigated in U3, not a backend repair |
 
 <details>
-<summary>Completed bounded repairs and verification: 45 IDs</summary>
+<summary>Completed bounded repairs and verification: 46 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -148,6 +150,7 @@ legacy-category expansion remains accepted lag.
 | Collection counts follow the current rights checkbox | [KUP-037](#kup-037) |
 | Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
 | Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
+| Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
 
@@ -582,6 +585,23 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Implemented A3-C:** bounded simulated readback, touched-ID freshness and omission protection, selected metadata/full standalone delivery, stable retained-coordinate continuation and action-owned exact acquisition, plus explicit unavailable/deleted slots and complete-fitting-set compaction. Final checkpoints in the publication plan own evidence and limits. Root `lastModified` is not a universal freshness version; frozen upload bounds do not exclude later edits. Touched facts retain variable-sized exact comparison metadata within a 1,000-ID cap, not a byte bound.
 - **Unit D evidence:** integrated gates, seeded sequences, local/compiled-hosted observer composition, foreground rehearsal and independent reviews are complete at the [operator checkpoint](gradually-growing-teeth.step-4-publication-plan.md#unit-d-evidence-and-review). Review reproduced and repaired nonmatching-read authority withdrawal and empty cold-detail failure settlement; normal editing remains disconnected.
 - **Disposition:** CLOSED for the Step-4 simulated contract after explicit operator acceptance on 7 November. The documented approximation/resource limits remain. This does not certify deployed writes, authorize Step 5 or implement the real Delete workflow; live activation remains separately gated.
+
+#### KUP-053
+**Mobile unfinished-field test targeted the wrong editing position**
+- **Original failure:** after typing `+credit:` and opening/closing Settings,
+  the test clicked the whole editor, pressed End and typed `Getty`, then expected
+  `credit:Getty`. End deliberately navigates results, not the search caret;
+  even editor-end is outside the chip's value. The click did not establish a
+  value-editing position. Reproducing this script on working source and an isolated
+  HEAD control did not establish lost field state or a U4.5 product regression.
+- **Correction:** [the mobile journey](../../e2e/local/selections-mobile.spec.ts#L235)
+  now taps the retained empty credit value after closing Settings, verifies a
+  collapsed caret inside `chipValue`, then types `Getty`. The original visible-field,
+  no-premature-query and exact `credit:Getty` assertions remain.
+- **Validation / limits:** only this corrected test ran: 1 passed, retries disabled,
+  on Chromium Pixel 5 emulation. No real-device or broader-suite claim follows.
+- **Disposition:** DONE (15 November 2026), test correction. No production code,
+  timeout, retry policy or dependency changed; no product repair was required.
 
 ### Completed Query Repairs
 

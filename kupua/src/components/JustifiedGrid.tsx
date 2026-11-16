@@ -4,16 +4,26 @@ import { buildJustifiedLayout } from "@/lib/justified-layout";
 import { buildWindowedJustifiedLayout, type WindowedJustifiedLayout, type JustifiedWindowSnapshot } from "@/lib/windowed-justified-layout";
 import { RESIDENT_PREVIEW_ENABLED } from "@/lib/resident-preview";
 import type { Image } from "@/types/image";
+import type { SectionLayout } from "@/lib/upload-section-layout";
 
 // Keep only bounded identity/dimension context across density unmounts, never image records.
 let windowSnapshot: JustifiedWindowSnapshot | undefined;
+const uploadSnapshots: Partial<Record<"batch" | "other", JustifiedWindowSnapshot>> = {};
 const layoutFactory: NonNullable<ImageGridProps["layoutFactory"]> = (images, width, context, previous) => {
   if (RESIDENT_PREVIEW_ENABLED) return buildJustifiedLayout(images as Image[], width);
   return buildWindowedJustifiedLayout(images, width, context,
-    previous as WindowedJustifiedLayout | undefined ?? windowSnapshot);
+    previous as WindowedJustifiedLayout | undefined ?? (context.uploadSection ? uploadSnapshots[context.uploadSection] : windowSnapshot));
 };
 const commitLayout: NonNullable<ImageGridProps["onLayoutCommit"]> = layout => {
   if (RESIDENT_PREVIEW_ENABLED) return;
+  if ("sourceLayouts" in layout) {
+    (layout as SectionLayout).sourceLayouts.forEach((source, index) => {
+      const snapshot = source as WindowedJustifiedLayout;
+      uploadSnapshots[index === 0 ? "batch" : "other"] = { origin: snapshot.origin, searchKey: snapshot.searchKey, indexed: snapshot.indexed,
+        dimensions: snapshot.dimensions, terminalEnd: snapshot.terminalEnd, retainedEnds: snapshot.retainedEnds };
+    });
+    return;
+  }
   const snapshot = layout as WindowedJustifiedLayout;
   windowSnapshot = { origin: snapshot.origin, searchKey: snapshot.searchKey,
     indexed: snapshot.indexed, dimensions: snapshot.dimensions,
