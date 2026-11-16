@@ -20,6 +20,10 @@
 - [Authentication](03-apis/01-authentication.md)
 - [Collections](03-apis/02-collections.md)
 
+### [Endpoints](03-apis/01-endpoints/)
+- [Endpoint authentication and permissions](03-apis/01-endpoints/01-endpoint-authentication.md)
+- [Mutating endpoints without a named permission gate](03-apis/01-endpoints/02-mutating-endpoints-without-permission.md)
+
 ## [Troubleshooting](04-troubleshooting/)
 - [NGINX](04-troubleshooting/01-nginx.md)
 - [SBT](04-troubleshooting/02-sbt.md)
