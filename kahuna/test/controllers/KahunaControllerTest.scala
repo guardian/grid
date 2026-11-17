@@ -21,8 +21,7 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
   private val user = UserPrincipal("Some", "One", email)
   private val enabled = SentryConfig(
     Configuration("sentry.dsn" -> "https://key@sentry.example.com/1"),
-    stage = "TEST",
-    isDev = false
+    stage = "TEST"
   )
 
   private def clientConfig(sentry: SentryConfig, principal: Option[Principal] = Some(user)): JsObject = {
