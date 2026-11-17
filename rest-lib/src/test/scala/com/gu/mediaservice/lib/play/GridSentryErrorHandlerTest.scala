@@ -37,6 +37,7 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
   private val enabledConfig = SentryConfig(
     dsn = Some("https://key@o0.ingest.us.sentry.io/1"),
     environment = "TEST",
+    tracesSampleRate = 0,
     consoleCaptureLevels = Seq("error")
   )
 
