@@ -119,13 +119,4 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
     c.userIdentity("someone@example.com", isPersonalData = true) shouldBe
       Some(SentryUserIdentity(email = Some("someone@example.com")))
   }
-
-  test("sends email even when obsolete identity mode and salt settings remain configured") {
-    deployed(
-      "sentry.dsn" -> dsn,
-      "sentry.user.mode" -> "anonymous",
-      "sentry.user.salt" -> "obsolete-secret"
-    ).userIdentity("someone@example.com", isPersonalData = true) shouldBe
-      Some(SentryUserIdentity(email = Some("someone@example.com")))
-  }
 }

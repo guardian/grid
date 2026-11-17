@@ -62,8 +62,7 @@ Browser identity is resolved on the server. For authenticated users, the browser
 address with Sentry events so they can be correlated with the affected user's account. Machine and
 inner-service callers are identified by their service ID, not their credentials. Server error events
 include the authenticated email or service ID when authentication completed before the error.
-Events from before authentication have no authenticated identity. Legacy `sentry.user.mode` and
-`sentry.user.salt` settings are ignored and should be removed from deployment configuration.
+Events from before authentication have no authenticated identity.
 
 Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
 continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
