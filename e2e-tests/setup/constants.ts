@@ -42,6 +42,7 @@ export const LOCALSTACK_IMAGE = 'localstack/localstack:4.5.0';
  * Published on IMGOPS_PORT, the fixed host port dev-nginx maps `media-imgops` to.
  */
 export const IMGOPS_ALIAS = 'imgops';
+export const IMGOPS_HOST = `media-imgops.${DOMAIN}`;
 export const IMGOPS_PORT = 9008;
 export const IMGOPS_CONTEXT = path.join(REPO_ROOT, 'dev', 'imgops');
 export const IMGOPS_NGINX_CONF = path.join(IMGOPS_CONTEXT, 'nginx.conf');

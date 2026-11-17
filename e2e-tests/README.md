@@ -53,6 +53,12 @@ default bridge, where it can discover Ryuk as a shared-network upstream whose na
 cannot resolve. Keep Ryuk enabled and keep Chekov off that bridge. The proxy smoke
 test asserts this network isolation; no Chekov source changes are needed.
 
+Imgops is discovered directly at `https://media-imgops.local.dev-gutools.co.uk`
+from its port label, without a Chekov alias or Docker network alias. Stack startup
+checks its health endpoint over verified HTTPS. With `GRID_PROXY=false`, its `imgops`
+network alias and port 9008 remain available. The shared local-development nginx
+configuration and imgops-to-LocalStack upstream are unchanged.
+
 The harness applies both development CloudFormation templates to LocalStack, seeds Panda
 settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
 [`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and

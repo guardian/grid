@@ -178,15 +178,24 @@ function localstackContainer(network: StartedNetwork): LocalstackContainer {
  * imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
  * the `localstack` alias on 4566, so it shares the stack network.
  */
-function imgopsContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
-  return image
+function imgopsContainer(image: GenericContainer, network: StartedNetwork, proxy: boolean): GenericContainer {
+  const container = image
     .withNetwork(network)
-    .withNetworkAliases(IMGOPS_ALIAS)
-    .withLabels({ [ROLE_LABEL]: 'imgops', 'devcontainer.hostname': 'grid-imgops', 'devcontainer.application.port': '80' })
+    .withLabels({
+      [ROLE_LABEL]: 'imgops',
+      ...(proxy ? {
+        'devcontainer.metadata': JSON.stringify({
+          forwardPorts: [80],
+          portsAttributes: { '80': { label: 'media-imgops' } },
+        }),
+      } : {}),
+    })
     .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
     .withExposedPorts({ container: 80, host: IMGOPS_PORT })
     .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
     .withStartupTimeout(120_000);
+
+  return proxy ? container : container.withNetworkAliases(IMGOPS_ALIAS);
 }
 
 /**
@@ -439,7 +448,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await imgopsContainer(image, ctx.network!).start());
+                        ctx.containers.push(await imgopsContainer(image, ctx.network!, proxy).start());
                       },
                     },
                   ],

@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Wait } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
-import { DOMAIN, IMGOPS_PORT, OIDC_HOST, SERVICE_CONFIGS } from './constants.ts';
+import { DOMAIN, IMGOPS_HOST, OIDC_HOST, SERVICE_CONFIGS } from './constants.ts';
 
 export const CHEKOV_IMAGE = 'ghcr.io/guardian/chekov/nginx:sha-4841ed355fb10451dc697ef164a59fba01f7dfbc';
 
@@ -17,12 +17,12 @@ export const CHEKOV_ALIASES = [
     })),
   ),
   { sourceHostname: `grid-localstack.${DOMAIN}`, alias: `localstack.media.${DOMAIN}`, healthPath: '/_localstack/health' },
-  { sourceHostname: `${IMGOPS_PORT}.grid-imgops.${DOMAIN}`, alias: `media-imgops.${DOMAIN}`, healthPath: '/_' },
 ];
 
 export const CHEKOV_HOSTS = [
   ...Object.values(SERVICE_CONFIGS).map(({ primaryHostname }) => `${primaryHostname}.${DOMAIN}`),
   ...CHEKOV_ALIASES.map(({ alias }) => alias),
+  IMGOPS_HOST,
   OIDC_HOST,
   `chekov.${DOMAIN}`,
 ];
@@ -100,6 +100,7 @@ export async function registerChekovAliases(
       alias,
       healthPath: '/_localstack/health',
     })),
+    { sourceHostname: undefined, alias: IMGOPS_HOST, healthPath: '/_' },
     { sourceHostname: undefined, alias: OIDC_HOST, healthPath: '/.well-known/openid-configuration' },
   ];
   for (const { healthPath, alias, sourceHostname } of routes) {
