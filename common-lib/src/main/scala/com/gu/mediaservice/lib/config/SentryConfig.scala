@@ -47,22 +47,16 @@ object SentryConfig extends StrictLogging {
 
   private val DefaultConsoleCaptureLevels = Seq("error")
 
-  def apply(configuration: Configuration, stage: String, isDev: Boolean): SentryConfig = {
+  def apply(configuration: Configuration, stage: String): SentryConfig = {
     val configuredDsn = configuration.getOptional[String]("sentry.dsn").map(_.trim).filter(_.nonEmpty)
 
     // A developer with a DSN in ~/.grid must opt in explicitly, so local work never reaches the shared project.
     val localOptIn = configuration.getOptional[Boolean]("sentry.localOptIn").getOrElse(false)
-    val permittedInThisEnvironment = !isDev || localOptIn
-
-    val dsn = configuredDsn.filter(_ => permittedInThisEnvironment).flatMap { configured =>
-      // Reporting is observability, not business function: an unusable DSN disables it rather than
-      // failing startup. Never log the value itself.
-      if (originOf(configured).isDefined) Some(configured)
-      else {
-        logger.error("sentry.dsn could not be parsed as a URI - Sentry reporting is disabled")
-        None
-      }
-    }
+    val dsn = for {
+      configured <- configuredDsn
+      if stage != "DEV" || localOptIn
+      if hasValidOrigin(configured)
+    } yield configured
 
     val config = SentryConfig(
       dsn = dsn,
@@ -98,13 +92,19 @@ object SentryConfig extends StrictLogging {
       .map(_.map(_.trim.toLowerCase).filter(_.nonEmpty))
       .getOrElse(DefaultConsoleCaptureLevels)
 
+  private def hasValidOrigin(dsn: String): Boolean = {
+    val valid = originOf(dsn).isDefined
+    if (!valid) logger.error("sentry.dsn could not be parsed as a URI - Sentry reporting is disabled")
+    valid
+  }
+
   private[config] def originOf(dsn: String): Option[String] = Try {
     val uri = new URI(dsn)
     val port = if (uri.getPort == -1) "" else s":${uri.getPort}"
-    (Option(uri.getScheme), Option(uri.getHost)) match {
-      case (Some(scheme), Some(host)) => Some(s"$scheme://$host$port")
-      case _ => None
-    }
+    for {
+      scheme <- Option(uri.getScheme)
+      host <- Option(uri.getHost)
+    } yield s"$scheme://$host$port"
   }.toOption.flatten
 
 }
