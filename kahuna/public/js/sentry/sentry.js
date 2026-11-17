@@ -55,7 +55,6 @@ sentry.factory('sentryConfig', [function() {
     return (window._clientConfig && window._clientConfig.sentry) || { enabled: false };
 }]);
 
-// TODO: Alternatively could investigate angular-raven
 sentry.config(['$provide', function ($provide) {
     $provide.decorator('$exceptionHandler', ['$delegate', function ($delegate) {
         return function (exception, cause) {
