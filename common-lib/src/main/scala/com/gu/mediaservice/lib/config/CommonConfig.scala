@@ -52,7 +52,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
-  lazy val sentryConfig: SentryConfig = SentryConfig(configuration, stage, isDev)
+  lazy val sentryConfig: SentryConfig = SentryConfig(configuration, stage)
 
   val defaultShouldBlurGraphicImages: Boolean = boolean("defaultShouldBlurGraphicImages")
 

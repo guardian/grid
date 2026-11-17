@@ -12,10 +12,10 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
   private def config(entries: (String, Any)*): Configuration = Configuration(entries: _*)
 
   private def deployed(entries: (String, Any)*) =
-    SentryConfig(config(entries: _*), stage = "PROD", isDev = false)
+    SentryConfig(config(entries: _*), stage = "PROD")
 
   private def dev(entries: (String, Any)*) =
-    SentryConfig(config(entries: _*), stage = "DEV", isDev = true)
+    SentryConfig(config(entries: _*), stage = "DEV")
 
   test("is disabled when no DSN is configured") {
     val c = deployed()
@@ -29,6 +29,7 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
 
   test("is enabled when a DSN is configured in a deployed environment") {
     deployed("sentry.dsn" -> dsn).enabled shouldBe true
+    SentryConfig(config("sentry.dsn" -> dsn), stage = "TEST").enabled shouldBe true
   }
 
   test("is disabled in DEV even with a DSN, unless the developer opts in") {
@@ -65,6 +66,11 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
 
   test("derives no ingest origin when there is no DSN") {
     deployed().ingestOrigin shouldBe None
+  }
+
+  test("derives no ingest origin when the scheme or host is missing") {
+    SentryConfig.originOf("//sentry.example.com/1") shouldBe None
+    SentryConfig.originOf("https:/1") shouldBe None
   }
 
   test("sends no user identity at all when reporting is disabled") {
