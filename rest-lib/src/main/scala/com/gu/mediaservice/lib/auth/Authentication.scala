@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, OnBehalfOfPrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.play.RequestLoggingFilter
+import com.gu.mediaservice.lib.play.{RequestLoggingFilter, SentryUserContext}
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
@@ -50,7 +50,7 @@ class Authentication(config: CommonConfig,
     }
 
     // Authenticate request. Try with API authenticator first, and then with user authenticator
-    providers.apiProvider.authenticateRequest(requestHeader) match {
+    val result = providers.apiProvider.authenticateRequest(requestHeader) match {
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
       case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
@@ -65,6 +65,8 @@ class Authentication(config: CommonConfig,
           case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
         }
     }
+    result.foreach(principal => SentryUserContext.recordAuthenticatedPrincipal(requestHeader, principal))
+    result
   }
 
   def allowInnerService: ActionBuilder[Authentication.Request, AnyContent] =
@@ -84,6 +86,7 @@ class Authentication(config: CommonConfig,
   ) = {
     providers.innerServiceProvider.authenticateRequest(request) match {
       case Authenticated(authedUser) =>
+        SentryUserContext.recordAuthenticatedPrincipal(request, authedUser)
         nextBlock(new AuthenticatedRequest(authedUser, request))
           .map(_.addAttr(RequestLoggingFilter.requestPrincipal, authedUser))
       case Invalid(message, throwable) => unauthorised(message, throwable)

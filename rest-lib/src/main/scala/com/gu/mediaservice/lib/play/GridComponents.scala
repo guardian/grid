@@ -40,8 +40,12 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     val defaultHandler = new DefaultHttpRequestHandler(
       webCommands, devContext, () => router, httpErrorHandler, httpConfiguration, httpFilters
     )
-    if (config.sentryConfig.tracingEnabled) new SentryHttpRequestHandler(defaultHandler)
-    else defaultHandler
+    if (config.sentryConfig.enabled) {
+      val handler =
+        if (config.sentryConfig.tracingEnabled) new SentryHttpRequestHandler(defaultHandler)
+        else defaultHandler
+      new SentryUserRequestHandler(handler)
+    } else defaultHandler
   }
 
   final override def httpFilters: Seq[EssentialFilter] = {

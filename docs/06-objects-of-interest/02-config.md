@@ -60,9 +60,11 @@ Client errors remain with Play, and a reporting failure must not change the HTTP
 
 Browser identity is resolved on the server. For authenticated users, the browser sends their email
 address with Sentry events so they can be correlated with the affected user's account. Machine and
-inner-service callers are identified by their service ID. User identities are not attached to
-server error events. Legacy `sentry.user.mode` and `sentry.user.salt` settings are ignored and should
-be removed from deployment configuration.
+inner-service callers are identified by their service ID in browser events. Server error events
+include the authenticated user's email when authentication completed before the error; errors before
+authentication and machine or inner-service requests do not receive a user email. Legacy
+`sentry.user.mode` and `sentry.user.salt` settings are ignored and should be removed from deployment
+configuration.
 
 Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
 continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
