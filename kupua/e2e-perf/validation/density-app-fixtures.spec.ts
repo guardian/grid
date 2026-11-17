@@ -409,13 +409,18 @@ for (const density of ["grid", "justified"] as const) {
       const endurance = await densityDrivers.measureDensityEndurance(page, density, requests, { phaseDurationMs: 120 });
       expect(endurance.endurancePhaseCount).toBe(3);
       expect(endurance.enduranceInterrupted).toBe(0);
-      const refresh = await densityDrivers.measureDensityRefreshContention(page, density, cdp, requests, 0);
+      await page.evaluate(() => {
+        (window as any).__kupua_store__.getState().dataSource.removedIds.add("img-69999");
+      });
+      const refresh = await densityDrivers.measureDensityRefreshContention(page, density, cdp, requests, density === "grid" ? 1 : 2);
       const scenario = DENSITY_SCENARIOS.find(item => item.id === `D11-${density}`)!;
       validateDensityRecord({ ...scenario, resultRegime: "seek", metrics: refresh });
       expect(refresh.quietDataReadyMs).toBeGreaterThanOrEqual(0);
       expect(refresh.busyDataReadyMs).toBeGreaterThanOrEqual(0);
       expect(refresh.refreshComparisonCensored).toBe(1);
       expect(refresh.refreshDataDeltaMs).toBe(null);
+      expect((await restoreDensitySource(page)).total).toBe(69999);
+      expect(await page.evaluate(() => (window as any).__densitySource.total)).toBe(70000);
       expect(await page.evaluate(() => !(window as any).__densityRefresh && !(window as any).__kupua_thumbnailProbe)).toBe(true);
     } finally { requests.dispose(); await cdp.detach(); }
   });
@@ -457,7 +462,7 @@ for (const [regime, total] of [["indexed", 12000], ["seek", 70000]] as const) {
       const state = store.getState();
       const id = (window as any).__densityAnchor;
       if (state.focusedImageId !== id) throw new Error("Fixture source was not focused");
-      (window as any).__densitySource = { id, total: state.total, offset: state.imagePositions.get(id), params: JSON.stringify(state.params) };
+      (window as any).__densitySource = { id, total: state.total, offset: state.imagePositions.get(id), params: JSON.stringify(state.params), regime };
       const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
       const localIndex = state.imagePositions.get(id) - state.bufferOffset;
       const targetIndex = Math.floor(state.results.length * (localIndex > state.results.length / 2 ? 0.25 : 0.75))

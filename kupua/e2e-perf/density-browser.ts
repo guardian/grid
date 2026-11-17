@@ -90,21 +90,35 @@ export async function establishDensitySource(page: Page, context?: DensityPlacem
     const state = (window as any).__kupua_store__.getState();
     const id = (window as any).__densityAnchor;
     (window as any).__densitySource = { id, total: state.total, offset: state.imagePositions.get(id),
-      params: JSON.stringify(state.params) };
+      params: JSON.stringify(state.params),
+      regime: document.querySelector("[data-scrubber-mode]")?.getAttribute("data-scrubber-mode") };
   });
   return restoreDensitySource(page, { ...context, stage: "establish-source" });
+}
+
+function assertPairedDensitySource() {
+  const source = (window as any).__densitySource;
+  const state = (window as any).__kupua_store__.getState();
+  const regime = document.querySelector("[data-scrubber-mode]")?.getAttribute("data-scrubber-mode");
+  const queryChanged = source?.params !== JSON.stringify(state.params);
+  const tolerance = Math.max(100, Math.ceil(Math.min(source?.total ?? 0, state.total) * 0.0001));
+  const boundedSeekDrift = source?.regime === "seek" && regime === "seek"
+    && Math.abs(source.total - state.total) <= tolerance;
+  if (!source || queryChanged || source.regime !== regime || (source.total !== state.total && !boundedSeekDrift)) {
+    throw new Error(`Paired source query/corpus changed: ${JSON.stringify({ sourcePresent: Boolean(source),
+      queryChanged, sourceTotal: source?.total ?? null, currentTotal: state.total,
+      sourceRegime: source?.regime ?? null, currentRegime: regime ?? null })}`);
+  }
 }
 
 export async function restoreDensitySource(page: Page, context?: DensityPlacementContext) {
   await selectDensity(page, "table");
   await waitForWindowIdle(page);
+  await page.evaluate(assertPairedDensitySource);
   const seekRequested = await page.evaluate(async () => {
     const store = (window as any).__kupua_store__;
     const source = (window as any).__densitySource;
     const state = store.getState();
-    if (!source || source.total !== state.total || source.params !== JSON.stringify(state.params)) {
-      throw new Error("Paired source query/corpus changed");
-    }
     (window as any).__densityAnchor = source.id;
     state.setFocusedImageId(source.id);
     const seekRequested = !state.imagePositions.has(source.id);
@@ -502,14 +516,12 @@ export async function scrollAtSpeed(page: Page, density: Density | "form", speed
 
 export async function prepareDensityRecovery(page: Page, density: Density) {
   await waitForWindowIdle(page);
+  await page.evaluate(assertPairedDensitySource);
   await page.evaluate(async () => {
     const path = "/src/lib/image-offset-cache.ts";
     const { getRetainedSortValues, buildSearchKey } = await import(/* @vite-ignore */ path);
     const state = (window as any).__kupua_store__.getState();
     const source = (window as any).__densitySource;
-    if (!source || source.total !== state.total || source.params !== JSON.stringify(state.params)) {
-      throw new Error("Recovery setup lost the paired source");
-    }
     const cursor = getRetainedSortValues(source.id, buildSearchKey(state.params));
     if (!cursor) throw new Error("Recovery setup requires the retained source cursor");
     await state.restoreAroundCursor(source.id, cursor, source.offset, true);

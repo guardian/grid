@@ -9,10 +9,39 @@ or live services contacted to prepare it.
 **Policy update, 3 November 2026:** explicit data modes and failure handling replace
 the migration-era graceful-absence directive. Hosted is the future API-only app;
 direct-ES remains temporary laptop support, intended for separately authorized
-removal and never an API fallback. This documentation decision enables no writes
-and does not mark step 2 implemented.
+removal and never an API fallback. That decision alone enabled no writes; Step 2
+was subsequently implemented at its bounded label scope.
 
 ## 0. The Recommendation
+
+### Current status and shared ownership (16 November 2026)
+
+The numbering is a capability map, not the order in which work was done. **Done**
+below means the stated scope is implemented, not that every deployment or later
+operation has been accepted. [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status)
+and its [current parity status](gradually-growing-teeth.upload-workplan.md#current-parity-status)
+own the Upload-specific evidence and remaining work.
+
+| Area | Done | Still needed |
+| --- | --- | --- |
+| Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
+| Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions; batching currently covers labels, not every command. |
+| Steps 7-8 | Connected labels; ordinary metadata and collection controls prepare Not sent intent in Search/detail. Upload Form has retained unsent drafts. | Archive and collection writes; shared ordinary metadata commands, observation and publication; Step 8's configured-domain editors remain separate. |
+| Steps 9-11 | Existing rights/lease display and category reads; no connected editors or template execution. | Lease and rights operations and their side effects; templates separately selected and deferred for Upload. |
+| Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
+| Steps 12, 14, 16, 17, 20 | Some membership, action and photoshoot presentation is prepared only. | Their respective commands, delivery and acceptance are not complete. |
+| Step 15 / Upload | U1, U3, U4, U2 and U4.5 delivered ingestion, local batches, Form and navigation at their recorded scopes. | U5-U8: metadata and other required editing, propagation and parity acceptance. |
+| Steps 18-19, 21-22 | No completion claimed for privileged cleanup, takedown, parity rollout or beyond-Kahuna capabilities. | Separately select and authorize the relevant destructive, integration and follow-on work. |
+
+**Next candidate, not automatic authorization:** select Upload U5 together with the
+ordinary-metadata portion of Step 8. Build the authoritative metadata operation once
+for Form and the existing single/multi-image panels; U5 adds Form pause/blur saves,
+upper-batch arrows, filename fallback and preset-label follow-ups. Preserve their
+different interaction and target scopes. Step 8's configured-domain editors are
+outside the selected Upload scope and should not silently expand U5. U5 still needs
+an explicit decision on batch/freshness capacity: the existing 100-label ceiling is
+not an approved Upload limit. This recommendation is not a new conflict API,
+deployment approval or permission for live writes.
 
 **Build a real editor with a disconnected submission path, then connect one complete operation.
 Do not build every button first, and do not enable every backend write first.**
@@ -24,17 +53,16 @@ test the same command through a fake transport, including failure and delayed vi
 Then enable that one operation for one disposable image, observe its whole lifecycle, and
 only then expand its scope.
 
-The shared preparation is **steps 1-5**: capabilities, guarded transport, a disconnected label
-editor, stable post-write refresh, and the first real label edit. At that point Kupua has a
-usable editing foundation and the other feature families can be scheduled freely according
-to their local dependencies. **Step 6 adds the common bounded batch path.** Neither requires
+The shared preparation was **steps 1-5**: capabilities, guarded transport, a disconnected label
+editor, stable post-write refresh, and the first real label edit. Kupua now has that
+editing foundation and the other feature families can be scheduled according
+to their local dependencies. **Step 6 added the bounded label batch path.** Neither requires
 finishing the entire Grid backlog, inventing batch APIs, adding PIT or solving KUP-041.
 
-Recommended first live actions: labels, archive, collection additions; then metadata fields.
-Crop saving can move immediately after step 5 if preferred, once its own notices and
-eligibility gate is satisfied. Upload, leases, rights and destructive workflows do not all
-have to wait for one another. The numbered order below is a safe default, not a demand for
-one giant linear programme.
+Labels have been connected; archive, collection addition and ordinary metadata remain
+independent candidates. Crop saving can proceed after its own authorization without
+waiting for metadata/rights editors. Upload, leases, rights and destructive workflows do
+not all have to wait for one another. The numbered order is not a linear programme.
 
 ### What Is Already There
 
@@ -47,8 +75,8 @@ one giant linear programme.
 - Selection is an ID set, independently cached metadata and reconciliation. It is not an
    operation queue. The 5,000 range-walk and metadata-cache limits are not a hard ceiling
    on the whole selected set; keep them separate from the write-action limit.
-- Crop geometry and request construction exist, but actual creation, notices and capability
-  handling do not. Do not replace the working crop engine to add submission.
+- Crop geometry, request construction and disconnected eligibility/notices exist; actual
+  creation and export publication do not. Do not replace the working crop engine to add submission.
 - The current host implementation admits DEV/TEST, not PROD, and excludes iframe pickers:
   [KupuaPage.scala](../../../kahuna/app/lib/KupuaPage.scala). Full replacement includes a later
   deployment/integration decision, not just finishing the editor panels.
@@ -85,15 +113,15 @@ one giant linear programme.
    this user may edit or crop each image, across search results, detail and selections.
    New responses can remove previously available capabilities.
 2. **User-level permissions:** Kupua can ask for the signed-in user's general permissions
-   when needed. This does not override permission for a particular image, and it adds no
-   request when the app starts. No current button calls this new reader yet.
+   when needed. This does not override permission for a particular image. The later
+   connected label and Upload paths now use the session reader.
 
-**What this means:** the information needed by future editing controls is available; the
-controls and saving are not connected. Both parts were developed with failing-first tests
+**What this meant at Step 1:** the information needed by future editing controls was available;
+the later connected label and Upload paths are described above. Both parts were developed with failing-first tests
 and passed the full unit, build and browser checks. No live-service verification was performed.
 
-**Still deliberately deferred:** nested write controls and the policy for reporting save
-failures, until submission work. The [component reference](00%20Architecture%20and%20philosophy/component-detail.md)
+**Still consumer-scoped:** nested write controls. Steps 2-3 subsequently defined and
+implemented label write outcomes; new operation families need their own contracts. The [component reference](00%20Architecture%20and%20philosophy/component-detail.md)
 explains where these responsibilities live; the [API contract](../../src/dal/grid-api/README.md)
 defines the technical details. The instructions below retain the intended contract, not a
 request to reimplement the completed preparation.
@@ -311,6 +339,9 @@ editing remains unavailable.
 
 ### Step-3 Closeout and Deferred-Work Schedule
 
+**Historical closeout:** Step 4 and the Step 5/6 label work listed below have since
+been implemented at their recorded scopes; retain this schedule as the original handoff.
+
 | Work | When it is tackled | Boundary |
 | --- | --- | --- |
 | Mobile metadata-editing UX and phone preview access | Subsequently implemented at the selected app-UI scope under Step 7 | Standalone studies are retired; physical-phone input acceptance and new save hookups are not implied. Direct-ES remains read-only. |
@@ -493,7 +524,13 @@ and the small-set UX. No PIT, universal external-edit freshness service or live 
 
 **Depends on:** steps 1-4 passing; explicit target/session/action authorization.
 
-**First: complete the removal preparation deferred from step 3.** Obtain explicit
+**Done at the connected local label scope:** add and removal transport, fixtures,
+real local add/remove and stable observed readback are complete; Step 6 subsequently
+added bounded batches. Hosted TEST evidence below is operator-reported; wider hosted
+activation and deployment-policy certification are not complete.
+
+**Completed preparation, retained as contract:** removal support deferred from step 3
+was implemented with a bounded, default-off command. Its original requirements were to obtain explicit
 authorization for a bounded, default-off removal command using the authoritative
 resource and existing origin/method policy. Exercise its lifecycle through the same
 editor and receipt owner with isolated local and compiled-hosted fixtures, including
@@ -503,7 +540,7 @@ URL from missing capabilities, silently extend the add-only transport, or treat 
 already-present disconnected remove control as evidence that execution exists.
 Any required safeguard changes still need separate permission.
 
-Only after this preparation passes may the separately authorized live connection begin.
+The following describes the completed local connection and the separate live-trial boundary.
 Connect the existing metadata-editor label resource to the real command transport for **one
 image only**. First use isolated local services or a deterministic service fixture; test the
 hosted build against fixtures as well. Then request a bounded operator-run/authorized TEST
@@ -572,6 +609,11 @@ No real hosted/shared-system activation follows from this alignment.
 
 **Depends on:** step 5; capacity decision before shared batch activation.
 
+**Done for bounded connected label add/remove in the recorded local/fixture scope.**
+The runner and publication owners are reusable foundations, not proof that other
+families or larger Upload batches are implemented. Shared multi-user activation and
+any larger target/freshness capacity require their own decisions.
+
 Preserve current selection behavior: 5,000 bounds a server range walk and the metadata LRU,
 not all accumulated selected IDs. The selected common policy is a **100-image write ceiling and
 at most three concurrent per-image executions**, with smaller action-specific limits for expensive or
@@ -588,8 +630,9 @@ general multi-user batching: table **and Photoshoots GSI**, observed capacity/al
 documented admitted rate. A smaller one-operator prototype exception needs explicit approval;
 100/three alone is not that approval or a guarantee against throttling.
 
-Snapshot target IDs, retain partial results, allow stop-remaining, and retry only explicitly
-selected failed/unknown items after reconciling current state. Appending text, adding leases,
+Snapshot target IDs, retain partial results and allow stop-remaining. A future retry of
+failed/unknown items must be explicitly selected and reconciled; the current label UI
+does not provide a general per-item retry workflow. Appending text, adding leases,
 creating crops and collection appends must not be blindly replayed. Use batched convergence,
 bounded mget and coalesced publication; keep browsing responsive during progress updates.
 
@@ -1034,6 +1077,14 @@ fresh original/override reads and merges, reset behavior, publication and config
 schema/editors described below remain future work. Subjects editing is separately
 backlogged as KUP-051; its existing backend support does not imply a connected control.
 
+**Related follow-up:** when the shared list/override boundary is selected, assess
+[KUP-051](bug-backlog.md#kup-051) against the existing Subjects presentation and proposed
+add/remove/empty-list contract; select its preparation and save scope explicitly,
+not as an automatic U5 prerequisite. The Upload plan's
+[U5 review](gradually-growing-teeth.upload-workplan.md#u5-required-metadata-saving-and-batch-propagation)
+also routes draft handoff, discard and changed-canonical-value candidates to this
+shared work without preselecting new UX or weakening the accepted GRID-020 boundary.
+
 Implement fields exposed by the current Kahuna metadata editor, not merely the few visible by
 default in Kupua: title, description, special instructions, byline, credit, copyright,
 date taken, image type, people, keywords, location and configured domain metadata. Distinguish
@@ -1168,13 +1219,16 @@ for populated leaves; do not silently invent cascading deletion, rename or move.
 [Kupua collections tests](../../src/components/CollectionTree.test.tsx),
 [browser suite](../../e2e/local/collections.spec.ts).
 
-**Done when:** an interleaved removal/addition regression preserves the independent addition;
-tree and membership outcomes are separate; stale counts do not pretend to be exact. Retain
-accepted subtree-count approximation. Rename/move belongs to step 22, not hidden delete/create.
+**Done when:** the selected prototype limitation is explicit, or an interleaved
+removal/addition regression proves the independent addition survives under a repaired
+contract. Do not claim cross-client safety under the prototype limitation. Tree and
+membership outcomes are separate; stale counts do not pretend to be exact. Retain accepted
+subtree-count approximation. Rename/move belongs to step 22, not hidden delete/create.
 
 ### Step 13. Save Crops, Create Full-Frame Exports and Browse Their Results
 
-**Depends on:** steps 1-5 and KUP-047; step 6 only for batch full-frame export.
+**Depends on:** steps 1-5; step 6 only for batch full-frame export. KUP-047's
+selected disconnected eligibility/notices boundary is already resolved.
 **Can move earlier:** does not require the metadata/rights editors themselves.
 
 **UI checkpoint:** full-frame action preparation and normal detail Crop-entry gating are
@@ -1199,6 +1253,15 @@ for that server-to-server contract; see [P25 F7](03%20Ce%20n'est%20pas%20une%20p
 After creation, retain the returned export identity, confirm that export is visible, display its
 renditions and permit selection/navigation/download handoff. Prevent double submission without
 assuming an ambiguous retry is harmless. Do not infer a missing crop from a failed refresh.
+
+**Related decisions:** [GRID-022](bug-backlog.md#grid-022) concerns repeat saves that
+regenerate shared assets and duplicate export identities; current display deduplication
+is not a backend repair or proof that repeated bounds can always be reused. Discuss
+refresh/idempotency with the owning maintainers before claiming that guarantee.
+[GRID-023](bug-backlog.md#grid-023) is a separate candidate for distinguishing a
+withheld crop list from an empty one; assess its UX if this surface is touched, without
+revealing unavailable exports or making it a new creation gate. Backend changes and
+live trials require separate authorization.
 
 **Executor pointers:** [CropEditor](../../src/components/crop/CropEditor.tsx),
 [request mapping](../../src/lib/crop/crop-request.ts),
@@ -1285,6 +1348,13 @@ longer poll is not its repair. Coordinate mapping/normalization and dropped-mess
 with Grid maintainers; existing mappings may prevent an in-place type change, so no automatic
 reindex/migration requirement follows. A bounded prototype trial can use approved fixtures,
 but cannot establish general ingest reliability.
+
+If separately selected loader/recovery work touches these boundaries, consult Upload's
+[B1-B5](gradually-growing-teeth.upload-workplan.md#existing-backend-deferred-by-default):
+status scans are not batch history, local attempts do not prove server isolation,
+and expiry or failed status updates are not permission to replay. Investigate B4/B5's
+error propagation/input validation only with the relevant loader scope and approval;
+they are not blanket Upload or U5 gates.
 
 **Executor pointers:** [upload manager](../../../kahuna/public/js/upload/manager.js),
 [loader client](../../../kahuna/public/js/services/api/loader.js),
@@ -1516,6 +1586,14 @@ These are follow-on capabilities, not prerequisites for the first editing releas
    Keep these separate from the selection store. Do not raise selection limits to emulate jobs
    or execute `update_by_query` against ES, which is only the projection.
 
+Related deferred candidates, only if separately selected: [GRID-007](bug-backlog.md#grid-007)
+is the historical supplier-script pagination finding behind item 1, not evidence that
+the absent script still runs. The Upload register's [B7](gradually-growing-teeth.upload-workplan.md#existing-backend-deferred-by-default)
+and [R16/R17](gradually-growing-teeth.upload-workplan.md#refactoring-and-frontend-opportunities)
+and [R32/R33](gradually-growing-teeth.upload-workplan.md#navigation-and-editing-scope-opportunities)
+cover durable batches, Form exposure/customization and explicit batch/selection handoffs.
+Do not silently fold them into U5 or claim local batch history is durable.
+
 **Executor pointers:** [batch recommendations and limits](batch-editing-at-scale.md#9-recommendations-in-detail),
 [selections versus operations](00%20Architecture%20and%20philosophy/05-selections.md#15-selections-vs-operations--separate-problems),
 [P33 source-of-truth lifecycle](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/api-boundary-09-p33-grid-edit-delete-collection-lifecycles.md).
@@ -1525,10 +1603,10 @@ service, new bulk lane or migration work is implicitly selected here.
 
 ## 4. Parity Checklist and Dependency Map
 
-This remains a target parity checklist, not a blanket completion claim. Partial UI
-implementation of rows 7, 8, 12 and 16 is recorded in the
-[current checkpoint](#current-implementation-checkpoint); the outstanding commands
-and acceptance stay with their steps. "After" refers to this plan's step.
+This remains a target parity checklist, not a blanket completion claim. The
+[current status](#current-status-and-shared-ownership-16-november-2026) distinguishes
+completed foundations, connected labels and partial presentation; outstanding
+commands and acceptance stay with their steps. "After" refers to this plan's step.
 
 | Kahuna capability / acceptance family | After | Additional dependency or limit |
 | --- | --- | --- |
@@ -1541,7 +1619,7 @@ and acceptance stay with their steps. "After" refers to this plan's step.
 | Rights category/properties/restrictions and removal | 10 | Writable catalogue; metadata/category-lease side effects |
 | Metadata templates and preview/cancel | 11 | Composition of fields, collections, rights and leases |
 | Collection membership removal and tree create/delete | 12 | GRID-011; explicit non-cascade semantics |
-| Crop creation, ratio constraints, existing crop selection | 13 | KUP-044/047; canonical source and export identity |
+| Crop creation, ratio constraints, existing crop selection | 13 | KUP-044 image facts and KUP-047 read-only UI done; canonical source, creation and export identity remain |
 | Full-frame export, single and batch | 13 | Separate crop creation, not original download |
 | Original/optimised/crop download and selected ZIP | 14 | Download policy, usage side effects, byte bounds |
 | File uploads, retained batches, other uploads, jobs and required editing | 15 | Upload workplan applicability and U4.5 scope; configured upload mode; GRID-018 disposition; URL import excluded |
@@ -1563,23 +1641,26 @@ can prepare GRID-011/012/009/013 fixes independently of the client UI.
 
 | Item | Plan disposition |
 | --- | --- |
-| KUP-043 | Common live-editing gate: stable authoritative refresh, stale reads, position and selection ownership. Step 4, not a full store rewrite. |
+| KUP-043 | **Resolved** for Step 4's simulated publication contract; connected labels reuse it. Each new operation still needs its own readback/postcondition; deliberate deletion remains Step 17. |
 | KUP-044 | Image-level retention implemented in step 1; nested write controls remain consumer-scoped, not a new image endpoint. |
 | KUP-045 | Lease-display acceptance in step 9; not a gate for labels. |
 | KUP-046 | Server wording in rights/notices work; not a blanket first-write blocker. |
-| KUP-047 | Live crop gate in step 13 after shared capabilities; current mock can stay usable. |
+| KUP-047 | **Resolved** at the disconnected crop UI boundary; live crop creation/readback remains Step 13 work, not an open KUP-047 prerequisite. |
 | GRID-019 | General batch rollout gate; resolve table/GSI capacity or explicitly bound an operator-only exception. No "three flights makes it safe" claim. |
-| GRID-018 and missing drop alert | Upload reliability/operational work, step 15; does not block editing existing images. |
-| GRID-011 | Concurrent collection removal, step 12; add-only workflows can proceed. |
+| GRID-018 and missing drop alert | **Open for ordinary ingestion:** the newer XMP retry covers direct insertion, not the ordinary ImageMessage upsert. Contain or resolve for broad Upload rollout; not a U5 metadata or existing-image editing gate. |
+| GRID-011 | **Open** for concurrent collection removal; the operator accepted the single-operator prototype limitation. No safe cross-client claim without repair or a stronger contract; add-only workflows can proceed. |
 | GRID-012 | Source acknowledgement for soft delete, step 17. HTTP acceptance currently precedes the owned handoff. |
 | GRID-010 | Delete/restore ordering decision; mandatory protection before a separate bulk lane or stronger undo guarantee. Not a universal first-edit gate. |
+| GRID-020 | **Open, accepted for the single-operator prototype:** fresh override reads and same-client serialization mitigate but do not eliminate the race. Not a U5 blocker; concurrent-editor protection needs a separate contract. |
 | GRID-009/013 | Syndication/photoshoot source and consumer handoff, step 16; no need to hold labels hostage. |
+| GRID-024 | **Open backend defect, mitigated in Upload:** rejected QUEUED receipts remain truthful while availability is independently confirmed. Not a U5 gate. |
 | Private write-admission findings | Maintainer review of affected mutation routes before wider activation; no security detail expansion or live probing here. |
 | GRID-003/014/016 | Revisit only where the selected syndication/tier/query path depends on them; GRID-016 is a private deployment/admission question, not a generic editor refactor. |
 | KUP-041 | Independent read-resource lifetime/performance work. Do not attach mutation lifetime to search cancellation. |
 | KUP-040, S4a/S4b | Already repaired; preserve them, do not schedule them again. |
 | KUP-029/030/042 | Resolved bounded work; retain their contracts, do not reopen as general editing prerequisites. |
 | KUP-011 direct-parser residual; other parked Grid bugs | Not hosted-editing gates without a demonstrated selected-path dependency. |
+| GRID-004/005, GRID-006, GRID-017 | Independently parked backfill/embedding, local imgops and Kahuna startup work; no natural remaining editing or Upload step without a demonstrated dependency. |
 
 Report the batch document's confirmed operational findings to Grid engineers separately, with
 their evidence limits: upload loss/drop alert, Edits/GSI capacity and SupplierCleanUp's rights
@@ -1651,5 +1732,5 @@ side effects, uploads, downloads and the newer takedown exception.
 This is not a line-by-line audit of both applications, a fresh deployed permission/capacity
 assessment, or proof that every historical backend finding still occurs at runtime. The initial
 planning pass ran no tests, builds, browser probes, real downloads, uploads, writes,
-infrastructure changes or benchmarks. Step 1's later, separately approved implementation is
+infrastructure changes or benchmarks. Later separately approved implementation is
 marked above; remaining implementation and operational activation require their own approval.

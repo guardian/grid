@@ -7,6 +7,14 @@
 > "Open in New Tab"** launch the corresponding search or image-detail view in
 > a new browser tab — exactly like the existing Kahuna (AngularJS) frontend.
 
+> **Related task / execution order (2026-11-16):** [Section 8](#8-focus-indicators-separate-prerequisite-sized-task)
+> specifies the mouse/keyboard focus-indicator policy, implementation boundaries,
+> performance constraints and regression checks. Implement and validate it as a
+> separate small change, preferably before the link phases; do not combine the
+> two implementations into one unvalidated batch. This addition is planning,
+> not authorization to start product changes. The June inventory and code-shape
+> assumptions below must be rechecked against current source before each phase.
+
 This document is written so that a series of Sonnet agents can pick up one
 phase at a time and execute it. **Sections 1–3 are the generalised picture and
 the cross-cutting design decisions** — read them before touching any phase.
@@ -438,6 +446,169 @@ facet-added search in a new tab); active facets still toggle off in-tab.
 | Middle-click behaviour change surprises users | D | §3.1 decision requires user sign-off |
 | `preventDefault` swallows cmd-click | B/C/E | Gate `preventDefault` on `!(metaKey||ctrlKey)` (§3.2) |
 | Table row href hijacks plain cell clicks | D | Scope anchor to thumbnail cell or `stopPropagation` on cell handlers |
+
+---
+
+## 8. Focus indicators: separate prerequisite-sized task
+
+### 8.1 Problem and relationship to links
+
+Kupua currently suppresses native outlines with
+`:focus:not(:focus-visible) { outline: none; }` in `src/index.css`.
+Reproduction: mouse-click a density button, optionally move the pointer away,
+then press Escape. The same button retains DOM focus, becomes `:focus-visible`
+and gains a ring. This is permitted browser behavior, not a density or router
+bug. The CSS comment currently promises stronger suppression than it delivers.
+
+The requested improvement is deliberate input-modality tracking: ordinary
+keyboard activity during mouse use must not reveal a dormant control ring;
+Tab navigation must reveal it. This is an established pattern, not a new user
+setting. Blueprint documents the same policy as `onlyShowFocusOnTabs()`.
+Do not add Blueprint or another dependency to obtain this small behavior.
+
+Real anchors do not solve this problem: both anchors and buttons can retain
+focus and match `:focus-visible`. Conversely, focus-indicator tracking does not
+need href builders, auto-sort extraction, router changes or anchor conversion.
+Keep actual DOM focus, Kupua's focused-image state and focus-indicator styling
+distinct. In particular, this task must not change image focus/selection,
+phantom/explicit focus modes, traversal, scrolling or position preservation.
+
+### 8.2 Observable behavior contract
+
+| Interaction | Required result |
+|---|---|
+| Mouse-click an ordinary button or link, then press Escape, Space, Enter or an unrelated key | No newly revealed accessibility ring solely because a key was pressed. The key's existing action still runs. |
+| Same sequence after moving the pointer away | Same result; hover is not the visibility policy. |
+| Tab or Shift+Tab | Enter keyboard-navigation mode before focus moves; the destination has a visible indicator. |
+| Continue keyboard navigation/activation | Indicators remain available; do not suppress arrow-key navigation inside existing composite widgets or programmatic focus moves belonging to the keyboard interaction. |
+| Pointer activation after keyboard navigation | Return ordinary control indicators to pointer mode without removing DOM focus. |
+| Move the mouse, wheel-scroll, or let time elapse while using the keyboard | Do not switch modes or time out the indicator. |
+| Focus a text-entry control | Preserve its useful existing focus/caret/border indication, including after pointer focus. Cover CQL/contenteditable and AI input as well as ordinary fields. |
+| Assistive-technology or required programmatic focus | Preserve a visible indication where required; unclassified focus must not be indiscriminately hidden until someone presses Tab. |
+
+The first row changes presentation only. It must not intercept Space/Enter,
+cancel shortcuts or navigation, or promise that an action which replaces a
+control leaves focus on that control. Do not make anchors emulate button
+activation: native Enter activation must work; do not add Space-to-follow-link
+as part of either task.
+
+### 8.3 Implementation boundaries and performance
+
+- Start with `src/index.css` and application initialization in `src/main.tsx`.
+  Prefer one small document-level helper with one-time initialization and
+  cleanup over component handlers, a React context, a Zustand store or a user
+  preference. Handle development HMR without accumulating listeners.
+- The baseline is capture-phase `keydown` recognition of Tab (Shift allowed;
+  do not treat unrelated modified shortcuts as navigation) and a passive
+  `pointerdown` listener. Keep state in one document attribute. Write it only
+  on a real mode transition, never on every key repeat or pointer activation.
+  Start conservatively so a missing/failed initializer leaves native focus
+  indicators available. Any additional focus-origin handling must serve a
+  concrete exception in the behavior contract, not become a general input
+  framework.
+- Account for editor, dialog/error and assistive-technology focus before
+  applying a blanket CSS gate. Preserve existing required indicators and
+  unknown-origin focus. Do not claim a two-listener boolean alone establishes
+  screen-reader correctness; if preserving an existing focus contract needs
+  materially broader work, report the specific user scenario before expanding.
+- Audit the nearby `focus-visible` and `group-focus-visible` rules/classes,
+  not just browser outlines: `SearchPill`, `AiSearchInput`, `SearchFilters`,
+  `ImageGrid` action controls and metadata editor styles currently have their
+  own visual affordances. Reuse the policy rather than leaving some ordinary
+  controls governed by a different trigger. Do not suppress Kupua's independent
+  focused-image decoration or erase unrelated hover, checked or active styles.
+- Do not call `blur()`, prevent pointer focus, gate indicators on `:hover`,
+  add `tabIndex=-1`, or use a universal `outline: none !important` workaround.
+  Do not override native focus methods or modify editor shadow roots globally.
+- Add no scroll, wheel, mousemove, pointermove or touchmove listener, polling,
+  animation-frame loop, layout read, DOM scan, React rerender or per-item
+  subscription to implement this policy. Do not call `preventDefault()` or
+  `stopPropagation()` in the modality listeners.
+- Expected cost is a constant-time check per relevant input event and an
+  occasional attribute change/style recalculation when the mode changes.
+  There should be no added JavaScript work per scrolling frame. Focus outlines
+  affect paint, not layout; do not implement the indicator using geometry-
+  changing borders. These are design expectations, not measured perf results.
+
+The earlier estimate was roughly 30-50 production lines plus focused tests,
+not a ceiling or permission to drop accessibility exceptions to meet a quota.
+No implementation or performance campaign is authorized by this estimate.
+
+### 8.4 Proportionate validation and completion
+
+Inspect `e2e/local/keyboard-nav.spec.ts` and the nearest editor/dialog owning
+tests first. `e2e/local/focus-preservation.spec.ts` chiefly concerns Kupua's
+focused-image continuity, not the browser's `document.activeElement`; do not
+rewrite that behavior to make a native-outline test pass. Identify assertions
+that would change before editing. Reuse existing fixtures and journeys rather
+than creating a new suite or a button-by-button matrix.
+
+Cover the behavioral gap with approximately two focused browser journeys,
+splitting only where an existing owning test is a better home:
+
+1. On an ordinary toolbar button, prove the current mouse-click / pointer-away
+   / Escape reproduction fails first. After the fix, assert DOM focus is
+   retained but its indicator stays hidden. Include a representative other
+   non-navigation key, Tab/Shift+Tab revealing indicators, and pointer activation
+   switching them off again. Assert actual computed indicator styling, not
+   just the mode attribute or `:focus-visible`, whose native match may persist.
+2. Reuse editor/dialog checks to retain text-entry and required programmatic
+   focus indications. Preserve existing keyboard image traversal/position tests
+   unchanged unless a separately justified behavior change is approved.
+   Do not fabricate a new guarantee about every assistive technology from
+   Playwright's ordinary keyboard input; state any manual validation limits.
+
+Use real pointer/keyboard events. Wait for actual dialog/menu readiness and
+completion, and finish relevant finite animations before a settled visual
+assertion; an immediate post-key snapshot can capture a transient ring before
+an action dismisses a menu or moves focus. No arbitrary sleeps.
+
+Run the focused regression first, then the required full unit and E2E gates
+from section 5, including the port confirmation and foreground tee rules.
+Do not run perf campaigns autonomously. Because this touches focus styling,
+suggest the relevant existing jank/perceived checks under the standing test
+directive if the final implementation affects those surfaces; do not claim
+zero scroll impact without measurement or invent a new perf harness.
+
+Done means the behavior table is satisfied on the touched surfaces, the
+required suites pass, the old CSS comment is corrected, and listener lifecycle
+and transition-only attribute writes are verified. Record implementation in
+the normal changelog and any intentional library/browser-policy departure in
+the deviations guide when product changes are actually authorized and made.
+
+### 8.5 Execution order and integration with the link phases
+
+Recommended: ship the focus-indicator change as a small independently validated
+change first, then execute the authorized link phases against that baseline.
+It is not a technical prerequisite or a reason to block independently approved
+link work. Separate implementation and validation boundaries make a regression
+attributable to styling/input policy versus changed HTML/navigation semantics.
+Neither task supplies the outstanding Phase D middle-click sign-off.
+
+For each later link phase, verify the converted representative control remains
+Tab-reachable with a visible keyboard indicator, Enter follows the intended
+href once, and modifier/new-tab gestures still follow section 1.4. Extend the
+phase's existing journey; do not duplicate the entire modality regression for
+each link. Shared validation is useful only after both changes have their own
+focused evidence, not instead of that evidence.
+
+Phase D also needs a current semantic-HTML check before adopting its suggested
+whole-cell/row wrapper: existing selection buttons and metadata links must not
+be nested inside another anchor, and table structure must remain valid. Preserve
+the current deliberate tab-stop/roving-focus model rather than accidentally
+adding a Tab stop for every rendered image or nested action. Choose a valid
+link target in the current component structure; do not use the focus-indicator
+task to conceal a link/keyboard-semantics regression.
+
+References:
+
+- [Blueprint focus management](https://blueprintjs.com/docs/#core/accessibility.focus-management)
+  documents the Tab-initiated policy and preserved text-input styling.
+- [CSS focus-visible specification](https://drafts.csswg.org/selectors/#the-focus-visible-pseudo)
+  explicitly permits keyboard input to change the match without moving focus.
+- [WCAG Focus Visible](https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html)
+  explains visible keyboard-focus requirements and why indicators must not
+  simply time out.
 
 ---
 

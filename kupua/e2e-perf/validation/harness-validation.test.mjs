@@ -148,11 +148,15 @@ function functionSource(filename, name) {
     let source = readFileSync(new URL(`../${filename}`, import.meta.url), "utf8");
     if (filename.endsWith(".html")) source = source.slice(source.indexOf("<script>") + "<script>".length, source.lastIndexOf("</script>"));
     const parsed = ts.createSourceFile(filename, source, ts.ScriptTarget.ES2022, true);
-    declarations.set(filename, new Map(parsed.statements.filter(ts.isFunctionDeclaration)
-      .map(node => [node.name?.text, node.getText(parsed)])));
+    declarations.set(filename, new Map(parsed.statements.flatMap(node => {
+      if (ts.isFunctionDeclaration(node)) return [[node.name?.text, node.getText(parsed)]];
+      if (ts.isVariableStatement(node)) return node.declarationList.declarations
+        .map(declaration => [declaration.name.getText(parsed), `const ${declaration.getText(parsed)};`]);
+      return [];
+    })));
   }
   const source = declarations.get(filename).get(name);
-  assert.ok(source, `${filename}: missing actual function ${name}`);
+  assert.ok(source, `${filename}: missing actual declaration ${name}`);
   return source;
 }
 
@@ -166,6 +170,7 @@ function compiledFunction(filename, name) {
 
 const dashboardFunction = (filename, name) => functionSource(`results/${filename}`, name);
 const runnerFunction = name => functionSource("run-audit.mjs", name);
+const imageOutcomeMetrics = runInNewContext(`${dashboardFunction("perceived-graphs.html", "IMAGE_OUTCOME_METRICS")}\nIMAGE_OUTCOME_METRICS`);
 
 function metadataSearchObserverFixture(refreshRate, readyAt = 4_000, options = {}) {
   const source = compiledFunction("perceived-long.spec.ts", "appendMetadataSearchVisualPhases");
@@ -702,7 +707,9 @@ test("audit verdict reports one-off threshold crossings as watchpoints", () => {
 });
 
 test("perceived dashboard imports only real image-read evidence from audit history", () => {
-  const project = runInNewContext(`${dashboardFunction("perceived-graphs.html", "auditImageReadEntries")}\nauditImageReadEntries`);
+  const project = runInNewContext(`${dashboardFunction("perceived-graphs.html", "auditImageReadEntries")}\nauditImageReadEntries`, {
+    IMAGE_OUTCOME_METRICS: imageOutcomeMetrics,
+  });
   const entries = ["direct-es", "media-api"].map((mode) => ({
     label: mode, environment: { dataMode: mode }, timestamp: "2026-09-25T00:00:00Z",
     metrics: {
@@ -753,7 +760,9 @@ test("both dashboards expose lookup metrics without conflating fallback and API 
   assert.match(audit, /imageLookupCount:[^\n]+quietThreshold: 0/);
   const perceived = readFileSync(new URL("../results/perceived-graphs.html", import.meta.url), "utf8");
   assert.match(perceived, /<script\b[^>]*\bsrc="audit-log\.js"/);
-  const unit = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricUnit")}\nmetricUnit`);
+  const unit = runInNewContext(`${dashboardFunction("perceived-graphs.html", "metricUnit")}\nmetricUnit`, {
+    IMAGE_OUTCOME_METRICS: imageOutcomeMetrics,
+  });
   assert.equal(unit("imageLookupCount"), "");
   assert.equal(unit("detailImageReadyMs"), "ms");
 });
@@ -854,18 +863,20 @@ test("density restoration forwards bounded context and actual seek choice withou
   const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
   const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "restoreDensitySource");
   assert.ok(declaration);
-  const code = ts.transpileModule(declaration.getText(parsed), {
+  const guard = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "assertPairedDensitySource");
+  const code = ts.transpileModule(`${guard.getText(parsed)}\n${declaration.getText(parsed)}`, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText;
   for (const resident of [true, false]) {
     const events = [];
-    const source = { id: "fixture-anchor", offset: 123, total: 1000, params: "{}" };
+    const source = { id: "fixture-anchor", offset: 123, total: 1000, params: "{}", regime: "buffer" };
     const state = { total: source.total, params: {}, imagePositions: new Map(resident ? [[source.id, source.offset]] : []),
       setFocusedImageId: value => { assert.equal(value, source.id); events.push("focus"); },
       seekToFocused: async () => { events.push("seek"); } };
     const context = { workload: "scroll-backward", repetition: 2, destination: "justified" };
     let placement;
     const restore = runInNewContext(`${code}\nrestoreDensitySource`, {
+      document: { querySelector: () => ({ getAttribute: () => "buffer" }) },
       exports: {}, window: { __densitySource: source, __kupua_store__: {
         getState: () => state, setState: patch => { assert.equal(patch._focusedImageKnownOffset, source.offset); },
       } },
@@ -873,9 +884,8 @@ test("density restoration forwards bounded context and actual seek choice withou
       waitForWindowIdle: async () => { events.push("idle"); },
       waitForPlacement: async (...args) => { placement = args; events.push("placement"); },
     });
-    let evaluations = 0;
     const page = { evaluate: async callback => {
-      if (++evaluations === 2) { events.push("scroll"); return; }
+      if (String(callback).includes("__kupua_scrollFocusedIntoView__")) { events.push("scroll"); return; }
       return callback();
     } };
     assert.equal((await restore(page, context)).total, source.total);
@@ -891,12 +901,65 @@ test("density restoration forwards bounded context and actual seek choice withou
   }
 });
 
+test("density restoration tolerates bounded seek-corpus count drift but rejects changed queries and regimes", async () => {
+  const filename = fileURLToPath(new URL("../density-browser.ts", import.meta.url));
+  const parsed = ts.createSourceFile(filename, readFileSync(filename, "utf8"), ts.ScriptTarget.ES2022, true);
+  const declaration = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "restoreDensitySource");
+  const guard = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === "assertPairedDensitySource");
+  const code = ts.transpileModule(`${guard.getText(parsed)}\n${declaration.getText(parsed)}`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  const source = { id: "fixture-anchor", offset: 28000, total: 70000, params: "{}", regime: "seek" };
+  let regime = "seek";
+  const state = { total: source.total + 1, params: {}, imagePositions: new Map([[source.id, source.offset]]),
+    setFocusedImageId: () => {} };
+  const restore = runInNewContext(`${code}\nrestoreDensitySource`, {
+    document: { querySelector: () => ({ getAttribute: () => regime }) },
+    exports: {}, window: { __densitySource: source, __kupua_store__: { getState: () => state },
+      __kupua_scrollFocusedIntoView__: () => {} },
+    selectDensity: async () => {}, waitForWindowIdle: async () => {}, waitForPlacement: async () => {},
+  });
+  const page = { evaluate: async callback => callback() };
+  assert.equal((await restore(page)).total, 70001);
+  assert.equal(source.total, 70000, "drift stays bounded against the original source, not each restore");
+  state.total = source.total - 1;
+  assert.equal((await restore(page)).total, 69999);
+  state.total = source.total + 101;
+  await assert.rejects(restore(page), error => {
+    assert.match(error.message, /Paired source.*"sourceTotal":70000,"currentTotal":70101/);
+    assert.doesNotMatch(error.message, /fixture-anchor/);
+    return true;
+  });
+  state.total = source.total;
+  state.params = { query: "private-fixture-query" };
+  await assert.rejects(restore(page), error => {
+    assert.match(error.message, /Paired source.*"queryChanged":true/);
+    assert.doesNotMatch(error.message, /private-fixture-query/);
+    return true;
+  });
+  state.params = {};
+  source.total = 1_226_746;
+  state.total = source.total + 123;
+  assert.equal((await restore(page)).total, state.total);
+  state.total++;
+  await assert.rejects(restore(page), /Paired source/);
+  source.total = 65000;
+  state.total = 65001;
+  source.regime = "indexed";
+  await assert.rejects(restore(page), /Paired source/);
+  source.total = 12000;
+  state.total = 12001;
+  regime = "indexed";
+  await assert.rejects(restore(page), /Paired source/);
+});
+
 test("replacing perceived history removes stale charts before rendering shared probes", () => {
   const elements = { grid: { innerHTML: "old cards" }, diagnosticGrid: { innerHTML: "old diagnostics" } };
   let destroyed = 0;
   const charts = new Map([["old", { destroy: () => destroyed++ }]]);
   let rendered = false;
   const ingest = runInNewContext(`${dashboardFunction("perceived-graphs.html", "auditImageReadEntries")}\n${dashboardFunction("perceived-graphs.html", "ingestLog")}\ningestLog`, {
+    IMAGE_OUTCOME_METRICS: imageOutcomeMetrics,
     window: { __AUDIT_LOG__: { entries: [{ timestamp: "fixture", metrics: { P14a: { imageLookupCount: 0 } } }] } },
     KupuaPerfComparison: { populate(entries) {
       assert.equal(entries.length, 1, "saved audit evidence must join perceived history");

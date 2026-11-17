@@ -24,6 +24,32 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 16 November 2026 - Density refresh paired-source count drift
+
+Unified paired-source validation for density restoration and recovery preparation.
+Seek-mode setup now uses the existing bounded live-total drift policy against the
+original source count instead of rejecting every count change after a refresh.
+Query, regime and anchor identity remain strict; buffer/indexed totals still
+require exact equality. Mismatch diagnostics expose only totals, regimes and
+query/source-presence flags, not query text or image identities.
+
+Extended the existing Grid/Justified refresh validation journeys with a mock
+corpus deletion, opposite quiet/busy arm orders and post-refresh source restoration.
+Focused offline checks cover count bounds, changed query/regime rejection and
+diagnostic redaction. Measurement actions, timing boundaries, retries and campaign
+publication remain unchanged.
+
+Upgraded React/React DOM to 19.3.1, Zod to 4.6.7, Vite to 8.3.8, Vitest to
+4.1.12 and Tailwind to 4.3.5, alongside AWS SDK 3.1170.0, the React Vite plugin
+6.3.0 and Node types 25.9.9. Refreshed compatible ProseMirror, Seroval,
+source-map-js and Undici dependencies to address reported security advisories.
+Kept Justified-layout WASM pinned at 0.4.5 because 0.4.6 disables SIMD; other
+deferred runtime upgrades and major migrations remain outside this maintenance.
+
+Repaired isolated performance-dashboard test contexts to load the canonical
+image-outcome metric definitions alongside extracted functions, preserving the
+production metric catalogue and existing assertions.
+
 ### 16 November 2026 - Upload polish, arrival continuity and responsive navigation
 
 Separated the centered Kahuna-style file prompt and disabled Apply label placeholder

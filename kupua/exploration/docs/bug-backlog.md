@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 15 November 2026.** The tables below list open defects,
+**Current recorded status: 16 November 2026.** The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -26,11 +26,11 @@ KUP-041's API cancellation/resource-lifetime gap. The 21 October update records 
 fixed-grid row-membership repair and reconciles the totals with the listed dispositions.
 The 23 October update closes GRID-001/002/008/015 for merged Grid repairs; remaining
 direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
-The 1 November update extends KUP-044's shared capability scope, records KUP-045/046
-as source-verified shared-display findings awaiting review, and defers crop notices
-and eligibility under KUP-047 until the reviewed common wiring is implemented.
-The 2 November step-1 implementation repairs KUP-044's image-level URI/edits/crops
-retention. Nested write resources and KUP-047's crop consumer remain deferred.
+The 1 November update extends KUP-044's shared capability scope and records KUP-045/046
+as source-verified shared-display findings awaiting review. The 2 November step-1
+implementation repairs KUP-044's image-level URI/edits/crops retention; nested write
+resources remain consumer-scoped. The 13 November crop UI work resolves KUP-047 at
+its disconnected notices/eligibility boundary, not live crop creation.
 The 5 November validation investigation records KUP-048's reproduced table
 render-time update warning and KUP-049's unresolved Settings-click timeout.
 These are separate from the optional obsolete-read cancellation follow-up.
@@ -47,6 +47,10 @@ Kupua-only presentation mitigation is described in the entry below.
 Other dispositions have not been revalidated.
 The 15 November update closes KUP-053 as a corrected mobile test: the original
 journey did not target the unfinished chip's value; the corrected touch journey passes.
+The local remote-tracking ref `origin/fix/await-message-processing` contains candidate
+changes for GRID-009/012/013, but they are not ancestors of this checkout. They were
+not reviewed, tested or checked for deployment in this reconciliation; the current
+checkout's recorded dispositions remain open.
 Update this overview when a detailed disposition changes.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
@@ -63,7 +67,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
-| [KUP-047](#kup-047) | Crop notices and server eligibility are not wired | Deferred consumer; common image-capability wiring now available | Read-only crop follow-up, not a mock-cropping commit gate |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 | [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
@@ -118,7 +121,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
-| [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open; PROD log evidence (30 October) | Independent Grid ingest reliability; images invisible in search |
+| [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open for ordinary ingestion; XMP retry added only to direct insertion | Broad Upload reliability/containment; not a U5 metadata gate |
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
 | [GRID-020](#grid-020) | Metadata override replacement can lose a concurrent edit | Open; source-level contract limitation | Accepted single-operator prototype risk; no new UI gate |
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
@@ -127,7 +130,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Local fresh/duplicate rejection and current production-codec mismatch confirmed; backend repair deferred | Kupua reconciles availability independently; settled receipt presentation mitigated in U3, not a backend repair |
 
 <details>
-<summary>Completed bounded repairs and verification: 46 IDs</summary>
+<summary>Completed bounded repairs and verification: 48 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -150,6 +153,7 @@ legacy-category expansion remains accepted lag.
 | Collection counts follow the current rights checkbox | [KUP-037](#kup-037) |
 | Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
 | Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
+| Crop eligibility and notices at the disconnected UI boundary | [KUP-047](#kup-047) |
 | Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
@@ -815,7 +819,7 @@ and browse-only repair direction; they do not approve wider API implementation o
   indexed, not approved for implementation or made a new migration prerequisite.
 
 #### KUP-047
-**Crop rights notices and server eligibility are not wired**
+**Crop rights notices and server eligibility were not wired**
 - **Component / owner:** crop presentation and its shared enriched-image handoff from
   detail; human owner-to-confirm.
 - **Current state:** detail now hands its accepted enriched image to the editor, including
@@ -1229,7 +1233,16 @@ and browse-only repair direction; they do not approve wider API implementation o
   `fileMetadata.xmp` as `flattened`/non-indexed. On a parse error, retry once with the offending
   subtree stripped rather than dropping the image. Alert on `message will be ignored`.
   Reingestion currently fails the same way.
-- **Disposition:** OPEN, independent Grid ingest reliability. Not a Kupua migration gate.
+- **Later source finding (16 November):** commits `6cce7b7ca` and `8cf12c1e3`
+  add an XMP-conflict retry and a regression test for `directInsert`; conflicting
+  XMP fields are dropped from the inserted projection. Ordinary `ImageMessage`
+  ingestion still calls `migrationAwareIndexImage`, whose upsert does not use that
+  retry. The new test exercises direct insertion, not the ordinary ingestion path.
+  The commits are in this checkout; no test or deployment was verified in this
+  reconciliation. This is partial work, not evidence that the recorded upload
+  failure or missing dropped-message alert is fixed.
+- **Disposition:** OPEN for ordinary ingestion; decide containment or repair before
+  broad Upload rollout. It does not block U5 or editing existing images.
 
 #### GRID-019
 **`Edits` DynamoDB table at a fixed 20 WCU with auto-scaling off**
@@ -1246,8 +1259,10 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Smallest fix (proposal):** on-demand capacity, or auto-scaling with a sensible maximum, for
   the table and the GSI. The cost is a few dollars a month at current volume
   ([batch editing at scale §11](batch-editing-at-scale.md#11-costs)).
-- **Disposition:** OPEN, independent operational capacity risk; precondition for any batch write
-  feature. Not a code defect.
+- **Disposition:** OPEN, independent operational capacity risk, not a code defect.
+  General shared multi-user batch activation needs a capacity/rate decision; a
+  separately authorized conservative operator trial can proceed without first
+  repairing it. Existing local bounded label work is not a shared-capacity certificate.
 
 Cross-component raw default intent is canonical at [KUP-011](#kup-011), not duplicated here.
 Cross-layer recovery is canonical at [KUP-010](#kup-010), distinct from the legacy GET policy finding.

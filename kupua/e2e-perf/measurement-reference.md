@@ -256,6 +256,14 @@ transport. A refill/window change during priming invalidates setup. The drained 
 observed traffic and visible media; the active arm dispatches immediately. The action reissues
 the same query, not a typing or different-query cancellation workflow.
 
+Paired setup retains the original source identity, query and result regime. Buffer/indexed
+totals must match exactly; seek-mode totals may drift by at most the greater of 100 images
+or 0.01% of the smaller total, matching the existing seek-total aggregation policy. The
+bound is always checked against the original source total, not rebased after refresh.
+An upload cutoff excludes newer arrivals but does not make the corpus immutable. Changed
+queries/regimes, excessive drift and failure to restore the original anchor still reject
+setup. Mismatch errors report counts, regimes and a query-change flag, never query text or IDs.
+
 `quiet*`/`busy*` publication, placement and visible-decode times belong to that action and share
 its start clock. CDP lifetimes establish pending media/data at dispatch. `refreshComparisonCensored`
 is one when the intended drained/active conditions or usable data-request evidence are absent;
