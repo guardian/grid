@@ -37,13 +37,13 @@ export async function startSuggestionWireMock() {
             getJson(`http://localhost:${MEDIA_API_PORT}/`),
             getJson(`http://localhost:${SERVICE_PORTS['metadata-editor']}/usage-rights/categories`),
         ]);
-        const publication = fixture('E').usageRights!.publication as string;
-        const external = fixture('A').metadata!.byline as string;
-        const internal = fixture('E').usageRights!.photographer as string;
-        const contracted = fixture('R').usageRights!.photographer as string;
-        const illustrator = fixture('F').usageRights!.creator as string;
-        const source = fixture('A').metadata!.source as string;
-        const label = (fixture('E').userMetadata as { labels: string[] }).labels[0];
+        const publication = fixture('staff-photo-multi-persisted').usageRights!.publication as string;
+        const external = fixture('harbour-daylight-jpeg').metadata!.byline as string;
+        const internal = fixture('staff-photo-multi-persisted').usageRights!.photographer as string;
+        const contracted = fixture('contract-photographer').usageRights!.photographer as string;
+        const illustrator = fixture('contract-illustration-leased').usageRights!.creator as string;
+        const source = fixture('harbour-daylight-jpeg').metadata!.source as string;
+        const label = (fixture('staff-photo-multi-persisted').userMetadata as { labels: string[] }).labels[0];
         const legacyCategories = [
             {
                 value: 'staff-photographer',
@@ -58,7 +58,7 @@ export async function startSuggestionWireMock() {
                 properties: [{ name: 'creator', options: [illustrator] }],
             },
             {
-                value: fixture('Q').usageRights!.category as string,
+                value: fixture('bylines-rights').usageRights!.category as string,
                 properties: [],
             },
         ];
