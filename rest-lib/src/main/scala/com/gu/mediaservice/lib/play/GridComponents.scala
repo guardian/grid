@@ -44,7 +44,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
       val handler =
         if (config.sentryConfig.tracingEnabled) new SentryHttpRequestHandler(defaultHandler)
         else defaultHandler
-      new SentryUserRequestHandler(handler)
+      new SentryUserRequestHandler(handler, config.sentryConfig)
     } else defaultHandler
   }
 
