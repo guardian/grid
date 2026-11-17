@@ -12,7 +12,7 @@ import coverageOptions from './mcr.config.ts';
 async function globalSetup(): Promise<void> {
   captureDebugLog();
   if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
-    // Stale per-feature caches would otherwise leak into this run's breakdown.
+    // Stale per-feature caches would otherwise leak into this run's per-feature and per-scenario reports.
     await rm(coverageOptions.outputDir, { recursive: true, force: true });
   }
   const environment = await ensureStack();
