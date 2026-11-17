@@ -7,10 +7,11 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
+import play.api.http.HttpEntity
 import play.api.mvc.{RequestHeader, WrappedRequest}
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
-import play.api.{Configuration, Environment, Mode}
+import play.api.{Configuration, Environment, Mode, UnexpectedException}
 
 class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutures with BeforeAndAfterEach {
 
@@ -59,15 +60,21 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
   private val boom = new RuntimeException("boom")
 
   private def assertPlayResponseAndCapture(request: RequestHeader): Unit = {
-    whenReady(handler(disabledConfig).onServerError(request, boom)) { expected =>
+    // Play includes the UsefulException's generated ID in its production error page.
+    val error = UnexpectedException(unexpected = Some(boom))
+    whenReady(handler(disabledConfig).onServerError(request, error)) { expected =>
       captured shouldBe None
-      whenReady(handler(enabledConfig).onServerError(request, boom)) { actual =>
+      whenReady(handler(enabledConfig).onServerError(request, error)) { actual =>
         actual.header shouldBe expected.header
         actual.header.status shouldBe 500
-        actual.body.contentType shouldBe expected.body.contentType
+        actual.body shouldBe expected.body
+        actual.body match {
+          case HttpEntity.Strict(data, _) => data.utf8String should include("Oops, an error occurred")
+          case other => fail(s"Expected a strict error response, got $other")
+        }
       }
     }
-    captured.map(_.getThrowable) shouldBe Some(boom)
+    captured.map(_.getThrowable) shouldBe Some(error)
   }
 
   describe("Play's normal server error response") {
@@ -106,6 +113,7 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
 
     it("is returned even when request metadata enrichment throws") {
       var enrichmentAttempted = false
+      val error = UnexpectedException(unexpected = Some(boom))
       val request = new WrappedRequest(FakeRequest()) {
         override lazy val host: String = {
           enrichmentAttempted = true
@@ -113,10 +121,10 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
         }
       }
 
-      whenReady(handler(disabledConfig).onServerError(FakeRequest(), boom)) { expected =>
-        whenReady(handler(enabledConfig).onServerError(request, boom)) { actual =>
+      whenReady(handler(disabledConfig).onServerError(FakeRequest(), error)) { expected =>
+        whenReady(handler(enabledConfig).onServerError(request, error)) { actual =>
           actual.header shouldBe expected.header
-          actual.body.contentType shouldBe expected.body.contentType
+          actual.body shouldBe expected.body
         }
       }
       enrichmentAttempted shouldBe true

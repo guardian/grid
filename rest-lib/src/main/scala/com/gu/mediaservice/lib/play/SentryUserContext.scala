@@ -17,8 +17,8 @@ object SentryUserContext {
 
   def identityForPrincipal(config: SentryConfig, principal: Principal): Option[SentryUserIdentity] =
     principal match {
-      case user: UserPrincipal => config.userIdentity(user.email, isPersonalData = true)
-      case other => config.userIdentity(other.accessor.identity, isPersonalData = false)
+      case user: UserPrincipal => config.userIdentity(user.email, isEmail = true)
+      case other => config.userIdentity(other.accessor.identity, isEmail = false)
     }
 
   def recordAuthenticatedPrincipal(request: RequestHeader, principal: Principal): Unit =

@@ -97,17 +97,17 @@ class SentryConfigTest extends AnyFunSuiteLike with Matchers {
   }
 
   test("sends no user identity at all when reporting is disabled") {
-    deployed().userIdentity("someone@example.com", isPersonalData = true) shouldBe None
+    deployed().userIdentity("someone@example.com", isEmail = true) shouldBe None
   }
 
-  test("sends a machine caller's service name as-is, since it is not personal data") {
+  test("sends a machine caller's accessor name as the Sentry ID") {
     val c = deployed("sentry.dsn" -> dsn)
-    c.userIdentity("media-api", isPersonalData = false) shouldBe Some(SentryUserIdentity(id = Some("media-api")))
+    c.userIdentity("media-api", isEmail = false) shouldBe Some(SentryUserIdentity(id = Some("media-api")))
   }
 
   test("sends a signed-in user's email when reporting is enabled") {
     val c = deployed("sentry.dsn" -> dsn)
-    c.userIdentity("someone@example.com", isPersonalData = true) shouldBe
+    c.userIdentity("someone@example.com", isEmail = true) shouldBe
       Some(SentryUserIdentity(email = Some("someone@example.com")))
   }
 }
