@@ -8,6 +8,7 @@ import MCR from 'monocart-coverage-reports';
 import coverageOptions from '../setup/mcr.config';
 import type { ImageOverrides } from '../setup/seed-image.ts';
 import type { SeedUsage, UsageStatus } from './image-usages/usages.ts';
+import { addCoverage } from '../setup/mcr.config.ts';
 
 export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 
@@ -73,7 +74,7 @@ export interface TestImage {
  * domain (required for the services' CORS origins to match). API-level `request` tests
  * use `baseURL` from the Playwright config, which points at Kahuna's fixed host port.
  */
-export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage }>({
+export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage; coverage: void }>({
   page: async ({ page }, use) => {
     await use(page);
     if (page.video() && !page.isClosed()) {
@@ -90,7 +91,7 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
       return id;
     });
   },
-  coverage: [async ({ page, browserName }, use) => {
+  coverage: [async ({ page, browserName }, use, testInfo) => {
     if (process.env.GRID_DISABLE_COVERAGE === 'true') {
       await use();
       return;
@@ -116,7 +117,7 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
         page.coverage.stopJSCoverage(),
         page.coverage.stopCSSCoverage()
       ]);
-      await MCR(coverageOptions).add([...js, ...css]);
+      await addCoverage(testInfo.titlePath, [...js, ...css]);
     }
   }, {
     auto: true
