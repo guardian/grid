@@ -57,8 +57,16 @@ The harness applies both development CloudFormation templates to LocalStack, see
 settings and permissions from [`fixtures/`](fixtures), and builds the local provider from
 [`dev/oidc-provider`](../dev/oidc-provider). Browser scenarios sign in through Panda and
 OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed. The provider
-is served at `http://oidc.localhost:9014` rather than under `*.local.dev-gutools.co.uk`,
-because that domain is HSTS-preloaded and browsers would force `https` onto it.
+is served through Chekov at `https://oidc.local.dev-gutools.co.uk`, which forwards to
+the provider's HTTP port 9014. Chekov discovers the `oidc` hostname directly, without
+an extra alias. Grid resolves the issuer through `host-gateway`, not a provider network
+alias. Stack startup checks OIDC discovery over verified HTTPS,
+and only Chekov mode sets `OIDC_TRUST_PROXY=true` for secure cookies and redirects.
+With `GRID_PROXY=false`, OIDC retains its direct `http://oidc.localhost:9014` issuer
+and container network alias; no OIDC dev-nginx mapping is needed. Use the same
+`GRID_PROXY=false` setting when running tests against that stack. Normal local
+development retains the provider's `http://localhost:9014` default and does not
+enable proxy trust.
 
 Sign-in happens once per run, in the `auth` setup project
 ([`setup/auth.setup.ts`](setup/auth.setup.ts)), which saves the session to

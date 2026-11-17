@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Wait } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
-import { DOMAIN, IMGOPS_PORT, SERVICE_CONFIGS } from './constants.ts';
+import { DOMAIN, IMGOPS_PORT, OIDC_HOST, SERVICE_CONFIGS } from './constants.ts';
 
 export const CHEKOV_IMAGE = 'ghcr.io/guardian/chekov/nginx:sha-4841ed355fb10451dc697ef164a59fba01f7dfbc';
 
@@ -23,6 +23,7 @@ export const CHEKOV_ALIASES = [
 export const CHEKOV_HOSTS = [
   ...Object.values(SERVICE_CONFIGS).map(({ primaryHostname }) => `${primaryHostname}.${DOMAIN}`),
   ...CHEKOV_ALIASES.map(({ alias }) => alias),
+  OIDC_HOST,
   `chekov.${DOMAIN}`,
 ];
 
@@ -92,35 +93,36 @@ export async function registerChekovAliases(
   container: StartedTestContainer,
   coreStackProps: Record<string, string>,
 ): Promise<void> {
-  const aliases = [
+  const routes = [
     ...CHEKOV_ALIASES,
     ...s3BucketHosts(coreStackProps).map((alias) => ({
       sourceHostname: `grid-localstack.${DOMAIN}`,
       alias,
       healthPath: '/_localstack/health',
     })),
+    { sourceHostname: undefined, alias: OIDC_HOST, healthPath: '/.well-known/openid-configuration' },
   ];
-  for (const { healthPath, ...alias } of aliases) {
+  for (const { healthPath, alias, sourceHostname } of routes) {
     const deadline = Date.now() + 30_000;
     for (;;) {
-      let result = await container.exec([
+      let result = sourceHostname ? await container.exec([
         'curl', '--fail-with-body', '--silent', '--show-error', '--max-time', '10',
-        '--data', new URLSearchParams(alias).toString(),
+        '--data', new URLSearchParams({ sourceHostname, alias }).toString(),
         'http://127.0.0.1:18080/api/aliases',
-      ]);
+      ]) : { exitCode: 0, output: '' };
       if (result.exitCode === 0) {
         result = await container.exec([
           'curl', '--fail-with-body', '--silent', '--show-error', '--max-time', '10',
           '--cacert', '/etc/nginx/mkcert/rootCA.pem',
-          '--resolve', `${alias.alias}:443:127.0.0.1`,
-          `https://${alias.alias}${healthPath}`,
+          '--resolve', `${alias}:443:127.0.0.1`,
+          `https://${alias}${healthPath}`,
         ]);
         if (result.exitCode === 0) break;
       }
       if (Date.now() >= deadline) {
         const nginx = await container.exec(['nginx', '-t']);
         const diagnostics = await container.exec(['sh', '-c', 'tail -n 100 /var/log/chekov/*.log /var/log/devcontainer-nginx/*.log 2>/dev/null']);
-        throw new Error(`Could not register Chekov alias ${alias.alias}: ${result.output}\n${nginx.output}\n${diagnostics.output}`);
+        throw new Error(`Could not configure Chekov route ${alias}: ${result.output}\n${nginx.output}\n${diagnostics.output}`);
       }
       await delay(500);
     }

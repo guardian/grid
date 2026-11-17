@@ -37,13 +37,13 @@ import {
   OIDC_CLIENT_ID,
   OIDC_CLIENT_SECRET,
   OIDC_CONTEXT,
-  OIDC_HOST,
   OIDC_IMAGE,
-  OIDC_ISSUER,
+  OIDC_LOCAL_HOST,
   OIDC_PORT,
   REGION,
   REPO_ROOT,
   SERVICE_CONFIGS,
+  getOidcIssuer,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
 import { DEBUG_LOG_PATH } from './debug-log.ts';
@@ -291,17 +291,20 @@ function failFastOnCrash<T>(work: Promise<T>, crashed: Promise<never>): Promise<
   return Promise.race([work, crashed]);
 }
 
-function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
-  return image
+function oidcContainer(image: GenericContainer, network: StartedNetwork, proxy: boolean): GenericContainer {
+  const container = image
     .withNetwork(network)
-    .withNetworkAliases(OIDC_HOST)
-    .withLabels({ [ROLE_LABEL]: 'the local OIDC provider' })
+    .withLabels({
+      [ROLE_LABEL]: 'the local OIDC provider',
+      ...(proxy ? { 'devcontainer.hostname': 'oidc', 'devcontainer.application.port': String(OIDC_PORT) } : {}),
+    })
     .withEnvironment({
       DOMAIN,
       EMAIL_DOMAIN,
       OIDC_CLIENT_ID,
       OIDC_CLIENT_SECRET,
-      OIDC_ISSUER,
+      OIDC_ISSUER: getOidcIssuer(proxy),
+      OIDC_TRUST_PROXY: String(proxy),
     })
     .withCopyFilesToContainer([
       {
@@ -312,6 +315,8 @@ function oidcContainer(image: GenericContainer, network: StartedNetwork): Generi
     .withExposedPorts({ container: OIDC_PORT, host: OIDC_PORT })
     .withWaitStrategy(Wait.forLogMessage(/local oidc provider listening/))
     .withStartupTimeout(60_000);
+
+  return proxy ? container : container.withNetworkAliases(OIDC_LOCAL_HOST);
 }
 
 /** Poll a fixed host port until its healthcheck passes, reporting how long it has waited. */
@@ -342,7 +347,7 @@ async function waitForHealthy(
  * Start LocalStack and provision everything held in it. Sequential: each step needs the
  * resources the one before it created.
  */
-function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
+function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[] {
   let clients: ReturnType<typeof provisioningClients>;
 
   return [
@@ -372,7 +377,7 @@ function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
     },
     {
       title: 'Seed auth buckets',
-      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!),
+      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!, getOidcIssuer(proxy)),
     },
     {
       title: 'Seed image files',
@@ -395,7 +400,7 @@ function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
 
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
-  const { proxy = true, seed = true } = options;
+  const { proxy = process.env.GRID_PROXY !== 'false', seed = true } = options;
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
@@ -444,7 +449,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
             {
               title: 'LocalStack',
-              task: (_, task) => task.newListr(localstackTasks(seed), { concurrent: false }),
+              task: (_, task) => task.newListr(localstackTasks(seed, proxy), { concurrent: false }),
             },
           ],
           { concurrent: true },
@@ -566,7 +571,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await oidcContainer(image, ctx.network!).start());
+                        ctx.containers.push(await oidcContainer(image, ctx.network!, proxy).start());
                       },
                     },
                   ],
