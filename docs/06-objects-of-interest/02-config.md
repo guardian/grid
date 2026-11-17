@@ -75,8 +75,7 @@ If a deployment restricts CORS request headers, allow `sentry-trace` and `baggag
 
 Replay is separately opt-in and error-triggered only: continuous session sampling is always zero.
 Text masking and media blocking are mandatory because Grid displays unpublished imagery and personal
-data. Before enabling replay, obtain data-protection approval and inspect output with representative
-screens to confirm sensitive content is not included.
+data.
 
 ### Common configuration
 
