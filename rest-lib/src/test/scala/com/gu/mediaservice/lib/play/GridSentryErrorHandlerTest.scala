@@ -38,6 +38,7 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
     dsn = Some("https://key@o0.ingest.us.sentry.io/1"),
     environment = "TEST",
     tracesSampleRate = 0,
+    replayOnErrorSampleRate = 0,
     consoleCaptureLevels = Seq("error")
   )
 
