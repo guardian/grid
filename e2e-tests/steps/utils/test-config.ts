@@ -6,6 +6,7 @@ type ClientConfig = {
   shouldUploadStraightToBucket: boolean;
   usageRightsSummary: boolean
   aiSearchEnabled: boolean;
+  showSendToPhotoSales: boolean;
 };
 
 declare global {

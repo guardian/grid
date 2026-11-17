@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ExifTool
+import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -594,6 +595,35 @@ class MediaApi(
     }
   }
 
+  private def resolvedImageUrl(
+    id: String,
+    assetType: ImageFileType,
+    width: Int,
+    height: Int,
+    quality: Option[Int],
+    request: AuthenticatedRequest[AnyContent, Principal]
+  ): Future[Result] = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "resolved-image-url",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        Found(imageResponse.imgproxyResizedUrl(image, assetType, width, height, quality))
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, Source, width, height, quality, request)
+  }
+
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
+  }
+
   def postToUsages(
     uri: String,
     onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
@@ -895,7 +925,9 @@ class MediaApi(
           deleteImagePermission,
           deleteCropsOrUsagePermission,
           include,
-          request.user.accessor.tier
+          request.user.accessor.tier,
+          // Search results don't need them: kahuna re-fetches the image for its image and crop views
+          withSignedOptimisedUrls = true
         )
 
         Some((source.instance, imageData, imageLinks, imageActions))
