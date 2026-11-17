@@ -15,6 +15,7 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import play.api.http.{DefaultHttpRequestHandler, HttpConfiguration, HttpRequestHandler}
+import play.api.libs.typedmap.TypedMap
 import play.api.mvc.{EssentialAction, Handler, PlayBodyParsers, RequestHeader, Result, Results}
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
@@ -71,7 +72,10 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     when(apiProvider.authenticateRequest(any(classOf[RequestHeader]))).thenAnswer { invocation =>
       val request = invocation.getArgument[RequestHeader](0)
       if (request.headers.get("X-Test-Machine").isDefined)
-        Authenticated(MachinePrincipal(ApiAccessor("machine-name", Internal)))
+        Authenticated(MachinePrincipal(
+          ApiAccessor("machine-name", Internal),
+          TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> ("X-Gu-Media-Key" -> "secret"))
+        ))
       else NotAuthenticated
     }
     when(userProvider.authenticateRequest(any(classOf[RequestHeader]))).thenAnswer { invocation =>
@@ -99,7 +103,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     val handler = new SentryUserRequestHandler(new DefaultHttpRequestHandler(
       mock(classOf[WebCommands]), None, () => router, errorHandler, HttpConfiguration(),
       Seq(new RequestLoggingFilter(mat))
-    ))
+    ), sentryConfig)
     val (serverRequest, routed) = handler.handlerForRequest(request)
     val filtered = routed match {
       case a: EssentialAction => a
@@ -139,7 +143,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
       override def handlerForRequest(request: RequestHeader): (RequestHeader, Handler) =
         request -> EssentialAction(_ => play.api.libs.streams.Accumulator.done(Results.Ok))
     }
-    val handler = new SentryUserRequestHandler(delegate)
+    val handler = new SentryUserRequestHandler(delegate, sentryConfig)
     val (serverRequest, _) = handler.handlerForRequest(FakeRequest().withHeaders("X-Test-User" -> "person@example.com"))
     val auth = authentication()
     auth.authenticationStatus(serverRequest, gracePeriodCountsAsAuthenticated = false).isRight shouldBe true
@@ -152,12 +156,12 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
 
   test("records a grace-period user only when that request accepts the grace period") {
     val auth = authentication()
-    val accepted = SentryUserContext.withContext(FakeRequest().withHeaders("X-Test-User" -> "grace@example.com"))
-    val rejected = SentryUserContext.withContext(FakeRequest().withHeaders("X-Test-User" -> "grace@example.com"))
+    val accepted = SentryUserContext.withContext(FakeRequest().withHeaders("X-Test-User" -> "grace@example.com"), sentryConfig)
+    val rejected = SentryUserContext.withContext(FakeRequest().withHeaders("X-Test-User" -> "grace@example.com"), sentryConfig)
     auth.authenticationStatus(accepted, gracePeriodCountsAsAuthenticated = true).isRight shouldBe true
     auth.authenticationStatus(rejected, gracePeriodCountsAsAuthenticated = false).isLeft shouldBe true
-    SentryUserContext.emailFor(accepted) shouldBe Some("grace@example.com")
-    SentryUserContext.emailFor(rejected) shouldBe None
+    SentryUserContext.identityFor(accepted).flatMap(_.email) shouldBe Some("grace@example.com")
+    SentryUserContext.identityFor(rejected) shouldBe None
   }
 
   test("does not add an authenticated user to errors before authentication") {
@@ -171,7 +175,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     Option(events.head.getUser).flatMap(user => Option(user.getId)) shouldBe None
   }
 
-  test("does not treat machine or inner-service principals as user emails") {
+  test("reports service IDs for machine and inner-service principals without their credentials") {
     val auth = authentication()
     val action = auth.allowInnerService.async(_ => Future.failed(new IllegalStateException("service action failed")))
     whenReady(run(action, FakeRequest().withHeaders("X-Test-Machine" -> "secret"))) {
@@ -182,9 +186,12 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     }
     val events = captured.asScala.toList
     events.size shouldBe 2
+    events.map(_.getUser.getId).toSet shouldBe Set("machine-name", "media-api")
     events.foreach { event =>
-      Option(event.getUser).flatMap(user => Option(user.getEmail)) shouldBe None
-      Option(event.getUser).flatMap(user => Option(user.getId)) shouldBe None
+      event.getUser.getEmail shouldBe null
+      event.getRequest.getHeaders.containsValue("secret") shouldBe false
+      event.getRequest.getCookies shouldBe null
+      event.getRequest.getData shouldBe null
     }
   }
 
@@ -220,7 +227,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     val handler = new SentryUserRequestHandler(new SentryHttpRequestHandler(new DefaultHttpRequestHandler(
       mock(classOf[WebCommands]), None, () => router, errorHandler, HttpConfiguration(),
       Seq(new SentryTracingFilter(tracingConfig, mat))
-    )))
+    )), tracingConfig)
     val traceId = "0123456789abcdef0123456789abcdef"
     val (serverRequest, routed) = handler.handlerForRequest(FakeRequest("GET", "/images/private-id").withHeaders(
       "X-Test-User" -> "person@example.com",
