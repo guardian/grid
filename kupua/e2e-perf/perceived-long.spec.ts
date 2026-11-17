@@ -43,7 +43,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect, isMediaApiUrl } from "./helpers";
+import { test, expect, isMediaApiUrl, beginPerfMeasurement } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
 import type { TraceEntry } from "@/lib/perceived-trace";
 import { computeCorrelatedMetrics, ownsDataRoute } from "./perceived-metrics.mjs";
@@ -165,6 +165,7 @@ async function navigateAndMeasure(
       }));
       if (performance.now() >= deadline) break;
       const state = store.getState();
+      if (!state.loading && state.error && state.results.length === 0) throw new Error("Required search data unavailable");
       const regime: NonNullable<PerceivedMetrics["resultRegime"]> =
         state.total <= 1_000 ? "buffer" : state.total <= 65_000 ? "indexed" : "seek";
       const container = document.querySelector('[aria-label="Image results grid"]');
@@ -644,6 +645,7 @@ test.describe("Journey Tests", () => {
   // a cell, so the test does the same.
   // ─────────────────────────────────────────────────────────────────────────
   test("JA: scroll tier — David Young search → image click → metadata click", async ({ kupua }) => {
+    beginPerfMeasurement("JA1");
     await clearTrace(kupua);        // discard home-nav trace before the journey
     const navigation = await navigateAndMeasure(kupua, QUERY_SCROLL, "buffer", "JA1");
 
@@ -678,6 +680,7 @@ test.describe("Journey Tests", () => {
     // Single click only focuses in explicit mode; double-click runs
     // enterDetail (matches Kahuna behaviour). enterDetail navigates with
     // ?image=…, so wait for that URL update before reading the store.
+    beginPerfMeasurement("JA2");
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
@@ -725,6 +728,7 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JA3: metadata click on detail panel ───────────────────────────────
+    beginPerfMeasurement("JA3");
     const detailMetadata = await kupua.revealAdditionalDetailMetadata(IMG_SCROLL);
     const targetQuery = "colourModel:RGB";
     const colourModelButton = detailMetadata.locator(
@@ -799,6 +803,7 @@ test.describe("Journey Tests", () => {
   //        → scroll/seek restoration settled
   // ─────────────────────────────────────────────────────────────────────────
   test("JB: two-tier — avalonred filters → seek → fullscreen", async ({ kupua }) => {
+    beginPerfMeasurement("JB1");
     await clearTrace(kupua);        // discard home-nav trace before the journey
     const navigation = await navigateAndMeasure(kupua, QUERY_TWOTIER, "indexed", "JB1");
 
@@ -832,6 +837,7 @@ test.describe("Journey Tests", () => {
     // ── JB2: open filters, click subject:sport ────────────────────────────
     {
       const baseQuery = QUERY_TWOTIER;
+      beginPerfMeasurement("JB2");
       const targetQuery = `${QUERY_TWOTIER} subject:sport`;
       const controlFirst = Number(process.env.KUPUA_PERF_RUN_INDEX ?? "1") % 2 === 1;
 
@@ -964,6 +970,7 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JB3: alt+click to exclude a subject (exclude filter) ────────────────
+    beginPerfMeasurement("JB3");
     // After JB2's facet click, Playwright may still be tracking the pushState
     // navigation. Drain it first, then re-open panel/section if needed.
     {
@@ -1035,6 +1042,7 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JB4: scrubber seek to ~50% ────────────────────────────────────────
+    beginPerfMeasurement("JB4");
     await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "indexed");
     await clearTrace(kupua);
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
@@ -1088,6 +1096,7 @@ test.describe("Journey Tests", () => {
     }
 
     // ── JB5: fullscreen — enter, traverse 20, exit ────────────────────────
+    beginPerfMeasurement("JB5");
     // Use whatever image is currently visible (after JB3 filter + JB4 seek).
     // Prescribed IMG_TWOTIER may not be in the filtered/seeked viewport.
     await clearTrace(kupua);

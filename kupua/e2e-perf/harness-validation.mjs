@@ -142,6 +142,81 @@ export function parseSuccessfulRun({ exitCode, suiteLabel, contents, sourcePath 
   return parseJsonLines(contents, sourcePath);
 }
 
+export function metricIdsForTest(title, kind) {
+  if (kind === "jank") return JANK_METRIC_MANIFEST.find(([prefix]) => title.startsWith(prefix))?.[1] ?? [];
+  if (kind === "short") return PERCEIVED_METRIC_IDS.short.filter(id => title.startsWith(`${id}:`));
+  if (kind === "long") return PERCEIVED_METRIC_IDS.long.filter(id => title.startsWith(`${id.slice(0, 2)}:`));
+  return [];
+}
+
+export function admitRunOutcomes({ metrics, expectedIds, report, token, exitCode }) {
+  if (report?.revision !== 1 || report.token !== token || !Array.isArray(report.tests)) {
+    throw new Error("Missing or mismatched outcome capture token");
+  }
+  const expected = new Set(expectedIds);
+  if (expected.size !== expectedIds.length) throw new Error("Duplicate expected outcome IDs");
+  const captured = new Map();
+  for (const metric of metrics) {
+    if (!expected.has(metric?.id) || captured.has(metric.id)) throw new Error("Unexpected or duplicate metric ID in outcome capture");
+    captured.set(metric.id, metric);
+  }
+  const owners = new Map();
+  const reasons = new Set(["performance-budget", "completion-unavailable", "observation-boundary-late", "setup-data-error", "authentication-required", "capture-invalid", "source-changed", "unexpected-reload", "interrupted"]);
+  const stages = new Set(["setup", "measurement", "assessment", "validation", "cleanup"]);
+  for (const result of report.tests) {
+    if (!Array.isArray(result.ids) || !["passed", "failed", "timedOut", "interrupted", "skipped"].includes(result.status)
+      || result.reason && !reasons.has(result.reason) || result.stage && !stages.has(result.stage)
+      || result.activeId && !result.ids.includes(result.activeId)) throw new Error("Invalid outcome report");
+    for (const id of result.ids) {
+      if (!expected.has(id) || owners.has(id)) throw new Error("Unexpected or duplicate outcome owner");
+      owners.set(id, result);
+    }
+  }
+  if (exitCode === 0 && (report.tests.some(result => !["passed", "skipped"].includes(result.status))
+    || expectedIds.some(id => !owners.has(id)))) throw new Error("Successful exit contradicts outcome report");
+  const outcomes = expectedIds.map(id => {
+    const owner = owners.get(id);
+    const metric = captured.get(id);
+    if (!owner || owner.status === "skipped") {
+      if (metric) throw new Error("Unowned metric in outcome capture");
+      return { id, status: "not-attempted", stage: "setup", reason: "not-started" };
+    }
+    const active = owner.activeId ?? owner.ids.find(candidate => !captured.has(candidate)) ?? owner.ids.at(-1);
+    const invalidReason = ["source-changed", "unexpected-reload", "capture-invalid"].includes(owner.reason) ? owner.reason : null;
+    if (invalidReason) return metric || id === active || owner.status === "passed"
+      ? { id, status: "invalid", stage: "validation", reason: invalidReason }
+      : { id, status: "not-attempted", stage: "setup", reason: "preceding-step-failed" };
+    const failingActive = owner.status !== "passed" && id === active;
+    if (metric && (!failingActive || owner.reason === "performance-budget")) {
+      return { id, status: failingActive ? "adverse" : "completed", ...(failingActive ? { stage: "assessment", reason: "performance-budget" } : {}) };
+    }
+    if (failingActive || owner.status === "passed") return { id,
+      status: owner.reason === "capture-invalid" || owner.status === "passed" ? "invalid" : "failed",
+      stage: owner.stage ?? "measurement", reason: owner.reason ?? "completion-unavailable", ...(owner.evidence ? { evidence: owner.evidence } : {}) };
+    if (metric) throw new Error("Ambiguous partial outcome ownership");
+    return { id, status: "not-attempted", stage: "setup", reason: "preceding-step-failed" };
+  });
+  return {
+    metrics: outcomes.filter(row => ["completed", "adverse"].includes(row.status)).map(row => captured.get(row.id)),
+    outcomes, exitCode,
+    systemic: report.tests.some(result => ["setup-data-error", "authentication-required"].includes(result.reason)),
+  };
+}
+
+export function summarizeRunOutcomes(runs) {
+  const summary = { planned: 0, attempted: 0, completed: 0, adverse: 0, failed: 0, invalid: 0, notAttempted: 0 };
+  for (const { outcomes } of runs) for (const outcome of outcomes) {
+    summary.planned++;
+    if (outcome.status === "not-attempted") summary.notAttempted++;
+    else {
+      summary.attempted++;
+      if (["completed", "adverse"].includes(outcome.status)) summary.completed++;
+      if (outcome.status !== "completed") summary[outcome.status]++;
+    }
+  }
+  return summary;
+}
+
 export function assertCompleteMetricIds(metrics, expectedIds, runLabel) {
   const counts = new Map();
   for (const metric of metrics) {

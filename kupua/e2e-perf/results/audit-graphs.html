@@ -117,7 +117,7 @@
   <label><input type="checkbox" class="mode-filter" value="direct-es" checked /> direct ES</label>
   <label><input type="checkbox" class="mode-filter" value="media-api" checked /> media-api</label>
   <label><input type="checkbox" class="mode-filter" value="unknown" checked /> legacy/unknown</label>
-  <button id="reload" title="Re-fetch audit-log.json">↻ Reload data</button>
+  <button id="reload" title="Reload canonical dashboard history">↻ Reload data</button>
 </div>
 
 <details id="legend-details" hidden>
@@ -251,9 +251,10 @@ const METRIC_HELP = {
 };
 const KNOWN_ENTRY_KEYS = new Set([
   "label", "gitSha", "gitDirty", "timestamp", "stableUntil", "runs", "metrics",
-  "baseline_rtt_ms", "environment", "campaignId",
+  "baseline_rtt_ms", "environment", "campaignId", "acquisition", "rttEvidence",
 ]);
 const KNOWN_METRIC_META_KEYS = new Set([
+  "outcomeCounts",
   "report", "scenarioRevision", "cacheClass", "startRank", "committedSteps",
   "networkCaptureRevision", "networkTransport",
   "lookupGuardRevision",
@@ -318,11 +319,7 @@ picker.addEventListener("drop", (e) => {
   e.preventDefault(); picker.classList.remove("hover");
   if (e.dataTransfer.files[0]) loadFromFile(e.dataTransfer.files[0]);
 });
-reloadBtn.addEventListener("click", async () => {
-  const data = await tryFetch();
-  if (data) onData(data);
-  else alert("Reload failed — fetch is blocked on file:// URLs. Use the picker, or serve the directory with `python3 -m http.server`.");
-});
+reloadBtn.addEventListener("click", () => location.reload());
 
 function detectUnknowns(entries) {
   const unknownEntryKeys = new Set();
@@ -452,6 +449,7 @@ function environmentKey(entry) {
 }
 
 function metricsComparable(entry, metric, referenceEntry, referenceMetric, metricName) {
+  if ([entry, referenceEntry].some(candidate => candidate?.acquisition && candidate.acquisition.status !== "complete")) return false;
   if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
   if (metricName?.startsWith("network") && (metric.networkCaptureRevision !== referenceMetric.networkCaptureRevision
     || metric.networkTransport !== referenceMetric.networkTransport
@@ -693,6 +691,7 @@ function onData(entries) {
 
   const distinctTests = new Set(entries.flatMap(e => Object.keys(e.metrics || {}))).size;
   sub.textContent = `${entries.length} runs · ${distinctTests} distinct tests · loaded ${new Date().toLocaleTimeString()}`;
+  KupuaPerfComparison.showAcquisition(KupuaPerfComparison.restrict(entries), sub);
 
   runlist.innerHTML = "";
   entries.forEach((e) => {

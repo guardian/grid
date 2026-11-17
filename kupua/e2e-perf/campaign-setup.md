@@ -17,7 +17,7 @@
 | `--dry-run` / `--no-log` | Executes tests without appending campaign history. **Still performs reads and writes diagnostic reports.** |
 | `--headed` | Explicitly requests a visible browser. Maintained campaign configurations already run headed. |
 | Positional scenario-ID list | Advanced filtering, not density selection. Obtain current identifiers from the relevant spec; runner matching is regex-based, not exact-title matching. Not accepted with `--full` or justified-only. |
-| `--rebuild-history` | No-browser maintenance: regenerate jank JS/Markdown from canonical JSON. |
+| `--rebuild-history` | No-browser maintenance: regenerate rendering JSON/Markdown exports from canonical dashboard JS. |
 | `--prune-history` | Destructive jank-history maintenance using the current replacement manifest. Review before use; not a normal campaign step. |
 
 History-maintenance flags require the existing suite. Prefer suite-level selection over
@@ -33,6 +33,8 @@ Direct Playwright invocation bypasses runner setup/validation and is not a recor
   measuring: Vite reloads invalidate a run, including reloads caused by documentation saves.
 - Use matching app and runner modes. The runtime fingerprint checks mode/topology, browser,
   viewport, DPR and other environment fields. A descriptive label is not proof of topology.
+  The shared fixture rejects a requested topology or delivery mismatch before its workload;
+  the runner also validates the recorded fingerprint before accepting results.
 - Keep the pinned date cutoff, viewport, media/cache conditions and workload consistent when
   comparing. The cutoff does not freeze edits or deletions in the live corpus.
 - Do not change resource limits, safeguards, authentication or server configuration just to

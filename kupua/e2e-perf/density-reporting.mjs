@@ -421,7 +421,7 @@ export function validateDensityRecord(record) {
   return record;
 }
 
-export function validateDensityRun(records) {
+export function validateDensityRun(records, { partial = false } = {}) {
   if (!Array.isArray(records)) throw new Error("Density run must be an array");
   const seen = new Set();
   for (const record of records) {
@@ -431,7 +431,7 @@ export function validateDensityRun(records) {
     seen.add(record.id);
   }
   const missing = DENSITY_METRIC_IDS.filter((id) => !seen.has(id));
-  if (missing.length) throw new Error(`Missing density scenarios: ${missing.join(", ")}`);
+  if (!partial && missing.length) throw new Error(`Missing density scenarios: ${missing.join(", ")}`);
   return records;
 }
 
@@ -471,11 +471,12 @@ export function densityRecordsComparable(left, right, leftEnvironment, rightEnvi
   return densityContractKey(left, { paired }) === densityContractKey(right, { paired });
 }
 
-export function aggregateDensityRuns(runs) {
-  if (!Array.isArray(runs) || runs.length === 0) throw new Error("No density runs to aggregate");
-  runs.forEach(validateDensityRun);
-  return Object.fromEntries(DENSITY_METRIC_IDS.map((id) => {
-    const records = runs.map((run) => run.find((record) => record.id === id));
+export function aggregateDensityRuns(runs, { partial = false } = {}) {
+  if (!Array.isArray(runs) || !partial && runs.length === 0) throw new Error("No density runs to aggregate");
+  runs.forEach(run => validateDensityRun(run, { partial }));
+  const ids = partial ? DENSITY_METRIC_IDS.filter(id => runs.some(run => run.some(record => record.id === id))) : DENSITY_METRIC_IDS;
+  return Object.fromEntries(ids.map((id) => {
+    const records = runs.map((run) => run.find((record) => record.id === id)).filter(Boolean);
     const first = records[0];
     const contractKey = densityContractKey(first);
     if (records.some((record) => densityContractKey(record) !== contractKey)) {
@@ -499,7 +500,8 @@ export function aggregateDensityRuns(runs) {
 }
 
 export function pairedDensityComparisons(metrics, environment) {
-  const records = Object.values(metrics);
+  const records = Object.values(metrics).filter(record => !record.outcomeCounts
+    || record.outcomeCounts.completed === record.outcomeCounts.planned && !record.outcomeCounts.adverse);
   return records.filter((record) => record.density === "justified").flatMap((justified) => {
     const grid = records.find((candidate) => densityRecordsComparable(candidate, justified, environment, environment, { paired: true }));
     if (!grid) return [];

@@ -2,6 +2,35 @@
 
 [Operator entry point](README.md). Workload contracts, interpretation and maintenance; research recipes live separately.
 
+## PP1 Pinned Return to Start
+
+**History break, 17 November 2026: PP1 revision 3 replaces the real Home action.**
+It occupies the existing PP1 slot; there is no additional campaign case. Dashboards
+identify new records as **Pinned return to start · simulated Home**, with `PP1`
+and `r3` visible in the main dashboard. The responsiveness dashboard uses the
+recorded label `Pinned return to start (simulated Home; 40% to result 0)`.
+
+Setup opens the unfiltered, default-order Grid query with `nonFree=true` and the
+campaign's `until` cutoff, requires seek mode, then seeks to 40%. Outside the
+measurement it waits for that deep window to settle. The measured action clicks
+the exact top edge of the scrubber track and must request position 0. Correlated
+`scrubber-seek` phases retain acknowledgement and store readiness; the browser
+observer requires the same cutoff in both URL and store, buffer offset 0,
+scrollTop 0, scrubber position 0 and a visible, geometrically stable first result.
+The cutoff constrains the live corpus; it does not freeze edits or deletions.
+
+This is a controlled return-to-start seek, **not** a logo click, filter reset,
+initial navigation, image-decode or compositor-paint measurement. Actual Home
+behavior remains unchanged and belongs in correctness coverage. Browser and
+upstream caches remain uncontrolled as in the existing short suite.
+
+PP1 revisions 1 and 2 measured Home; revision 2 explicitly went from a pinned
+indexed query to unpinned Home. Keep those records and their historical labels.
+Do not join their history lines or compute timing deltas against revision 3;
+the existing revision comparison guards reject that pair. Other scenario IDs,
+campaign membership and expected record counts are unchanged. Timing differences
+across this boundary are workload changes, not evidence of an app regression.
+
 ## Detail Traversal Landing
 
 P14 revision 3 observes the expected landing image for up to 15 seconds from the
@@ -430,10 +459,20 @@ own comparable-history filters. Do not ignore unknown-field/schema warnings.
 
 The runner prints a unique `$TMPDIR/kupua-perf-<timestamp>-<pid>.log` path and stores its location
 in ignored `results/.latest-report-path`. Cleanup progress helps distinguish a running teardown
-from a stalled test. Requested histories are committed **only after every selected repetition
-and suite succeeds**; a [degraded PP3/PP4 sample](#degraded-focused-sort-samples) completes its
-repetition. Failures retain diagnostics, not partial benchmark history or resumable
-checkpoints. The density suite fails fast; do not fix failures by relaxing assertions/timeouts.
+from a stalled test. Valid measurements and explicit acquisition outcomes are published in
+one atomic transaction, including incomplete campaigns under the contract below. A
+[degraded PP3/PP4 sample](#degraded-focused-sort-samples) retains its separate meaning.
+Known required-data setup failures stop dependent work; isolated measurement failures do
+not prevent independent work. Do not relax assertions/timeouts or retry failed acquisitions.
+
+Parent acquisition summaries and the final outcome share that durable report with
+forwarded child output. `[perf campaign]`, `[perf acquisition]`, `[perf outcome]`
+and `[perf result]` lines provide stable key/value summaries for tools; timing
+tables show completed/planned populations for readers. Density announces each
+repetition before launching it. A successful filtered run exits zero but does not
+become a complete checkpoint; dry runs retain the report without writing history.
+Authentication still exits 2 with the renewal command last; ordinary failures or
+incomplete/adverse acquisitions exit 1.
 
 ### Delivery comparisons
 
@@ -465,6 +504,107 @@ not a default inferred for future missing fingerprints.
 Revision-4 forward journeys cover nine seconds of increasing demand. They are not
 the retired D10's longer steady-scroll observation. A hosted sustained-scroll symptom
 needs separately scoped reproduction; this delivery comparison does not certify it.
+
+## Acquisition Outcomes and Integrity
+
+Acquisition revision 1 adds `acquisition` to suite entries and `outcomeCounts` to
+each saved scenario aggregate. Each repetition records `completed`, `adverse`,
+`failed`, `invalid` or `not-attempted` for every selected metric ID. Counts retain
+planned, attempted, completed, adverse, failed, invalid and not-attempted totals;
+completed includes valid adverse measurements. Failure records have fixed safe
+stage/reason codes, not invented timings or timeout bounds presented as latency.
+JA/JB steps and rotated density layouts identify the active measurement explicitly.
+
+The runner retains independent valid measurements when a measurement fails. A
+valid high-CLS P1 sample remains adverse data, not an acquisition failure. A PP8
+completion failure has no timing. Settled required-search errors with no results
+fail setup promptly and stop dependent work; optional/image failures and expected
+cancellations alone do not. Remaining dependent measurements are not attempted.
+There is no retry, authentication renewal, resume or substitute datasource.
+
+A density journey rejected by the existing 25ms observation-boundary guard records
+`observation-boundary-late` at stage `validation`, with finite, nonnegative
+`evidence.observationBoundary.observerStopLagMs` and `recoveryStartLagMs` computed
+in that browser invocation. This is a local failed acquisition, not run-wide
+`capture-invalid`: preceding valid layouts survive, following layouts in that test
+are not attempted, and independent work continues. The rejected layout has no
+timing. Browser-to-controller transport uses a structured result, not raw error
+text or remote Error properties. Older failures retain their original reason and
+unknown lag values. Density measurement rows disclose scenario acquisition counts
+separately from available field samples, including planned and attempted totals.
+
+Histories, outcomes and the campaign manifest publish in the same rollback-protected
+transaction. The four committed `*-log.js` scripts are the lossless source of truth;
+each contains one compact campaign entry per line, with original metadata retained.
+JSON and rendering/responsiveness Markdown are ignored local exports. The runner
+parses the known JS assignment as JSON without executing it, prefers it over any
+local export, and refuses missing canonical scripts rather than starting empty history.
+No decoder, metric projection, rounding or historical data removal is involved.
+Incomplete/invalid/adverse acquisitions exit nonzero and are excluded
+from complete-checkpoint registration and numeric comparisons. Valid observations
+remain inspectable in History and family dashboards with acquisition status and
+denominators. Unknown legacy failure counts remain unrecorded, not retrospectively
+zero. Existing endpoint censor/degraded populations remain distinct from acquisition.
+
+An exclusive ignored `results/.campaign.lock` is acquired before shared outputs or
+probes. It releases on normal exit and handled failure; interruption signals the
+owned child process group and retains ownership until the child closes. A force-killed
+owner can leave a lock: verify its PID and that no campaign or child remains before
+manually removing it. The runner never kills another owner or automatically reclaims
+an apparently stale lock.
+
+Source fingerprint revision 2 hashes tracked and untracked file contents, excluding
+generated history. A separate metadata-only activity fingerprint retains writes and
+restores between tests without per-test full hashing or a continuous watcher; it is
+not used as historical source identity. The whole-checkout dirty-state hash streams
+the Git diff rather than buffering it, so large history migrations cannot exhaust
+a fixed diff-output buffer. Its status-plus-diff hash algorithm is unchanged.
+Git provenance failures stop startup with their actual error, not unknown source
+values subsequently misreported as an edit during measurement.
+Source identity is checked before publication; run-wide source
+changes reject publication rather than accepting contaminated timings. The perf fixture
+rejects Vite HMR and unexpected full-document reloads, including change-then-revert
+reloads. Explicit `goto`/reload/history setup calls remain allowed. This is a capture
+integrity check, not a claim that a cutoff freezes live data or cache warmth.
+
+The ES RTT probe retains its original ES destination/meaning only in direct-ES mode:
+five requests, each bounded to one second, HTTP successes only. `rttEvidence` records
+valid/attempted counts and safe failure categories; no valid observations means null
+latency, not zero. API mode records not-applicable and makes no auxiliary ES request.
+This is not API latency or an ES fallback.
+
+## Shared Data Failure Diagnostics
+
+The maintained `perfReadiness` fixture in [helpers.ts](helpers.ts) observes existing
+page data responses and failed requests before workload navigation. Failed tests emit
+`Perf data failure evidence: {...}` and attach bounded safe evidence to their outcome.
+Successful tests emit no failure evidence.
+
+| Fields | Meaning |
+| --- | --- |
+| `responses`, `failedResponses` | Observed API or `/es/` responses and the subset with HTTP status 400 or higher. |
+| `unexpectedContentTypes` | Successful non-204 data responses without a JSON content type; this is evidence, not proof of a login response. |
+| `responseSamples` | First eight failed or unexpected-content responses, retaining only numeric status and `json`, `html` or `other` content-type category. |
+| `transportFailures` | Counts in fixed `aborted`, `dns`, `timeout`, `connection`, `certificate` or `other` categories. Unknown error text is never retained. |
+
+Readiness evidence records store/loading/error/results booleans and counts of trace
+starts/correlated-ready starts, never queries, interaction IDs or raw errors.
+Listeners are installed before the test body and removed in fixture teardown,
+including failure paths. No extra requests, raw
+URLs, headers, bodies, queries, identities or error strings are logged. Counts
+cover all matching data routes, not only required searches; aborts may be expected.
+Playwright's separate APIRequestContext calls, including the perf-environment
+preflight, are not page events and retain their own HTTP-status errors instead.
+The observer does not diagnose a successful JSON response's contents or establish
+that a network failure is authentication-related.
+
+## PP8 Completion Failure Diagnostics
+
+PP8 uses the shared failure evidence and acquisition outcomes above. Its temporary
+private completion snapshot, duplicate request-failure listener and optional route
+counters have been removed. Its strict correlation predicate, 30-second deadline,
+scenario revision and independent mocked-app behavior witness remain unchanged.
+This reporting change does not establish the original deployed failure's cause.
 
 ## Maintaining measurements
 

@@ -220,7 +220,8 @@
     const selected = $("campaign").value === "" ? entries.length - 1 : Number($("campaign").value);
     $("baseline").replaceChildren(option("", "No comparison"), ...entries.flatMap((entry, index) => index === selected ? [] :
       [option(String(index), `${entry.label} · ${KupuaPerfComparison.label(entry)} · ${date(entry.timestamp)}`)]).reverse());
-    $("baseline").value = selected > 0 ? String(selected - 1) : "";
+    const previous = entries.findLastIndex((entry, index) => index < selected && KupuaPerfComparison.acquisitionEligible(entry));
+    $("baseline").value = previous >= 0 ? String(previous) : "";
   }
   populateBaselines();
   let dashboardView = "overview";
@@ -314,6 +315,7 @@
       make("div", `${infoFor(key)[0]}: ${fmt(valueOf(row))}`),
       make("div", `Median ${fmt(value?.median)} · p95 ${fmt(value?.p95)}`),
       make("div", `${value?.sampleCount ?? 0}/${row.record.sampleCount} repetitions available`),
+      make("div", acquisitionPopulation(row.record)),
       make("div", `${row.entry.label} · ${date(row.entry.timestamp)}`),
       make("div", `${profileName(row.record.profile)} · ${row.record.resultRegime} · revision ${row.record.scenarioRevision}`));
     if (mark.closest(".history-chart")) {
@@ -339,7 +341,7 @@
     svg.append(node); return node;
   }
   function mark(svg, row, x, y, draw) {
-    const group = svgElement(svg, "g", { class: "mark", tabindex: 0, role: "img", "aria-label": `${names[row.record.density]}: ${fmt(valueOf(row))}; ${date(row.entry.timestamp)}; ${row.record.metrics[selectedMetricKey()]?.sampleCount ?? 0}/${row.record.sampleCount} samples` });
+    const group = svgElement(svg, "g", { class: "mark", tabindex: 0, role: "img", "aria-label": `${names[row.record.density]}: ${fmt(valueOf(row))}; ${date(row.entry.timestamp)}; ${row.record.metrics[selectedMetricKey()]?.sampleCount ?? 0}/${row.record.sampleCount} samples${row.record.outcomeCounts ? `; ${acquisitionPopulation(row.record)}` : ""}` });
     draw(group);
     svgElement(group, "rect", { x: x - 13, y: y - 14, width: 26, height: 28, fill: "transparent" });
     group.addEventListener("mouseenter", event => showTooltip(row, group, event));
@@ -529,6 +531,7 @@
   }
   function environmentsComparable(entry, baseline) {
     return Boolean(entry?.environmentCompatibilityKey && baseline?.environmentCompatibilityKey
+      && KupuaPerfComparison.acquisitionEligible(entry) && KupuaPerfComparison.acquisitionEligible(baseline)
       && (entry.environmentCompatibilityKey === baseline.environmentCompatibilityKey || KupuaPerfComparison.compare(entry, baseline).compatible));
   }
   function renderComparison(entry) {
@@ -722,11 +725,16 @@
     $("overview-view").setAttribute("aria-pressed", String(next === "overview")); $("measurements-view").setAttribute("aria-pressed", String(next === "measurements"));
     render();
   }
+  function acquisitionPopulation(record) {
+    const counts = record.outcomeCounts;
+    return counts ? `${counts.completed}/${counts.planned} completed/planned; ${counts.attempted} attempted; ${counts.failed} failed; ${counts.invalid} invalid; ${counts.notAttempted} not attempted; ${counts.adverse} adverse` : "";
+  }
   function render() {
     hideTooltip();
     populateMetrics();
     const key = selectedMetricKey(), info = infoFor(key);
     const campaign = entries[Number($("campaign").value)];
+    KupuaPerfComparison.showAcquisition($("campaign").value === "" ? entries : campaign ? [campaign] : [], $("campaign-context"));
     const filtered = selectionRows();
     $("campaign-context").textContent = $("campaign").value === "" ? "Historical campaigns remain separate by environment and measurement contract."
       : `${friendlyEnv(campaign?.environmentCompatibilityKey)} · ${campaign?.runs ?? "Unknown"} repetitions · ${date(campaign?.timestamp)} · ${Object.keys(campaign?.metrics ?? {}).length} records${dashboardView === "measurements" && view === "history" ? " · compatible history for this campaign" : ""}`;
@@ -736,7 +744,7 @@
     $("metric-position").textContent = `${Math.max(0, controls.Metric.selectedIndex + 1)} / ${controls.Metric.options.length}`;
     $("previous-metric").disabled = !controls.Metric.options.length || controls.Metric.selectedIndex <= 0;
     $("next-metric").disabled = !controls.Metric.options.length || controls.Metric.selectedIndex >= controls.Metric.options.length - 1;
-    $("status").textContent = entries.length ? `${entries.length} completed campaigns · ${environments.length} environment configurations` : "No density history yet. An operator-run campaign creates density-log.js; existing histories are never substituted.";
+    $("status").textContent = entries.length ? `${entries.length} saved campaigns · ${environments.length} environment configurations` : "No density history yet. An operator-run campaign creates density-log.js; existing histories are never substituted.";
     $("evidence").textContent = "Compare Grid and Justified within each campaign. Environments are shown separately—not a controlled direct-ES versus API experiment. One historical point is not a trend; repetitions are samples within that point.";
     const groups = new Map();
     for (const row of filtered) {
@@ -754,7 +762,8 @@
       const latest = group.filter(r => r.campaign === latestIndex), first = latest[0], r = first.record;
       const card = make("section", null, "card"); card.setAttribute("aria-label", `${workload[r.workload]?.[0] ?? r.workload} · ${friendlyEnv(first.entry.environmentCompatibilityKey)}`);
       const context = make("div", null, "context"); context.append(make("strong", friendlyEnv(first.entry.environmentCompatibilityKey)), make("span", profileName(r.profile), `badge${r.workload === "scroll-constrained" ? " stress" : ""}`));
-      card.append(context, make("h3", workload[r.workload]?.[0] ?? r.workload), make("p", workload[r.workload]?.[1] ?? r.workload, "small muted"), make("p", `${date(first.entry.timestamp)} · ${r.sampleCount} repetitions · ${r.resultRegime} · r${r.scenarioRevision}`, "small muted"));
+      const repetitions = first.entry.acquisition && Number.isInteger(first.entry.runs) ? `${first.entry.runs} planned repetitions` : `${r.sampleCount} repetitions`;
+      card.append(context, make("h3", workload[r.workload]?.[0] ?? r.workload), make("p", workload[r.workload]?.[1] ?? r.workload, "small muted"), make("p", `${date(first.entry.timestamp)} · ${repetitions} · ${r.resultRegime} · r${r.scenarioRevision}`, "small muted"));
       const scale = scales.get(r.workload);
       const observations = view === "latest" ? latest : group;
       const baseline = $("baseline").value === "" ? null : entries[Number($("baseline").value)];
@@ -769,6 +778,9 @@
       }
       if (observations.some(row => Number.isFinite(valueOf(row)))) {
         if (view === "latest") drawLatest(card, latest, scale); else drawHistory(card, group, scale);
+      }
+      for (const row of observations.filter(row => row.record.outcomeCounts && row.record.outcomeCounts.completed < row.record.outcomeCounts.planned)) {
+        card.append(make("p", `${names[row.record.density]} · ${row.entry.label}: ${acquisitionPopulation(row.record)}`, "outcome-row"));
       }
       for (const row of observations.filter(row => !Number.isFinite(valueOf(row)))) {
         const metric = row.record.metrics[key];
@@ -786,7 +798,7 @@
     if (!groups.size) cards.append(make("p", "No records for this metric and selection. Change the metric or clear advanced filters.", "empty"));
     $("card-status").textContent = `${groups.size} comparison cards · ${view === "latest" ? "latest campaign per compatible group" : "compatible history only"} · shared scale within each workload · ${controls.Statistic.value === "median" ? "median of repetitions" : "p95 of repetitions (maximum when n=4)"}`;
     const table = $("measurements"); table.replaceChildren();
-    for (const row of displayed) { const value = row.record.metrics[key]; tableRow(table, [`${row.entry.label} · ${date(row.entry.timestamp)} · ${row.entry.gitSha ?? "unknown"}`, row.record.id, `${friendlyEnv(row.entry.environmentCompatibilityKey)} · ${row.record.resultRegime} · r${row.record.scenarioRevision}`, fmt(value?.median), fmt(value?.p95), `${value?.sampleCount ?? 0}/${row.record.sampleCount}`]); }
+    for (const row of displayed) { const value = row.record.metrics[key]; tableRow(table, [`${row.entry.label} · ${date(row.entry.timestamp)} · ${row.entry.gitSha ?? "unknown"}`, row.record.id, `${friendlyEnv(row.entry.environmentCompatibilityKey)} · ${row.record.resultRegime} · r${row.record.scenarioRevision}`, fmt(value?.median), fmt(value?.p95), `${value?.sampleCount ?? 0}/${row.record.sampleCount}${row.record.outcomeCounts ? ` · ${acquisitionPopulation(row.record)}` : ""}`]); }
     const pairs = $("pairs"); pairs.replaceChildren();
     for (const entry of entries) for (const pair of entry.pairs ?? []) {
       const candidate = entry.metrics[pair.candidateId], control = entry.metrics[pair.controlId];

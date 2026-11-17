@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -36,8 +37,10 @@ import {
   appendCampaignManifest,
   buildCampaignManifest,
   commitFileTransaction,
+  formatHistoryScript,
   parseHistoryLog,
   pruneAuditHistory,
+  readHistoryLog,
 } from "../history-files.mjs";
 import { computeCorrelatedMetrics, ownsDataRoute } from "../perceived-metrics.mjs";
 import { createPrivatePp3Diagnostics, formatFocusedSortDegradation, partitionDegradedSamples, recordPrivatePp3Diagnostic, summarizeFocusedSortDegradation } from "../focused-sort-degradation.mjs";
@@ -50,6 +53,301 @@ import {
   severeRateIsReportable,
 } from "../p14-metrics.mjs";
 
+test("campaign lock excludes another process, releases on failure, and refuses abandoned ownership safely", async () => {
+  const { acquireCampaignLock } = await import("../runner-runtime.mjs");
+  const directory = mkdtempSync(join(tmpdir(), "kupua-campaign-lock-"));
+  const lockPath = join(directory, "campaign.lock");
+  try {
+    const release = acquireCampaignLock(lockPath);
+    const contender = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import { acquireCampaignLock } from ${JSON.stringify(new URL("../runner-runtime.mjs", import.meta.url).href)};
+      try { acquireCampaignLock(${JSON.stringify(lockPath)}); process.exitCode = 9; }
+      catch (error) { console.log(error.message); process.exitCode = 3; }
+    `], { encoding: "utf8" });
+    assert.equal(contender.status, 3);
+    assert.match(contender.stdout, /already owns|already running/);
+    assert.ok(existsSync(lockPath));
+    release();
+    release();
+    assert.equal(existsSync(lockPath), false);
+    assert.throws(() => {
+      const releaseAfterFailure = acquireCampaignLock(lockPath);
+      try { throw new Error("fixture failure"); } finally { releaseAfterFailure(); }
+    }, /fixture failure/);
+    assert.equal(existsSync(lockPath), false);
+    writeFileSync(lockPath, JSON.stringify({ pid: 2147483647, token: "abandoned" }));
+    assert.throws(() => acquireCampaignLock(lockPath), /abandoned.*verify.*remove/i);
+    assert.equal(JSON.parse(readFileSync(lockPath, "utf8")).token, "abandoned");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("RTT evidence bounds hanging requests and excludes HTTP and transport failures from latency", async () => {
+  const { probeEsRtt } = await import("../runner-runtime.mjs");
+  const responses = [async () => ({ ok: true }), async () => ({ ok: false }),
+    async () => { throw new Error("private transport detail"); }, () => new Promise(() => {}), async () => ({ ok: true })];
+  let clock = 0;
+  const evidence = await probeEsRtt("http://fixture.invalid", {
+    fetchRequest: (...args) => responses.shift()(...args), timeoutMs: 10, now: () => (clock += 4),
+  });
+  assert.equal(evidence.status, "partial");
+  assert.equal(evidence.attempted, 5);
+  assert.equal(evidence.valid, 2);
+  assert.equal(evidence.medianMs, 4);
+  assert.deepEqual(evidence.failures, { http: 1, transport: 1, timeout: 1 });
+  assert.doesNotMatch(JSON.stringify(evidence), /private|fixture.invalid/);
+  const unavailable = await probeEsRtt("http://fixture.invalid", { fetchRequest: async () => ({ ok: false }) });
+  assert.equal(unavailable.status, "unavailable");
+  assert.equal(unavailable.medianMs, null);
+});
+
+test("partial outcomes retain valid adverse and journey records without inventing missing timings", async () => {
+  const { admitRunOutcomes, summarizeRunOutcomes } = await import("../harness-validation.mjs");
+  const report = { revision: 1, token: "capture", tests: [
+    { ids: ["P1"], status: "failed", activeId: "P1", reason: "performance-budget", stage: "assessment" },
+    { ids: ["PP8"], status: "timedOut", activeId: "PP8", reason: "completion-unavailable", stage: "measurement" },
+    { ids: ["JA1", "JA2", "JA3"], status: "failed", activeId: "JA2", reason: "completion-unavailable", stage: "measurement" },
+  ] };
+  const result = admitRunOutcomes({ metrics: [{ id: "P1", cls: 0.4 }, { id: "JA1", dt_visual_settled_ms: 120 }],
+    expectedIds: ["P1", "PP8", "JA1", "JA2", "JA3", "PP9"], report, token: "capture", exitCode: 1 });
+  assert.deepEqual(result.metrics.map(row => row.id), ["P1", "JA1"]);
+  assert.deepEqual(result.outcomes.map(row => row.status), ["adverse", "failed", "completed", "failed", "not-attempted", "not-attempted"]);
+  assert.equal(result.outcomes.find(row => row.id === "PP8").reason, "completion-unavailable");
+  assert.equal(result.metrics.some(row => row.id === "PP8"), false);
+  assert.deepEqual(summarizeRunOutcomes([result]), { planned: 6, attempted: 4, completed: 2, adverse: 1, failed: 2, invalid: 0, notAttempted: 2 });
+  assert.throws(() => admitRunOutcomes({ metrics: [], expectedIds: ["P1"], report, token: "stale", exitCode: 1 }), /capture token/);
+  assert.throws(() => admitRunOutcomes({ metrics: [{ id: "P1" }, { id: "P1" }], expectedIds: ["P1"], report, token: "capture", exitCode: 1 }), /duplicate/);
+  const invalid = admitRunOutcomes({ metrics: [{ id: "P1" }], expectedIds: ["P1"],
+    report: { ...report, tests: [{ ids: ["P1"], status: "failed", activeId: "P1", reason: "capture-invalid", stage: "validation" }] }, token: "capture", exitCode: 1 });
+  assert.equal(invalid.metrics.length, 0);
+  assert.equal(invalid.outcomes[0].status, "invalid");
+  const boundary = admitRunOutcomes({ metrics: [{ id: "D2-justified" }],
+    expectedIds: ["D2-justified", "D2-table", "D2-grid"], token: "capture", exitCode: 1,
+    report: { revision: 1, token: "capture", tests: [{ ids: ["D2-justified", "D2-table", "D2-grid"],
+      activeId: "D2-table", status: "failed", reason: "observation-boundary-late", stage: "validation",
+      evidence: { observationBoundary: { observerStopLagMs: 31.5, recoveryStartLagMs: 4 } } }] } });
+  assert.deepEqual(boundary.metrics, [{ id: "D2-justified" }]);
+  assert.deepEqual(boundary.outcomes.map(row => row.status), ["completed", "failed", "not-attempted"]);
+  assert.equal(boundary.outcomes[1].evidence.observationBoundary.observerStopLagMs, 31.5);
+  assert.equal(boundary.systemic, false);
+});
+
+test("outcome reporter persists sanitized stages and stops only systemic setup failures", () => {
+  const directory = mkdtempSync(join(tmpdir(), "kupua-outcomes-"));
+  const file = join(directory, "outcomes.json");
+  let stops = 0;
+  try {
+    const reporter = new TeardownReporter({ outputFile: file, token: "capture", kind: "short", write() {}, interrupt: () => stops++ });
+    reporter.onTestEnd({ title: "PP8: private query", annotations: [{ type: "perf-failure", description: "setup-data-error" },
+      { type: "perf-data-evidence", description: JSON.stringify({ responses: 1, failedResponses: 1, unexpectedContentTypes: 0,
+        responseSamples: [{ status: 500, contentType: "html", secret: "private credentials" }], private: "credentials", transportFailures: {} }) }] },
+      { status: "failed", errors: [{ message: "private URL and credentials" }] });
+    reporter.onEnd();
+    const report = JSON.parse(readFileSync(file, "utf8"));
+    assert.equal(report.token, "capture");
+    assert.equal(report.tests[0].stage, "setup");
+    assert.equal(report.tests[0].reason, "setup-data-error");
+    assert.equal(report.tests[0].evidence.responseSamples[0].status, 500);
+    assert.equal(stops, 1);
+    assert.doesNotMatch(JSON.stringify(report), /private|credentials|query/);
+    const independent = new TeardownReporter({ write() {}, interrupt: () => stops++ });
+    independent.onTestEnd({ title: "PP8: completion", annotations: [] }, { status: "timedOut" });
+    assert.equal(stops, 1);
+    const boundary = new TeardownReporter({ kind: "density", write() {}, interrupt: () => stops++ });
+    boundary.onTestEnd({ title: "density scroll-forward: matched layouts", annotations: [
+      { type: "perf-active", description: "D2-table" },
+      { type: "perf-failure", description: "observation-boundary-late" },
+      { type: "perf-boundary-evidence", description: JSON.stringify({ observerStopLagMs: 31.5, recoveryStartLagMs: 4, private: "credentials" }) },
+    ] }, { status: "failed", errors: [{ message: "private URL and credentials" }] });
+    assert.equal(boundary.tests[0].reason, "observation-boundary-late");
+    assert.equal(boundary.tests[0].stage, "validation");
+    assert.deepEqual(boundary.tests[0].evidence.observationBoundary, { observerStopLagMs: 31.5, recoveryStartLagMs: 4 });
+    assert.doesNotMatch(JSON.stringify(boundary.tests), /private|credentials/);
+    assert.equal(stops, 1);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("runner atomically retains independent partial data, stops systemic work, and exits unsuccessfully", async () => {
+  for (const mode of ["partial", "systemic", "complete", "dry-run", "filtered", "density-partial"]) {
+    const systemic = mode === "systemic";
+    const density = mode === "density-partial";
+    const incomplete = ["partial", "systemic", "density-partial"].includes(mode);
+    let launches = 0;
+    let publication;
+    const printed = [];
+    const reported = [];
+    const expectedIds = density ? ["D2-justified", "D2-table", "D2-grid"] : mode === "filtered" ? ["PP8"] : ["PP8", "PP9"];
+    const aggregate = repetitions => Object.fromEntries([...new Set(repetitions.flat().map(row => row.id))]
+      .map(id => [id, { id, action: "search", sampleCount: repetitions.flat().filter(row => row.id === id).length }]));
+    const launch = async () => {
+      if (density) assert.match(reported.join(""), new RegExp(`Density run ${launches + 1} of 2: starting`));
+      return ++launches === 1 && incomplete ? 1 : 0;
+    };
+    const { admitRunOutcomes, summarizeRunOutcomes } = await import("../harness-validation.mjs");
+    const { assertSourceUnchanged } = await import("../runner-runtime.mjs");
+    const context = {
+      console: { log: text => printed.push(text), error: text => printed.push(text) }, process: { env: {}, exitCode: 0 },
+      appendRunReport: text => reported.push(text),
+      pruneHistory: false, rebuildHistory: false, dryRun: mode === "dry-run", headed: false,
+      useLocalMediaApi: true, useDeployedMediaApi: false, runJank: false, runShort: !density, runLong: false, runDensity: density,
+      label: "synthetic partial", runs: 2, grepArg: mode === "filtered" ? "PP8:" : "", apiTopology: "local", mediaDelivery: "canonical",
+      ROOT: "/fixture", LATEST_RUN_REPORT: "/report", STABLE_UNTIL: "2026-02-15", ES_DIRECT_URL: "/es",
+      AUDIT_JSON: "/audit.json", PERCEIVED_JSON: "/perceived.json", PERCEIVED_MD: "/perceived.md", CAMPAIGN_JSON: "/campaign.json",
+      DENSITY_TMP: "/density-tmp", DENSITY_JSON: "/density.json", DENSITY_METRIC_IDS: expectedIds,
+      aggregateDensityRuns: aggregate, densityEnvironmentKey: () => "fixture", pairedDensityComparisons: () => [], buildDensityMarkdown: () => "fixture",
+      PERCEIVED_KINDS: { short: { label: "short", tmp: "/metrics" } },
+      getGitInfo: () => ({ sha: "fixture", dirty: false, appSourceDirtyStateHash: "unchanged" }), sourceFingerprint: () => "unchanged", generatedHistoryExclusions,
+      assertSourceUnchanged, createDeferredWrites, randomUUID: () => "campaign-fixture", enforceClusterGate() {},
+      probeRtt: async () => ({ status: "not-applicable", medianMs: null, valid: 0, attempted: 0 }),
+      expectedPerceivedMetricIds: () => expectedIds, clearPerceivedTmp() {}, clearEnvironmentFile() {},
+      runPerceivedPlaywright: launch, runDensityPlaywright: launch,
+      readRunCapture: exitCode => ({ ...admitRunOutcomes({ exitCode, expectedIds, token: "capture",
+        metrics: exitCode ? systemic ? [] : [{ id: density ? "D2-justified" : "PP9", label: "query", action: "search" }]
+          : expectedIds.map(id => ({ id, label: "query", action: "search" })),
+        report: { revision: 1, token: "capture", tests: exitCode
+          ? [density ? { ids: expectedIds, activeId: "D2-table", status: "failed", stage: "validation", reason: "observation-boundary-late",
+              evidence: { observationBoundary: { observerStopLagMs: 31.5, recoveryStartLagMs: 4 } } }
+            : { ids: ["PP8"], status: "failed", reason: systemic ? "setup-data-error" : "completion-unavailable", stage: systemic ? "setup" : "measurement" },
+            ...(systemic || density ? [] : [{ ids: ["PP9"], status: "passed" }])]
+          : expectedIds.map(id => ({ ids: [id], status: "passed" })) } }), environment: { fixture: true } }),
+      assertSameEnvironment: value => value, collectDegradedSamples() {}, summarizeRunOutcomes,
+      aggregatePerceivedMetrics: aggregate,
+      formatEnvironment: () => "fixture", buildPerceivedMarkdown: () => "fixture", degradedSampleNote: () => "",
+      readHistoryLog: () => ({ entries: [] }), existsSync: () => false,
+      buildCampaignManifest, appendCampaignManifest, formatHistoryScript,
+      commitFileTransaction: updates => { assert.equal(publication, undefined); publication = updates; },
+    };
+    const functions = ["reportCampaignLine", "reportCampaignResult", "unattemptedRun", "recordAcquisition", "runPerceivedKind", "runDensitySuite", "main"].map(runnerFunction).join("\n");
+    await runInNewContext(`${functions}\nmain().then(reportCampaignResult)`, context);
+    assert.equal(launches, systemic ? 1 : 2);
+    assert.equal(context.process.exitCode, incomplete ? 1 : 0);
+    const report = reported.join("");
+    assert.match(report, new RegExp(`\\[perf acquisition\\] family=${density ? "density" : "short"} status=`));
+    assert.match(report, new RegExp(`\\[perf result\\] status=${incomplete ? "incomplete" : "complete"} exitCode=${incomplete ? 1 : 0}`));
+    assert.match(printed.join("\n"), /\[perf result\]/);
+    assert.match(report, /\[perf campaign\] id=campaign-fixture/);
+    if (!density) assert.match(report, /Completed\/planned/);
+    if (density) {
+      assert.match(report, /D2-table.*stage=validation reason=observation-boundary-late observerStopLagMs=31.5 recoveryStartLagMs=4/);
+      assert.match(report, /D2-grid status=not-attempted/);
+    } else if (incomplete) assert.match(report, /PP8.*stage=(?:measurement|setup).*reason=(?:completion-unavailable|setup-data-error)/);
+    if (mode === "dry-run") {
+      assert.equal(publication, undefined);
+      assert.match(report, /history=not-written/);
+      continue;
+    }
+    assert.equal(publication.length, density ? 4 : 5);
+    const entry = JSON.parse(publication.find(update => update.file === (density ? "/density.json" : "/perceived.json")).contents).entries[0];
+    const manifest = JSON.parse(publication.find(update => update.file === "/campaign.json").contents).entries[0];
+    assert.equal(manifest.complete, mode === "complete");
+    assert.equal(manifest.counts.failed, incomplete ? 1 : 0);
+    assert.equal(entry.acquisition.counts.notAttempted, systemic ? 3 : density ? 1 : 0);
+    if (density) {
+      assert.equal(entry.metrics["D2-justified"].sampleCount, 2);
+      assert.equal(entry.metrics["D2-table"].sampleCount, 1);
+      assert.equal(entry.metrics["D2-grid"].sampleCount, 1);
+    } else {
+      assert.equal(entry.perceived.PP9?.sampleCount ?? 0, systemic || mode === "filtered" ? 0 : 2);
+      assert.equal(entry.perceived.PP8?.sampleCount ?? 0, systemic ? 0 : incomplete ? 1 : 2);
+    }
+  }
+});
+
+test("source identity includes untracked contents and rejects changed code before publication", async () => {
+  const { sourceFingerprint, assertSourceUnchanged } = await import("../runner-runtime.mjs");
+  const directory = mkdtempSync(join(tmpdir(), "kupua-source-"));
+  try {
+    assert.equal(spawnSync("git", ["init", "--quiet", directory]).status, 0);
+    const file = join(directory, "app.ts");
+    writeFileSync(file, "export const value = 1;\n");
+    const before = sourceFingerprint(directory);
+    const activityBefore = sourceFingerprint(directory, [], { activity: true });
+    assertSourceUnchanged(before, sourceFingerprint(directory));
+    writeFileSync(file, "export const value = 2;\n");
+    assert.throws(() => assertSourceUnchanged(before, sourceFingerprint(directory)), /source changed/i);
+    writeFileSync(file, "export const value = 1;\n");
+    assertSourceUnchanged(before, sourceFingerprint(directory));
+    assert.throws(() => assertSourceUnchanged(activityBefore, sourceFingerprint(directory, [], { activity: true })), /source changed/i);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("Git provenance handles diffs larger than the old startup buffer without changing hash semantics", async () => {
+  const { hashGitDiff, sourceFingerprint } = await import("../runner-runtime.mjs");
+  const directory = mkdtempSync(join(tmpdir(), "kupua-large-diff-"));
+  const runGit = args => execFileSync("git", args, { cwd: directory, maxBuffer: 32 * 1024 * 1024 });
+  try {
+    runGit(["init", "--quiet"]);
+    const file = join(directory, "history.json");
+    writeFileSync(file, "baseline\n");
+    runGit(["add", "history.json"]);
+    runGit(["-c", "user.name=Kupua fixture", "-c", "user.email=fixture@example.invalid", "-c", "commit.gpgsign=false",
+      "-c", "core.hooksPath=/dev/null", "commit", "--quiet", "-m", "Fixture baseline"]);
+    writeFileSync(file, "x".repeat(21 * 1024 * 1024) + "\n");
+    const getGitInfo = runInNewContext(`${runnerFunction("getGitInfo")}\ngetGitInfo`, {
+      ROOT: directory, execFileSync, createHash, Buffer, hashGitDiff, sourceFingerprint, generatedHistoryExclusions,
+    });
+    const git = await getGitInfo();
+    assert.equal(git.appSourceDirtyStateHash, sourceFingerprint(directory, generatedHistoryExclusions()));
+    assert.equal(git.dirty, true);
+    const expected = createHash("sha256").update(runGit(["status", "--porcelain", "--", "."]))
+      .update(runGit(["diff", "--binary", "HEAD", "--", "."])).digest("hex").slice(0, 16);
+    assert.equal(git.dirtyStateHash, expected);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test("document integrity allows deliberate navigation but rejects HMR and unexpected reloads", async () => {
+  const { createPageIntegrityGuard } = await import("../runner-runtime.mjs");
+  for (const contamination of ["reload", "hmr"]) {
+    const session = new EventEmitter();
+    session.send = async () => {};
+    session.detach = async () => {};
+    const page = { context: () => ({ newCDPSession: async () => session }), goto: async () => {
+      session.emit("Page.frameNavigated", { frame: { id: "main" } });
+    } };
+    const original = page.goto;
+    const guard = await createPageIntegrityGuard(page);
+    await page.goto("/search");
+    guard.assertValid();
+    if (contamination === "reload") session.emit("Page.frameNavigated", { frame: { id: "main" } });
+    else session.emit("Network.webSocketFrameReceived", { response: { payloadData: JSON.stringify({ type: "update", updates: ["private path"] }) } });
+    assert.throws(() => guard.assertValid(), /unexpected-reload|source-changed/);
+    await guard.dispose();
+    assert.equal(page.goto, original);
+    assert.equal(session.eventNames().length, 0);
+  }
+});
+
+test("perf readiness fails promptly only on settled required-data error and allows delayed visible results", async () => {
+  const state = { loading: true, error: "private backend error", results: [] };
+  let visible = false;
+  const element = { getBoundingClientRect: () => ({ top: 0, bottom: 100 }),
+    querySelectorAll: () => visible ? [{ getBoundingClientRect: () => ({ top: 0, bottom: 50 }) }] : [] };
+  const waitCode = ts.transpileModule(functionSource("helpers.ts", "waitForPerfResults"), { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText.replace("export ", "");
+  const wait = runInNewContext(`${waitCode}\nwaitForPerfResults`, {
+    window: { __kupua_store__: { getState: () => state } }, document: { querySelector: () => element },
+  });
+  let polls = 0;
+  const kupua = { page: { waitForFunction: async (predicate, argument) => {
+    assert.equal(predicate(argument), false);
+    polls++;
+    state.loading = false;
+    const value = predicate(argument);
+    return { jsonValue: async () => value, dispose: async () => {} };
+  } } };
+  await assert.rejects(() => wait(kupua), /Required search data unavailable/);
+  assert.equal(polls, 1);
+  state.loading = true;
+  state.error = null;
+  kupua.page.waitForFunction = async (predicate, argument) => {
+    assert.equal(predicate(argument), false);
+    state.loading = false;
+    visible = true;
+    return { jsonValue: async () => predicate(argument), dispose: async () => {} };
+  };
+  await wait(kupua);
+});
+
 test("requested media delivery must match the app, including missing evidence", () => {
   const requested = { dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: "canonical" };
   for (const mediaDelivery of ["proxy", undefined]) {
@@ -58,13 +356,18 @@ test("requested media delivery must match the app, including missing evidence", 
   assert.deepEqual(assertEnvironmentMatches(requested, requested), requested);
 });
 
-test("runner accepts canonical API modes, defaults to proxy and refuses canonical direct ES", () => {
+function parseRunnerOptions(args) {
   const source = readFileSync(new URL("../run-audit.mjs", import.meta.url), "utf8");
   const parser = source.slice(source.indexOf("let suiteArgs;"), source.indexOf("// Stable-until:"));
-  const parse = args => runInNewContext(`${parser}\n({ mediaDelivery, apiTopology, useMediaApi })`, {
+  return runInNewContext(`${parser}\n({ mediaDelivery, apiTopology, useMediaApi, runs, grepArg, headed, runJank, runShort, runLong, runDensity })`, {
     process: { argv: ["node", "runner", ...args] }, parseDensitySuiteArgs, resolveSuiteSelection, assertBalancedLongRuns,
     failCli(message) { throw new Error(message); },
   });
+}
+
+test("runner accepts canonical API modes, defaults to proxy and refuses canonical direct ES", () => {
+  const source = readFileSync(new URL("../run-audit.mjs", import.meta.url), "utf8");
+  const parse = parseRunnerOptions;
   for (const flag of ["--use-media-api", "--use-deployed-media-api"]) {
     assert.equal(parse([flag]).mediaDelivery, "proxy");
     assert.equal(parse([flag, "--canonical-media"]).mediaDelivery, "canonical");
@@ -73,25 +376,109 @@ test("runner accepts canonical API modes, defaults to proxy and refuses canonica
   assert.equal(parse([]).mediaDelivery, "proxy");
   assert.throws(() => parse(["--canonical-media"]), /requires/);
   assert.throws(() => parse(["--use-media-api", "--use-deployed-media-api"]), /mutually exclusive/);
+  assert.equal(source.match(/KUPUA_PERF_API_TOPOLOGY: apiTopology/g)?.length, 3);
   assert.equal(source.match(/KUPUA_PERF_MEDIA_DELIVERY: mediaDelivery/g)?.length, 3);
 });
 
-test("perf fixture rejects delivery mismatch before workload and checks configuration stability", async () => {
+test("full deployed campaign hands the requested environment through every suite and accepts its fingerprint", async () => {
+  const options = parseRunnerOptions(["--full", "--use-deployed-media-api", "--canonical-media", "--runs", "4"]);
+  assert.deepEqual([options.runJank, options.runShort, options.runLong, options.runDensity], [true, true, true, true]);
   const source = readFileSync(new URL("../helpers.ts", import.meta.url), "utf8");
   const fixtureSource = source.slice(source.indexOf("export const test ="), source.indexOf("export function isMediaApiUrl"));
   const code = ts.transpileModule(fixtureSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-  for (const deliveries of [["proxy", "proxy"], [undefined, undefined], ["canonical", "proxy"], ["canonical", "canonical"]]) {
+  for (const [name, args, config] of [
+    ["runPlaywright", [], "perf"],
+    ["runPerceivedPlaywright", ["short", 1], "perceived-short"],
+    ["runPerceivedPlaywright", ["long", 1], "perceived-long"],
+    ["runDensityPlaywright", [1], "density"],
+  ]) {
+    let childEnvironment;
+    const environmentFile = "/fixture-environment";
+    const launch = runInNewContext(`${runnerFunction(name)}\n${name}`, {
+      ...options,
+      ROOT: "/fixture", STABLE_UNTIL: "2026-02-15", ENVIRONMENT_TMP: environmentFile,
+      OUTCOMES_TMP: "/outcomes", captureToken: "capture",
+      PANDA_AUTH_FILE: "/private-auth", LATEST_RUN_REPORT: "/private-report", DENSITY_TMP: "/fixture-density",
+      PERCEIVED_KINDS: {
+        short: { config: "e2e-perf/playwright.perceived-short.config.ts", label: "short" },
+        long: { config: "e2e-perf/playwright.perceived-long.config.ts", label: "long" },
+      },
+      expectedPerceivedMetricIds,
+      assertPrivatePp3OutputFile() {},
+      createPrivatePp3Diagnostics: () => ({ file: "/private-debug", readAndRemove: () => [] }),
+      privatePp3Diagnostics: [], campaignOutput: { authRequired: false },
+      trackCampaignChild: child => child,
+      platform: () => "fixture",
+      console: { log() {} }, forwardCampaignOutput() {}, finishCampaignOutput() {},
+      process: { env: { KUPUA_PERF_API_TOPOLOGY: "local", KUPUA_PERF_MEDIA_DELIVERY: "proxy" } },
+      spawn: (_command, commandArgs, spawnOptions) => {
+        assert.ok(commandArgs.includes(`--config=e2e-perf/playwright.${config}.config.ts`));
+        childEnvironment = spawnOptions.env;
+        const child = new EventEmitter();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        queueMicrotask(() => child.emit("close", 0));
+        return child;
+      },
+    });
+    assert.equal(await launch(...args), 0);
+    assert.equal(childEnvironment.KUPUA_PERF_API_TOPOLOGY, "deployed-test");
+    assert.equal(childEnvironment.KUPUA_PERF_MEDIA_DELIVERY, "canonical");
+    assert.equal(childEnvironment.KUPUA_PERF_AUTH_FILE, "/private-auth");
+    assert.equal(childEnvironment.KUPUA_PERF_BASE_URL, "https://kupua.media.local.dev-gutools.co.uk");
+    const files = new Map();
+    const fixture = { exports: {}, process: { env: childEnvironment }, sharedTest: { extend: fixtures => fixtures },
+      writeFileSync: (file, contents) => files.set(file, contents) };
+    runInNewContext(code, fixture);
+    const appEnvironment = { dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery: "canonical" };
+    let executed = false;
+    const page = {
+      request: { get: async () => ({ ok: () => true, json: async () => appEnvironment }) },
+      context: () => ({ browser: () => ({ version: () => "fixture" }) }),
+      evaluate: async () => ({ appBaseUrl: childEnvironment.KUPUA_PERF_BASE_URL,
+        viewport: { width: 1720, height: 960 }, screen: { width: 1720, height: 960 }, deviceScaleFactor: 2 }),
+    };
+    await fixture.exports.test.perfEnvironment[0]({ kupua: { page }, browserName: "chromium" }, async () => { executed = true; });
+    assert.equal(executed, true);
+    const read = runInNewContext(`${runnerFunction("readEnvironment")}\nreadEnvironment`, {
+      ...options, ENVIRONMENT_TMP: environmentFile, STABLE_UNTIL: "2026-02-15",
+      assertPlaywrightSucceeded, assertEnvironmentMatches, parseJsonLines, requireSingleEnvironment,
+      existsSync: file => files.has(file), readFileSync: file => files.get(file), unlinkSync: file => files.delete(file),
+      platform: () => "fixture", release: () => "fixture", arch: () => "fixture", process: { env: {} },
+    });
+    const observed = read(0, config, { sha: "fixture", dirty: false, dirtyStateHash: "fixture", appSourceDirtyStateHash: "fixture" });
+    for (const [field, expected] of Object.entries(appEnvironment)) assert.equal(observed[field], expected);
+    assert.equal(files.size, 0);
+  }
+});
+
+test("perf fixture rejects topology or delivery mismatch before workload and checks configuration stability", async () => {
+  const source = readFileSync(new URL("../helpers.ts", import.meta.url), "utf8");
+  const fixtureSource = source.slice(source.indexOf("export const test ="), source.indexOf("export function isMediaApiUrl"));
+  const code = ts.transpileModule(fixtureSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const { deliveries, apiTopology = "deployed-test", requestedTopology = "deployed-test" } of [
+    { deliveries: ["canonical", "canonical"], requestedTopology: "local" },
+    { deliveries: ["canonical", "canonical"], apiTopology: "local", requestedTopology: "local" },
+    ...[["proxy", "proxy"], [undefined, undefined], ["canonical", "proxy"], ["canonical", "canonical"]]
+      .map(deliveries => ({ deliveries, apiTopology: "deployed-test" })),
+  ]) {
     let executed = false, reads = 0;
     const writes = [];
-    const context = { exports: {}, process: { env: { KUPUA_PERF_ENV_FILE: "fixture", KUPUA_PERF_MEDIA_DELIVERY: "canonical" } },
+    const context = { exports: {}, process: { env: {
+      KUPUA_PERF_ENV_FILE: "fixture", KUPUA_PERF_API_TOPOLOGY: requestedTopology, KUPUA_PERF_MEDIA_DELIVERY: "canonical",
+    } },
       sharedTest: { extend: fixtures => fixtures }, writeFileSync: (_file, value) => writes.push(JSON.parse(value)) };
     runInNewContext(code, context);
     const page = { request: { get: async () => {
       const mediaDelivery = deliveries[reads++];
-      return { ok: () => true, json: async () => ({ dataMode: "media-api", apiTopology: "deployed-test", mediaDelivery }) };
+      return { ok: () => true, json: async () => ({ dataMode: "media-api", apiTopology, mediaDelivery }) };
     } }, context: () => ({ browser: () => ({ version: () => "fixture" }) }), evaluate: async () => ({ appBaseUrl: "https://fixture.invalid" }) };
     const run = () => context.exports.test.perfEnvironment[0]({ kupua: { page }, browserName: "chromium" }, async () => { executed = true; });
-    if (deliveries[0] !== "canonical") {
+    if (apiTopology !== requestedTopology) {
+      await assert.rejects(run, /API topology mismatch: requested local, observed deployed-test/);
+      assert.equal(executed, false);
+      assert.equal(writes.length, 0);
+    } else if (deliveries[0] !== "canonical") {
       await assert.rejects(run, /media delivery mismatch/);
       assert.equal(executed, false);
     } else if (deliveries[1] !== "canonical") {
@@ -100,7 +487,7 @@ test("perf fixture rejects delivery mismatch before workload and checks configur
     } else {
       await run();
       assert.equal(writes[0].mediaDelivery, "canonical");
-      assert.equal(writes[0].apiTopology, "deployed-test");
+      assert.equal(writes[0].apiTopology, apiTopology);
     }
   }
 });
@@ -497,8 +884,8 @@ test("perceived history notes degraded exclusions and the campaign reports diagn
   assert.equal(note, "Degraded samples excluded from medians: PP3 1 of 4 (timeout: 1).");
   assert.equal(degradedSampleNote({ PP2: { id: "PP2", sampleCount: 4 } }), null);
 
-  const buildPerceivedMarkdown = runInNewContext(`${runnerFunction("buildPerceivedMarkdown")}\nbuildPerceivedMarkdown`, {
-    degradedSampleNote, formatEnvironment: () => "environment",
+  const buildPerceivedMarkdown = runInNewContext(`${runnerFunction("formatEnvironment")}\n${runnerFunction("buildPerceivedMarkdown")}\nbuildPerceivedMarkdown`, {
+    degradedSampleNote,
   });
   const markdown = buildPerceivedMarkdown("", {
     kind: "short", label: "fixture", gitSha: "abc", gitDirty: false, timestamp: "2026-10-23T00:00:00.000Z",
@@ -507,6 +894,9 @@ test("perceived history notes degraded exclusions and the campaign reports diagn
   });
   assert.match(markdown, /\| PP3 \| sort-around-focus \| 3 \|/);
   assert.match(markdown, /Degraded samples excluded from medians: PP3 1 of 4 \(timeout: 1\)\./);
+  const history = readHistoryLog(fileURLToPath(new URL("../results/perceived-log.js", import.meta.url)));
+  const exported = history.entries.reduce((report, entry) => buildPerceivedMarkdown(report, entry), "");
+  assert.equal(exported.match(/^## /gm).length, history.entries.length);
 
   const printed = [];
   const reported = [];
@@ -575,14 +965,16 @@ test("PP3 private identities print only in the final debug section, including ca
     const events = [];
     const error = new Error("fixture failure");
     const completion = runInNewContext(runner.slice(start), {
+      campaignOutput: { authRequired: false },
       main: () => failed ? Promise.reject(error) : Promise.resolve(),
       reportDegradedSamples: () => events.push("redacted"),
       reportPrivatePp3Diagnostics: () => events.push("private"),
+      reportCampaignResult: () => events.push("result"),
       reportCampaignError: observed => { assert.equal(observed, error); events.push("failure"); },
     });
     assert.deepEqual(events, [], "nothing is reported before campaign completion");
     await completion;
-    assert.deepEqual(events, failed ? ["redacted", "private", "failure"] : ["redacted", "private"]);
+    assert.deepEqual(events, failed ? ["redacted", "private", "failure"] : ["redacted", "private", "result"]);
   }
 });
 
@@ -626,10 +1018,13 @@ test("private PP3 handoff is collected and removed for successful, failing and e
     const ordinaryOutput = [];
     let privateFile = "";
     const run = runInNewContext(`${runnerFunction("runPerceivedPlaywright")}\nrunPerceivedPlaywright`, {
+      platform: () => "fixture",
+      OUTCOMES_TMP: "/outcomes", captureToken: "capture",
+      trackCampaignChild: child => child,
       PERCEIVED_KINDS: { short: { config: "fixture", label: "short" }, long: { config: "fixture", label: "long" } },
       expectedPerceivedMetricIds: () => ["PP3"], grepArg: "", headed: false,
       ROOT: "/fixture", STABLE_UNTIL: "2026-02-15", ENVIRONMENT_TMP: "/fixture-env", mediaDelivery: "proxy",
-      useMediaApi: false, runs: 4, LATEST_RUN_REPORT: "/private-report",
+      useMediaApi: false, apiTopology: "none", runs: 4, LATEST_RUN_REPORT: "/private-report",
       assertPrivatePp3OutputFile: file => assert.equal(file, "/private-report"), createPrivatePp3Diagnostics,
       privatePp3Diagnostics, console: { log() {} }, appendRunReport: text => ordinaryOutput.push(String(text)),
       campaignOutput: { authRequired: false }, finishCampaignOutput() {},
@@ -686,9 +1081,9 @@ test("audit verdict reports one-off threshold crossings as watchpoints", () => {
   const source = readFileSync(join(fileURLToPath(new URL("..", import.meta.url)), "run-audit.mjs"), "utf8");
   const reporting = source.slice(
     source.indexOf("const METRIC_COLS ="),
-    source.indexOf("function buildAuditMarkdown("),
+    source.indexOf("function pruneHistoricalAuditMetrics("),
   );
-  const buildDiffTable = runInNewContext(`${reporting}\nbuildDiffTable`, {
+  const { buildDiffTable, rebuildAuditMarkdown } = runInNewContext(`${runnerFunction("formatEnvironment")}\n${reporting}\n({ buildDiffTable, rebuildAuditMarkdown })`, {
     comparisonEvidenceClass, metricsAreComparable, severeRateIsReportable,
   });
   const metric = (sampleCount, maxFrame) => ({
@@ -704,6 +1099,8 @@ test("audit verdict reports one-off threshold crossings as watchpoints", () => {
   const repeated = buildDiffTable({ metrics: { P14b: metric(2, 120) } }, previous);
   assert.match(repeated, /Verdict: ⚠️ Possible regressions: P14b\.maxFrame/);
   assert.doesNotMatch(repeated, /Single-sample watchpoints/);
+  const history = readHistoryLog(fileURLToPath(new URL("../results/audit-log.js", import.meta.url)));
+  assert.equal(rebuildAuditMarkdown(history).match(/^## /gm).length, history.entries.length);
 });
 
 test("perceived dashboard imports only real image-read evidence from audit history", () => {
@@ -1535,13 +1932,18 @@ test("perf reporter stops once on a split auth marker and prints the exact copya
 test("missing auth stops before workload and prints the copyable renewal command", async () => {
   const { AUTH_RENEWAL_COMMAND } = await import("../auth-failure.mjs");
   const lines = [];
-  const gate = runInNewContext(`${runnerFunction("enforceClusterGate")}\nenforceClusterGate`, {
+  const reported = [];
+  const gate = runInNewContext(`${runnerFunction("reportCampaignLine")}\n${runnerFunction("enforceClusterGate")}\nenforceClusterGate`, {
     useMediaApi: true, PANDA_AUTH_FILE: "/fixture/missing.json", STABLE_UNTIL: "2026-02-15", existsSync: () => false,
     AUTH_RENEWAL_COMMAND, console: { error: line => lines.push(line), log() {} },
+    appendRunReport: text => reported.push(text),
     process: { exit: code => { throw new Error(`exit ${code}`); } },
   });
   assert.throws(gate, /exit 2/);
   assert.ok(lines.includes(AUTH_RENEWAL_COMMAND));
+  assert.match(reported.join(""), /\[perf result\] status=authentication-required exitCode=2 history=not-written/);
+  assert.equal(lines.at(-1), AUTH_RENEWAL_COMMAND);
+  assert.equal(reported.join("").trim().split("\n").at(-1), AUTH_RENEWAL_COMMAND);
 });
 
 test("perf authentication guard observes existing responses, reports safely and disposes its listener", async () => {
@@ -1564,6 +1966,56 @@ test("perf authentication guard observes existing responses, reports safely and 
     guard.dispose();
   }
   assert.equal(page.listenerCount("response"), 0);
+});
+
+test("perf setup failure diagnostics retain bounded transport evidence without private data and clean up", async () => {
+  const source = readFileSync(new URL("../helpers.ts", import.meta.url), "utf8");
+  const code = ts.transpileModule(source.slice(source.indexOf("export const test ="), source.indexOf("export function isMediaApiUrl")), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  for (const failed of [false, true]) {
+    const page = new EventEmitter();
+    const notices = [];
+    const context = {
+      exports: {}, sharedTest: { extend: fixtures => fixtures },
+      process: { env: {} }, URL,
+      isMediaApiUrl: raw => new URL(raw).origin === "https://api.fixture.invalid",
+      console: { log: line => notices.push(line) },
+    };
+    runInNewContext(code, context);
+    assert.ok(context.exports.test.perfReadiness, "observer must be installed before navigation");
+    const response = (status, contentType, url = "https://api.fixture.invalid/images?private-query-marker") => ({
+      url: () => url, status: () => status, headers: () => ({ "content-type": contentType, authorization: "private-header-marker" }),
+    });
+    const original = new Error("synthetic initial search failure");
+    const run = () => context.exports.test.perfReadiness[0]({ kupua: { page } }, async () => {
+      assert.equal(page.listenerCount("response"), 1);
+      assert.equal(page.listenerCount("requestfailed"), 1);
+      page.emit("response", response(502, "application/json"));
+      page.emit("response", response(200, "text/html; private-content-marker"));
+      page.emit("response", response(200, "application/json"));
+      page.emit("response", response(403, "text/plain", "https://images.fixture.invalid/private-image-marker"));
+      for (const errorText of ["net::ERR_NAME_NOT_RESOLVED", "net::ERR_ABORTED", "private-error-marker https://private.fixture.invalid"]) {
+        page.emit("requestfailed", { url: () => "https://api.fixture.invalid/images?private-query-marker", failure: () => ({ errorText }) });
+      }
+      for (let count = 0; count < 10; count++) page.emit("response", response(503, "application/json"));
+      if (failed) throw original;
+    }, { status: failed ? "failed" : "passed" });
+    if (failed) await assert.rejects(run, error => error === original);
+    else await run();
+    assert.equal(page.listenerCount("response"), 0);
+    assert.equal(page.listenerCount("requestfailed"), 0);
+    assert.equal(notices.length, failed ? 1 : 0);
+    if (failed) {
+      assert.ok(notices[0].startsWith("Perf data failure evidence: "));
+      const diagnostic = JSON.parse(notices[0].slice("Perf data failure evidence: ".length));
+      assert.equal(diagnostic.responses, 13);
+      assert.equal(diagnostic.failedResponses, 11);
+      assert.equal(diagnostic.unexpectedContentTypes, 1);
+      assert.equal(diagnostic.responseSamples.length, 8);
+      assert.deepEqual(diagnostic.responseSamples.slice(0, 2), [{ status: 502, contentType: "json" }, { status: 200, contentType: "html" }]);
+      assert.deepEqual(diagnostic.transportFailures, { dns: 1, aborted: 1, other: 1 });
+      assert.doesNotMatch(notices[0], /private|fixture|https|authorization/i);
+    }
+  }
 });
 
 test("perf auth fixture is installed only for authenticated runs and cleans up on failure", async () => {
@@ -1619,6 +2071,17 @@ test("actual Playwright reporter interrupts an auth-blocked synthetic run before
     assert.throws(() => report(new Error("Playwright exited with code 130")), /exit 2/);
     assert.equal(visible.join("\n").trim().split("\n").at(-1), AUTH_RENEWAL_COMMAND);
     assert.doesNotMatch(visible.join("\n"), /Test was interrupted|Error:|code 130|at assertAuthenticated/);
+    writeFileSync(join(folder, "auth-stop.spec.cjs"), `const { test } = require(${JSON.stringify(require.resolve("@playwright/test"))});\ntest('PP8: setup', async () => { test.info().annotations.push({type:'perf-failure',description:'setup-data-error'}); throw new Error('synthetic settled required-data error'); });\ntest('PP9: must not run', async () => { console.log('UNEXPECTED_SECOND_TEST'); });\n`);
+    const outcomeFile = join(folder, "outcomes.json");
+    const setup = spawnSync(process.execPath, [require.resolve("@playwright/test/cli"), "test", `--config=${join(folder, "playwright.config.cjs")}`], {
+      encoding: "utf8", timeout: 10000, env: { ...process.env, KUPUA_PERF_KIND: "short", KUPUA_PERF_CAPTURE_TOKEN: "capture", KUPUA_PERF_OUTCOMES_FILE: outcomeFile },
+    });
+    assert.ifError(setup.error);
+    assert.notEqual(setup.status, 0);
+    assert.doesNotMatch(setup.stdout + setup.stderr, /^UNEXPECTED_SECOND_TEST$/m);
+    const setupReport = JSON.parse(readFileSync(outcomeFile, "utf8"));
+    assert.equal(setupReport.tests[0].reason, "setup-data-error");
+    assert.equal(setupReport.tests.some(result => result.ids.includes("PP9") && result.status !== "skipped"), false);
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
@@ -1641,6 +2104,21 @@ test("auth output filtering drops interruption noise without losing prior progre
   const output = ordinary.push("real failure [", "stderr") + ordinary.flush("stderr");
   assert.equal(output, "real failure [");
   assert.equal(ordinary.authRequired, false);
+  const printed = [], reported = [];
+  const writers = runInNewContext(`${["forwardCampaignOutput", "finishCampaignOutput", "reportCampaignLine"].map(runnerFunction).join("\n")}
+    ({ forwardCampaignOutput, finishCampaignOutput, reportCampaignLine })`, {
+    campaignOutput: createPerfAuthOutputFilter(), appendRunReport: text => reported.push(text),
+    process: { stdout: { write: text => printed.push(text) }, stderr: { write: text => printed.push(text) } },
+    console: { log: text => printed.push(`${text}\n`) },
+  });
+  writers.forwardCampaignOutput("fixture child progress\n", "stdout");
+  writers.forwardCampaignOutput("fixture child diagnostic", "stderr");
+  writers.finishCampaignOutput();
+  writers.reportCampaignLine("[perf result] status=complete exitCode=0");
+  assert.equal(reported.join(""), printed.join(""));
+  assert.equal(reported.join("").match(/fixture child progress/g).length, 1);
+  assert.equal(reported.join("").match(/fixture child diagnostic/g).length, 1);
+  assert.equal(reported.join("").match(/\[perf result\]/g).length, 1);
 });
 
 test("auth output filter preserves split UTF-8 independently in both streams", async () => {
@@ -2306,17 +2784,17 @@ test("performance readiness loops cannot use frame-count deadlines", () => {
   }
 });
 
-function createHomeVisualHarness({
+function createPinnedReturnVisualHarness({
   refreshRate = 120,
   readyAt = 1_500,
   stateOverrides = {},
   scrollTop = 0,
   scrubberPosition = "0",
-  href = "http://localhost/search?nonFree=true",
+  href = "http://localhost/search?nonFree=true&until=2026-02-15T00:00:00.000Z",
   moving = false,
   visible = true,
 } = {}) {
-  const outputText = compiledFunction("perceived-short.spec.ts", "appendHomeVisualPhases");
+  const outputText = compiledFunction("perceived-short.spec.ts", "appendPinnedReturnVisualPhases");
   let now = 0;
   const entries = [];
   const rect = { top: 0, left: 0, width: 600, height: 400, bottom: 400 };
@@ -2331,7 +2809,8 @@ function createHomeVisualHarness({
     getBoundingClientRect: () => rect,
     querySelector: () => item,
   };
-  const appendHomeVisualPhases = runInNewContext(`${outputText}\nappendHomeVisualPhases`, {
+  const appendPinnedReturnVisualPhases = runInNewContext(`${outputText}\nappendPinnedReturnVisualPhases`, {
+    STABLE_UNTIL: "2026-02-15T00:00:00.000Z",
     URL,
     location: { href },
     CSS: { escape: (value) => value },
@@ -2349,7 +2828,7 @@ function createHomeVisualHarness({
       __perceivedTrace__: entries,
       __kupua_store__: {
         getState: () => ({
-          params: { nonFree: "true" },
+          params: { nonFree: "true", until: "2026-02-15T00:00:00.000Z" },
           loading: now < readyAt,
           results: [{ id: "home-first-result" }],
           bufferOffset: 0,
@@ -2361,15 +2840,15 @@ function createHomeVisualHarness({
   });
 
   return {
-    wait: () => appendHomeVisualPhases({ page: { evaluate: (callback, value) => callback(value) } }, "home-test"),
+    wait: () => appendPinnedReturnVisualPhases({ page: { evaluate: (callback, value) => callback(value) } }, "home-test"),
     entries,
     elapsed: () => now,
   };
 }
 
 for (const refreshRate of [30, 120]) {
-  test(`PP1 waits for delayed Home data at ${refreshRate} Hz`, async () => {
-    const harness = createHomeVisualHarness({ refreshRate });
+  test(`PP1 waits for delayed pinned return data at ${refreshRate} Hz`, async () => {
+    const harness = createPinnedReturnVisualHarness({ refreshRate });
     const result = await harness.wait();
 
     assert.equal(result.settledTotal, 70_000);
@@ -2378,6 +2857,7 @@ for (const refreshRate of [30, 120]) {
     assert.ok(harness.entries[0].t >= 1_500);
     assert.ok(harness.entries[1].t > harness.entries[0].t);
     assert.ok(harness.entries.every((entry) => entry.interactionId === "home-test"));
+    assert.ok(harness.entries.every((entry) => entry.action === "scrubber-seek"));
   });
 }
 
@@ -2386,13 +2866,13 @@ for (const [label, options, diagnostic] of [
   ["wrong buffer offset", { stateOverrides: { bufferOffset: 1 } }, /"bufferOffset":1/],
   ["nonzero scroll", { scrollTop: 10 }, /"scrollTop":10/],
   ["nonzero scrubber", { scrubberPosition: "1" }, /"scrubberPosition":1/],
-  ["pinned URL", { href: "http://localhost/search?nonFree=true&until=2026-02-15" }, /"homeUrl":false/],
-  ["filtered store", { stateOverrides: { params: { nonFree: "true", query: "city:Example" } } }, /"homeStore":false/],
+  ["unpinned URL", { href: "http://localhost/search?nonFree=true" }, /"pinnedUrl":false/],
+  ["filtered store", { stateOverrides: { params: { nonFree: "true", until: "2026-02-15T00:00:00.000Z", query: "city:Example" } } }, /"pinnedStore":false/],
   ["invisible first result", { visible: false }, /"firstResultVisible":false/],
   ["moving geometry", { moving: true }, /"firstResultVisible":true/],
 ]) {
   test(`PP1 still rejects ${label} at its elapsed-time deadline`, async () => {
-    const harness = createHomeVisualHarness(options);
+    const harness = createPinnedReturnVisualHarness(options);
 
     await assert.rejects(harness.wait(), (error) => {
       assert.match(error.message, /within 30000ms/);
@@ -2805,6 +3285,30 @@ test("requires exactly one environment fingerprint per suite repetition", () => 
   );
 });
 
+test("canonical dashboard history survives a fresh clone and cannot be overridden by local JSON", async () => {
+  const { formatHistoryScript } = await import("../history-files.mjs");
+  const directory = mkdtempSync(join(tmpdir(), "kupua-history-source-"));
+  const json = join(directory, "density-log.json"), script = join(directory, "density-log.js");
+  const history = { revision: 1, entries: [{ label: "first", metrics: { latency: null } }, { label: "second", counts: { attempted: 3 } }] };
+  try {
+    writeFileSync(script, `window.__DENSITY_LOG__ = ${JSON.stringify(history)};\n`);
+    writeFileSync(json, JSON.stringify({ entries: [] }));
+    assert.deepEqual(readHistoryLog(json), history, "ignored JSON must never override committed history");
+    rmSync(json);
+    assert.deepEqual(readHistoryLog(json), history, "fresh clone needs no generated JSON");
+    const encoded = formatHistoryScript(history, "density");
+    assert.deepEqual(parseHistoryLog(encoded, script), history);
+    assert.equal(encoded.split("\n").filter(line => line.startsWith('{"label"')).length, 2);
+    writeFileSync(script, encoded + "throw new Error('must not execute');\n");
+    assert.throws(() => readHistoryLog(json), /Malformed.*density-log\.js/);
+    rmSync(script);
+    writeFileSync(json, JSON.stringify(history));
+    assert.throws(() => readHistoryLog(json), /Missing canonical history/);
+    rmSync(json);
+    assert.throws(() => readHistoryLog(json), /Missing canonical history/, "missing authority must not silently become empty history");
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("rejects malformed existing history JSON with its source path", () => {
   assert.throws(
     () => parseHistoryLog('{"entries":', "/tmp/audit-log.json"),
@@ -3127,6 +3631,12 @@ test("campaign manifest is complete only with every requested suite, full repeti
   const short = buildCampaignManifest({ ...base, requested, entries: [...all.slice(0, 2), entry("density", "density", 3)] });
   assert.deepEqual([short.complete, short.shortRepetitions], [false, ["density/density"]]);
   assert.equal(buildCampaignManifest({ ...base, grep: "P8", requested, entries: all }).complete, false);
+  const incomplete = buildCampaignManifest({ ...base, requested, entries: all.map(item => ({ ...item,
+    acquisition: { revision: 1, status: "incomplete", counts: { completed: 3, attempted: 4, failed: 1, notAttempted: 0 } } })) });
+  assert.equal(incomplete.complete, false);
+  assert.equal(incomplete.status, "incomplete");
+  assert.equal(incomplete.counts.failed, 3);
+  assert.equal(complete.counts, null, "legacy failure denominators remain unknown");
   const log = appendCampaignManifest({ entries: [] }, complete);
   assert.throws(() => appendCampaignManifest(log, complete), /already published/);
 });

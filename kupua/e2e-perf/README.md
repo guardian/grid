@@ -68,22 +68,34 @@ in `results/`; the individual family pages below remain available.
 
 | Family | Canonical history | Dashboard |
 | --- | --- | --- |
-| Rendering | [audit-log.json](results/audit-log.json) | [Rendering](results/audit-graphs.html) |
-| Short/long responsiveness | [perceived-log.json](results/perceived-log.json) | [Responsiveness](results/perceived-graphs.html) |
-| Density | [density-log.json](results/density-log.json) | [Density](results/density-graphs.html) |
-| Campaign membership | [campaign-log.json](results/campaign-log.json) | Selectable checkpoints in the [Performance dashboard](results/Performance%20dashboard.html) |
+| Rendering | [audit-log.js](results/audit-log.js) | [Rendering](results/audit-graphs.html) |
+| Short/long responsiveness | [perceived-log.js](results/perceived-log.js) | [Responsiveness](results/perceived-graphs.html) |
+| Density | [density-log.js](results/density-log.js) | [Density](results/density-graphs.html) |
+| Campaign membership | [campaign-log.js](results/campaign-log.js) | Selectable checkpoints in the [Performance dashboard](results/Performance%20dashboard.html) |
 
 Every entry from one runner invocation carries the same `campaignId`; the manifest
 (requested suites, runs, filter, topology/delivery, entry refs) is published in the same
-all-or-nothing transaction. Only manifests with every requested suite, full repetitions
-and no test filter are `complete` and become dashboard checkpoints. Older entries have no
+all-or-nothing transaction. Only manifests with every requested suite, full repetitions,
+complete acquisition outcomes and no test filter are `complete` and become dashboard checkpoints. Older entries have no
 ID and are never back-filled.
 
 Open dashboards from disk; no server is needed. Successful selected suites append
-history and regenerate sidecars. Density history is retained as JSON and browser JS;
-the redundant full-history Markdown export is no longer generated. Failed attempts retain diagnostics, not partial
-benchmark history. The runner prints its unique log path and records it in ignored
-`results/.latest-report-path`. Refresh dashboards after completion.
+the canonical JS histories, one compact entry per line, and regenerate ignored JSON
+and rendering/responsiveness Markdown exports. The committed scripts retain all
+records and metadata; they are not reduced dashboard projections. Runner reads
+always use these scripts, never a stale local JSON export. Missing canonical JS
+is an error, not permission to start empty history. An intentionally empty history
+must still have its canonical script with an empty entries array.
+Failed acquisitions retain independently
+valid measurements and explicit failed/not-attempted outcomes atomically, exit unsuccessfully,
+and do not become complete comparison checkpoints. See the
+[acquisition contract](measurement-reference.md#acquisition-outcomes-and-integrity).
+The runner prints its unique log path and records it in ignored
+`results/.latest-report-path`. The same report retains parent count/failure summaries
+and the final exit status as well as child output. Terminal timing tables disclose
+completed/planned samples; density announces each repetition before launch.
+Stable `[perf campaign]`, `[perf acquisition]`, `[perf outcome]` and `[perf result]`
+key/value lines support automated reading. Refresh dashboards after completion.
 
 All three distinguish API topology and media delivery. Campaign / Compare with
 selects an explicit pair; ordinary history lines never mix proxy and canonical
@@ -100,6 +112,10 @@ delivery. See [comparison limits and historical corrections](measurement-referen
 <a id="coverage-limits"></a>
 <a id="dashboards-and-reports"></a>
 ## Interpret
+
+**PP1 changed at revision 3 (17 November 2026): Pinned return to start replaces
+real Home in the same slot.** Do not compare it with older PP1 Home timings.
+See the [PP1 workload and history boundary](measurement-reference.md#pp1-pinned-return-to-start).
 
 Density must expose useful progress/current-image readiness, frames and identity/
 position stability separately. Smaller backlog or more travelled pixels alone is

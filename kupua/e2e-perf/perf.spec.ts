@@ -1573,6 +1573,7 @@ test.describe("Rendering Performance Smoke", () => {
       ...navigationTiming,
     });
 
+    if (snap.cls.total >= 0.25) test.info().annotations.push({ type: "perf-failure", description: "performance-budget" });
     expect(snap.cls.total).toBeLessThan(0.25);
   });
 

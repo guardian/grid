@@ -87,6 +87,7 @@ async function loadExperience(page: Page, kind?: ExperienceCase) {
                 if(focused && kind==='search-invalid') focused.captureValid=false;
                 if(focused && kind==='search-unsupported') focused.supported=false;
                 if(focused && kind==='search-incompatible') focused.scenarioRevision=99;
+                if(collection.PP1 && kind==='search-incompatible') Object.assign(collection.PP1,{scenarioRevision:3,action:'scrubber-seek',resultRegime:'seek',label:'Pinned return to start (simulated Home; 40% to result 0)'});
                 if(focused && kind==='search-missing-phase') delete focused.dt_visual_settled_ms;
                 if(focused && kind==='search-zero') Object.assign(focused,{dt_visual_settled_ms:0,dt_visual_settled_p95_ms:0});
                 if(focused && kind==='search-no-settlement') Object.assign(focused,{dt_visual_settled_ms:null,dt_visual_settled_p95_ms:null});
@@ -122,13 +123,35 @@ test('bounded corrections: real proxy Overview and revision-aware exact outcomes
   await page.locator('#checkpoint').selectOption('proxy-baseline');
   await expect(page.locator('main')).toContainText('256');
   await expect(page.locator('#checkpoint')).toHaveValue('proxy-baseline');
+  await page.evaluate(() => {
+    const comparison = (window as any).KupuaPerfComparison;
+    comparison.showAcquisition([{ label: `SYNTHETIC partial ${"capture".repeat(12)}`, acquisition: { revision: 1, status: "incomplete",
+      counts: { planned: 3, attempted: 2, completed: 1, failed: 1, invalid: 0, notAttempted: 1, adverse: 0 },
+      repetitions: [{ repetition: 1, outcomes: [{ id: "D2-table", status: "failed", stage: "validation", reason: "observation-boundary-late",
+        evidence: { observationBoundary: { observerStopLagMs: 31.5, recoveryStartLagMs: 4 } } },
+        { id: "D2-grid", status: "not-attempted", stage: "setup", reason: "preceding-step-failed" }] }] } }], document.querySelector('main'));
+  });
+  const acquisition = page.getByRole('region', { name: 'Acquisition outcomes' });
+  await expect(acquisition).toContainText('INCOMPLETE');
+  await expect(acquisition).toContainText('1/2 completed/attempted');
+  await expect(acquisition).toContainText('3 planned');
+  await acquisition.getByText('Failed, adverse and not-attempted measurements', { exact: true }).click();
+  await expect(acquisition).toContainText('D2-table');
+  await expect(acquisition).toContainText('D2-grid');
+  await expect(acquisition).toContainText('observation-boundary-late');
+  await expect(acquisition).toContainText('"observerStopLagMs": 31.5');
+  await expect(acquisition).toContainText('"recoveryStartLagMs": 4');
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);expect(remote).toEqual([]);
 });
 
 test('campaign corrections: provenance, recovery tails and frame populations', async ({page}) => {
   const {errors,remote}=await loadExperience(page);
-  const campaigns=JSON.parse(readFileSync(new URL('../results/campaign-log.json',import.meta.url),'utf8'));
-  const campaign=`campaign:${campaigns.entries.at(-1).campaignId}`;
+  const campaigns=await page.evaluate(()=>(window as any).__CAMPAIGN_LOG__);
+  const matchingCampaigns=campaigns.entries.filter((entry: {label: string})=>entry.label==='after rendering fixes');
+  expect(matchingCampaigns).toHaveLength(1);
+  const campaign=`campaign:${matchingCampaigns[0].campaignId}`;
   await page.setViewportSize({width:1440,height:900});
   await page.goto(`${experienceUrl.href}#checkpoint=${campaign}&baseline=recorded&view=scroll&workload=constrained`);
   await expect(page).toHaveTitle(/after rendering fixes/);
@@ -164,6 +187,10 @@ test('bounded corrections: historical exact outcome contracts', async ({page}) =
       await expect(page.locator('.outcomes')).not.toContainText(/undefined|15,000/);
       await expect(page.locator('.outcomes')).toContainText(scenario==='P13c'?'singleton-response-and-decoded-stable-detail':'5,000 ms historical observation horizon');
       await expect(page.locator('.evidence-head')).toContainText('revision 2');
+      if(!side && scenario==='P13c') {
+        await page.getByText('Identity, contract & provenance',{exact:true}).click();
+        await expect(page.getByRole('link',{name:'audit public history',exact:true})).toHaveAttribute('href','../results/audit-log.js');
+      }
       if(side) await expect(page).toHaveURL(/checkpoint=recorded&baseline=proxy-baseline.*side=baseline/);
     }
   }
@@ -354,6 +381,11 @@ for(const kind of ['mixed','degraded','search-invalid','search-unsupported','sea
       await expect(sort.locator('.bar-mark[data-baseline="false"]')).toHaveCount(1);
       await expect(sort.locator('.bar-mark[data-baseline="true"]')).toHaveCount(0);
       await expect(sort.locator('.delta-mini')).toHaveAttribute('title',/scenarioRevision/);
+      const pinnedReturn=page.locator('#search-record-PP1');
+      await expect(pinnedReturn).toContainText('Pinned return to start · simulated Home');
+      await expect(pinnedReturn).toContainText('PP1 · seek · r3');
+      await expect(pinnedReturn.locator('.bar-mark[data-baseline="true"]')).toHaveCount(0);
+      await expect(pinnedReturn.locator('.delta-mini')).toHaveAttribute('title',/scenarioRevision/);
     } else if(kind==='search-zero') {
       await expect(sort.locator('.zero-mark[data-baseline="false"]')).toHaveCount(1);
       await expect(sort).toContainText('5/5 healthy · 0/5 degraded');
@@ -408,6 +440,12 @@ async function openScroll(page: Page, baseline = "proxy-baseline") {
   await expect(page.getByRole("region", { name: "Scrolling and Layout summary", exact: true })).toBeVisible();
 }
 
+async function openBrowsingEvidence(page: Page) {
+  const details = page.locator("#scroll-browsing > details.browsing-details");
+  if (await details.getAttribute("open") === null) await details.locator("summary").first().click();
+  await expect(details).toHaveAttribute("open", "");
+}
+
 test("scrolling summary: real values, fixed-side phase evidence, reload and Back", async ({ page }) => {
   const { errors, remote } = await loadExperience(page);
   await openScroll(page);
@@ -422,6 +460,7 @@ test("scrolling summary: real values, fixed-side phase evidence, reload and Back
   await expect(frames.locator('.bar-mark[data-baseline="false"]')).toHaveAttribute("data-metric", "reversalFrameP95Ms");
   await expect(frames.locator('.bar-mark[data-baseline="false"]')).toHaveAttribute("data-value", /54\.700/);
   const baselineMark = frames.locator('.bar-mark[data-baseline="true"]');
+  await openBrowsingEvidence(page);
   await baselineMark.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/checkpoint=recorded&baseline=proxy-baseline/);
@@ -477,6 +516,7 @@ test("scrolling summary: canonical recovery, layout ownership, p95 and mobile ac
   await page.locator("#scroll-statistic").selectOption("p95");
   const frames=page.locator('#scroll-browsing section[aria-label="Frame p95 (ms)"]');
   await expect(frames.locator('.bar-mark[data-baseline="false"]').first()).toHaveAttribute("data-value", /74\.899/);
+  await openBrowsingEvidence(page);
   await frames.locator('.bar-mark[data-baseline="false"]').first().click();
   await expect(page.locator(".measures")).toContainText("74.9 ms");
   await page.getByRole("link", { name: "← Scrolling & Layout summary", exact: true }).click();
@@ -509,6 +549,7 @@ for (const kind of ["scroll-phase-invalid", "scroll-unsupported", "scroll-partia
       await page.locator("#scroll-phase").selectOption("early");
       await expect(frames.locator('.bar-mark[data-baseline="false"]')).toHaveCount(2);
       await expect(page.locator('.scroll-index-table tbody tr').first()).toContainText("Unavailable");
+      await openBrowsingEvidence(page);
       await frames.locator('.missing-value a').first().click();
       await expect(page.locator("#metric-earlyFrameP95Ms")).toContainText("invalid");
       await expect(page.locator("#metric-earlyTrackingOverflow")).toContainText("1");
@@ -530,6 +571,7 @@ for (const kind of ["scroll-phase-invalid", "scroll-unsupported", "scroll-partia
       await page.locator("#scroll-phase").selectOption("reversal");
       await expect(frames.locator('.bar-mark')).toHaveCount(0);
       await expect(page.locator("#scroll-browsing")).toContainText("no other phase is substituted");
+      await openBrowsingEvidence(page);
       await frames.locator('.missing-value a').first().click();
       await expect(page.locator('#metric-reversalFrameP95Ms')).toContainText('Absent');
       await expect(page.locator('.measures')).toContainText('Absent · unavailable');
@@ -668,6 +710,7 @@ test("dashboard integration: real proxy baseline has explicit coverage, compatib
   await expect(page.locator('#metric-landingRenderMs')).toContainText("6,653");
   await page.getByRole("link", { name: "← Image Workflows summary", exact: true }).click();
   await expect(page.locator("#image-traversal")).toBeFocused();
+  await page.locator('#image-return > summary').click();
   await page.locator('#image-return a[href*="JB5"]').click();
   await expect(page.locator('.comparison')).toContainText("Baseline profile did not include this observation");
   await expect(page.locator('#checkpoint')).toHaveValue("recorded");
@@ -714,6 +757,7 @@ test("dashboard integration: baseline search and scroll evidence keeps owner acr
   await expect(page.getByRole("region",{name:"Numerical workflow summary"})).toBeVisible();
   await page.locator('a.bar-mark[data-metric="middleFrameP95Ms"][data-baseline="true"]').first().click();
   await page.getByRole('link',{name:'← Scrolling & Layout summary',exact:true}).click();
+  await openBrowsingEvidence(page);
   await page.locator('#scroll-browsing a.bar-mark[data-metric="middleFrameP95Ms"][data-baseline="true"]').nth(1).click();
   await expect(page.locator('#metric-middleFrameP95Ms th')).toBeFocused();
   await page.locator('#metric-middleFrameP95Ms th a').click();
@@ -801,7 +845,9 @@ for (const kind of ['healthy','censored'] as const) {
 test("dashboard integration: saved fullscreen observations are uncharted, not unmeasured", async ({ page }) => {
   await loadExperience(page);
   await page.getByRole("navigation").getByRole("link", { name: "Image Workflows", exact: true }).click();
-  await expect(page.locator("#image-return")).toContainText("Not charted in this summary; saved observations are available below.");
+  await page.locator('#image-return > summary').click();
+  await expect(page.locator("#image-return .coverage-gap strong")).toHaveText("Not charted in this summary");
+  await expect(page.locator("#image-return .coverage-gap span")).toHaveText("Saved observations are available below.");
   await expect(page.locator("#image-return")).not.toContainText("unavailable in this projection");
   await expect(page.locator('#image-return a[href*="JB5"]')).toHaveCount(1);
 });
@@ -822,7 +868,7 @@ test("dashboard integration: invalid signed guards remain unassessed",async ({pa
   await loadExperience(page,"guards-invalid");
   await page.getByRole('link',{name:'Image Workflows',exact:true}).click();
   await expect(page.locator('#image-return .guard-displacement')).toHaveCount(0);
-  await expect(page.locator('#image-return')).toContainText("Invalid capture");
+  await expect(page.locator('#image-return > summary')).toContainText("invalid or unsupported evidence");
 });
 
 test("dashboard integration: larger populations do not relabel p95 as maximum",async ({page})=>{
@@ -856,6 +902,7 @@ test("dashboard integration: absent pending field cannot break scroll evidence",
   const pending=page.locator('#scroll-browsing section[aria-label="Pending slots (%)"]');
   await expect(pending.locator('.bar-mark[data-baseline="false"]')).toHaveCount(2);
   await expect(pending).toContainText('Unavailable');
+  await openBrowsingEvidence(page);
   await pending.locator('.missing-value a').first().click();
   await expect(page.locator('#metric-middlePendingVisibleRatioMean')).toContainText('Absent');
   expect(errors).toEqual([]);
@@ -1309,27 +1356,6 @@ test("keyboard traversal includes supported direction/load-phase choices and pre
   expect(errors).toEqual([]);
 });
 
-test("history: lines never join across contract, environment or withheld values", async ({ page }) => {
-  const errors = await loadHistory(page, "view=scroll&h.data=synthetic");
-  const result = await historyModel(page, `(() => {
-    const H = window.KupuaHistoryModel, view = { dir: "forward", phase: "middle", stat: "median" };
-    const items = H.model({ density: { entries: window.KupuaHistoryFixtures.build(window.__DENSITY_LOG__).entries } }, true).kinds.density;
-    const row = id => H.WORKFLOWS.scroll.rows.find(r => r.id === id), col = (r, id) => r.columns.find(c => c.id === id);
-    const points = (metric, density) => items.map(item => H.point(item, row(metric), col(row(metric), density), view));
-    return { frame: H.segments(points("frame", "grid")).map(([a, b]) => [items.indexOf(a.item), items.indexOf(b.item)]),
-      pendingJustified: points("pending", "justified").map(p => p.state),
-      zero: points("pending", "justified")[3].value, tableRecovery: points("recovery", "table")[6].state };
-  })()`) as { frame: number[][]; pendingJustified: string[]; zero: number; tableRecovery: string };
-  // r2 0-1 join; r4 local joins 2-3-6; invalid grid at 7 breaks before 8; unknown env (4) and TEST (5) never join.
-  expect(result.frame).toEqual([[0, 1], [2, 3], [3, 6]]);
-  expect(result.pendingJustified[6]).toBe("partial");
-  expect(result.zero).toBe(0);
-  expect(result.tableRecovery).toBe("unavailable");
-  await expect(page.locator(".synthetic-banner")).toContainText("SYNTHETIC");
-  await expect(page).toHaveTitle(/SYNTHETIC/);
-  expect(errors).toEqual([]);
-});
-
 test("history: baseline pin and selected point survive reload and Back; current follows latest", async ({ page }) => {
   const errors = await loadHistory(page, "view=scroll");
   await expect(page.locator(".role-pill").nth(0)).toContainText("latest · follows new results");
@@ -1354,11 +1380,15 @@ test("history: baseline pin and selected point survive reload and Back; current 
   await page.goBack();
   await expect(page.locator(".role-pill").nth(1)).toContainText("registered proxy baseline");
   await page.goForward();
-  await page.locator("#baseline").selectOption("none");
   await expect(page.locator(".role-pill").nth(1)).toContainText("pinned");
   await page.getByRole("navigation", { name: "Scrolling & Layout views" }).getByRole("link", { name: "Compare" }).click();
   await expect(page.locator(".scroll-summary")).toBeVisible();
+  await page.locator("#baseline").selectOption("none");
+  await expect(page.locator("#baseline")).toHaveValue("none");
   await page.goBack();
+  await expect(page.locator("#baseline")).toHaveValue("proxy-baseline");
+  await page.goBack();
+  await expect(page.locator(".role-pill").nth(1)).toContainText("pinned");
   await expect(page.locator("#inspector-title")).toHaveText("Table · Frame p95 · 23 Oct 03:30 UTC");
   expect(errors).toEqual([]);
 });

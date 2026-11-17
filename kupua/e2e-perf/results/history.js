@@ -288,8 +288,10 @@
       <dt>Field</dt><dd>${p.field ? `<code>${esc(p.field.key)}</code>${PHASES[p.field.scope] ? ` · ${esc(PHASES[p.field.scope])}` : ""}` : esc(p.reason)}</dd>
       <dt>${col.statisticFree ? "Value" : ctx.view.stat === "p95" ? "p95 of observations" : "Median of observations"}</dt><dd>${finite(p.value) ? esc(fmt(p.value, unit)) : `No value · ${esc(p.reason)}`}</dd>
       <dt>Saved field</dt><dd>${p.saved !== undefined ? `<code>${esc(JSON.stringify(p.saved))}</code>${raw.sampleCount !== undefined ? ` · ${esc(raw.sampleCount)} observations` : ""}` : "—"}</dd>
+      <dt>Acquisition</dt><dd>${esc(CMP.acquisitionLabel(item.entry))}${raw?.outcomeCounts ? ` · scenario ${esc(JSON.stringify(raw.outcomeCounts))}` : ""}</dd>
       <dt>Source</dt><dd>${esc(item.entry?.gitSha ?? "unrecorded")}${item.entry?.gitDirty ? " · dirty tree" : ""}${ctx.data.synthetic ? ' · <span class="synthetic">SYNTHETIC</span>' : ""}</dd></dl>
       <div class="history-actions"><a class="button-link" href="${esc(hash(ctx.view, withRole(ctx.view, "current", kind, ts)))}">Set as current</a><a class="button-link" href="${esc(hash(ctx.view, withRole(ctx.view, "baseline", kind, ts)))}">Set as baseline</a>${evidenceLink(p, ctx)}</div>
+      ${item.entry.acquisition ? `<details><summary>Acquisition outcomes</summary><pre class="raw-evidence">${esc(JSON.stringify(item.entry.acquisition, null, 1))}</pre></details>` : ""}
       ${p.record ? `<details><summary>Complete saved record</summary><pre class="raw-evidence">${esc(JSON.stringify(raw, null, 1))}</pre></details>` : ""}</section>`;
   }
 
@@ -331,7 +333,7 @@
     target.innerHTML = `<div class="engineering-overview history-view">
       ${kinds.map(kind => {
         const c = current[kind], b = baseline[kind], compare = c && b && c !== b ? CMP.compare(find(kind, c).entry, find(kind, b).entry) : null;
-        return `<div class="history-selection" aria-label="${esc(KINDS[kind])} selection"><h2 class="history-kind">${esc(KINDS[kind])} <small>${items[kind].length} campaigns${trimmed[kind] ? ` · ${trimmed[kind]} earlier entries predate these fields` : ""}</small></h2>${rolePill("Current", kind)}${rolePill("Baseline", kind)}${compare ? `<p class="note">${compare.compatible ? "Environments eligible" : "Environments not comparable"}: ${esc(compare.reason)}.</p>` : ""}</div>`;
+        return `<div class="history-selection" aria-label="${esc(KINDS[kind])} selection"><h2 class="history-kind">${esc(KINDS[kind])} <small>${items[kind].length} campaigns${trimmed[kind] ? ` · ${trimmed[kind]} earlier entries predate these fields` : ""}</small></h2>${rolePill("Current", kind)}${rolePill("Baseline", kind)}${c && find(kind, c).entry.acquisition ? `<p>${esc(CMP.acquisitionLabel(find(kind, c).entry))}</p>` : ""}${compare ? `<p class="note">${compare.compatible ? "Environments eligible" : "Environments not comparable"}: ${esc(compare.reason)}.</p>` : ""}</div>`;
       }).join("")}
       <div class="scroll-controls history-controls">${workflow.controls.includes("dir") ? select("dir", "Direction", [["forward", "Forward · D1"], ["backward", "Backward · D2"]]) : ""}${workflow.controls.includes("phase") ? select("phase", "Load phase", Object.entries(PHASES)) : ""}${select("stat", "Statistic", [["median", "Median of observations"], ["p95", "p95 · observed max at small n"]])}</div>
       <fieldset class="history-envs"><legend>Environments · colour = topology, shape = media delivery, hollow = inferred</legend>${Object.values(envs).map(({ env, count }) => `<label><input type="checkbox" data-env="${esc(env.id)}"${view.hide.has(env.id) ? "" : " checked"}><svg class="swatch" viewBox="-6 -6 12 12" aria-hidden="true">${shape(env, 0, 0)}</svg>${esc(env.label)} <small>${count}</small></label>`).join("")}</fieldset>

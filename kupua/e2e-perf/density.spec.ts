@@ -1,9 +1,9 @@
 /** Operator-only measurements. Local observer validation lives in validation/density-fixtures.spec.ts. */
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { test, expect } from "./helpers";
+import { test, expect, beginPerfMeasurement } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
-import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityJourney, measureDensityRefreshContention, type Density, type DensityPlacementContext } from "./density-browser";
+import { selectDensity, electAnchor, establishDensitySource, restoreDensitySource, prepareDensityMaintenance, waitForDensityMaintenanceCooldown, withDensityScrollNetwork, scrollToDensityTail, waitForDensityEviction, scrubDensityTo, waitForPlacement, visibleMediaReadiness, scrollAtSpeed, prepareDensityRecovery, measureDensityJourney, DensityObservationBoundaryError, measureDensityRefreshContention, type Density, type DensityPlacementContext } from "./density-browser";
 import { installThumbnailProbe } from "./thumbnail-probe.mjs";
 import { createRequestProbe } from "./network-probe.mjs";
 import { DENSITY_SCENARIOS, DENSITY_WORKLOADS, validateDensityRecord } from "./density-reporting.mjs";
@@ -37,15 +37,17 @@ for (const workload of DENSITY_WORKLOADS) {
     const options: Density[] = DENSITY_SCENARIOS.filter(scenario => scenario.workload === workload).map(scenario => scenario.density);
     const order = runIndex % options.length;
     const densities = [...options.slice(order), ...options.slice(0, order)];
+    beginPerfMeasurement(DENSITY_SCENARIOS.find(item => item.density === densities[0] && item.workload === workload)!.id);
     try {
       await prepare(kupua, { workload, repetition: runIndex, destination: "table" });
       await page.evaluate(() => { (window as any).__densityJourneyHistory = new Set<string>(); });
       for (const density of densities) {
+        const scenario = DENSITY_SCENARIOS.find(item => item.density === density && item.workload === workload);
+        if (!scenario) throw new Error("Missing density scenario contract");
+        beginPerfMeasurement(scenario.id);
         await cdp.send("Network.setCacheDisabled", { cacheDisabled: false });
         await page.setViewportSize({ width: 1720, height: 960 });
         const start = await restoreDensitySource(page, { workload, repetition: runIndex, destination: density });
-        const scenario = DENSITY_SCENARIOS.find(item => item.density === density && item.workload === workload);
-        if (!scenario) throw new Error("Missing density scenario contract");
         let metrics: Record<string, number | null>;
         if (workload === "refresh-contention") {
           if (density === "table") throw new Error("D11 requires an image layout");
@@ -133,6 +135,12 @@ for (const workload of DENSITY_WORKLOADS) {
           delete (window as any).__densityAnchor;
         });
       }
+    } catch (error) {
+      if (error instanceof DensityObservationBoundaryError) {
+        test.info().annotations.push({ type: "perf-failure", description: "observation-boundary-late" },
+          { type: "perf-boundary-evidence", description: JSON.stringify(error.evidence) });
+      }
+      throw error;
     } finally {
       requests?.dispose();
       await page.evaluate(() => {

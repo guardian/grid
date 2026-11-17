@@ -6,10 +6,31 @@ import {
   writeFileSync,
 } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { basename } from "node:path";
+
+const HISTORY_GLOBALS = { audit: "__AUDIT_LOG__", perceived: "__PERCEIVED_LOG__", density: "__DENSITY_LOG__", campaign: "__CAMPAIGN_LOG__" };
+
+function historyFamily(file) {
+  return Object.keys(HISTORY_GLOBALS).find(family => [`${family}-log.json`, `${family}-log.js`].includes(basename(file)));
+}
+
+export function formatHistoryScript(log, family) {
+  if (!HISTORY_GLOBALS[family] || !Array.isArray(log?.entries)) throw new Error("Invalid dashboard history");
+  const fields = Object.entries(log).map(([key, value]) => `${JSON.stringify(key)}:${key === "entries"
+    ? `[\n${value.map(entry => JSON.stringify(entry)).join(",\n")}\n]` : JSON.stringify(value)}`);
+  return `window.${HISTORY_GLOBALS[family]} = {\n${fields.join(",\n")}\n};\n`;
+}
 
 export function parseHistoryLog(contents, sourcePath) {
   let log;
   try {
+    if (sourcePath.endsWith(".js")) {
+      const family = historyFamily(sourcePath);
+      const prefix = `window.${HISTORY_GLOBALS[family]} = `;
+      const script = contents.trim();
+      if (!family || !script.startsWith(prefix) || !script.endsWith(";")) throw new Error("Expected a single history JSON assignment");
+      contents = script.slice(prefix.length, -1);
+    }
     log = JSON.parse(contents);
   } catch (error) {
     throw new Error(`Malformed history JSON in ${sourcePath}: ${error.message}`, { cause: error });
@@ -21,6 +42,12 @@ export function parseHistoryLog(contents, sourcePath) {
 }
 
 export function readHistoryLog(file) {
+  const family = historyFamily(file);
+  if (family) {
+    const script = file.replace(/\.(json|js)$/, ".js");
+    if (!existsSync(script)) throw new Error(`Missing canonical history: ${script}`);
+    file = script;
+  }
   if (!existsSync(file)) return { entries: [] };
   return parseHistoryLog(readFileSync(file, "utf8"), file);
 }
@@ -75,9 +102,16 @@ export function buildCampaignManifest({ campaignId, label, runs, grep, requested
   const missingSuites = requestedSuites.filter((suite) => !entries.some((entry) =>
     entry.family === SUITE_FAMILIES[suite][0] && entry.kind === SUITE_FAMILIES[suite][1]));
   const shortRepetitions = entries.filter((entry) => entry.runs !== runs).map((entry) => `${entry.family}/${entry.kind}`);
+  const acquisitionKnown = entries.length > 0 && entries.every(entry => entry.acquisition?.revision === 1);
+  const counts = acquisitionKnown ? Object.fromEntries([...new Set(entries.flatMap(entry => Object.keys(entry.acquisition.counts)))].map(key =>
+    [key, entries.every(entry => Number.isFinite(entry.acquisition.counts[key]))
+      ? entries.reduce((sum, entry) => sum + entry.acquisition.counts[key], 0) : null])) : null;
+  const incompleteEntries = entries.filter(entry => entry.acquisition && entry.acquisition.status !== "complete");
+  const complete = missingSuites.length === 0 && shortRepetitions.length === 0 && !grep && incompleteEntries.length === 0;
   return {
     campaignId, label, completedAt, runs, grep: grep || null, requestedSuites, apiTopology, mediaDelivery,
-    entries, complete: missingSuites.length === 0 && shortRepetitions.length === 0 && !grep,
+    entries, complete, outcomeRevision: acquisitionKnown ? 1 : null, counts,
+    status: entries.some(entry => entry.acquisition?.status === "invalid") ? "invalid" : complete ? "complete" : "incomplete",
     missingSuites, shortRepetitions,
   };
 }

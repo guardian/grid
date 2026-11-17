@@ -4,10 +4,15 @@ import test from "node:test";
 import vm from "node:vm";
 import { expectedJankMetricIds, expectedPerceivedMetricIds } from "../harness-validation.mjs";
 import { DENSITY_METRIC_IDS } from "../density-reporting.mjs";
+import { parseHistoryLog } from "../history-files.mjs";
 
 const root = new URL("../", import.meta.url);
+const readDashboardHistory = family => {
+  const source = new URL(`results/${family}-log.js`, root);
+  return parseHistoryLog(readFileSync(source, "utf8"), source.pathname);
+};
 const histories = Object.fromEntries(["audit", "perceived", "density"].map(family =>
-  [family, JSON.parse(readFileSync(new URL(`results/${family}-log.json`, root), "utf8"))]));
+  [family, readDashboardHistory(family)]));
 
 function load() {
   const context = vm.createContext({ URLSearchParams });
@@ -15,6 +20,50 @@ function load() {
   vm.runInContext(readFileSync(new URL("results/dashboard-data.js", root), "utf8"), context);
   return context.KupuaDashboardData;
 }
+
+test("incomplete acquisitions stay inspectable with failure denominators but cannot become complete comparisons", () => {
+  const context = loadPresentation(), api = context.KupuaDashboardData, comparison = context.KupuaPerfComparison;
+  const data = api.build(histories);
+  const record = Object.values(data.records).find(row => row.scenario === "PP8");
+  const entry = data.entries[record.entry];
+  const counts = { planned: 4, attempted: 3, completed: 2, adverse: 0, failed: 1, invalid: 0, notAttempted: 1 };
+  const partial = { ...entry, acquisition: { revision: 1, status: "incomplete", counts } };
+  assert.equal(comparison.compare(partial, entry).compatible, false);
+  assert.match(comparison.acquisitionLabel(partial), /INCOMPLETE.*2\/3.*1 failed.*1 not attempted/);
+  const observation = { ...record, raw: { ...record.raw, sampleCount: 2, outcomeCounts: counts } };
+  const population = api.population(observation, "dt_visual_settled_ms");
+  assert.equal(population.attempted, 3);
+  assert.equal(population.failed, 1);
+  assert.equal(population.total, 4);
+  assert.equal(api.measure(observation, "dt_visual_settled_ms"), record.raw.dt_visual_settled_ms);
+  assert.match(comparison.acquisitionLabel(entry), /unrecorded/);
+  const campaigns = readDashboardHistory("campaign");
+  const eligible = api.campaignDefinitions(campaigns);
+  const incomplete = { ...campaigns.entries.at(-1), campaignId: "synthetic-incomplete", complete: false };
+  const registry = api.campaignDefinitions({ entries: [...campaigns.entries, incomplete] });
+  assert.deepEqual(Array.from(registry, definition => definition.id), Array.from(eligible, definition => definition.id));
+  assert.equal(api.build(histories, registry).checkpoints["campaign:synthetic-incomplete"], undefined);
+});
+
+test("history lines never join across contract, environment or withheld values", () => {
+  const context = vm.createContext({ URLSearchParams });
+  for (const name of ["campaign-comparison", "dashboard-data", "history-fixtures", "history"]) {
+    vm.runInContext(readFileSync(new URL(`results/${name}.js`, root), "utf8"), context);
+  }
+  const history = context.KupuaHistoryModel;
+  const items = history.model({ density: context.KupuaHistoryFixtures.build(histories.density) }, true).kinds.density;
+  const view = { dir: "forward", phase: "middle", stat: "median" };
+  const points = (metric, density) => {
+    const row = history.WORKFLOWS.scroll.rows.find(candidate => candidate.id === metric);
+    const column = row.columns.find(candidate => candidate.id === density);
+    return Array.from(items, item => history.point(item, row, column, view));
+  };
+  assert.deepEqual(Array.from(history.segments(points("frame", "grid")),
+    ([left, right]) => [items.indexOf(left.item), items.indexOf(right.item)]), [[0, 1], [2, 3], [3, 6]]);
+  assert.equal(points("pending", "justified")[6].state, "partial");
+  assert.equal(points("pending", "justified")[3].value, 0);
+  assert.equal(points("recovery", "table")[6].state, "unavailable");
+});
 
 test("canonical checkpoint retains all 78 exact records and explicit four-entry membership", () => {
   const api = load();
@@ -43,10 +92,11 @@ test("canonical checkpoint retains all 78 exact records and explicit four-entry 
 
 test("checkpoint source comparison uses verified member consensus", () => {
   const context = loadPresentation(), api = context.KupuaDashboardData;
-  const campaigns = JSON.parse(readFileSync(new URL("results/campaign-log.json", root), "utf8"));
-  const registry = [...api.definitions, ...api.campaignDefinitions(campaigns)];
+  const campaigns = readDashboardHistory("campaign");
+  const eligible = api.campaignDefinitions(campaigns);
+  const registry = [...api.definitions, ...eligible];
   const data = api.build(histories, registry);
-  const current = data.checkpoints[`campaign:${campaigns.entries.at(-1).campaignId}`];
+  const current = data.checkpoints[eligible.at(-1).id];
   for (const checkpoint of [data.checkpoints.recorded, data.checkpoints["proxy-baseline"], current]) {
     const entries = checkpoint.members.map(id => data.entries[id]);
     assert.equal(checkpoint.gitSha, entries[0].gitSha);
@@ -64,14 +114,17 @@ test("checkpoint source comparison uses verified member consensus", () => {
   assert.equal(missing.gitSha, null, "incomplete membership cannot verify source consensus");
 });
 
-test("sidecars equal canonical JSON and checkpoint scenarios match maintained manifests", () => {
+test("canonical scripts round-trip and checkpoint scenarios match maintained manifests", () => {
   const api = load(), data = api.build(histories);
   const expected = { rendering: expectedJankMetricIds(), short: expectedPerceivedMetricIds("short"), long: expectedPerceivedMetricIds("long"), density: [...DENSITY_METRIC_IDS] };
   for (const family of ["audit", "perceived", "density"]) {
     const context = vm.createContext({});
     context.window = context;
     vm.runInContext(readFileSync(new URL(`results/${family}-log.js`, root), "utf8"), context);
-    assert.ok(JSON.stringify(context[`__${family.toUpperCase()}_LOG__`]) === JSON.stringify(histories[family]), `${family} sidecar matches canonical JSON`);
+    assert.ok(JSON.stringify(context[`__${family.toUpperCase()}_LOG__`]) === JSON.stringify(histories[family]), `${family} script matches parsed history`);
+    const entries = Object.values(data.entries).filter(entry => entry.family === family);
+    assert.ok(entries.length > 0, `${family} has checkpoint evidence`);
+    for (const entry of entries) assert.equal(entry.source, `../results/${family}-log.js`);
   }
   for (const member of api.definitions[0].members) {
     assert.deepEqual([...member.scenarios].sort(), expected[member.kind].sort());
@@ -146,6 +199,20 @@ test("real baseline retains descriptive compatible deltas, revision refusals and
   const partial = { ...baseline, raw: structuredClone(baseline.raw) };
   Object.assign(partial.raw.metrics.middleFrameP95Ms, { sampleCount: 3, unavailableCount: 1 });
   assert.equal(api.recordPair(current, partial, data.entries[current.entry], data.entries[baseline.entry], "middleFrameP95Ms").ok, false);
+  const oldHome = get("recorded", "PP1");
+  const updatedHistories = structuredClone(histories);
+  const sourceIndex = histories.perceived.entries.indexOf(data.entries[oldHome.entry].sourceRecord);
+  Object.assign(updatedHistories.perceived.entries[sourceIndex].perceived.PP1, {
+    scenarioRevision: 3,
+    label: "Pinned return to start (simulated Home; 40% to result 0)",
+    action: "scrubber-seek",
+  });
+  const updatedData = api.build(updatedHistories);
+  const pinnedReturn = Object.values(updatedData.records).find(record => record.entry === oldHome.entry && record.scenario === "PP1");
+  assert.match(oldHome.title, /unpinned/);
+  assert.equal(pinnedReturn.title, "Pinned return to start · simulated Home");
+  assert.match(pinnedReturn.limit, /r3.*replaces.*Home/);
+  assert.equal(api.recordPair(pinnedReturn, oldHome, updatedData.entries[pinnedReturn.entry], data.entries[oldHome.entry]).ok, false);
 });
 
 test("evidence routes preserve checkpoint/baseline direction for every workflow", () => {
@@ -355,9 +422,10 @@ function renderScrollCheckpoint(baseline = "recorded", checkpointId) {
     vm.runInContext(readFileSync(new URL(`results/${file}.js`, root), "utf8"), context);
   }
   const api = context.KupuaDashboardData;
-  const campaigns = JSON.parse(readFileSync(new URL("results/campaign-log.json", root), "utf8"));
-  const data = api.build(histories, [...api.definitions, ...api.campaignDefinitions(campaigns)]);
-  const checkpoint = data.checkpoints[checkpointId ?? `campaign:${campaigns.entries.at(-1).campaignId}`];
+  const campaigns = readDashboardHistory("campaign");
+  const eligible = api.campaignDefinitions(campaigns);
+  const data = api.build(histories, [...api.definitions, ...eligible]);
+  const checkpoint = data.checkpoints[checkpointId ?? eligible.at(-1).id];
   const recordsFor = checkpoint => checkpoint.members.flatMap(id => data.entries[id].records.map(id => data.records[id]));
   const records = recordsFor(checkpoint), base = data.checkpoints[baseline], baseRecords = recordsFor(base);
   const densityEntry = checkpoint => data.entries[checkpoint.members.find(id => data.entries[id].family === "density")];

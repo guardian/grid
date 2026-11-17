@@ -251,8 +251,8 @@ interface DeepHistorySetup {
 function captureSuccessfulDataRoutes(kupua: any) {
   const routes = new Set<string>();
   const onResponse = (response: any) => {
-    if (!response.ok()) return;
     const path = new URL(response.url()).pathname;
+    if (!response.ok()) return;
     if (isMediaApiUrl(response.url())) routes.add("media-api");
     if (path.startsWith("/es/")) routes.add("direct-es");
   };
@@ -921,8 +921,9 @@ async function appendQueryVisualPhases(kupua: any, interactionId: string) {
   }, interactionId);
 }
 
-async function appendHomeVisualPhases(kupua: any, interactionId: string) {
-  return kupua.page.evaluate(async (targetInteractionId: string) => {
+async function appendPinnedReturnVisualPhases(kupua: any, interactionId: string) {
+  if (!STABLE_UNTIL) throw new Error("PP1 requires the campaign cutoff");
+  return kupua.page.evaluate(async ({ targetInteractionId, stableUntil }: { targetInteractionId: string; stableUntil: string }) => {
     const readRect = (element: Element) => {
       const rect = element.getBoundingClientRect();
       return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
@@ -945,18 +946,19 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
         : null;
       const scrubber = document.querySelector('[role="slider"][data-scrubber-mode="seek"]');
       const scrubberPosition = Number(scrubber?.getAttribute("aria-valuenow"));
-      const homeUrl = url.pathname === "/search"
-        && url.searchParams.size === 1
-        && url.searchParams.get("nonFree") === "true";
-      const homeStore = state?.params?.nonFree === "true"
+      const pinnedUrl = url.pathname === "/search"
+        && url.searchParams.size === 2
+        && url.searchParams.get("nonFree") === "true"
+        && url.searchParams.get("until") === stableUntil;
+      const pinnedStore = state?.params?.nonFree === "true"
         && state.params.query == null
-        && state.params.until == null;
+        && state.params.until === stableUntil;
       lastReadiness = {
         loading: Boolean(state?.loading),
         error: Boolean(state?.error),
         sorting: Boolean(state?.sortAroundFocusStatus),
-        homeUrl,
-        homeStore,
+        pinnedUrl,
+        pinnedStore,
         bufferOffset: state?.bufferOffset ?? null,
         scrollTop: container?.scrollTop ?? null,
         firstResultRendered: Boolean(item),
@@ -966,7 +968,7 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
       };
       if (
         !state || state.loading || state.error || state.sortAroundFocusStatus
-        || !homeUrl || !homeStore || state.bufferOffset !== 0
+        || !pinnedUrl || !pinnedStore || state.bufferOffset !== 0
         || !container || container.scrollTop > 1 || !item
         || !scrubber || scrubberPosition !== 0
       ) {
@@ -987,17 +989,17 @@ async function appendHomeVisualPhases(kupua: any, interactionId: string) {
       }
       if (close(first.container, current.container) && close(first.item, current.item)) {
         const entries = (window as any).__perceivedTrace__ as TraceEntry[];
-        entries.push({ action: "home-logo", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
-        entries.push({ action: "home-logo", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
+        entries.push({ action: "scrubber-seek", phase: "t_first_visible_frame", t: first.t, interactionId: targetInteractionId });
+        entries.push({ action: "scrubber-seek", phase: "t_visual_settled", t: current.t, interactionId: targetInteractionId });
         if (!Number.isFinite(state.total) || state.total <= 65_000) {
-          throw new Error(`PP1 unpinned home total ${state.total} is not in the seek regime`);
+          throw new Error(`PP1 pinned return total ${state.total} is not in the seek regime`);
         }
         return { settledTotal: state.total, resultRegime: "seek" as const };
       }
       first = current;
     }
-    throw new Error(`PP1 unpinned home did not become visibly stable at absolute position zero within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
-  }, interactionId);
+    throw new Error(`PP1 pinned return did not become visibly stable at absolute position zero within ${timeoutMs}ms: ${JSON.stringify(lastReadiness)}`);
+  }, { targetInteractionId: interactionId, stableUntil: STABLE_UNTIL });
 }
 
 async function captureChipRemovalAnchor(kupua: any) {
@@ -1549,50 +1551,44 @@ test.beforeEach(async ({ kupua }) => {
 test.describe("Perceived Performance Suite", () => {
   test.describe.configure({ timeout: 60_000 });
 
-  // ── PP1: Home logo click ─────────────────────────────────────────────────
-  test("PP1: home-logo — pinned indexed query to unpinned home top", async ({ kupua }) => {
-    await gotoPerfSearch(kupua, "query=city%3ADublin");
-    expect((await kupua.getStoreState()).total).toBeGreaterThan(1_000);
-    expect((await kupua.getStoreState()).total).toBeLessThanOrEqual(65_000);
-
-    const setupScrollTop = await kupua.page.evaluate(() => {
-      const el = document.querySelector('[aria-label="Image results grid"]') ??
-                 document.querySelector('[aria-label="Image results table"]');
-      if (!el) throw new Error("PP1 setup results container unavailable");
-      el.scrollTop = 2000;
-      return el.scrollTop;
-    });
-    expect(setupScrollTop).toBeGreaterThan(0);
+  test("PP1: pinned return to start — simulated Home (40% to result 0)", async ({ kupua }) => {
+    await gotoPerfSearch(kupua);
+    expect((await kupua.getStoreState()).total).toBeGreaterThan(65_000);
+    await expect(kupua.scrubber).toHaveAttribute("data-scrubber-mode", "seek");
+    await kupua.seekTo(0.4);
+    expect((await kupua.getStoreState()).bufferOffset).toBeGreaterThan(0);
+    const trackBox = await kupua.scrubber.boundingBox();
+    if (!trackBox) throw new Error("PP1 setup scrubber unavailable");
 
     await clearTrace(kupua);
     await kupua.page.evaluate(() => performance.clearResourceTimings());
     const finishRouteCapture = captureSuccessfulDataRoutes(kupua);
-    const logo = kupua.page.locator('a[title="Grid — clear all filters"]');
-    await logo.click();
+    await kupua.page.mouse.click(trackBox.x + trackBox.width / 2, trackBox.y);
 
     const storeEntries = await readTrace(kupua);
     const starts = storeEntries.filter((entry) =>
-      entry.action === "home-logo" && entry.phase === "t_0"
+      entry.action === "scrubber-seek" && entry.phase === "t_0"
     );
     expect(starts).toHaveLength(1);
     expect(starts[0].interactionId).toBeTruthy();
-    const context = await appendHomeVisualPhases(kupua, starts[0].interactionId!);
+    expect((starts[0].payload as { pos?: number } | undefined)?.pos).toBe(0);
+    const context = await appendPinnedReturnVisualPhases(kupua, starts[0].interactionId!);
     const routes = finishRouteCapture();
     const entries = await readTrace(kupua);
     const correlated = computeCorrelatedMetrics({
       id: "PP1",
-      label: "home-logo (pinned indexed query→unpinned home top)",
-      action: "home-logo",
+      label: "Pinned return to start (simulated Home; 40% to result 0)",
+      action: "scrubber-seek",
       requiredPhases: ["t_ack", "t_store_ready", "t_first_visible_frame", "t_visual_settled"],
       entries,
     });
     const metrics: PerceivedMetrics = {
       ...correlated,
-      scenarioRevision: 2,
+      scenarioRevision: 3,
       ...context,
       routes,
     };
-    console.log(`PP1 home-logo: store=${metrics.dt_store_ready_ms}ms visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
+    console.log(`PP1 pinned return r3: store=${metrics.dt_store_ready_ms}ms visible=${metrics.dt_first_visible_frame_ms}ms settled=${metrics.dt_visual_settled_ms}ms`);
     const timing1 = await readStoreTiming(kupua, metrics.routes);
     if (timing1) Object.assign(metrics, timing1);
     emitMetrics(metrics);
@@ -2080,20 +2076,25 @@ test.describe("Perceived Performance Suite", () => {
       cql.dispatchEvent(new CustomEvent("queryChange", { detail: { queryStr: "sport" } }));
     });
     // Completion persists even when the debounced search starts and finishes between polls.
-    await kupua.page.waitForFunction(
-      () => {
-        const state = (window as any).__kupua_store__?.getState();
-        const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
-        const starts = entries.filter((entry) => entry.action === "search" && entry.phase === "t_0" && entry.interactionId);
-        return starts.length === 1
-          && entries.some((entry) => entry.action === "search" && entry.phase === "t_store_ready"
-            && entry.interactionId === starts[0].interactionId)
-          && state?.params.query === "sport" && !state.loading && !state.error
-          && state.sortAroundFocusStatus === null && !state.aggLoading;
-      },
-      null,
-      { timeout: 30_000 },
-    );
+    try {
+      await kupua.page.waitForFunction(
+        () => {
+          const state = (window as any).__kupua_store__?.getState();
+          const entries = ((window as any).__perceivedTrace__ ?? []) as TraceEntry[];
+          const starts = entries.filter((entry) => entry.action === "search" && entry.phase === "t_0" && entry.interactionId);
+          return starts.length === 1
+            && entries.some((entry) => entry.action === "search" && entry.phase === "t_store_ready"
+              && entry.interactionId === starts[0].interactionId)
+            && state?.params.query === "sport" && !state.loading && !state.error
+            && state.sortAroundFocusStatus === null && !state.aggLoading;
+        },
+        null,
+        { timeout: 30_000 },
+      );
+    } catch (error) {
+      finishRouteCapture();
+      throw error;
+    }
 
     const storeEntries = await readTrace(kupua);
     const starts = storeEntries.filter((entry) =>

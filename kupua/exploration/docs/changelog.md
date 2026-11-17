@@ -24,6 +24,111 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 November 2026 - Stream startup Git provenance instead of buffering large diffs
+
+Fix the false source-changed rejection before suite startup when the history migration
+exceeds the Git diff collector's output limit. Stream the full diff into the existing
+status-plus-diff hash algorithm, and propagate Git failures rather than substituting
+unknown provenance. Preserve source-content/activity checks and hash compatibility.
+Add a large-diff regression through the actual startup metadata function.
+
+### 17 November 2026 - Keep one lossless committed performance history representation
+
+Make the four dashboard JS histories authoritative, with one compact entry per line.
+Remove duplicate tracked JSON and generated Markdown exports while retaining every
+record, value, timestamp, manifest member and acquisition outcome. Parse the fixed
+history assignment without executing JavaScript; refuse stale-export authority or
+missing canonical scripts instead of silently replacing history. Keep local exports
+inside the existing atomic publication and generate Markdown from canonical records.
+Include rendering history in fresh clones and align its Reload control with the
+canonical page data. Point public-history provenance links at canonical JS files
+rather than generated JSON. Update dashboard validation to require no generated exports.
+See the [results guide](../../e2e-perf/README.md#results).
+
+### 17 November 2026 - Retain local timing rejection evidence and complete run reports
+
+Preserve the density journey's existing observation-boundary lag values through
+structured browser transport and a fixed local validation reason, without relaxing
+the guard or invalidating neighboring measurements. Persist parent acquisition
+summaries and final outcomes beside child output in the existing private report;
+add explicit timing-table populations, stable terminal summary lines and density
+repetition progress. Select eligible complete checkpoints in history-dependent
+tests, and expose planned/attempted density populations alongside partial medians.
+Keep historical captures, legacy unknown counts and comparison eligibility unchanged.
+See the [acquisition contract](../../e2e-perf/measurement-reference.md#acquisition-outcomes-and-integrity).
+
+### 17 November 2026 - Preserve honest partial campaign outcomes and reject contamination
+
+Add exclusive campaign ownership before scratch/report writes, bounded HTTP-validated
+ES RTT evidence only in direct-ES mode, and full-content tracked/untracked source
+identity with pre-publication consistency checks. Reject unexpected document reloads
+and Vite HMR at the perf fixture boundary. Fail settled required-data setup errors
+promptly and stop dependent work without treating optional failures as terminal.
+Record versioned per-repetition acquisition outcomes and denominators, retaining
+independently valid measurements and adverse performance in the existing atomic
+history/manifest transaction. Keep incomplete campaigns unsuccessful and out of
+complete-checkpoint comparisons, while exposing their evidence in dashboards.
+Consolidate failure evidence in the shared fixture/reporter and remove PP8-only
+temporary counters and snapshots. Preserve PP1 r3 and existing measurement workloads.
+See the [acquisition contract](../../e2e-perf/measurement-reference.md#acquisition-outcomes-and-integrity).
+
+### 17 November 2026 - Replace PP1 Home with a pinned return-to-start benchmark
+
+Replace the existing PP1 case in place with a cutoff-preserving seek from the
+40% setup window to result 0. Require an exact-zero request, matching URL/store
+cutoff and visibly stable first-result placement. Emit scenario revision 3 with
+a simulated-Home label, without changing app Home behavior or campaign membership.
+Make dashboard captions revision-aware, preserve historical Home labels and
+retain revision-based comparison refusal. Amend existing offline and dashboard
+coverage rather than adding a campaign case. The
+[PP1 measurement contract](../../e2e-perf/measurement-reference.md#pp1-pinned-return-to-start)
+and operator guide flag the deliberate break from older Home timings.
+
+### 17 November 2026 - Capture performance setup data failures safely
+
+Add a shared pre-navigation observer for API and direct-ES page responses and
+failed requests, closing the initial-load blind spot in PP8's diagnostics.
+On failed tests only, report bounded HTTP/content-type samples and fixed
+transport-error categories without retaining private request or response data.
+Dispose listeners on every exit and preserve original errors, auth handling,
+deadlines and measurement contracts. Add a failing-first offline regression
+for collection, redaction, bounded output and cleanup. The
+[measurement reference](../../e2e-perf/measurement-reference.md#shared-data-failure-diagnostics)
+documents interpretation limits and removal steps; this is diagnostic support,
+not an established fix for deployed search failures.
+
+### 17 November 2026 - Temporary PP8 completion failure diagnostics
+
+Add best-effort redacted readiness, trace-correlation, lifecycle and failed
+data-request evidence to PP8's failed completion wait, without changing its
+measurement boundary, timeout or acceptance criteria. Collection starts after
+initial setup and cannot explain rendering-suite initial-load failures. Add
+offline privacy coverage and an independent local warm-query browser witness.
+The [measurement reference](../../e2e-perf/measurement-reference.md#pp8-completion-failure-diagnostics)
+documents fields, limitations, listener ownership and exact removal boundaries;
+these diagnostics do not constitute a root-cause fix.
+
+### 17 November 2026 - Reject performance topology mismatches before workloads
+
+Forward the requested API topology from rendering, responsiveness and density
+campaign launches into the shared environment fixture. Reject an app/runner
+topology mismatch before executing the workload, alongside the existing delivery
+check, rather than discovering it only after a successful suite. Keep the final
+fingerprint validation and explicit local/deployed flags unchanged. Extend the
+existing offline fixture regression to cover early mismatch rejection and
+matching local/deployed configurations.
+
+Exercise the full deployed campaign's CLI selection, all four suite launches,
+shared fixture and parent fingerprint acceptance in one offline integration
+check, including overrides of stale inherited topology and delivery settings.
+
+Repair saved-dashboard validation to open the existing evidence disclosures,
+select its intended historical campaign rather than the newest one, and use
+visible Compare controls when exercising baseline changes. Preserve numeric,
+outcome, focus and Back/reload assertions. Move history segmentation and
+withheld-value rules from the removed synthetic browser mode into the existing
+offline dashboard suite, without restoring that mode or changing dashboard code.
+
 ### 16 November 2026 - Density refresh paired-source count drift
 
 Unified paired-source validation for density restoration and recovery preparation.

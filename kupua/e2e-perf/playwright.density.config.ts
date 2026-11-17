@@ -8,7 +8,7 @@ process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
 export default defineConfig({
   ...existing,
   testMatch: ["**/density.spec.ts"],
-  maxFailures: 1,
+  maxFailures: 0,
   use: { ...existing.use, screenshot: "off", trace: "off", video: "off" },
   reporter: [["list"], ["./teardown-reporter.mjs"], ["json", { outputFile: "results/.density-playwright-report.json" }]],
 });

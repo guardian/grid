@@ -1159,19 +1159,25 @@ test("dashboard distinguishes incompatible environments, sparse metrics and matc
     { label: "Fixture <script>not executable</script>", timestamp: "2026-01-01", gitSha: "fixture", environmentCompatibilityKey: "first",
       metrics: { "D1-grid": record("grid", 0.1), "D1-justified": record("justified", 0.2) },
       pairs: [{ controlId: "D1-grid", candidateId: "D1-justified", contractKey: "fixture-pair" }] },
-    { label: "Other environment", timestamp: "2026-01-02", gitSha: "fixture", environmentCompatibilityKey: "second",
-      metrics: { "D1-grid": record("grid", null), "D1-justified": record("justified", 0.3) },
+    { label: "Other environment", timestamp: "2026-01-02", gitSha: "fixture", environmentCompatibilityKey: "second", runs: 4,
+      acquisition: { revision: 1, status: "incomplete", counts: { planned: 8, attempted: 8, completed: 7, failed: 1, invalid: 0, notAttempted: 0, adverse: 0 } },
+      metrics: { "D1-grid": record("grid", null), "D1-justified": { ...record("justified", 0.3), sampleCount: 3,
+        outcomeCounts: { planned: 4, attempted: 4, completed: 3, failed: 1, invalid: 0, notAttempted: 0, adverse: 0 },
+        metrics: { pendingAreaRatioMean: { median: 0.3, p95: 0.3, sampleCount: 3 } } } },
       pairs: [{ controlId: "D1-grid", candidateId: "D1-justified", contractKey: "incompatible" }] },
   ];
   await mountDensityDashboard(page, entries);
   await page.getByLabel("Environment", { exact: true }).selectOption("");
   await expect(page.locator("#measurements tr")).toHaveCount(4);
   await expect(page.locator("#measurements")).toContainText("unavailable");
+  await expect(page.locator("#measurements tr").filter({ hasText: "Other environment" }).filter({ hasText: "D1-justified" }))
+    .toContainText("3/4 completed/planned; 4 attempted; 1 failed");
   await expect(page.locator("#pairs tr")).toHaveCount(1);
   await expect(page.locator("#pairs")).toContainText("+10 pp");
   await expect(page.locator("#cards .card")).toHaveCount(2);
   await expect(page.locator("#cards .mark")).toHaveCount(3);
   await expect(page.locator("#cards")).toContainText("30%");
+  await expect(page.locator("#cards")).toContainText("4 planned repetitions");
   const point = page.locator("#cards .mark").first();
   await point.hover();
   await expect(page.getByRole("tooltip")).toBeVisible();

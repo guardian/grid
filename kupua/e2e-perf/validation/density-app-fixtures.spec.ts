@@ -11,6 +11,9 @@ import { heldImageServer } from "../../e2e/shared/held-image-fixture";
 import * as densityDrivers from "../density-browser";
 import type { ImageBox, JustifiedLayout } from "../../src/lib/justified-layout";
 import type { LayoutRow } from "../../src/lib/scroll-geometry-ref";
+import { createPageIntegrityGuard } from "../runner-runtime.mjs";
+import { waitForPerfResults } from "../helpers";
+import { KupuaHelpers } from "../../e2e/shared/helpers";
 
 async function installJourneyFixtureRoutes(context: BrowserContext) {
   await context.route("**/*", async route => {
@@ -43,6 +46,41 @@ async function installNativeJourneyRoutes(context: BrowserContext, origin: strin
       .replace("S3_PROXY_ENABLED || SYNTHETIC_PREVIEW_ENABLED", "true") });
   });
 }
+
+test("PP8 warm query publishes one correlated search completion", async ({ page, context }) => {
+  await installJourneyFixtureRoutes(context);
+  const integrity = await createPageIntegrityGuard(page);
+  try {
+    await page.goto("/search?nonFree=true&until=2026-02-15T00%3A00%3A00.000Z");
+    await page.waitForFunction(() => Boolean((window as any).__kupua_store__));
+    await page.evaluate(async () => {
+      const path = "/src/dal/mock-data-source.ts";
+      const { MockDataSource } = await import(path);
+      const store = (window as any).__kupua_store__;
+      store.setState({ dataSource: new MockDataSource(70_000) });
+      await store.getState().search();
+    });
+    await waitForPerfResults(new KupuaHelpers(page));
+    await page.locator("cql-input").waitFor();
+    await page.evaluate(() => {
+      (window as any).__perceivedTraceClear__();
+      document.querySelector("cql-input")!.dispatchEvent(new CustomEvent("queryChange", { detail: { queryStr: "sport" } }));
+    });
+    await expect.poll(() => page.evaluate(() => {
+      const state = (window as any).__kupua_store__.getState();
+      const entries = (window as any).__perceivedTrace__;
+      const starts = entries.filter((entry: any) => entry.action === "search" && entry.phase === "t_0" && entry.interactionId);
+      return {
+        starts: starts.length,
+        ready: starts.length === 1 && entries.some((entry: any) => entry.action === "search"
+          && entry.phase === "t_store_ready" && entry.interactionId === starts[0].interactionId),
+        queryMatches: state.params.query === "sport",
+        idle: !state.loading && !state.error && state.sortAroundFocusStatus === null && !state.aggLoading,
+      };
+    }), { timeout: 5_000 }).toEqual({ starts: 1, ready: true, queryMatches: true, idle: true });
+    integrity.assertValid();
+  } finally { await integrity.dispose(); }
+});
 
 for (const controllerDelayMs of [0, 250]) {
   test(`atomic journey clocks exclude controller return delay ${controllerDelayMs}ms`, async ({ page, context }) => {
@@ -85,6 +123,35 @@ for (const controllerDelayMs of [0, 250]) {
       expect(result.requestClockMissingCount).toBe(0);
       if (controllerDelayMs) expect(result.controllerReturnLagMs).toBeGreaterThanOrEqual(controllerDelayMs);
       expect(await page.evaluate(() => !(window as any).__densityJourney && !window.__kupua_thumbnailProbe)).toBe(true);
+      if (controllerDelayMs === 0) {
+        await page.evaluate(() => {
+          const original = Object.getOwnPropertyDescriptor(performance, "now");
+          const now = performance.now.bind(performance);
+          let offset = 0;
+          let current: any;
+          Object.defineProperty(performance, "now", { configurable: true, value: () => now() + offset });
+          Object.defineProperty(window, "__kupua_thumbnailProbe", { configurable: true, get: () => current, set: probe => {
+            current = probe;
+            const stop = probe.stop.bind(probe);
+            probe.stop = () => { const result = stop(); offset += 40; return result; };
+          } });
+          (window as any).__restoreBoundaryClock = () => {
+            if (original) Object.defineProperty(performance, "now", original);
+            else delete (performance as any).now;
+            delete window.__kupua_thumbnailProbe;
+            delete (window as any).__restoreBoundaryClock;
+          };
+        });
+        try {
+          const failure = await densityDrivers.measureDensityJourney(page, "grid", 1, requests,
+            { durationMs: 240, loadSteps: [5, 10, 20], recoveryTimeoutMs: 800 }).then(() => null,
+            error => ({ name: error.name, evidence: error.evidence }));
+          expect(failure?.name).toBe("DensityObservationBoundaryError");
+          expect(failure?.evidence.observerStopLagMs).toBeGreaterThanOrEqual(40);
+          expect(failure?.evidence.recoveryStartLagMs).toBeGreaterThanOrEqual(0);
+          expect(await page.evaluate(() => !(window as any).__densityJourney && !window.__kupua_thumbnailProbe)).toBe(true);
+        } finally { await page.evaluate(() => (window as any).__restoreBoundaryClock?.()); }
+      }
     } finally { requests.dispose(); await cdp.detach(); }
   });
 }

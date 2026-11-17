@@ -363,6 +363,7 @@ function environmentKey(entry) {
 }
 
 function metricsComparable(entry, metric, referenceEntry, referenceMetric) {
+  if ([entry, referenceEntry].some(candidate => candidate?.acquisition && candidate.acquisition.status !== "complete")) return false;
   if (environmentKey(entry) !== environmentKey(referenceEntry)) return false;
   if ((referenceMetric.scenarioRevision ?? null) !== (metric.scenarioRevision ?? null)) return false;
   if ((referenceMetric.cacheClass ?? null) !== (metric.cacheClass ?? null)) return false;
@@ -467,6 +468,7 @@ const KNOWN_METRICS = new Set([
 // Non-numeric fields on each per-scenario record. Listed so the
 // unknown-metric scan can ignore them rather than warning.
 const NON_METRIC_FIELDS = new Set([
+  "outcomeCounts",
   "id", "label", "action", "seekMeasures", "scenarioRevision", "settledTotal", "settledTotalMin", "settledTotalMax", "metricClass",
   "cacheClass", "lookupGuardRevision", "completionBoundary", "detailObservationLimitMs",
   "resultRegime", "routes", "matchedControlRoutes", "matchedControlDesign", "setupGlobalPosition", "setupBufferOffset", "setupBufferLength",
@@ -700,6 +702,7 @@ function render() {
   document.getElementById("legend").hidden = false;
 
   const latest = entries[entries.length - 1];
+  KupuaPerfComparison.showAcquisition(entries, document.getElementById("sub"));
   const shortCount = allEntries.filter((e) => entryKind(e) === "short").length;
   const longCount  = allEntries.filter((e) => entryKind(e) === "long").length;
   const probeCount = allEntries.filter((e) => entryKind(e) === "jank-probes").length;

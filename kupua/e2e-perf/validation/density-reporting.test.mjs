@@ -435,7 +435,10 @@ test("runner wiring remains separate and uses atomic deferred writes and shared 
   assert.match(source, /playwright.density.config.ts/);
   const section = source.slice(source.indexOf("async function runDensitySuite"), source.indexOf("async function main"));
   assert.match(section, /assertSameEnvironment/);
-  assert.match(section, /readEnvironment/);
+  assert.match(section, /readRunCapture/);
+  const capture = source.slice(source.indexOf("function readRunCapture"), source.indexOf("function unattemptedRun"));
+  assert.match(capture, /readEnvironment/);
+  assert.match(capture, /admitRunOutcomes/);
   assert.match(section, /historyWrites.defer/);
   assert.doesNotMatch(section, /writeFileSync|commitFileTransaction/);
 });
@@ -528,6 +531,11 @@ test("median/p95 metrics preserve decimals and sparse optional fields stay unava
   assert.deepEqual(result.metrics.unsupported, { median: null, p95: null, sampleCount: 0, unavailableCount: 2 });
   assert.equal(result.metrics.readinessLeadPxMedian.median, null);
   assert.equal(result.metrics.notReported, undefined);
+  const partial = aggregateDensityRuns([[first[0]], []], { partial: true });
+  assert.deepEqual(Object.keys(partial), [first[0].id]);
+  assert.equal(partial[first[0].id].sampleCount, 1);
+  assert.throws(() => aggregateDensityRuns([[first[0]], []]), /Missing density scenarios/);
+  assert.deepEqual(aggregateDensityRuns([], { partial: true }), {});
 });
 
 test("optional unobserved readiness and unsupported shifts are not reported as zero", () => {

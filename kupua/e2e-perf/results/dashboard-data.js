@@ -60,14 +60,16 @@
     const group = searchGroup({ scenario });
     if (!group) return null;
     const density = scenario.startsWith("D"), rendering = /^P\d/.test(scenario);
+    const pinnedReturn = scenario === "PP1" && raw.scenarioRevision >= 3;
     const primary = group === "background" ? "dt_store_ready_ms" : group === "refresh" ? "refreshMediaDeltaMs"
       : density ? "placementMs" : rendering ? scenario === "P6" ? "focusDriftPx" : "p95Frame" : "dt_visual_settled_ms";
-    return { title: searchTitles[scenario] ?? `${group === "seeking" ? "Seek placement and visible decode" : "Same-query paired refresh"} · ${raw.density}`,
+    return { title: pinnedReturn ? "Pinned return to start · simulated Home" : searchTitles[scenario] ?? `${group === "seeking" ? "Seek placement and visible decode" : "Same-query paired refresh"} · ${raw.density}`,
       area: "search", workflow: { startup: "Startup", actions: "Query actions", seeking: "Arbitrary-position access", restore: "Restoration", refresh: "Paired refresh", background: "Background diagnostics" }[group],
       primary, ...(group === "background" ? { metricClass: "background-diagnostic" } : {}), unit: primary.endsWith("Px") ? "px" : "ms",
       boundary: raw.completionBoundary ?? (group === "background" ? "Background position-map publication; no foreground completion boundary."
         : rendering ? "Rendering diagnostics for the action; not action readiness." : "Owned action phases share a start clock; do not add them."),
-      limit: group === "refresh" ? "Saved active-minus-drained deltas are paired within each repetition, never arm-median subtraction. Isolation and media censoring are separate; valid overlap is not causal attribution."
+      limit: pinnedReturn ? "PP1 r3 replaces real Home with a cutoff-preserving seek from 40% to result 0. Not comparable with r1/r2 Home measurements; no logo click or filter reset is measured."
+        : group === "refresh" ? "Saved active-minus-drained deltas are paired within each repetition, never arm-median subtraction. Isolation and media censoring are separate; valid overlap is not causal attribution."
         : group === "background" ? "Store-ready and map entry count only. No foreground completion, target band or readiness grade."
           : ["PP3", "PP4"].includes(scenario) ? "Timings describe healthy samples only; degraded fallback is not preservation. Optional status correlation remains unresolved."
             : ["PP9", "PP11"].includes(scenario) ? "Preservation guards are recorded evidence, not displaced-anchor detector certification. PP9 belongs to query actions with a restoration cross-link."
@@ -116,6 +118,8 @@
   function population(record, field) {
     const raw = record.raw, metric = raw.metrics?.[field], outcomes = completion(record);
     const status = fieldStatus(record, field);
+    if (raw.outcomeCounts) return { state: status.state, available: metric?.sampleCount ?? raw.sampleCount ?? null,
+      unavailable: metric?.unavailableCount ?? null, total: raw.outcomeCounts.planned, ...raw.outcomeCounts };
     if (["invalid", "unsupported", "absent"].includes(status.state)) return { state: status.state, available: status.state === "unsupported" ? 0 : null, unavailable: null, total: raw.sampleCount ?? null };
     if (metric) return { state: status.state, available: metric.sampleCount ?? null, unavailable: metric.unavailableCount ?? null, total: raw.sampleCount ?? null };
     if (status.state === "unavailable" && raw.sampleCount === 0) return { state: "unavailable", available: 0, unavailable: outcomes?.unavailable ?? null, total: outcomes?.total ?? 0 };
@@ -309,7 +313,7 @@
         const id = `${member.family === "audit" ? "rendering" : member.family === "perceived" ? "responsiveness" : "density"}/${member.kind}/${member.timestamp}`;
         if (candidates.length !== 1) { checkpoint.missing.push(`${id}: ${candidates.length ? "ambiguous" : "missing"}`); continue; }
         const sourceRecord = candidates[0], sourceCollection = member.family === "perceived" ? "perceived" : "metrics";
-        const entry = entries[id] ??= { ...sourceRecord, id, family: member.family, kind: member.kind, sourceRecord, sourceCollection, source: `../results/${member.family}-log.json`, sourceFingerprint: sourceRecord.environment?.appSourceDirtyStateHash ?? null, records: [], scenarioCount: Object.keys(sourceRecord[sourceCollection] ?? {}).length };
+        const entry = entries[id] ??= { ...sourceRecord, id, family: member.family, kind: member.kind, sourceRecord, sourceCollection, source: `../results/${member.family}-log.js`, sourceFingerprint: sourceRecord.environment?.appSourceDirtyStateHash ?? null, records: [], scenarioCount: Object.keys(sourceRecord[sourceCollection] ?? {}).length };
         checkpoint.members.push(id);
         for (const [scenario, raw] of Object.entries(sourceRecord[sourceCollection] ?? {})) {
           const recordId = `${id}/${scenario}/r${raw.scenarioRevision ?? "unknown"}`;

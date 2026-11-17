@@ -910,7 +910,9 @@ export async function captureDensityJourney({ density, direction, durationMs, re
     }
     window.__kupua_thumbnailProbe!.dispose();
     metrics.recoveryStartLagMs = performance.now() - stoppedAt;
-    if (metrics.observerStopLagMs! > 25 || metrics.recoveryStartLagMs! > 25) throw new Error("Journey observation boundary too late");
+    if (metrics.observerStopLagMs! > 25 || metrics.recoveryStartLagMs! > 25) return {
+      failure: { observerStopLagMs: metrics.observerStopLagMs!, recoveryStartLagMs: metrics.recoveryStartLagMs },
+    };
     const snapshot = () => {
       requireForeground();
       const state = store.getState();
@@ -976,6 +978,13 @@ export async function captureDensityJourney({ density, direction, durationMs, re
   }
 }
 
+export class DensityObservationBoundaryError extends Error {
+  constructor(readonly evidence: { observerStopLagMs: number; recoveryStartLagMs: number }) {
+    super("Journey observation boundary too late");
+    this.name = "DensityObservationBoundaryError";
+  }
+}
+
 export async function measureDensityJourney(page: Page, density: Density, direction: 1 | -1, requests: RequestProbe,
   { durationMs = 9000, resultsPerSecond = 100, loadSteps = DENSITY_PRESSURE_STEPS, recoveryTimeoutMs = 4000, reverseDurationMs = 0, networkConstrained = false }:
   { durationMs?: number; resultsPerSecond?: number; loadSteps?: readonly number[]; recoveryTimeoutMs?: number; reverseDurationMs?: number; networkConstrained?: boolean } = {}) {
@@ -983,6 +992,7 @@ export async function measureDensityJourney(page: Page, density: Density, direct
     const path = "/e2e-perf/density-browser.ts";
     return (await import(/* @vite-ignore */ path)).captureDensityJourney(config) as Awaited<ReturnType<typeof captureDensityJourney>>;
   }, { density, direction, durationMs, resultsPerSecond, loadSteps: [...loadSteps], recoveryTimeoutMs, reverseDurationMs, networkConstrained });
+  if (observed.failure) throw new DensityObservationBoundaryError(observed.failure);
   const metrics = observed.metrics;
   metrics.controllerReturnLagMs = await page.evaluate(finishedAt => performance.now() - finishedAt, observed.finishedAt);
   await requests.flush();

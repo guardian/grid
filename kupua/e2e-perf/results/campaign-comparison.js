@@ -9,14 +9,26 @@
   const key = entry => JSON.stringify(fields.map(field => value(entry, field) ?? null));
   const variant = entry => JSON.stringify([entry.environment?.dataMode ?? "unknown",
     entry.environment?.apiTopology ?? "unknown", entry.environment?.mediaDelivery ?? "unknown"]);
+  const acquisitionLabel = entry => {
+    const acquisition = entry.acquisition, counts = acquisition?.counts;
+    return acquisition?.revision === 1 && counts
+      ? `${acquisition.status.toUpperCase()} | ${counts.completed}/${counts.attempted} completed/attempted | ${counts.planned} planned | ${counts.failed} failed | ${counts.invalid} invalid | ${counts.notAttempted} not attempted | ${counts.adverse} adverse`
+      : "Acquisition failure counts unrecorded (legacy)";
+  };
+  const acquisitionEligible = entry => !entry?.acquisition || entry.acquisition.revision === 1 && entry.acquisition.status === "complete";
   const label = entry => {
     const environment = entry.environment ?? {};
     const backend = environment.dataMode === "direct-es" ? "Direct ES" : environment.dataMode === "media-api"
       ? environment.apiTopology === "local" ? "Local API" : environment.apiTopology === "deployed-test" ? "TEST API" : "API (topology unknown)"
       : "Legacy / unknown";
-    return `${backend} / ${environment.mediaDelivery === "canonical" ? "canonical" : environment.mediaDelivery === "proxy" ? "proxy" : "delivery unknown"}`;
+    return `${backend} / ${environment.mediaDelivery === "canonical" ? "canonical" : environment.mediaDelivery === "proxy" ? "proxy" : "delivery unknown"}${entry.acquisition ? ` / ${acquisitionLabel(entry)}` : ""}`;
   };
   const source = (left, right) => {
+    if ([left, right].every(entry => entry?.environment?.sourceFingerprintRevision === 2)
+      && known(left.environment.appSourceDirtyStateHash) && known(right.environment.appSourceDirtyStateHash)) {
+      return left.environment.appSourceDirtyStateHash === right.environment.appSourceDirtyStateHash
+        ? "tracked and untracked source content fingerprints match" : "tracked and untracked source content fingerprints differ";
+    }
     if (!known(left?.gitSha) || !known(right?.gitSha)
       || !known(left?.environment?.appSourceDirtyStateHash) || !known(right?.environment?.appSourceDirtyStateHash)) return "recorded source fingerprints unavailable; identical source not verified (untracked file contents not covered)";
     return left.gitSha === right.gitSha && left.environment.appSourceDirtyStateHash === right.environment.appSourceDirtyStateHash
@@ -24,6 +36,7 @@
   };
   const compare = (left, right) => {
     if (!left || !right) return { compatible: false, reason: "No comparison selected" };
+    if (![left, right].every(acquisitionEligible)) return { compatible: false, reason: "Incomplete, invalid or adverse acquisition; not a complete-checkpoint comparison" };
     const missing = fields.filter(field => !known(value(left, field)) || !known(value(right, field)));
     if (missing.length) return { compatible: false, reason: `Unverified environment: ${missing.join(", ")}` };
     const changed = fields.filter(field => JSON.stringify(value(left, field)) !== JSON.stringify(value(right, field)));
@@ -62,6 +75,34 @@
     const [current, baseline] = selected();
     return current ? candidates.filter(entry => entry === current || entry === baseline) : candidates;
   };
+  const showAcquisition = (candidates, anchor) => {
+    let section = document.getElementById("acquisition-status");
+    if (!candidates.some(entry => entry.acquisition)) { section?.remove(); return; }
+    if (!section) {
+      section = document.createElement("section");
+      section.id = "acquisition-status";
+      section.setAttribute("aria-label", "Acquisition outcomes");
+      section.style.minWidth = "0";
+      section.style.overflowWrap = "anywhere";
+      (anchor ?? document.querySelector("header")).insertAdjacentElement("afterend", section);
+    }
+    section.replaceChildren();
+    for (const entry of candidates.filter(entry => entry.acquisition)) {
+      const heading = document.createElement("p");
+      heading.textContent = `${entry.label}: ${acquisitionLabel(entry)}`;
+      section.append(heading);
+      const failures = entry.acquisition.repetitions?.flatMap(run => run.outcomes.filter(row => !["completed"].includes(row.status)).map(row => ({ repetition: run.repetition, ...row }))) ?? [];
+      if (failures.length) {
+        const details = document.createElement("details"), summary = document.createElement("summary"), evidence = document.createElement("pre");
+        summary.textContent = "Failed, adverse and not-attempted measurements";
+        evidence.textContent = JSON.stringify(failures, null, 2);
+        evidence.style.whiteSpace = "pre-wrap";
+        evidence.style.overflowWrap = "anywhere";
+        details.append(summary, evidence);
+        section.append(details);
+      }
+    }
+  };
   const summary = (id, records, read, comparable, format) => {
     const [current, baseline] = selected();
     if (!current || !baseline) return "";
@@ -79,5 +120,5 @@
     }
     return node.outerHTML;
   };
-  globalThis.KupuaPerfComparison = { key, variant, label, compare, normalizeTreatment, style, populate, status, summary, selected, restrict };
+  globalThis.KupuaPerfComparison = { key, variant, label, compare, normalizeTreatment, style, populate, status, summary, selected, restrict, acquisitionLabel, acquisitionEligible, showAcquisition };
 })();
