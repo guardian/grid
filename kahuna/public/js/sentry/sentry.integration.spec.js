@@ -39,9 +39,7 @@ describe('Sentry with Angular console logging', () => {
                 consoleCaptureLevels: ['warn', 'error']
             }
         };
-        angular.module('sentryIntegrationConfig', [])
-            .value('sentryDsn', 'https://key@sentry.example.com/1');
-        injector = angular.injector(['ng', 'sentryIntegrationConfig', 'sentry']);
+        injector = angular.injector(['ng', 'sentry']);
         beforeSend = Sentry.getClient().getOptions().beforeSend;
     });
 
