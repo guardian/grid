@@ -41,9 +41,10 @@ class GridSentryErrorHandler(
         event.setRequest(requestMetadata(request))
 
         RequestLoggingFilter.requestIdFor(request).foreach(event.setTag("request_id", _))
-        SentryUserContext.emailFor(request).foreach { email =>
+        SentryUserContext.identityFor(request).foreach { identity =>
           val user = new SentryUser()
-          user.setEmail(email)
+          identity.email.foreach(user.setEmail)
+          identity.id.foreach(user.setId)
           event.setUser(user)
         }
 

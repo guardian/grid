@@ -10,6 +10,7 @@ import play.api.libs.json._
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.play.SentryUserContext
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
 
@@ -34,10 +35,7 @@ class KahunaController(
   private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
     val sentry = config.sentryConfig
 
-    val identity = maybeUser.flatMap {
-      case user: Authentication.UserPrincipal => sentry.userIdentity(user.email, isPersonalData = true)
-      case principal => sentry.userIdentity(principal.accessor.identity, isPersonalData = false)
-    }
+    val identity = maybeUser.flatMap(SentryUserContext.identityForPrincipal(sentry, _))
 
     Json.stringify(Json.obj(
       "enabled" -> sentry.enabled,

@@ -40,7 +40,7 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     val defaultHandler = new DefaultHttpRequestHandler(
       webCommands, devContext, () => router, httpErrorHandler, httpConfiguration, httpFilters
     )
-    if (config.sentryConfig.enabled) new SentryUserRequestHandler(defaultHandler)
+    if (config.sentryConfig.enabled) new SentryUserRequestHandler(defaultHandler, config.sentryConfig)
     else defaultHandler
   }
 
