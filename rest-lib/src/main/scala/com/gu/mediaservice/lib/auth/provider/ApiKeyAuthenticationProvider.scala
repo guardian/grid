@@ -47,6 +47,10 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
         keyStore.lookupIdentity(key) match {
           // api key provided
           case Some(apiKey) =>
+            if (apiKey.hasExpired) {
+              logger.info(apiKeyMarkers(apiKey), s"API key ${apiKey.identity} has expired")
+              NotAuthorised(s"API key ${apiKey.identity} has expired")
+            }
             // valid api key
             if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
               // valid api key which has access

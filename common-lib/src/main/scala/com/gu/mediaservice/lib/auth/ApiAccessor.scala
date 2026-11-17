@@ -31,7 +31,9 @@ object Tier {
   )
 }
 
-case class ApiAccessor(identity: String, tier: Tier, expiry: Option[Instant] = None)
+case class ApiAccessor(identity: String, tier: Tier, expiry: Option[Instant] = None) {
+  val hasExpired = expiry.exists(_.isBefore(Instant.now()))
+}
 object ApiAccessor extends ArgoHelpers {
   def apply(content: String): ApiAccessor = {
     parseContentV2(content) getOrElse parseContentV1(content)
@@ -42,7 +44,7 @@ object ApiAccessor extends ArgoHelpers {
       val json = Json.parse(content)
       json.validate[ApiKeyConfig] match {
         case JsSuccess(config, _) =>
-          Some(ApiAccessor(config.name, config.tier))
+          Some(ApiAccessor(config.name, config.tier, config.expiry))
         case JsError(errors) =>
           logger.warn(s"Failed to parse API key config JSON: $errors")
           None
