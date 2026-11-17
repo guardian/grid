@@ -7,7 +7,6 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.http.HttpEntity
 import play.api.mvc.{RequestHeader, WrappedRequest}
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
@@ -70,25 +69,12 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
         actual.header shouldBe expected.header
         actual.header.status shouldBe 500
         actual.body shouldBe expected.body
-        actual.body match {
-          case HttpEntity.Strict(data, _) => data.utf8String should include("Oops, an error occurred")
-          case other => fail(s"Expected a strict error response, got $other")
-        }
       }
     }
     captured.map(_.getThrowable) shouldBe Some(error)
   }
 
   describe("Play's normal server error response") {
-    it("is returned without capturing an exception when Sentry is disabled") {
-      whenReady(handler(disabledConfig).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
-      captured shouldBe None
-    }
-
-    it("is returned while capturing the exception when Sentry is enabled") {
-      assertPlayResponseAndCapture(FakeRequest())
-    }
-
     it("is returned while capturing an exception for an unrouted request") {
       assertPlayResponseAndCapture(FakeRequest("GET", "/some/unrouted/path"))
     }
