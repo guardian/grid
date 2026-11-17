@@ -30,11 +30,11 @@ case class SentryConfig(
    * Describes who an event affected. Sentry is approved to receive signed-in users' email addresses.
    *
    * @param identity        the principal's identity - an email for a user, an accessor name for a machine or service
-   * @param isPersonalData  true for user principals, false for machine and inner-service principals
+   * @param isEmail         true to use Sentry's email field; false to use its ID field
    */
-  def userIdentity(identity: String, isPersonalData: Boolean): Option[SentryUserIdentity] = {
+  def userIdentity(identity: String, isEmail: Boolean): Option[SentryUserIdentity] = {
     if (!enabled || identity.isEmpty) None
-    else if (isPersonalData) Some(SentryUserIdentity(email = Some(identity)))
+    else if (isEmail) Some(SentryUserIdentity(email = Some(identity)))
     else Some(SentryUserIdentity(id = Some(identity)))
   }
 }
