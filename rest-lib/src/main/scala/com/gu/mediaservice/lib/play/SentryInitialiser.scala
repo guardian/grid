@@ -33,8 +33,7 @@ object SentryInitialiser extends StrictLogging {
         }
         logger.info(s"Sentry initialised for $appName at release $release")
       } catch {
-        // Reporting is observability, not business function: a failure here must not stop the
-        // service starting, but operators need to see that reporting is not working.
+        // Failure here must not stop the service starting, but operators need to see that reporting is not working.
         case NonFatal(e) => logger.error(s"Failed to initialise Sentry for $appName - reporting is disabled", e)
       }
   }
