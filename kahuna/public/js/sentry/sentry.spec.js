@@ -93,7 +93,7 @@ describe('Sentry browser reporting', () => {
         });
     });
 
-    it('does not install replay by default and never enables continuous recording', () => {
+    it('does not install replay by default and disables session sampling', () => {
         start('https://key@sentry.example.com/1');
         expect(Sentry.replayIntegration).not.toHaveBeenCalled();
         expect(Sentry.init.mock.calls[0][0].replaysSessionSampleRate).toBe(0);

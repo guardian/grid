@@ -42,7 +42,7 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
     (config \ "userEmail").asOpt[String] shouldBe None
   }
 
-  test("serializes the signed-in user's email without obfuscation") {
+  test("serializes the signed-in user's email") {
     val config = clientConfig(enabled)
     (config \ "userEmail").as[String] shouldBe email
     (config \ "userId").asOpt[String] shouldBe None

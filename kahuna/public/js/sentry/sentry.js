@@ -85,7 +85,6 @@ function integrationsFor(config) {
     return integrations;
 }
 
-// TODO: Alternatively could investigate angular-raven
 sentry.config(['$provide', function ($provide) {
     $provide.decorator('$exceptionHandler', ['$delegate', function ($delegate) {
         return function (exception, cause) {
@@ -117,12 +116,11 @@ sentry.run(['sentryConfig', (sentryConfig) => {
         integrations: integrationsFor(sentryConfig),
         tracesSampleRate: sentryConfig.tracesSampleRate,
         tracePropagationTargets: sentryConfig.tracePropagationTargets || [],
-        // Error-triggered only: Grid sessions are never continuously recorded.
+        // Disable session sampling; error-triggered replay may buffer activity.
         replaysSessionSampleRate: 0,
         replaysOnErrorSampleRate: sentryConfig.replayOnErrorSampleRate
     });
 
-    // Identity is resolved server-side, so the browser only receives what the configured user mode permits.
     if (sentryConfig.userId || sentryConfig.userEmail) {
         Sentry.setUser({
             ...(sentryConfig.userId ? { id: sentryConfig.userId } : {}),

@@ -33,8 +33,8 @@ case class SentryConfig(
   /**
    * Describes who an event affected. Sentry is approved to receive signed-in users' email addresses.
    *
-   * @param identity        the principal's identity - an email for a person, a service name for a machine
-   * @param isPersonalData  false for machine and inner-service callers, whose identity is not personal data
+   * @param identity        the principal's identity - an email for a user, an accessor name for a machine or service
+   * @param isPersonalData  true for user principals, false for machine and inner-service principals
    */
   def userIdentity(identity: String, isPersonalData: Boolean): Option[SentryUserIdentity] = {
     if (!enabled || identity.isEmpty) None
