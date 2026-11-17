@@ -16,7 +16,7 @@ object SentryInitialiser extends StrictLogging {
 
   def init(config: SentryConfig, appName: String, release: String): Unit = config.dsn match {
     case None =>
-      logger.info("Sentry reporting is disabled - no DSN configured for this environment")
+      logger.info("Sentry reporting is disabled for this environment")
 
     case Some(dsn) =>
       try {
