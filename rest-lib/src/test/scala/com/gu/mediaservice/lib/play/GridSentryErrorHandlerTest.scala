@@ -5,14 +5,14 @@ import io.sentry.{Sentry, SentryEvent}
 import io.sentry.transport.NoOpTransport
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.funsuite.AnyFunSuiteLike
+import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
-import play.api.mvc.WrappedRequest
+import play.api.mvc.{RequestHeader, WrappedRequest}
 import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
 import play.api.{Configuration, Environment, Mode}
 
-class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with ScalaFutures with BeforeAndAfterEach {
+class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutures with BeforeAndAfterEach {
 
   @volatile private var captured: Option[SentryEvent] = None
 
@@ -34,8 +34,14 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     try Sentry.close()
     finally super.afterEach()
 
-  private def config(dsn: Option[String]) = SentryConfig(
-    dsn = dsn,
+  private val enabledConfig = SentryConfig(
+    dsn = Some("https://key@o0.ingest.us.sentry.io/1"),
+    environment = "TEST",
+    consoleCaptureLevels = Seq("error")
+  )
+
+  private val disabledConfig = SentryConfig(
+    dsn = None,
     environment = "TEST",
     tracesSampleRate = 0,
     replayOnErrorSampleRate = 0,
@@ -50,68 +56,77 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     sentryConfig = sentryConfig
   )
 
-  private val enabled = config(Some("https://key@o0.ingest.us.sentry.io/1"))
-  private val disabled = config(None)
-
   private val boom = new RuntimeException("boom")
 
-  test("returns Play's normal server error response when Sentry is disabled") {
-    whenReady(handler(disabled).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
-    captured shouldBe None
-  }
-
-  test("returns the same response when Sentry is enabled, so reporting cannot change behaviour") {
-    whenReady(handler(enabled).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
-    captured.map(_.getThrowable) shouldBe Some(boom)
-  }
-
-  test("still responds when the request carries no route, rather than failing while enriching") {
-    val request = FakeRequest("GET", "/some/unrouted/path")
-    whenReady(handler(enabled).onServerError(request, boom))(_.header.status shouldBe 500)
-  }
-
-  test("still responds for a routed request") {
-    val request = FakeRequest("GET", "/images/abc123").addAttr(Router.Attrs.HandlerDef, HandlerDef(
-      classLoader = getClass.getClassLoader,
-      routerPackage = "router",
-      controller = "controllers.Test",
-      method = "index",
-      parameterTypes = Seq.empty,
-      verb = "GET",
-      path = "/images/:id"
-    ))
-
-    whenReady(handler(enabled).onServerError(request, boom))(_.header.status shouldBe 500)
-  }
-
-  test("reports nested application exceptions and preserves the server error response") {
-    val nested = new RuntimeException("outer", new IllegalStateException("cause"))
-    whenReady(handler(enabled).onServerError(FakeRequest(), nested))(_.header.status shouldBe 500)
-    captured.map(_.getThrowable) shouldBe Some(nested)
-  }
-
-  test("preserves Play's response when request metadata enrichment throws") {
-    var enrichmentAttempted = false
-    val request = new WrappedRequest(FakeRequest()) {
-      override lazy val host: String = {
-        enrichmentAttempted = true
-        throw new IllegalStateException("Cannot read request host")
-      }
-    }
-
-    whenReady(handler(disabled).onServerError(FakeRequest(), boom)) { expected =>
-      whenReady(handler(enabled).onServerError(request, boom)) { actual =>
+  private def assertPlayResponseAndCapture(request: RequestHeader): Unit = {
+    whenReady(handler(disabledConfig).onServerError(request, boom)) { expected =>
+      captured shouldBe None
+      whenReady(handler(enabledConfig).onServerError(request, boom)) { actual =>
         actual.header shouldBe expected.header
+        actual.header.status shouldBe 500
         actual.body.contentType shouldBe expected.body.contentType
       }
     }
-    enrichmentAttempted shouldBe true
-    captured shouldBe None
+    captured.map(_.getThrowable) shouldBe Some(boom)
   }
 
-  test("initialiser configures service, stage and release on captured errors") {
+  describe("Play's normal server error response") {
+    it("is returned without capturing an exception when Sentry is disabled") {
+      whenReady(handler(disabledConfig).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
+      captured shouldBe None
+    }
+
+    it("is returned while capturing the exception when Sentry is enabled") {
+      assertPlayResponseAndCapture(FakeRequest())
+    }
+
+    it("is returned while capturing an exception for an unrouted request") {
+      assertPlayResponseAndCapture(FakeRequest("GET", "/some/unrouted/path"))
+    }
+
+    it("is returned while capturing an exception for a routed request") {
+      val request = FakeRequest("GET", "/images/abc123").addAttr(Router.Attrs.HandlerDef, HandlerDef(
+        classLoader = getClass.getClassLoader,
+        routerPackage = "router",
+        controller = "controllers.Test",
+        method = "index",
+        parameterTypes = Seq.empty,
+        verb = "GET",
+        path = "/images/:id"
+      ))
+
+      assertPlayResponseAndCapture(request)
+    }
+
+    it("is returned while capturing a nested exception") {
+      val nested = new RuntimeException("outer", new IllegalStateException("cause"))
+      whenReady(handler(enabledConfig).onServerError(FakeRequest(), nested))(_.header.status shouldBe 500)
+      captured.map(_.getThrowable) shouldBe Some(nested)
+    }
+
+    it("is returned even when request metadata enrichment throws") {
+      var enrichmentAttempted = false
+      val request = new WrappedRequest(FakeRequest()) {
+        override lazy val host: String = {
+          enrichmentAttempted = true
+          throw new IllegalStateException("Cannot read request host")
+        }
+      }
+
+      whenReady(handler(disabledConfig).onServerError(FakeRequest(), boom)) { expected =>
+        whenReady(handler(enabledConfig).onServerError(request, boom)) { actual =>
+          actual.header shouldBe expected.header
+          actual.body.contentType shouldBe expected.body.contentType
+        }
+      }
+      enrichmentAttempted shouldBe true
+      captured shouldBe None
+    }
+  }
+
+  it("initialiser configures service, stage and release on captured errors") {
     Sentry.close()
-    SentryInitialiser.init(enabled, appName = "media-api", release = "test-commit")
+    SentryInitialiser.init(enabledConfig, appName = "media-api", release = "test-commit")
     val options = Sentry.getCurrentScopes.getOptions
     // Drop the event before transport so this test never sends it to Sentry.
     options.setBeforeSend { (event, _) =>
@@ -122,7 +137,7 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     Sentry.isEnabled shouldBe true
     options.isAttachStacktrace shouldBe true
     options.isSendDefaultPii shouldBe false
-    whenReady(handler(enabled).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
+    whenReady(handler(enabledConfig).onServerError(FakeRequest(), boom))(_.header.status shouldBe 500)
 
     val event = captured.getOrElse(fail("No Sentry event was captured"))
     event.getServerName shouldBe "media-api"
@@ -132,12 +147,12 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
     event.getRelease shouldBe "test-commit"
   }
 
-  test("leaves client errors to Play, rather than reporting every 4xx as an exception") {
-    whenReady(handler(enabled).onClientError(FakeRequest(), 404, "not found"))(_.header.status shouldBe 404)
+  it("leaves client errors to Play, rather than reporting every 4xx as an exception") {
+    whenReady(handler(enabledConfig).onClientError(FakeRequest(), 404, "not found"))(_.header.status shouldBe 404)
     captured shouldBe None
   }
 
-  test("captures route and request ID without credentials, query strings or bodies") {
+  it("captures route and request ID without credentials, query strings or bodies") {
     val request = FakeRequest("POST", "/images/private-id?token=secret")
       .withHeaders("Host" -> "grid.example.com", "Authorization" -> "secret", "Cookie" -> "session=secret", "User-Agent" -> "test-agent")
       .withBody("private metadata")
@@ -152,7 +167,7 @@ class GridSentryErrorHandlerTest extends AnyFunSuiteLike with Matchers with Scal
         path = "/images/:id"
       ))
 
-    whenReady(handler(enabled).onServerError(request, boom))(_.header.status shouldBe 500)
+    whenReady(handler(enabledConfig).onServerError(request, boom))(_.header.status shouldBe 500)
     val event = captured.getOrElse(fail("No Sentry event was captured"))
     event.getTag("request_id") shouldBe "request-123"
     event.getRequest.getMethod shouldBe "POST"
