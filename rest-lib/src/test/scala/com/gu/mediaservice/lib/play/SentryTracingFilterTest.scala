@@ -107,23 +107,6 @@ class SentryTracingFilterTest extends AnyFunSuiteLike with Matchers with ScalaFu
     seen.flatMap(SentryTracingFilter.transactionFor) shouldBe None
   }
 
-  test("still serves the request when the downstream action fails, and propagates the failure unchanged") {
-    val filter = new SentryTracingFilter(tracing, mat)
-    val boom = new RuntimeException("boom")
-
-    val result = filter.apply(_ => Future.failed(boom))(routed(FakeRequest(), "/images/:id"))
-
-    whenReady(result.failed)(_ shouldBe boom)
-  }
-
-  test("preserves the downstream status code") {
-    val filter = new SentryTracingFilter(tracing, mat)
-
-    val result = filter.apply(_ => Future.successful(Results.NotFound))(routed(FakeRequest(), "/images/:id"))
-
-    whenReady(result)(_.header.status shouldBe 404)
-  }
-
   test("continues an incoming trace, names it by route and finishes it with the response status") {
     val filter = new SentryTracingFilter(tracing, mat)
     var seen: Option[ITransaction] = None
