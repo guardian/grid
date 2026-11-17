@@ -80,7 +80,8 @@ npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
 Testcontainers' debug output (image builds, pulls, and container logs until the stack is
-up) is written to `logs/testcontainers.log` on every run. Check it first when the stack
+up) is written to `logs/<timestamp>/testcontainers.log` on every run, in a new folder per
+session so earlier logs are kept. Check the latest one first when the stack
 fails to boot, for example with an opaque `Failed to build image`. Set
 `DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
 whole run.

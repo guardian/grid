@@ -1,5 +1,6 @@
 /**
- * Writes Testcontainers' debug output to `logs/testcontainers.log` on every run.
+ * Writes Testcontainers' debug output to `logs/<timestamp>/testcontainers.log` on every run,
+ * so each session keeps its own log rather than overwriting the previous one.
  *
  * Testcontainers only records the Docker build stream, where build failures such as network
  * errors are reported, when its debug logging is on; otherwise it throws an opaque
@@ -10,7 +11,9 @@ import * as path from 'path';
 import { format, stripVTControlCharacters } from 'util';
 import createDebug from 'debug';
 
-const DEBUG_LOG_DIR = path.join(import.meta.dirname, '..', 'logs');
+// Colons are not allowed in GitHub artifact paths.
+const SESSION_TIMESTAMP = new Date().toISOString().replace(/:/g, '-');
+const DEBUG_LOG_DIR = path.join(import.meta.dirname, '..', 'logs', SESSION_TIMESTAMP);
 export const DEBUG_LOG_PATH = path.join(DEBUG_LOG_DIR, 'testcontainers.log');
 const NAMESPACES = 'testcontainers*';
 

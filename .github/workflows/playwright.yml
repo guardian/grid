@@ -136,5 +136,5 @@ jobs:
         ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
       run: |
         echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
-        cat logs/testcontainers.log
+        cat logs/*/testcontainers.log
 
