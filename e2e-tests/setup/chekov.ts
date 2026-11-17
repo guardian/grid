@@ -8,6 +8,12 @@ import { DOMAIN, IMGOPS_HOST, OIDC_HOST, SERVICE_CONFIGS } from './constants.ts'
 
 export const CHEKOV_IMAGE = 'ghcr.io/guardian/chekov/nginx:sha-4841ed355fb10451dc697ef164a59fba01f7dfbc';
 
+const LOCALSTACK_ROUTE = {
+  sourceHostname: `grid-localstack.${DOMAIN}`,
+  alias: `localstack.media.${DOMAIN}`,
+  healthPath: '/_localstack/health',
+};
+
 export const CHEKOV_ALIASES = [
   ...Object.values(SERVICE_CONFIGS).flatMap(({ primaryHostname, additionalHostnames }) =>
     additionalHostnames.map((host) => ({
@@ -16,7 +22,7 @@ export const CHEKOV_ALIASES = [
       healthPath: '/management/healthcheck',
     })),
   ),
-  { sourceHostname: `grid-localstack.${DOMAIN}`, alias: `localstack.media.${DOMAIN}`, healthPath: '/_localstack/health' },
+  LOCALSTACK_ROUTE,
 ];
 
 export const CHEKOV_HOSTS = [
@@ -89,20 +95,31 @@ export async function startChekov(
     .start();
 }
 
-export async function registerChekovAliases(
+export async function registerLocalstackAliases(
   container: StartedTestContainer,
   coreStackProps: Record<string, string>,
 ): Promise<void> {
-  const routes = [
-    ...CHEKOV_ALIASES,
+  await registerRoutes(container, [
+    LOCALSTACK_ROUTE,
     ...s3BucketHosts(coreStackProps).map((alias) => ({
-      sourceHostname: `grid-localstack.${DOMAIN}`,
+      ...LOCALSTACK_ROUTE,
       alias,
-      healthPath: '/_localstack/health',
     })),
+  ]);
+}
+
+export async function registerChekovAliases(container: StartedTestContainer): Promise<void> {
+  await registerRoutes(container, [
+    ...CHEKOV_ALIASES.filter(({ alias }) => alias !== LOCALSTACK_ROUTE.alias),
     { sourceHostname: undefined, alias: IMGOPS_HOST, healthPath: '/_' },
     { sourceHostname: undefined, alias: OIDC_HOST, healthPath: '/.well-known/openid-configuration' },
-  ];
+  ]);
+}
+
+async function registerRoutes(
+  container: StartedTestContainer,
+  routes: { sourceHostname?: string; alias: string; healthPath: string }[],
+): Promise<void> {
   for (const { healthPath, alias, sourceHostname } of routes) {
     const deadline = Date.now() + 30_000;
     for (;;) {

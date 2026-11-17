@@ -47,7 +47,7 @@ import {
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
 import { DEBUG_LOG_PATH } from './debug-log.ts';
-import { CHEKOV_HOSTS, gridRouteLabels, prepareChekov, registerChekovAliases, s3BucketHosts, startChekov } from './chekov.ts';
+import { CHEKOV_HOSTS, gridRouteLabels, prepareChekov, registerChekovAliases, registerLocalstackAliases, s3BucketHosts, startChekov } from './chekov.ts';
 import { reportTo, runTasks } from './progress.ts';
 import type { ListrTask } from './progress.ts';
 import {
@@ -489,6 +489,11 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       },
     },
     {
+      title: 'Register LocalStack routes',
+      skip: () => !proxy && 'using direct LocalStack endpoints',
+      task: (ctx) => registerLocalstackAliases(ctx.chekov!, ctx.coreStackProps!),
+    },
+    {
       title: 'Start Grid services',
       task: (_, task) =>
         task.newListr([
@@ -600,7 +605,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       title: 'Register Chekov routes',
       skip: () => !proxy && 'using external dev-nginx',
       task: async (ctx) => {
-        await registerChekovAliases(ctx.chekov!, ctx.coreStackProps!);
+        await registerChekovAliases(ctx.chekov!);
       },
     },
   ];

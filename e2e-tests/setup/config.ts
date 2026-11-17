@@ -1,8 +1,8 @@
 /**
  * Reuses the existing dev config generator (`dev/script/generate-config/service-config.js`)
  * to produce per-service Grid config from live CloudFormation stack resources, then
- * rewrites the LocalStack/Elasticsearch endpoints so that they resolve via the
- * Testcontainers network aliases instead of the Guardian dev domains / localhost.
+ * routes runtime AWS calls through Chekov when enabled, while Elasticsearch
+ * continues to use its Testcontainers network alias.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -116,17 +116,16 @@ function mediaApiE2eConfig(): string {
 }
 
 /**
- * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
- * app container reaches the infrastructure containers over the shared network.
+ * Route runtime AWS endpoints and queue URLs through Chekov when enabled.
  */
-function rewriteEndpoints(conf: string, coreStackProps: StackProps, useS3BucketHosts: boolean): string {
+export function rewriteEndpoints(conf: string, coreStackProps: StackProps, proxy: boolean): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
-  // Endpoints baked in by `service-config.js` that must be redirected to the container.
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = "http://localhost:4576";
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
+  const runtimeEndpoint = proxy ? guardianLocalstackUrl : localstackUrl;
 
-  const imageOrigins = useS3BucketHosts
+  const imageOrigins = proxy
     ? conf
       .split(`images.media.${DOMAIN}`)
       .join(`${coreStackProps.ImageBucket}.s3.${DOMAIN}`)
@@ -134,18 +133,9 @@ function rewriteEndpoints(conf: string, coreStackProps: StackProps, useS3BucketH
       .join(`${coreStackProps.ImageOriginBucket}.s3.${DOMAIN}`)
     : conf;
 
-  const rewrittenConf = imageOrigins
-    .split(guardianLocalstackUrl)
-    .join(localstackUrl)
-    .split(legacyLocalstackUrl)
-    .join(localstackUrl)
-    .split(localLocalstackUrl)
-    .join(localstackUrl);
+  const rewrittenConf = [guardianLocalstackUrl, legacyLocalstackUrl, localLocalstackUrl, localstackUrl]
+    .reduce((rewritten, endpoint) => rewritten.split(endpoint).join(runtimeEndpoint), imageOrigins);
 
-  // The S3 client reaches LocalStack over the container network (localstack:4566), but
-  // presigned URLs are handed to the browser, which can only reach LocalStack via the
-  // `localstack.media.<domain>` vanity domain served by Chekov or external dev-nginx.
-  // Sign against that host so the URLs resolve outside the container network.
   return `${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`;
 }
 
@@ -156,7 +146,7 @@ export function generateServiceConfig(
   configDir: string,
   coreStackProps: StackProps,
   authStackProps: StackProps,
-  useS3BucketHosts = true,
+  proxy = true,
 ): void {
   const ServiceConfig = require(
     path.join(GENERATE_CONFIG_DIR, "service-config.js"),
@@ -221,7 +211,7 @@ export function generateServiceConfig(
       );
     }
 
-    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps, useS3BucketHosts);
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps, proxy);
     const extras = extraConfig[service];
     const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
     fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);

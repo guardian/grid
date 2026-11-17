@@ -40,7 +40,12 @@ aliases `loader.media`). These names retain the existing browser origins under `
 Core-stack S3 buckets get `<bucket>.s3.<domain>` aliases of the LocalStack route.
 Image and crop URLs use these aliases, allowing LocalStack to select the bucket from
 the Host header without custom nginx configuration. External dev-nginx mode retains
-the existing `images.media` and `public.media` origins. Direct AWS traffic remains on LocalStack.
+the existing `images.media` and `public.media` origins. Grid's runtime AWS calls and
+configured SQS queue URLs use `https://localstack.media.<domain>` through Chekov.
+The LocalStack and S3 bucket aliases are registered and checked over verified HTTPS
+before Grid starts. Bootstrap provisioning and seeding still connect directly to
+LocalStack; imgops retains its direct `http://localstack:4566` upstream.
+With `GRID_PROXY=false`, Grid's runtime AWS calls retain their direct LocalStack endpoints.
 Chekov uses the local mkcert CA; its public certificate is installed into the Grid
 container's JVM and OS trust stores. Only Chekov receives the CA private-key directory.
 The proxy also mounts the Docker socket for discovery, so run only a trusted image
@@ -205,6 +210,7 @@ and torn down with it. Its built image is retained for Docker layer caching.
 Validate the proxy independently of Scala and the application databases:
 
 ```bash
+npm run test:setup      # endpoint rewriting and route registration; no Docker required
 npm run test:proxy      # route metadata and bucket rewrite unit tests
 npm run validate:proxy  # real Chekov with temporary HTTP backends; needs Docker and mkcert
 ```
