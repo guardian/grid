@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 November 2026 - Align the GET/D3 response mock with main
+
+Supply the signed-optimised-URLs argument explicitly in the branch-only GET/D3
+response-writer stub. Main added it as a defaulted parameter; omitting it on a
+Mockito mock evaluates a default getter while argument matchers are pending,
+aborting suite construction. Keep main's production signature unchanged and
+reuse the existing integration suite without changing its assertions.
+
 ### 17 November 2026 - Stream startup Git provenance instead of buffering large diffs
 
 Fix the false source-changed rejection before suite startup when the history migration
