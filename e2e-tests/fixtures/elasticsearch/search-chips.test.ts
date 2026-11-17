@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { E2E_SEARCH_FIELD_ALIASES, generateServiceConfig } from '../../setup/config.ts';
 import { loadImageFixtures } from '../../setup/image-fixtures.ts';
-import { SEARCH_CHIP_CORE_IMAGE_IDS, SEARCH_CHIP_IMAGE_IDS } from './search-chips.ts';
+import { SEARCH_CHIP_CORE_IMAGE_IDS, SEARCH_CHIP_CORE_ROLES, SEARCH_CHIP_IMAGE_IDS } from './search-chips.ts';
 
 const fixtures = loadImageFixtures().filter((hit) => Object.values(SEARCH_CHIP_IMAGE_IDS).includes(hit._id));
 const sourceFor = (role: string) => fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS[role])!._source;
@@ -14,18 +14,22 @@ const suggestions = readFileSync(new URL('../../../kahuna/public/js/search/struc
 test('search fixtures preserve stable roles, optional-field absence and usage contrasts', () => {
     assert.equal(fixtures.length, 28);
     assert.equal(new Set(fixtures.map((hit) => hit._id)).size, fixtures.length);
-    assert.deepEqual(Object.keys(SEARCH_CHIP_CORE_IMAGE_IDS), [...'ABCDEFGHIJKL']);
+    assert.deepEqual(Object.keys(SEARCH_CHIP_CORE_IMAGE_IDS), SEARCH_CHIP_CORE_ROLES);
     for (const [role, id] of Object.entries(SEARCH_CHIP_CORE_IMAGE_IDS)) assert.equal(id, SEARCH_CHIP_IMAGE_IDS[role]);
-    assert.deepEqual(sourceFor('I').metadata, { title: 'Search chips image I', description: 'Missing optional metadata' });
-    assert.deepEqual(sourceFor('I').identifiers, {});
-    assert.equal(sourceFor('I').userMetadata, undefined);
-    assert.deepEqual(sourceFor('I').exports, []);
-    assert.deepEqual(sourceFor('I').usages, []);
-    assert.deepEqual(sourceFor('I').collections, []);
+    const missing = sourceFor('missing-metadata-unpersisted');
+    assert.deepEqual(missing.metadata, {
+        title: 'Search chips image missing-metadata-unpersisted',
+        description: 'Missing optional metadata',
+    });
+    assert.deepEqual(missing.identifiers, {});
+    assert.equal(missing.userMetadata, undefined);
+    assert.deepEqual(missing.exports, []);
+    assert.deepEqual(missing.usages, []);
+    assert.deepEqual(missing.collections, []);
     const usagesFor = (role: string) => sourceFor(role).usages as { platform: string; status: string }[];
-    assert(!usagesFor('G').some((usage) => usage.platform === 'print' && usage.status === 'published'));
-    assert(usagesFor('H').some((usage) => usage.platform === 'print' && usage.status === 'published'));
-    assert.deepEqual(usagesFor('J').map((usage) => usage.status), ['published', 'replaced']);
+    assert(!usagesFor('split-print-and-published-usages').some((usage) => usage.platform === 'print' && usage.status === 'published'));
+    assert(usagesFor('print-published-at-midnight').some((usage) => usage.platform === 'print' && usage.status === 'published'));
+    assert.deepEqual(usagesFor('published-and-replaced-usages').map((usage) => usage.status), ['published', 'replaced']);
 });
 
 test('every listed subject, file format, category, supplier and photographer has fixture data', () => {
@@ -49,7 +53,7 @@ test('every listed subject, file format, category, supplier and photographer has
     for (const byline of ['Example External Photographer', 'Example Internal Photographer', 'Example Contracted Photographer']) {
         assert(bylines.has(byline), `Missing photographer ${byline}`);
     }
-    for (const role of ['F', 'T', 'U']) {
+    for (const role of ['contract-illustration-leased', 'staff-illustrator', 'commissioned-illustrator']) {
         assert.equal(sourceFor(role).metadata?.credit, sourceFor(role).usageRights?.creator);
         assert.equal(sourceFor(role).suggestMetadataCredit, sourceFor(role).metadata?.credit);
     }
@@ -67,16 +71,18 @@ test('usage fixtures cover every model status, offered platform and reference fi
 });
 
 test('missing persistence reasons and agency-pick/reapable data have positive records', () => {
-    assert.equal((sourceFor('M').identifiers as Record<string, string>).picdarUrn, 'search-chips-persistence-m');
-    assert.equal(sourceFor('N').usageRights?.category, 'commissioned-agency');
-    const edits = sourceFor('O').userMetadata as { metadata: { title: string } };
-    assert.equal(edits.metadata.title, sourceFor('O').metadata?.title);
-    assert.notEqual(edits.metadata.title, (sourceFor('O').originalMetadata as { title: string }).title);
-    assert.equal(sourceFor('W').uploadTime, '2000-01-01T12:00:00.000Z');
-    assert.match(sourceFor('W').metadata?.description as string, /\btopshot\b/);
-    assert.deepEqual(sourceFor('W').identifiers, {});
-    assert.deepEqual(sourceFor('W').usages, []);
-    assert.deepEqual(sourceFor('W').exports, []);
+    assert.equal((sourceFor('tiff-identifier-over-quota').identifiers as Record<string, string>).picdarUrn, 'search-chips-persistence-identifier');
+    assert.equal(sourceFor('legacy-commissioned-agency').usageRights?.category, 'commissioned-agency');
+    const edited = sourceFor('edited-title');
+    const edits = edited.userMetadata as { metadata: { title: string } };
+    assert.equal(edits.metadata.title, edited.metadata?.title);
+    assert.notEqual(edits.metadata.title, (edited.originalMetadata as { title: string }).title);
+    const agencyPick = sourceFor('old-agency-pick');
+    assert.equal(agencyPick.uploadTime, '2000-01-01T12:00:00.000Z');
+    assert.match(agencyPick.metadata?.description as string, /\btopshot\b/);
+    assert.deepEqual(agencyPick.identifiers, {});
+    assert.deepEqual(agencyPick.usages, []);
+    assert.deepEqual(agencyPick.exports, []);
 });
 
 test('conditional chips and aliases are enabled consistently in generated e2e config', () => {

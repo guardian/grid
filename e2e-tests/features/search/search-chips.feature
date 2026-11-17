@@ -89,10 +89,10 @@ Feature: Creating search filter chips
     # title-format: Enter <Field>:<Value> manually
 
     Examples: Enter <Field>:<Value> manually
-      | Query                                      | Field            | Value                          |
-      | illustrator:Example Contracted Illustrator | illustrator      | Example Contracted Illustrator |
-      | fixtureReference:search-chips-A            | fixtureReference | search-chips-A                 |
-      | usages@status:unknown                      | usages@status    | unknown                        |
+      | Query                                               | Field            | Value                              |
+      | illustrator:Example Contracted Illustrator          | illustrator      | Example Contracted Illustrator     |
+      | fixtureReference:search-chips-harbour-daylight-jpeg | fixtureReference | search-chips-harbour-daylight-jpeg |
+      | usages@status:unknown                               | usages@status    | unknown                            |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 70-84, 115-122
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 169-171, 188-199
@@ -105,7 +105,7 @@ Feature: Creating search filter chips
     And the chip query should be 'credit:"Search Chips Shared Credit"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 98-117
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 128-147
 
   Scenario: A typed photoshoot prefix retrieves a seeded completion that can be selected
     Given I am choosing a photoshoot value starting with "Search Chips Harbour"
@@ -114,7 +114,7 @@ Feature: Creating search filter chips
     And the chip query should be 'photoshoot:"Search Chips Harbour Shoot"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 169-175, 266-270
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 151-171
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 181-201
 
   Scenario: Disabling optional search features removes the persisted field
     Given optional search suggestion features are disabled
@@ -216,7 +216,7 @@ Feature: Creating search filter chips
     Then the "source" filter chip should have the value "Search Chips Wire"
     And the chip query should be 'source:"Search Chips Wire"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 146-149, 260-264
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 55
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 85
   # Evidence: e2e-tests/fixtures/suggestions/suggestion-wiremock.ts lines 25-105
 
   Scenario: Keyboard navigation into a chip allows deleting a value character without deleting the chip

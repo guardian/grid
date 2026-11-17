@@ -11,13 +11,43 @@ export const SEARCH_CHIP_COLLECTION = 'search-chips';
 const EXTRA_SUPPLIERS = ['Getty Images', 'PA', 'Rex Features', 'Ronald Grant Archive', 'Action Images'];
 const supplierRole = (supplier: string) => `supplier-${supplier.toLowerCase().replaceAll(' ', '-')}`;
 
-export const SEARCH_CHIP_IMAGE_IDS = Object.fromEntries(
-    [...'ABCDEFGHIJKLMNOPQRSTUVW', ...EXTRA_SUPPLIERS.map(supplierRole)]
+export const SEARCH_CHIP_CORE_ROLES = [
+    'harbour-daylight-jpeg',
+    'harbour-night-cropped-png',
+    'pay-to-use-london',
+    'legacy-chargeable-cardiff',
+    'staff-photo-multi-persisted',
+    'contract-illustration-leased',
+    'split-print-and-published-usages',
+    'print-published-at-midnight',
+    'missing-metadata-unpersisted',
+    'published-and-replaced-usages',
+    'deleted-own-upload',
+    'deleted-other-upload',
+];
+
+const SUPPLEMENTAL_ROLES = [
+    'tiff-identifier-over-quota',
+    'legacy-commissioned-agency',
+    'edited-title',
+    'pr-and-third-party',
+    'bylines-rights',
+    'contract-photographer',
+    'commissioned-photographer',
+    'staff-illustrator',
+    'commissioned-illustrator',
+    'assorted-usages-with-reference',
+    'old-agency-pick',
+    ...EXTRA_SUPPLIERS.map(supplierRole),
+];
+
+export const SEARCH_CHIP_IMAGE_IDS: Record<string, string> = Object.fromEntries(
+    [...SEARCH_CHIP_CORE_ROLES, ...SUPPLEMENTAL_ROLES]
         .map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
 );
 
 export const SEARCH_CHIP_CORE_IMAGE_IDS = Object.fromEntries(
-    [...'ABCDEFGHIJKL'].map((role) => [role, SEARCH_CHIP_IMAGE_IDS[role]]),
+    SEARCH_CHIP_CORE_ROLES.map((role) => [role, SEARCH_CHIP_IMAGE_IDS[role]]),
 );
 
 function usage(name: string, platform: string, status: string, dateAdded = BOUNDARY) {
@@ -56,7 +86,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             source: 'Search Chips Wire',
             suppliersReference: `search-chips-${role}`,
             specialInstructions: 'Editorial use only',
-            keywords: [`search-chips-${role.toLowerCase()}`],
+            keywords: [`search-chips-${role}`],
             subjects: ['news'],
             peopleInImage: [],
             dateTaken: BOUNDARY,
@@ -76,7 +106,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             uploadedBy: CURRENT_USER,
             lastModified: BOUNDARY,
             identifiers: {},
-            uploadInfo: { filename: `search-chips-${role.toLowerCase()}.jpg` },
+            uploadInfo: { filename: `search-chips-${role}.jpg` },
             source,
             thumbnail,
             fileMetadata: { iptc: {}, exif: {}, exifSub: {}, xmp: {} },
@@ -105,7 +135,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
     };
 
     const fixtures = [
-        image('A', {
+        image('harbour-daylight-jpeg', {
             metadata: {
                 ...sharedMetadata,
                 keywords: ['harbour', 'daylight'],
@@ -115,13 +145,13 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             usageRights: { category: 'agency', supplier: 'Reuters' },
             uploadTime: '2024-06-14T12:00:00.000Z',
         }),
-        image('B', {
+        image('harbour-night-cropped-png', {
             metadata: { ...sharedMetadata, keywords: ['harbour', 'night'], subjects: ['arts'] },
             uploadedBy: OTHER_USER,
-            uploadInfo: { filename: 'search-chips-b.png' },
+            uploadInfo: { filename: 'search-chips-harbour-night-cropped-png.png' },
             source: {
                 ...structuredClone(template._source.source as Record<string, unknown>),
-                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS.B}`,
+                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png']}`,
                 mimeType: 'image/png',
             },
             usageRights: { category: 'agency', supplier: 'AP' },
@@ -130,7 +160,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 author: CURRENT_USER,
                 date: BOUNDARY,
                 specification: {
-                    uri: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS.B}`,
+                    uri: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png']}`,
                     bounds: { x: 0, y: 0, width: 1200, height: 800 },
                     aspectRatio: '3:2',
                     type: 'crop',
@@ -138,17 +168,17 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 assets: [],
             }],
         }),
-        image('C', {
+        image('pay-to-use-london', {
             metadata: { city: 'London', country: 'United Kingdom', keywords: ['chargeable'] },
             usageRights: { category: 'pay-to-use' },
         }),
-        image('D', {
+        image('legacy-chargeable-cardiff', {
             metadata: { city: 'Cardiff', country: 'United Kingdom', keywords: ['chargeable'] },
             uploadedBy: OTHER_USER,
             usageRights: { category: 'chargeable' },
             uploadTime: '2024-06-16T12:00:00.000Z',
         }),
-        image('E', {
+        image('staff-photo-multi-persisted', {
             metadata: { byline: 'Example Internal Photographer', subjects: ['sport'] },
             usageRights: {
                 category: 'staff-photographer',
@@ -169,7 +199,7 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 actionData: { author: CURRENT_USER, date: BOUNDARY },
             }],
         }),
-        image('F', {
+        image('contract-illustration-leased', {
             metadata: {
                 byline: 'Example Contracted Illustrator',
                 credit: 'Example Contracted Illustrator',
@@ -182,8 +212,8 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             },
             leases: {
                 leases: [{
-                    id: 'search-chips-lease-f',
-                    mediaId: SEARCH_CHIP_IMAGE_IDS.F,
+                    id: 'search-chips-lease-contract-illustration',
+                    mediaId: SEARCH_CHIP_IMAGE_IDS['contract-illustration-leased'],
                     leasedBy: CURRENT_USER,
                     access: 'allow-use',
                     notes: 'Search chips lease',
@@ -192,26 +222,30 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 lastModified: BOUNDARY,
             },
         }),
-        image('G', { usages: [usage('g-print', 'print', 'pending'), usage('g-digital', 'digital', 'published')] }),
-        image('H', { usages: [usage('h-print', 'print', 'published', '2024-06-15T00:00:00.000Z')] }),
-        image('I'),
-        image('J', {
+        image('split-print-and-published-usages', {
+            usages: [usage('split-print', 'print', 'pending'), usage('split-digital', 'digital', 'published')],
+        }),
+        image('print-published-at-midnight', {
+            usages: [usage('midnight-print', 'print', 'published', '2024-06-15T00:00:00.000Z')],
+        }),
+        image('missing-metadata-unpersisted'),
+        image('published-and-replaced-usages', {
             usages: [
-                usage('j-published', 'digital', 'published', '2024-06-14T12:00:00.000Z'),
-                usage('j-replaced', 'digital', 'replaced', '2024-06-16T12:00:00.000Z'),
+                usage('published', 'digital', 'published', '2024-06-14T12:00:00.000Z'),
+                usage('replaced', 'digital', 'replaced', '2024-06-16T12:00:00.000Z'),
             ],
         }),
-        image('K', { softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: CURRENT_USER } }),
-        image('L', {
+        image('deleted-own-upload', { softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: CURRENT_USER } }),
+        image('deleted-other-upload', {
             uploadedBy: OTHER_USER,
             softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: OTHER_USER },
         }),
-        image('M', {
-            identifiers: { picdarUrn: 'search-chips-persistence-m' },
-            uploadInfo: { filename: 'search-chips-m.tiff' },
+        image('tiff-identifier-over-quota', {
+            identifiers: { picdarUrn: 'search-chips-persistence-identifier' },
+            uploadInfo: { filename: 'search-chips-tiff-identifier-over-quota.tiff' },
             source: {
                 ...structuredClone(template._source.source as Record<string, unknown>),
-                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS.M}`,
+                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['tiff-identifier-over-quota']}`,
                 mimeType: 'image/tiff',
             },
             metadata: {
@@ -223,20 +257,20 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
             },
             usageRights: { category: 'agency', supplier: 'AAP' },
         }),
-        image('N', { usageRights: { category: 'commissioned-agency', supplier: 'Alamy' } }),
-        image('O', {
-            metadata: { title: 'Search chips edited title O' },
+        image('legacy-commissioned-agency', { usageRights: { category: 'commissioned-agency', supplier: 'Alamy' } }),
+        image('edited-title', {
+            metadata: { title: 'Search chips edited title' },
             usageRights: { category: 'agency', supplier: 'Allstar Picture Library' },
             userMetadata: {
                 archived: false,
                 labels: [],
-                metadata: { title: 'Search chips edited title O' },
+                metadata: { title: 'Search chips edited title' },
                 lastModified: BOUNDARY,
             },
         }),
-        image('P', { usageRights: { category: 'pr-and-third-party', source: 'Search Chips PR Office' } }),
-        image('Q', { usageRights: { category: 'Bylines' } }),
-        image('R', {
+        image('pr-and-third-party', { usageRights: { category: 'pr-and-third-party', source: 'Search Chips PR Office' } }),
+        image('bylines-rights', { usageRights: { category: 'Bylines' } }),
+        image('contract-photographer', {
             metadata: { byline: 'Example Contracted Photographer' },
             usageRights: {
                 category: 'contract-photographer',
@@ -244,39 +278,39 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 publication: 'Example publication',
             },
         }),
-        image('S', {
+        image('commissioned-photographer', {
             usageRights: {
                 category: 'commissioned-photographer',
                 photographer: 'Example External Photographer',
                 publication: 'Example publication',
             },
         }),
-        image('T', {
+        image('staff-illustrator', {
             metadata: { credit: 'Example Staff Illustrator' },
             usageRights: { category: 'staff-illustrator', creator: 'Example Staff Illustrator' },
         }),
-        image('U', {
+        image('commissioned-illustrator', {
             metadata: { credit: 'Example Commissioned Illustrator' },
             usageRights: { category: 'commissioned-illustrator', creator: 'Example Commissioned Illustrator' },
         }),
-        image('V', {
+        image('assorted-usages-with-reference', {
             usages: [
                 {
-                    ...usage('v-removed', 'digital', 'removed'),
+                    ...usage('removed', 'digital', 'removed'),
                     references: [{
                         type: 'frontend',
                         name: 'Search Chips Harbour Story',
                         uri: 'https://search-chips.invalid/stories/harbour',
                     }],
                 },
-                usage('v-syndicated', 'syndication', 'syndicated'),
-                usage('v-downloaded', 'download', 'downloaded'),
-                usage('v-derivative', 'digital', 'derivative'),
-                usage('v-failed', 'digital', 'failed'),
-                usage('v-unknown', 'digital', 'unknown'),
+                usage('syndicated', 'syndication', 'syndicated'),
+                usage('downloaded', 'download', 'downloaded'),
+                usage('derivative', 'digital', 'derivative'),
+                usage('failed', 'digital', 'failed'),
+                usage('unknown', 'digital', 'unknown'),
             ],
         }),
-        image('W', {
+        image('old-agency-pick', {
             metadata: { description: 'Search chips topshot agency pick' },
             usageRights: { category: 'agency', supplier: 'EPA' },
             uploadTime: '2000-01-01T12:00:00.000Z',
@@ -286,11 +320,14 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
         })),
     ];
 
-    const missingMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS.I)!;
-    missingMetadata._source.metadata = { title: 'Search chips image I', description: 'Missing optional metadata' };
+    const missingMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS['missing-metadata-unpersisted'])!;
+    missingMetadata._source.metadata = {
+        title: 'Search chips image missing-metadata-unpersisted',
+        description: 'Missing optional metadata',
+    };
     missingMetadata._source.originalMetadata = structuredClone(missingMetadata._source.metadata);
     delete missingMetadata._source.suggestMetadataCredit;
-    const editedMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS.O)!;
-    (editedMetadata._source.originalMetadata as Record<string, unknown>).title = 'Search chips image O';
+    const editedMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS['edited-title'])!;
+    (editedMetadata._source.originalMetadata as Record<string, unknown>).title = 'Search chips image edited-title';
     return fixtures;
 }
