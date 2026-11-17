@@ -33,7 +33,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
 
   private val sentryConfig = SentryConfig(
     dsn = Some("https://key@sentry.example.com/1"), environment = "TEST",
-    tracesSampleRate = 0, consoleCaptureLevels = Seq("error")
+    tracesSampleRate = 0, replayOnErrorSampleRate = 0, consoleCaptureLevels = Seq("error")
   )
   private val errorHandler = new GridSentryErrorHandler(
     Environment.simple(mode = Mode.Prod), Configuration.empty, None, None, sentryConfig
