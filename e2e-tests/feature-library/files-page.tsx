@@ -4,7 +4,7 @@
  */
 import { memo, useEffect, useMemo, useState } from 'react';
 import { CircleAlert, FileCode2, LoaderCircle } from 'lucide-react';
-import { featureFile, palette } from './coverage-page.tsx';
+import { featureFile, palette } from './scenario-list.tsx';
 import { combine, isRun } from './source-page.tsx';
 import type { CoverageManifest, SourceCoverage } from './types.ts';
 

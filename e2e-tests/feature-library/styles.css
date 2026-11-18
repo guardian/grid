@@ -60,22 +60,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .coverage-page { max-width: 1400px; margin: 0 auto; padding-bottom: 32px; }
 .coverage-page code { font-size: 13px; color: var(--ink); }
 .coverage-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-bottom: 20px; }
-#coverage-feature, #coverage-scenario { width: 460px; max-width: 100%; }
 .coverage-option { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
-.sankey-scroll { overflow-x: auto; border-top: 1px solid var(--line); padding-top: 16px; }
-.sankey { display: block; width: 100%; min-width: 900px; height: auto; font-size: 11px; }
-.sankey .band { stroke-opacity: .35; transition: stroke-opacity .15s; }
-.sankey .band.highlighted { stroke-opacity: .8; }
-.sankey .band.dimmed { stroke-opacity: .06; }
-.sankey-node { cursor: default; outline: none; }
-.sankey-source { cursor: pointer; }
-.sankey-source.selected text { fill: white; font-weight: 700; }
-.sankey-node rect { fill-opacity: .9; }
-.sankey-node rect:not([fill]) { fill: var(--muted); }
-.sankey-node text { fill: var(--ink); }
-.sankey-node:hover text, .sankey-node:focus-visible text { fill: white; font-weight: 600; }
-.sankey .sankey-feature { font-size: 12px; }
-.sankey .sankey-file { fill: var(--muted); }
 .segmented { display: inline-flex; border: 1px solid var(--control-border); border-radius: 2px; }
 .segmented button { border: 0; background: transparent; padding: 6px 12px; font-size: 13px; }
 .segmented button[aria-pressed="true"] { background: var(--accent); color: white; }

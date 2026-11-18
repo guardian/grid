@@ -1,7 +1,7 @@
 /** Canvas view of the static call graph (callgraph.json), highlighting the code a feature or scenario ran. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleAlert, LoaderCircle, Network, Palette, X } from 'lucide-react';
-import { featureFile } from './coverage-page.tsx';
+import { featureFile } from './scenario-list.tsx';
 import { ScenarioList } from './scenario-list.tsx';
 import type { Selection } from './scenario-list.tsx';
 import type { CallGraph, CoverageManifest } from './types.ts';
