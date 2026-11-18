@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.config.Services
+import play.api.libs.json.{Format, JsString, Writes, __}
 import play.api.mvc.{RequestHeader, Result}
 
 sealed trait Tier
@@ -15,6 +16,16 @@ object Tier {
     case "syndication" => Syndication
     case _ => ReadOnly // readonly by default
   }
+  def asString(tier: Tier): String = tier match {
+    case Internal => "internal"
+    case ReadOnly => "readonly"
+    case Syndication => "syndication"
+  }
+
+  implicit val format: Format[Tier] = Format(
+    __.read[String].map(Tier(_)),
+    Writes(t => JsString(asString(t)))
+  )
 }
 
 case class ApiAccessor(identity: String, tier: Tier)
