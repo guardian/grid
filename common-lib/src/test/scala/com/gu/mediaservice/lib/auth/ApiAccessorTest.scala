@@ -45,12 +45,26 @@ class ApiAccessorTest extends AnyFunSpec  {
       when(request.path).thenReturn(path)
       request
     }
-    it("should allow Internal tier access to any request")   {
+    it("should allow Administrator tier access to any request")   {
+      val apiAccessor = ApiAccessor("administrator-user", Administrator)
+      val request = mockRequest("DELETE", "api.example.com", "/images/some-image")
+      val services = mock[Services]
+      when(services.apiHost).thenReturn("api.example.com")
+      assert(ApiAccessor.hasAccess(apiAccessor, request, services))
+    }
+    it("should allow Internal tier access to any POST request")   {
       val apiAccessor = ApiAccessor("internal-user", Internal)
       val request = mockRequest("POST", "api.example.com", "/images/some-image")
       val services = mock[Services]
       when(services.apiHost).thenReturn("api.example.com")
       assert(ApiAccessor.hasAccess(apiAccessor, request, services))
+    }
+    it("should deny Internal tier access to any request if the tier is not Internal")   {
+      val apiAccessor = ApiAccessor("internal-user", Internal)
+      val request = mockRequest("DELETE", "api.example.com", "/images/some-image")
+      val services = mock[Services]
+      when(services.apiHost).thenReturn("api.example.com")
+      assert(!ApiAccessor.hasAccess(apiAccessor, request, services))
     }
     it("should allow ReadOnly tier access to GET requests") {
       val apiAccessor = ApiAccessor("readonly-user", ReadOnly)
@@ -66,7 +80,6 @@ class ApiAccessorTest extends AnyFunSpec  {
       when(services.apiHost).thenReturn("api.example.com")
       assert(!ApiAccessor.hasAccess(apiAccessor, request, services))
     }
-
     it("should allow Syndication tier access to GET requests on /images path from the correct host") {
       val apiAccessor = ApiAccessor("syndication-user", Syndication)
       val request = mockRequest("GET", "api.example.com", "/images/some-image")
