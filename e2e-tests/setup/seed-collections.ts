@@ -18,9 +18,10 @@ export async function seedCollections(report: (message: string) => void): Promis
     body: JSON.stringify({ data: E2E_COLLECTION }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Collections seed failed: HTTP ${response.status} ${await response.text()}`);
-  }
+    if (!response.ok) {
+      throw new Error(`Collections seed failed for '${collection}': HTTP ${response.status} ${await response.text()}`);
+    }
 
-  report(`Seeded collection '${E2E_COLLECTION}'`);
+    report(`Seeded collection '${collection}'`);
+  }
 }
