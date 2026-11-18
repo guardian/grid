@@ -107,7 +107,7 @@ Feature: Creating search filter chips
     And the chip query should be 'credit:"Search Chips Shared Credit"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 128-147
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 70-89
 
   Scenario: A typed photoshoot prefix retrieves a seeded completion that can be selected
     Given I am choosing a photoshoot value starting with "Search Chips Harbour"
@@ -116,7 +116,7 @@ Feature: Creating search filter chips
     And the chip query should be 'photoshoot:"Search Chips Harbour Shoot"'
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 169-175, 266-270
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 181-201
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 90-110
 
   Scenario: Disabling optional search features removes the persisted field
     Given optional search suggestion features are disabled
