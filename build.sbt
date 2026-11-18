@@ -92,7 +92,7 @@ Global / concurrentRestrictions := Seq(
 val awsSdkVersion = "1.12.797"
 val awsSdkV2Version = "2.54.13"
 val elastic4sVersion = "8.19.1"
-val awsKclVersion = "3.5.3"
+val awsKclVersion = "3.5.4"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -220,7 +220,7 @@ lazy val thrall = playProject("thrall", 9002)
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "com.gu" %% "kcl-pekko-stream" % "0.1.2",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.4-PREVIEW.ldtransitive-overrides.2026-11-18T1119.9d394b2f",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),
