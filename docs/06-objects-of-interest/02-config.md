@@ -39,6 +39,8 @@ instance that served the page, not an individual user or browser session.
 | `sentry.dsn` | unset | Enables reporting; absent or unusable values disable it. |
 | `sentry.localOptIn` | `false` | Required to allow reporting in DEV, even with a DSN. |
 | `sentry.console.levels` | `["error"]` | Browser console events to capture; `[]` disables console capture. Previously both warnings and errors were captured. |
+| `sentry.tracesSampleRate` | `0` | Fraction of browser/server transactions sampled, from 0 to 1 inclusive. Zero disables tracing; invalid/non-finite values fail startup. |
+| `sentry.replay.onErrorSampleRate` | `0` | Fraction of browser sessions sent as replay after an error, from 0 to 1 inclusive. Zero omits the replay integration. |
 
 Events include the Grid stage as their environment and the build commit as their release.
 Kahuna derives its CSP connection allowance from the configured DSN. Configure the DSN in your
@@ -50,6 +52,30 @@ The same build identifier must be used by SBT so runtime events match the upload
 deleted after upload before packaging. Without a token (including fork builds), upload is skipped;
 hidden maps are still generated locally. A token with incomplete upload configuration fails the build
 and lists the missing setting names without logging their values.
+
+All services extending `GridComponents` also report uncaught Play server exceptions with the same
+configuration. Events carry service (`app`), stage, release and request ID tags. Request metadata is
+limited to method, route/URL and User-Agent; cookies, request bodies and other headers are not attached.
+Client errors remain with Play, and a reporting failure must not change the HTTP response.
+
+Browser identity is resolved on the server. For authenticated users, the browser sends their email
+address with Sentry events so they can be correlated with the affected user's account. Machine and
+inner-service callers are identified by their service ID, not their credentials. Server error events
+include the authenticated email or service ID when authentication completed before the error.
+Events from before authentication have no authenticated identity.
+
+Tracing is opt-in. The browser propagates traces only to configured internal service URIs. Services
+continue incoming `sentry-trace`/`baggage` headers and use method/route patterns as transaction names,
+excluding management endpoints, assets and unrouted requests. Request attributes carry transactions
+across asynchronous processing rather than thread-local scopes. A shared request-local holder is
+created before filters run, so Play's outer error handler can link exceptions to the transaction
+even though filters pass modified request copies downstream. Transactions finish on successful
+responses, failed futures and synchronous downstream exceptions; Play still handles error responses.
+If a deployment restricts CORS request headers, allow `sentry-trace` and `baggage`.
+
+Replay is separately opt-in and error-triggered only: continuous session sampling is always zero.
+Text masking and media blocking are mandatory because Grid displays unpublished imagery and personal
+data.
 
 ### Common configuration
 

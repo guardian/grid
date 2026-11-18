@@ -5,40 +5,118 @@ import org.scalatest.matchers.should.Matchers
 import play.api.Configuration
 
 class SentryConfigTest extends AnyFunSuiteLike with Matchers {
-  private val dsn = "https://key@sentry.example.com/1"
 
-  private def deployed(entries: (String, Any)*): SentryConfig =
-    SentryConfig(Configuration(entries: _*), stage = "PROD")
+  // Placeholder only - never put a real DSN in the repository.
+  private val dsn = "https://examplepublickey@o0.ingest.us.sentry.io/1"
 
-  test("is disabled for absent, empty and unusable DSNs") {
-    deployed().enabled shouldBe false
+  private def config(entries: (String, Any)*): Configuration = Configuration(entries: _*)
+
+  private def deployed(entries: (String, Any)*) =
+    SentryConfig(config(entries: _*), stage = "PROD")
+
+  private def dev(entries: (String, Any)*) =
+    SentryConfig(config(entries: _*), stage = "DEV")
+
+  test("is disabled when no DSN is configured") {
+    val c = deployed()
+    c.enabled shouldBe false
+    c.dsn shouldBe None
+  }
+
+  test("is disabled when the DSN is present but empty") {
     deployed("sentry.dsn" -> "   ").enabled shouldBe false
-    deployed("sentry.dsn" -> "not a uri").enabled shouldBe false
   }
 
-  test("is enabled in deployed environments and uses the Grid stage") {
-    val config = deployed("sentry.dsn" -> dsn)
-    config.enabled shouldBe true
-    config.environment shouldBe "PROD"
-    SentryConfig(Configuration("sentry.dsn" -> dsn), "TEST").enabled shouldBe true
+  test("is enabled when a DSN is configured in a deployed environment") {
+    deployed("sentry.dsn" -> dsn).enabled shouldBe true
+    SentryConfig(config("sentry.dsn" -> dsn), stage = "TEST").enabled shouldBe true
   }
 
-  test("requires explicit local opt-in even when a DSN is configured") {
-    SentryConfig(Configuration("sentry.dsn" -> dsn), "DEV").enabled shouldBe false
-    SentryConfig(Configuration("sentry.dsn" -> dsn, "sentry.localOptIn" -> true), "DEV").enabled shouldBe true
+  test("is disabled in DEV even with a DSN, unless the developer opts in") {
+    dev("sentry.dsn" -> dsn).enabled shouldBe false
+    dev("sentry.dsn" -> dsn, "sentry.localOptIn" -> true).enabled shouldBe true
   }
 
-  test("derives only the ingest origin, including non-default ports") {
-    deployed("sentry.dsn" -> dsn).ingestOrigin shouldBe Some("https://sentry.example.com")
-    SentryConfig.originOf("https://key@sentry.example.com:9000/1") shouldBe Some("https://sentry.example.com:9000")
-    SentryConfig.originOf("//sentry.example.com/1") shouldBe None
-    SentryConfig.originOf("https:/1") shouldBe None
+  test("disables reporting rather than failing startup when the DSN is unusable") {
+    val c = deployed("sentry.dsn" -> "not a uri at all")
+    c.enabled shouldBe false
+  }
+
+  test("takes the Sentry environment from the Grid stage") {
+    deployed("sentry.dsn" -> dsn).environment shouldBe "PROD"
+    dev("sentry.dsn" -> dsn, "sentry.localOptIn" -> true).environment shouldBe "DEV"
+  }
+
+  test("defaults tracing to off") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.tracesSampleRate shouldBe 0d
+    c.tracingEnabled shouldBe false
+  }
+
+  test("reports tracing as enabled only when a DSN and a non-zero sample rate are both present") {
+    deployed("sentry.tracesSampleRate" -> 0.5).tracingEnabled shouldBe false
+    deployed("sentry.dsn" -> dsn, "sentry.tracesSampleRate" -> 0.5).tracingEnabled shouldBe true
+  }
+
+  test("rejects sample rates outside 0 to 1") {
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> 1.5)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> -0.1)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> Double.NaN)
+    a[RuntimeException] should be thrownBy deployed("sentry.tracesSampleRate" -> Double.PositiveInfinity)
+  }
+
+  test("accepts the boundary sample rates") {
+    deployed("sentry.tracesSampleRate" -> 0).tracesSampleRate shouldBe 0d
+    deployed("sentry.tracesSampleRate" -> 1).tracesSampleRate shouldBe 1d
+  }
+
+  test("defaults replay to off and accepts only finite sample rates from 0 to 1") {
+    deployed().replayOnErrorSampleRate shouldBe 0d
+    deployed("sentry.replay.onErrorSampleRate" -> 0).replayOnErrorSampleRate shouldBe 0d
+    deployed("sentry.replay.onErrorSampleRate" -> 1).replayOnErrorSampleRate shouldBe 1d
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> -0.1)
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> 2)
+    a[RuntimeException] should be thrownBy deployed("sentry.replay.onErrorSampleRate" -> Double.NaN)
+  }
+
+  test("captures only console errors by default") {
+    deployed().consoleCaptureLevels shouldBe Seq("error")
+  }
+
+  test("allows console capture levels to be overridden, including to nothing") {
+    deployed("sentry.console.levels" -> Seq("warn", "error")).consoleCaptureLevels shouldBe Seq("warn", "error")
+    deployed("sentry.console.levels" -> Seq.empty[String]).consoleCaptureLevels shouldBe empty
+  }
+
+  test("derives the ingest origin from the DSN so the CSP can allow exactly that host") {
+    deployed("sentry.dsn" -> dsn).ingestOrigin shouldBe Some("https://o0.ingest.us.sentry.io")
+  }
+
+  test("includes a non-default port in the derived ingest origin") {
+    SentryConfig.originOf("https://key@sentry.internal:9000/1") shouldBe Some("https://sentry.internal:9000")
+  }
+
+  test("derives no ingest origin when there is no DSN") {
     deployed().ingestOrigin shouldBe None
   }
 
-  test("captures console errors by default and supports overriding or disabling capture") {
-    deployed().consoleCaptureLevels shouldBe Seq("error")
-    deployed("sentry.console.levels" -> Seq(" WARN ", "error")).consoleCaptureLevels shouldBe Seq("warn", "error")
-    deployed("sentry.console.levels" -> Seq.empty[String]).consoleCaptureLevels shouldBe empty
+  test("derives no ingest origin when the scheme or host is missing") {
+    SentryConfig.originOf("//sentry.example.com/1") shouldBe None
+    SentryConfig.originOf("https:/1") shouldBe None
+  }
+
+  test("sends no user identity at all when reporting is disabled") {
+    deployed().userIdentity("someone@example.com", isEmail = true) shouldBe None
+  }
+
+  test("sends a machine caller's accessor name as the Sentry ID") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.userIdentity("media-api", isEmail = false) shouldBe Some(SentryUserIdentity(id = Some("media-api")))
+  }
+
+  test("sends a signed-in user's email when reporting is enabled") {
+    val c = deployed("sentry.dsn" -> dsn)
+    c.userIdentity("someone@example.com", isEmail = true) shouldBe
+      Some(SentryUserIdentity(email = Some("someone@example.com")))
   }
 }
