@@ -1,14 +1,14 @@
 package com.gu.mediaservice.scripts.key
 
 import com.gu.mediaservice.lib.auth.ApiKeyConfig
-import com.gu.mediaservice.scripts.key.CreateKeyV2.{s3Bucket, s3Client}
 import play.api.libs.json.Json
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.{PutObjectRequest, Tag, Tagging}
+import software.amazon.awssdk.services.s3.model.{GetObjectRequest, PutObjectRequest, Tag, Tagging}
 
+import java.nio.charset.StandardCharsets
 import java.time.{Duration, Instant}
 
 class S3(bucket: String) {
@@ -45,4 +45,8 @@ class S3(bucket: String) {
     println(s"Uploaded API key $s3key to S3")
   }
 
+  def getKey(key: String)= {
+    val bytes = s3.getObject(GetObjectRequest.builder().key(key).bucket(bucket).build()).readAllBytes();;
+    new String(bytes, StandardCharsets.UTF_8)
+  }
 }
