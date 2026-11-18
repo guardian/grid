@@ -1,8 +1,11 @@
 /** Feature → scenario list shared by the coverage pages; hovering previews a selection, clicking commits it. */
 import { useMemo, useRef } from 'react';
 import { LocateFixed, X } from 'lucide-react';
-import { featureFile } from './coverage-page.tsx';
 import type { CoverageManifest } from './types.ts';
+
+export const palette = ['#00adee', '#ffbc01', '#99cf91', '#ff9980', '#c39bd3', '#5dd6c0', '#f5a3c7', '#d4c26a', '#8fb3ff', '#e0915a'];
+/** Reverses the report directory naming in setup/mcr.config.ts (`search__free-text` → `search/free-text.feature`). */
+export const featureFile = (slug: string) => `${slug.replace(/__/g, '/')}.feature`;
 
 export interface Selection { feature: number | 'all'; scenario: number | 'all' }
 

@@ -4,7 +4,7 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, CircleAlert, FileCode2, LoaderCircle } from 'lucide-react';
-import { featureFile, palette } from './coverage-page.tsx';
+import { featureFile, palette } from './scenario-list.tsx';
 import { ScenarioList } from './scenario-list.tsx';
 import type { Selection } from './scenario-list.tsx';
 import type { CoverageManifest, LibraryManifest, SourceCoverage, Step } from './types.ts';
