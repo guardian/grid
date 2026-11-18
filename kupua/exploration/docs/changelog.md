@@ -24,6 +24,31 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 17 November 2026 - Bound the Justified forward-eviction selection control
+
+Reuse the existing forward-eviction research case for a selection-only
+counterfactual, superseding the key-only diagnostic. Keep admission, keys and
+compensation unchanged; check matched final placement and count short-lived cell
+construction alongside browser-work diagnostics. Preserve adverse outcomes in the
+owning evidence record without selecting a product transition policy.
+
+### 17 November 2026 - Add motion-bounded Table layout attribution
+
+Reuse the isolated research window and scroll driver for forward/reverse layout
+and paint attribution. Filter structured CDP event batches in memory, check exact
+progress and preserved state, and map enclosing callbacks against served source.
+Keep triggering geometry reads distinct from invalidating writes and measured
+work distinct from an optimisation; application behaviour remains unchanged.
+
+### 17 November 2026 - Add an isolated Table-scroll pagination-reset control
+
+Reuse the existing research scroll/media setup and row counter to compare default
+pagination resets with a fixture-only disabled option. Record reset/state-update
+counts, parent rendering and browser work while checking unchanged rows, focus,
+position and data. Keep the application policy unchanged: removing bookkeeping
+alone has not established a scrolling performance benefit. The research control
+reference owns the observations and interpretation limits.
+
 ### 17 November 2026 - Align the GET/D3 response mock with main
 
 Supply the signed-optimised-URLs argument explicitly in the branch-only GET/D3

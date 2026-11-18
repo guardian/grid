@@ -1,184 +1,150 @@
-# Performance Research
+# Performance Research Laboratory
 
-Exploratory controls, counterfactual policies and diagnostics, separate from habitual
-campaigns and maintained [measurement validation](../validation/README.md).
-Research is not selected by `test:perf`, `--full`, `test:perf-app` or ordinary E2E.
+Use bounded exploration and controlled experiments to find worthwhile performance
+improvements. The first target is sustained scrolling in Grid, Justified and Table:
+stable pictures and position, useful progress, ready images and consistent frames.
+This is a working procedure, not an autonomous optimisation service or a new harness.
 
-The deployment [workplan](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan.md),
-[audit matrix](../../exploration/docs/zz%20Archive/deployment-probe-audit-matrix.md) and
-[measurement evidence](../../exploration/docs/zz%20Archive/deployment-probe-audit-workplan-evidence.md) are archived
-historical references, not an active work queue. Use the [operator guide](../README.md)
-and [measurement contracts](../measurement-reference.md) for current operation.
+## Start Here
 
-The [canonical delivery/signing assessment](../../exploration/docs/01%20Research/imgproxy-research.md#24-october-2026-canonical-delivery-and-pr-5075)
-retains bounded browser evidence, comparison limits and explicit recommendations
-for imgproxy PR #5075, with the later bounded configured-delivery comparison.
-The [24 October fast/slow data](traversal-delivery-2026-10-24.json) contains the
-completed `imgops`, `imgproxy-docker 3.31.1` and appended `imgproxy 4.0.19` arms:
-three fast repetitions and one completion-paced pass each. The original two arms
-are unchanged; `threeArmComparison` holds the expanded summary. HTTP-cache bypass, uncontrolled decoded/
-upstream caches, different codecs/quality and per-image sample counts are explicit.
+1. Follow [project orientation](../../AGENTS.md) and read the
+	[session worklog](../../exploration/docs/worklog-current.md). Confirm the operator's
+	task and permissions; a previous experiment does not authorise another live run.
+2. Read [Experiments and Follow-Up](experiments.md). It records current leads,
+	rejected approaches, evidence locations and the next unanswered questions.
+	Recheck the relevant implementation and build before treating an old finding as current.
+3. Choose one question, then find the nearest recipe in [controls](controls.md).
+	Inspect existing evidence before proposing a new measurement. Do not rerun the
+	historical matrix merely to get oriented.
 
-## Physical Android Chrome Measurements
+| Location | Owns |
+| --- | --- |
+| This README | General procedure, execution boundaries and where to put work |
+| [Experiments and Follow-Up](experiments.md) | Experiment questions, findings, disposition and resumption pointers |
+| [Control reference](controls.md) | Named executable recipes, fixture mechanics and method-specific limits |
+| [Existing scrolling evidence](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json) | Detailed scrolling observations, comparison rows and exclusions; extend the relevant record rather than copying it |
+| [Scroll continuity guide](../../exploration/docs/scroll-horizons-thumbs-and-blocking.md) | Selected product policies and accepted trade-offs, not session progress |
+| [Campaign guide](../README.md) and [measurement contracts](../measurement-reference.md) | Operator-run checkpoints, canonical histories and metric definitions |
+| [Measurement validation](../validation/README.md) | Maintained detector checks, separate from research and product E2E |
 
-The [measurement kit](mobile-perf-measurement/README.md) provides an explicit native
-recorder, offline cost/motion analyzer and a step-by-step usage guide. The
-[Scrubber case study](mobile-perf-measurement/case-study.md) preserves the reasoning
-and reviewed aggregates, not recordings or a future benchmark baseline.
-These standalone commands are not selected by any campaign or `test:perf-research`.
-No binary, captured data, device-specific driver or new dependency is bundled.
+## Working Procedure
 
-## Local Comparisons
+**Explore, experiment, challenge.** These are responsibilities, not a requirement
+to spawn three agents. One agent can perform separate passes; delegation requires
+explicit authority. A challenger should test the conclusion independently, not
+assume that a passing experiment or its author's interpretation proves a benefit.
+One coordinator owns the experiment record and any shared browser.
 
-`npm --prefix kupua run test:perf-research` runs the app-backed research controls
-with mock metadata and synthetic/local media. It owns port3041, blocks services,
-and writes no canonical campaign history. Select a question and focused test filter;
-do not run the entire historical comparison matrix merely for orientation.
+1. **Explore with a budget.** Agree a time/request budget and use the app: gentle
+	and fast browsing, forward/backward travel, reversal, stopping, fresh entry after
+	a seek, and buffer publication/eviction. Layout switching is setup or a guardrail,
+	not the main scrolling workload. Leave room for unexpected symptoms instead of
+	assigning every component an optimisation quota.
+2. **Choose a falsifiable question.** Record what the user does and sees, the
+	suspected cause, what would refute it and why existing evidence cannot answer it.
+	Keep at most three actionable leads in a pilot and investigate one at a time.
+	A measured residual cost is a lead, not automatically a worthwhile defect.
+3. **Reproduce and attribute.** Reuse existing drivers and observers. Start with
+	minimal observation, then capture the troublesome motion or publication interval.
+	Check both triggering reads and preceding invalidating writes. Bound action time
+	inside the browser; controller round trips and setup are not user latency.
+4. **Compare narrowly.** Establish baseline repeatability before testing one or
+	two small candidates. Match starting data, available records, placement, geometry,
+	media and achieved work where possible; disclose mismatches and setup costs.
+	Counterbalance order, for example A/B/B/A. Verify that the treatment actually
+	ran. A few repetitions are screening evidence, not population-tail estimates.
+5. **Challenge the result.** Check useful outcomes and costs together. Repeat a
+	promising result with heavy probes removed and on the relevant production build;
+	local DEV mechanisms alone do not establish hosted benefit. Where input or
+	presentation matters, use appropriate native-input/presentation evidence, including
+	an operator trackpad check when needed. Scripted scrolling and injected wheel input
+	do not certify physical trackpad behaviour.
+6. **Decide and close.** Record promising, rejected, inconclusive or invalid capture
+	explicitly. A valid negative result can finish the investigation. Stop a rejected
+	recipe unless new evidence changes its premise; do not turn it into a framework
+	or keep tuning until a favourable number appears. If measurement repair becomes
+	the main task, stop and agree the scope rather than silently expanding it.
 
-The spec retains B2 predictor/runway comparisons, boundary/compositor experiments,
-native delayed-media cleanup comparisons and held-publication investigations.
-These are evidence and reusable techniques, not selected production policies.
-Detailed retained methods live in the [local control reference](controls.md).
+The [Scrubber case study](mobile-perf-measurement/case-study.md) illustrates this
+loop, including an ineffective change rejected after behaviour tests passed.
 
-The focused `--grep 'Table retained-row reference churn|Grid date work stays'`
-controls reuse the shared journey/thumbnail probes, media readiness and driver
-with mock data and synthetic media. Table guards entering-row-scaled rendering
-and field access with ordinary memoization; its diagnostic semantic comparator
-must offer no additional reference-churn reuse after the production repair.
-Grid guards cell-local date work and its absence in image-only Justified cells.
-The same control directly counts GridCell renders and retained-prop comparisons;
-unchanged retained inputs must skip, with rendering scaled to entering images.
-These are not live/hosted frame-speed claims. They own their browser/contexts;
-the operator-shared app and server are not used or reconfigured.
+## What Counts as Improvement
 
-### Backward Metadata Acceptance
+| Outcome | Check independently |
+| --- | --- |
+| Stability | Intended image identities, position and truthful aspect ratios; distinguish arrival animation and applied input from unsolicited movement |
+| Progress | Achieved travel and data supply, temporary blocking and missing-data exposure; not commanded pixels alone |
+| Image readiness | Current-image exposure during motion and after stopping, including late publications; retain censored or changed-cohort outcomes |
+| Smoothness | Frame intervals, hitches and event-local work; whole-journey percentiles can hide rare publication stalls |
 
-`--grep 'B2 acceptance '` selects Table short-stop, negative-control, pressure and
-capacity/reversal comparisons in both orders, plus settled far-seek comparisons for
-Grid, Justified and Table. These reuse the isolated app and existing journey/media
-probes; no live services or canonical campaign histories are accessed.
+Record CPU, memory, metadata reads, image demand and reversal/revisit costs alongside
+these outcomes. No combined score, lower render count or smaller backlog can trade
+away a required browsing behaviour. Preserve the existing placement owner, focus,
+selection, navigation, correct image presentation and bounded resources.
 
-It also selects `B2 acceptance product short-stop` for all three layouts. These
-cases keep product admission unmodified, delay metadata through the stop, and check
-bounded reads, logical-anchor placement through publication and eventual readiness.
-They do not require element retention or completion by first decode. The comparison
-adapters explicitly restore historical threshold 50 for their `current` arms and
-retain the all-layout candidate separately; `current` in those historical controls
-does not mean today's shipped Grid/Table policy. Publication identity/retention
-controls likewise retain their original threshold-50 admission.
+Keep loaded, decoded and painted distinct. Animation-frame samples are not physical
+display frames; DOM replacement is not proof of blank paint. Verify observer
+sensitivity and overhead when they matter. Record source/build identity, data mode,
+API topology, media delivery, browser, viewport/DPR, result regime, input method and
+cache conditions. HTTP-cache bypass does not clear decoded or upstream caches.
 
-The stopped Table witness retains raw movement but separates animated CSS translate
-from layout position, with an independent 8px displacement calibration and unchanged
-1px layout limit. It preserves first-ready censor/pending metrics while checking
-bounded stopped work, stable placement and no continuing idle chain. One extra page
-need not finish by first decode. The existing
-[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json)
-under `b2QualificationClosure20261025` also retains separately authorised canonical
-comparisons and the late-publication readiness witness; synthetic success is not a
-canonical/paint certificate or selected product policy.
+## Record and Resume
 
-### Current Publication Identity
+Use the short [experiment record format](experiments.md#record-format). Keep one
+entry per question, with dated findings and an explicit next discriminator or closure.
+Update its status rather than adding a new handoff document after each session.
+Detailed numbers remain in their existing evidence file; link its exact record key.
+For a new subject with no suitable evidence home, add one only when actual output
+needs it, not an empty directory or per-run scaffold.
 
-`--grep 'Publication identity current '` selects the held-backward-publication tests
-for Table, fixed Grid and Justified. They use original admission, keys and scroll
-writes, with isolated mock data and synthetic decoded media. Fixture-only render
-tokens and a read-only witness in the existing compensation layout effect correlate
-actual committed DOM with chosen virtual rows. Original image references and mutation
-records distinguish absent photographs, element replacement and source changes.
-After-measurement controls distinguish removal, same-node reinsertion and cloning.
-These are not paint, latency or all-regime retention guarantees. Accepted observations
-and proposed next questions are `publicationIdentityCurrent20261025` in the existing
-[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json).
+The worklog holds temporary progress and active ownership. Before resetting it,
+retain useful findings, invalid/excluded evidence and resumption instructions in
+the owning experiment record. Do not transfer terminal transcripts, browser IDs,
+temporary permission grants or the entire session log. Planning and documentation
+organisation do not belong in the product changelog.
 
-`--grep 'Publication retention Table C'` selects the fixture-only exact-cohort
-`rangeExtractor` counterfactual, preserving product keys, compensation and admission.
-It checks original-element survival through every captured commit, bounded extra
-rows, latched release and subsequent scroll without stale retention or extra reads.
-Separate post-measurement controls expose constant-count extractor memoization and
-Table's sparse-window cache collision; they do not silently repair either boundary.
-Results and limitations are `publicationRetentionTableC20261025` in the same record.
-This is supporting B2 fast-scroll research, not a product fix or timing/paint claim.
+## Run Locally
 
-`--grep 'Publication retention (grid|justified) C'` selects both C (unchanged keys)
-and CK (stable fixture keys) for Grid and Justified. Mapped-row selection is isolated
-from parent/cell identity, with original and first-publication-created image refs,
-between-commit removal tracking, stable-parent/unique-key guards and latched release.
-CK Grid preserves physical-column cells and keys global physical rows; CK Justified
-uses unclamped packed-row-start ordinals and image-ID cells from setup onward.
-Use `--grep 'Publication identity current |Publication retention '` for all eight
-related cases. `publicationRetentionGridJustified20261025` owns results and limits.
-These loaded-media mechanism controls do not measure native-readiness or fast-scroll
-benefit, and one density's outcome does not decide another density's eligibility.
+Research uses [the existing spec](density-app-research.spec.ts), mock metadata and
+synthetic/local media. It owns port 3041, starts an isolated frontend, blocks services
+and writes no canonical campaign history. Select a named control from
+[controls](controls.md); do not use the placeholder below literally:
 
-### Local HTTP Retention Value
+```sh
+set -o pipefail
+npm --prefix kupua run test:perf-research -- --grep '<named control>' 2>&1 | tee "$TMPDIR/kupua-test-output.txt"
+```
 
-`--grep 'Retention value '` selects the 16-case current/B2/CK value matrix, including
-pressure-only CK-inner comparisons. Narrow to a named layout/workload/order when
-answering one question. These are isolated research tests, not operator campaigns;
-the final matrix took about seven minutes. All media comes from the existing
-ephemeral loopback held-image server, with immediate setup and delayed new media.
-Metadata, starting window/placement and both policy orders are explicit.
+Run from the repository root. The separate `typecheck:perf`, `test:perf-harness`,
+`test:perf-fixtures` and `test:perf-app` scripts validate the measurement machinery;
+use the same foreground pipefail/tee wrapper and the
+[validation guide](../validation/README.md) to select the relevant surface.
+An unfiltered research run includes historical comparisons and is not a routine gate.
 
-Observers continue beyond first-ready through late publication and keep loaded
-pending separate from node-bound decode acknowledgement. Weak image/cell identity
-witnesses avoid strong-reference resource retention; DOM-presence guards distinguish
-collected references from actual surviving elements. Pressure cases first require
-observed current-policy blocking and its B2 reduction. Capture validity and candidate
-preservation failures are separate: failures remain reported, not silently fixed.
-CK-inner checks only loss under unchanged cell/parent, not universal row preservation.
+Research is **not executed** by `test:perf`, `--full`, `test:perf-app` or ordinary
+E2E. It **is compiled** by `typecheck:perf`, including campaign compiler preflight.
+Changing a shared research helper requires checking its affected existing controls.
 
-The existing evidence record's `retentionValueLocalHttp20261025` owns all 52 final
-observations, prior exclusions/refutations, fixed observation windows, frame/request
-contracts and per-layout interpretation. Earlier strong-reference development runs
-are not pooled. Passing captures do not select retention for production or establish
-canonical-photo, cache-neutral, population-tail or painted-frame benefit.
+## Safety and Graduation
 
-### Table Request Lifetime
-
-The focused `--grep 'F2 Table'` controls qualify Table's detached-incomplete request
-lifetime using production cleanup versus a fixture-only cleanup-disabled counterfactual.
-They reuse the held-image,
-scroll/readiness and journey/thumbnail/request probes, with bounded ephemeral ownership
-association. The first desired-release assertion failed against production Table;
-retained baseline arms now assert that historical behavior explicitly. Two-order forward
-pressure arms and one bounded short-reversal pair retain readiness, repeated-request and
-cancellation costs. Results live under `f2TableOwnership20261025` in the existing
-[evidence record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json)
-and [Table qualification](../../exploration/docs/scroll-horizons-thumbs-and-blocking.md#table-ownership-qualification-25-october-2026).
-These synthetic controls do not certify live/canonical performance; the selected product
-policy remains detached-incomplete release, not a new admission scheduler.
-
-### P13b Return Attribution
-
-`--grep 'P13b resident return attribution production-regression'` runs the focused
-retained-cell/placement regression. The broader named cases retain probe on/off,
-CPU and warmed-return diagnostics, four production remeasurements and a tracing-disabled
-pair; choose the unanswered question rather than replaying the entire matrix.
-Controls reuse the existing perf spec's function bodies through AST extraction, never
-importing/executing its live tests. Mock resident data, decoded synthetic media and the
-real Backspace/history/return path stay fixed; only sanitized trace/CPU aggregates leave
-memory. Historical callback identity is a narrowly intercepted counterfactual, not an
-old checkout. Exact focus/placement checks remain strict. Results and exclusions are
-`p13bReturnAttribution20261025` in the existing research JSON and owning scroll guide.
-
-## Legacy Experiments
-
-`npm --prefix kupua run test:experiment` retains the separately supervised tuning
-spec. It can access real infrastructure: session-specific permission, explicit
-bounds and operator coordination are required. Existing comments do not authorize
-source changes, server restarts, campaigns, dry runs or live reads. The existing
-[experiment results guide](../results/experiments/README.md) owns its older records.
-
-Ignored embedded-browser runners under Kupua's `.vite` directory are temporary,
-not supported campaign entry points. Keep identities, URLs and credentials out of
-saved evidence; retain sanitized aggregates in the owning research record only.
-
-## Graduation Rule
-
-Each useful investigation ends with an explicit destination: a maintained campaign
-signal, a deterministic detector/control in validation, or a documented one-off.
-Important scrolling questions must not remain answerable only by forgotten probes.
-Habitual campaigns use shared drivers/probes in the parent directory and must never
-import research. A finished research control can remain dormant without pretending
-it is an everyday supported workload. Do not delete historical evidence or silently
-mix measurement revisions, transport profiles or cache conditions.
+- Serialise measured browser workloads on a machine. Do not drive the app, edit
+  its source or run competing work during an operator campaign. Parallel reasoning
+  does not require parallel measurement.
+- Live TEST/CODE/PROD access needs fresh session-specific authority and explicit
+  bounds. Preserve read-only safeguards. No live mutation, server restart, deployment,
+  dependency change or product implementation follows from an experiment record.
+  Campaigns and dry runs remain operator-run under the standing project rules.
+- Read the [browser playbook](../../exploration/docs/embedded-browser-playbook.md)
+  before browser work. Raw captures can contain screenshots, identities, signed URLs
+  and credentials. Keep authorised raw captures private outside the checkout, retain
+  only allowlisted/redacted findings and delete captures after analysis.
+- Release held input and requests, detach collectors, remove timers/routes/wrappers
+  and verify cleanup. Preserve original property descriptors before wrapping; failed
+  restoration invalidates that baseline and requires a clean reload before proceeding.
+- Product selection requires a worthwhile measured benefit, explicit trade-offs,
+  regression coverage and the full applicable project gates. Agents suggest the
+  relevant operator campaign; a research pass is not performance acceptance.
+- Graduate a useful result to a maintained campaign signal, a detector in validation,
+  a product regression, or a documented one-off. Dormant controls can remain in
+  research without becoming habitual workloads. Campaigns must never import research;
+  preserve historical evidence and distinguish measurement revisions.

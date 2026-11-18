@@ -1,4 +1,67 @@
 {
+  "scrollReconPortfolio20261117": {
+    "kind": "bounded-exploratory-portfolio-not-a-campaign-or-product-acceptance",
+    "scope": "Hosted TEST reconnaissance at1200x999/DPR2 with normal media delivery and programmatic scrolling; isolated counterfactual uses local3041/mock metadata/synthetic media/DEV. No product source, dependencies, live data or canonical histories changed.",
+    "justified": {
+      "classification": "mapped-selection recipe rejected; intermediate-cohort opportunity remains unresolved",
+      "question": "Can mapping the last committed cohort into new row geometry until existing compensation changes scrollTop avoid constructing an intermediate cohort?",
+      "priorKeyOnly": { "cohortPresent": 76, "originalCellsRetainedCurrent": 0, "originalCellsRetainedFixtureKeys": 0, "interpretation": "Existing fixture key recipe alone did not preserve cells through this forward eviction; not a speed comparison or proof that keys are the only cause." },
+      "method": "Reuse existing publication routes and capacity setup. Both arms use the supported rangeExtractor interception, current admission and unchanged keys/overscan/scroll owner. Candidate substitutes mapped rows only until physical offset changes, then releases. Default/candidate/candidate/default, fresh contexts,1000records,one200-record eviction,1000px motion. Final visible IDs/geometry match exactly in every arm; focus/count/progress/clamp/release guards pass.",
+      "columns": ["mappedSelection", "addedCells", "removedCells", "shortLivedCells", "scriptMs", "layoutMs", "styleMs", "taskMs"],
+      "observations": [
+        [false, 153, 151, 57, 76.911, 2.245, 7.861, 181.213],
+        [true, 253, 251, 157, 88.937, 2.758, 10.025, 163.657],
+        [true, 253, 251, 157, 84.990, 2.537, 10.050, 164.564],
+        [false, 153, 151, 57, 77.156, 2.308, 7.856, 170.296]
+      ],
+      "decision": "Do not implement this selection recipe. It adds100 short-lived cells and increases script/style/layout work in both orders, failing its primary mechanism objective. Lower whole-window TaskDuration does not establish a speed win or override the additional work. Do not keep iterating this into a retention framework in this batch.",
+      "limits": "DEV/synthetic, uniform ratios, two observations per policy. Browser metrics span the controller window including endpoint inspection, not a marked production publication task. Mutation-delivery lifetimes are diagnostics, not exact native connection times or painted-frame proof. One controlled eviction, not a qualified lifecycle across navigation/resize/overlap."
+    },
+    "grid": {
+      "classification": "promising admission mechanism; useful-image benefit unqualified",
+      "question": "During fresh backward entry, are upper-row image requests already in flight, and can one eager upper row create earlier admission?",
+      "method": "Grid End landing through normal keyboard navigation, four columns/303px pitch, backward100results/s at7575px/s. Natural2.5s backward/1s reversal/1.2s stop, then2.2s resource-clock follow-up and one2.2s browser-only eager-upper-row pass. Metadata policy/overscan unchanged. Native loading hint intervention applied to the immediate row above via a20ms geometry sampler; not a source implementation.",
+      "baseline": {
+        "initialUpperRow": { "images": 4, "pending": 4, "lazy": 4 },
+        "backwardPendingSlotFraction": 0.8713910761154856,
+        "reversalPendingSlotFraction": 0.9375,
+        "clippedInputFrames": 0,
+        "matchedPendingResourceCompletions": 170,
+        "requestLeadMedianMs": 4.6,
+        "requestLeadP95Ms": 23.7,
+        "startedAtLeast50msBeforeObservedEntry": 0,
+        "completedResourceMedianMs": 363.3,
+        "completedResourceP95Ms": 682.5,
+        "nodeReplacementsInMatchedRecords": 0,
+        "finalVisibleReady": "16/16"
+      },
+      "oneUpperEagerRow": {
+        "promotionOperations": 223,
+        "matchedPendingResourceCompletions": 220,
+        "requestLeadMedianMs": 41.6,
+        "requestLeadP95Ms": 52.8,
+        "startedAtLeast50msBeforeObservedEntry": 16,
+        "completedResourceMedianMs": 400.9,
+        "completedResourceP95Ms": 652.6,
+        "pendingSlotFraction": 0.949468085106383,
+        "nodeReplacementsInMatchedRecords": 16,
+        "clippedInputFrames": 0,
+        "finalVisibleReady": "16/16"
+      },
+      "decision": "Hint promotion creates roughly one row of lead, but one row lasts only40ms at this demand, far shorter than observed resource durations. Useful-image improvement is not established. Retain as a candidate for a matched delivery-controlled comparison, not an eager-band rollout or reason to enlarge overscan/buffers.",
+      "limits": "Different photos/windows and sample durations, uncontrolled HTTP/decoded/CDN caches and natural delivery; not a paired speedup or regression. Sampling20ms makes entry clocks approximate. Completed Resource Timing includes queue/transport/server work, excludes pending/cancelled outcomes and is not backend CPU. First-observed source matching is not generation-exact across replacement;16candidate records replaced nodes. Pending fractions describe image slots, not placeholder area or compositor pixels. Loading hints restored and tab reloaded before next case."
+    },
+    "table": {
+      "classification": "unresolved; no containment optimisation selected",
+      "question": "Can row-level contain:layout reduce steady-window work while retaining the same rows, cells, text and geometry?",
+      "method": "Normal/contained/contained/normal over2560px at3200px/s. Treatment applied and removed through scoped temporary CSS. All arms retained60rows/1380cells, exact input distance and unchanged scroll extent.",
+      "frameP95MsInOrder": [11.0, 10.7, 10.7, 11.2],
+      "comparativeValidity": "Rejected: combined content/geometry signatures differed after the first arm, including final normal. Similar frame percentiles are not a qualified comparison.",
+      "stationaryDisambiguation": "At one unchanged endpoint, normal/contained/normal preserved IDs, row geometry and text. This does not identify the moving-signature mismatch or qualify scrolling/navigation compatibility.",
+      "decision": "Park this probe without claiming improvement or regression. Do not remove columns or reduce functionality to improve timings. Temporary CSS/attributes/timers removed."
+    },
+    "validation": "Performance typecheck passed. Revised existing mapped-selection case passed in27.2s total (case23.5s); eight existing shared-helper publication/retention controls passed29.3s. No new suite/file. Prior key-only case superseded, historical outcome retained above. No full unit/ordinary E2E run because production source unchanged."
+  },
   "b2ForwardSharedBrowser20261025": {
     "kind": "bounded-live-forward-recovery-diagnostic-not-a-campaign-or-policy-comparison",
     "decision": "The matched-viewport shared tab produced roughly 0.4-0.6s visible-media recovery, but with much poorer frame cadence and slower stable-data/placement readiness than the campaign. Similar recovery totals do not establish the same cause. No B2-on/off causal conclusion, rollback, retention change or upper-row gate follows.",

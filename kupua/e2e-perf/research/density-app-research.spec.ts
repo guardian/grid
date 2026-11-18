@@ -215,7 +215,16 @@ async function installPublicationRoutes(context: BrowserContext, retainRows: boo
         const response = await route.fetch();
         let source = await response.text();
         const hook = "useScrollEffects({";
-        const items = "const virtualItems = virtualizer.getVirtualItems();";
+        const syntax = ts.createSourceFile(`${component}.js`, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+        const declarations: string[] = [];
+        const findItems = (node: ts.Node) => {
+          if (ts.isVariableStatement(node) && node.declarationList.declarations.some(declaration =>
+            declaration.name.getText(syntax) === "virtualItems")) declarations.push(node.getText(syntax));
+          ts.forEachChild(node, findItems);
+        };
+        findItems(syntax);
+        expect(declarations).toHaveLength(1);
+        const items = declarations[0];
         expect(source.split(hook)).toHaveLength(2);
         expect(source.split(items)).toHaveLength(2);
         const view = component === "ImageTable" ? '"table"' : 'variableLayout ? "justified" : "grid"';
@@ -278,6 +287,160 @@ async function installPublicationRoutes(context: BrowserContext, retainRows: boo
     });
     return loads;
 }
+
+test("Justified forward eviction: mapped-selection counterfactual", async ({ browser }) => {
+  const records = [];
+  let endpoint: string | undefined;
+  for (const mappedSelection of [false, true, true, false]) {
+    const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+      viewport: { width: 1200, height: 999 }, deviceScaleFactor: 2 });
+    let session: CDPSession | undefined;
+    try {
+      await installB2AcceptanceRoutes(context, true);
+      await installPublicationRoutes(context, true, false, false);
+      const page = await prepareB2AcceptancePage(context, "justified", true);
+      session = await context.newCDPSession(page);
+      await session.send("Performance.enable");
+      const beforeMetrics = await session.send("Performance.getMetrics");
+      const record = await page.evaluate(async mappedSelection => {
+        const path = "/e2e-perf/density-browser.ts";
+        const driver = await import(path);
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results justified"]')!;
+        const store = (window as any).__kupua_store__;
+        const before = store.getState();
+        const originals = new Map(Array.from(region.querySelectorAll<HTMLElement>("[data-cell-id]"))
+          .map(cell => [cell.dataset.cellId!, new WeakRef(cell)]));
+        let sourceIds = [...originals.keys()];
+        let plan: { offset: number; top: number; rows: number[]; released: boolean } | undefined;
+        let overrideCalls = 0;
+        (window as any).__retentionDiagnostic = {
+          beginRender(frame: any) { return frame; },
+          finishRender() {},
+          commit(frame: any, element: HTMLElement) {
+            if (frame?.offset === before.bufferOffset) sourceIds = Array.from(element.querySelectorAll<HTMLElement>("[data-cell-id]"))
+              .map(cell => cell.dataset.cellId!);
+          },
+          extractRows(defaults: number[], _range: unknown, offset: number, count: number, rowForIndex: (index: number) => number) {
+            const top = region.scrollTop;
+            if (!mappedSelection || offset === before.bufferOffset) return defaults;
+            if (!plan) {
+              const positions = store.getState().imagePositions;
+              const rows = sourceIds.map(id => positions.get(id) - offset)
+                .filter(index => index >= 0 && index < count).map(rowForIndex);
+              plan = { offset, top, rows: [...new Set(rows)].sort((left, right) => left - right), released: false };
+            }
+            if (offset !== plan.offset) throw new Error("Counterfactual exceeded one publication");
+            if (plan.released || top !== plan.top) { plan.released = true; return defaults; }
+            overrideCalls++;
+            return plan.rows;
+          },
+        };
+        const replaced = new Set<string>();
+        const detached = new Map<string, WeakRef<Element>>();
+        const insertedAt = new WeakMap<Element, number>();
+        let shortLivedCells = 0;
+        let addedCells = 0;
+        let removedCells = 0;
+        let observerMs = 0;
+        const observer = new MutationObserver(mutations => {
+          const begin = performance.now();
+          const current = new Map(Array.from(region.querySelectorAll<HTMLElement>("[data-cell-id]"))
+            .map(cell => [cell.dataset.cellId!, cell]));
+          for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+              if (!(node instanceof Element)) continue;
+              const cells = [...(node.matches("[data-cell-id]") ? [node] : []), ...node.querySelectorAll("[data-cell-id]")];
+              addedCells += cells.length;
+              for (const cell of cells) if (!insertedAt.has(cell)) insertedAt.set(cell, begin);
+            }
+            for (const node of mutation.removedNodes) {
+              if (!(node instanceof Element)) continue;
+              const cells = [...(node.matches("[data-cell-id]") ? [node] : []), ...node.querySelectorAll("[data-cell-id]")];
+              removedCells += cells.length;
+              for (const cell of cells) {
+                const created = insertedAt.get(cell);
+                if (created !== undefined && begin - created <= 50) shortLivedCells++;
+                const id = cell.getAttribute("data-cell-id")!;
+                detached.set(id, new WeakRef(cell));
+              }
+            }
+          }
+          for (const [id, cell] of current) {
+            const previous = detached.get(id);
+            if (previous && previous.deref() !== cell) {
+              replaced.add(id);
+              detached.delete(id);
+            }
+          }
+          observerMs += performance.now() - begin;
+        });
+        observer.observe(region, { subtree: true, childList: true });
+        driver.installDensityJourney({ density: "justified", direction: 1, resultsPerSecond: 100 });
+        const calibration = (window as any).__densityJourney.snapshot();
+        try {
+          const motion = driver.scrollAtSpeed({ evaluate: (callback: any, argument: any) => callback(argument) },
+            "justified", calibration.commandedSpeedPxPerSec, 1000, { measureBounds: true, maxDistancePx: 1000 });
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await store.getState().extendForward();
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          const cohortPresent = [...originals.keys()].filter(id => region.querySelector(`[data-cell-id="${CSS.escape(id)}"]`));
+          const cohortRetained = cohortPresent.filter(id => {
+            const original = originals.get(id)!.deref();
+            return original && region.querySelector(`[data-cell-id="${CSS.escape(id)}"]`) === original;
+          });
+          const movement = await motion;
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          const after = store.getState();
+          const outer = region.getBoundingClientRect();
+          const visible = Array.from(region.querySelectorAll<HTMLElement>("[data-cell-id]")).map(cell => {
+            const box = cell.getBoundingClientRect();
+            return { id: cell.dataset.cellId, top: Math.round((box.top - outer.top) * 10) / 10,
+              width: Math.round(box.width * 10) / 10, height: Math.round(box.height * 10) / 10 };
+          }).filter(cell => cell.top + cell.height > 0 && cell.top < region.clientHeight);
+          return { mappedSelection, initialCount: before.results.length, finalCount: after.results.length,
+            offsetDelta: after.bufferOffset - before.bufferOffset,
+            evictions: after._forwardEvictGeneration - before._forwardEvictGeneration,
+            cohortPresent: cohortPresent.length, cohortRetained: cohortRetained.length,
+            replacedSameImage: replaced.size, addedCells, removedCells, shortLivedCells, observerMs,
+            overrideCalls, released: plan?.released ?? false,
+            endpointSignature: JSON.stringify(visible),
+            appliedPx: movement.drivenDistancePx, physicalClampMs: movement.physicalClampMs,
+            focusPreserved: before.focusedImageId === after.focusedImageId,
+            foreground: document.visibilityState === "visible" };
+        } finally {
+          observer.disconnect();
+          (window as any).__densityJourney.dispose();
+          delete (window as any).__retentionDiagnostic;
+        }
+      }, mappedSelection);
+      const afterMetrics = await session.send("Performance.getMetrics");
+      const controllerWindowMs = Object.fromEntries(["TaskDuration", "ScriptDuration", "LayoutDuration", "RecalcStyleDuration"].map(name => {
+        const previous = beforeMetrics.metrics.find(metric => metric.name === name)!.value;
+        return [name, (afterMetrics.metrics.find(metric => metric.name === name)!.value - previous) * 1000];
+      }));
+      const { endpointSignature, ...diagnostic } = record;
+      endpoint ??= endpointSignature;
+      console.log(JSON.stringify({ fixture: "justified-forward-eviction-selection-control", ...diagnostic, controllerWindowMs }));
+      expect(record.foreground).toBe(true);
+      expect(record.focusPreserved).toBe(true);
+      expect(record.finalCount).toBe(record.initialCount);
+      expect(record.evictions).toBe(1);
+      expect(record.offsetDelta).toBeGreaterThan(0);
+      expect(record.cohortPresent).toBeGreaterThan(0);
+      expect(record.appliedPx).toBe(1000);
+      expect(record.physicalClampMs).toBe(0);
+      expect(endpointSignature).toBe(endpoint);
+      if (mappedSelection) {
+        expect(record.overrideCalls).toBeGreaterThan(0);
+        expect(record.released).toBe(true);
+      }
+      records.push(record);
+    } finally { await session?.detach(); await context.close(); }
+  }
+  expect(records.filter(record => !record.mappedSelection).every(record => record.shortLivedCells > 0)).toBe(true);
+});
 
 for (const { density, retainRows, stableKeys } of [
   { density: "table", retainRows: false, stableKeys: false },
@@ -1748,9 +1911,9 @@ function loadReturnResearchControls() {
   };
 }
 
-function returnTraceSummary(events: any[], profile?: any) {
-  const start = events.find(event => event.name === "p13b-research-start");
-  const end = events.find(event => event.name === "p13b-research-complete");
+function returnTraceSummary(events: any[], profile?: any, marks = ["p13b-research-start", "p13b-research-complete"]) {
+  const start = events.find(event => event.name === marks[0]);
+  const end = events.find(event => event.name === marks[1]);
   expect(start).toBeTruthy();
   expect(end).toBeTruthy();
   const first = start.ts, last = end.ts;
@@ -2067,10 +2230,24 @@ function installTableRowCounter() {
       && keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && Object.is(left[key], right[key]));
   };
   const probe: any = {
-    mode: "native", active: false, stats: null, endpoint: null,
+    mode: "native", active: false, stats: null, endpoint: null, disablePageReset: false, table: null,
     reset() {
       probe.stats = { renders: 0, titleReads: 0, comparisons: 0, semanticEligible: 0,
-        skips: 0, sameImageNewRow: 0, changes: {}, unique: new Set<string>() };
+        skips: 0, sameImageNewRow: 0, tableRenders: 0, pageResets: 0, paginationUpdates: 0, stateUpdates: 0,
+        changes: {}, unique: new Set<string>() };
+    },
+    attachTable(table: any) {
+      if (probe.active) probe.stats.tableRenders++;
+      if (probe.table === table) return;
+      probe.table = table;
+      for (const [method, counter] of [["resetPageIndex", "pageResets"],
+        ["setPagination", "paginationUpdates"], ["setState", "stateUpdates"]]) {
+        const original = table[method];
+        table[method] = (...args: unknown[]) => {
+          if (probe.active) probe.stats[counter]++;
+          return original(...args);
+        };
+      }
     },
     wrapMemo(memo: any, component: any) {
       function CountedTableRow(props: any) {
@@ -2104,6 +2281,253 @@ function installTableRowCounter() {
   };
   (window as any).__tableRowCounter = probe;
 }
+
+test("Table scrolling pagination reset: isolated counterfactual", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+    viewport: { width: 1200, height: 999 }, deviceScaleFactor: 2 });
+  let session: CDPSession | undefined;
+  try {
+    await installJourneyFixtureRoutes(context);
+    let intercepted = 0;
+    await context.route("**/src/components/ImageTable.tsx*", async route => {
+      const response = await route.fetch();
+      const source = await response.text();
+      const syntax = ts.createSourceFile("ImageTable.js", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+      let declaration: ts.VariableDeclaration | undefined;
+      const visit = (node: ts.Node) => {
+        if (ts.isVariableDeclaration(node) && node.name.getText(syntax) === "table"
+          && node.initializer && ts.isCallExpression(node.initializer)
+          && node.initializer.expression.getText(syntax) === "useReactTable") declaration = node;
+        ts.forEachChild(node, visit);
+      };
+      visit(syntax);
+      expect(declaration).toBeTruthy();
+      const call = declaration!.initializer as ts.CallExpression;
+      const options = call.arguments[0];
+      expect(ts.isObjectLiteralExpression(options)).toBe(true);
+      const rowMarker = "const EnrichedTableRow = _s(memo(";
+      expect(source.split(rowMarker)).toHaveLength(2);
+      const insertion = options.getStart(syntax) + 1;
+      const statementEnd = declaration!.parent.parent.getEnd();
+      const modified = (source.slice(0, statementEnd)
+        + "\nwindow.__tableRowCounter.attachTable(table);" + source.slice(statementEnd));
+      const policy = "\nautoResetPageIndex: window.__tableRowCounter.disablePageReset ? false : undefined,";
+      intercepted++;
+      return route.fulfill({ response, body: `(${installTableRowCounter.toString()})();\n`
+        + (modified.slice(0, insertion) + policy + modified.slice(insertion))
+          .replace(rowMarker, "const EnrichedTableRow = _s(globalThis.__tableRowCounter.wrapMemo(memo,") });
+    });
+    const page = await context.newPage();
+    await prepareRenderWorkWindow(page, "table");
+    expect(intercepted).toBe(1);
+    session = await context.newCDPSession(page);
+    await session.send("Performance.enable");
+    for (const disabled of [false, true, true, false]) {
+      const beforeMetrics = await session.send("Performance.getMetrics");
+      const record = await page.evaluate(async disabled => {
+        const path = "/e2e-perf/density-browser.ts";
+        const driver = await import(path);
+        const counter = (window as any).__tableRowCounter;
+        const table = counter.table;
+        const store = (window as any).__kupua_store__;
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        counter.disablePageReset = disabled;
+        table.setOptions((options: any) => ({ ...options, autoResetPageIndex: disabled ? false : undefined }));
+        region.scrollTop = 0;
+        region.scrollLeft = 0;
+        for (let frame = 0; frame < 3; frame++) await new Promise(resolve => requestAnimationFrame(resolve));
+        driver.installDensityJourney({ density: "table", direction: 1, resultsPerSecond: 100 });
+        const calibration = (window as any).__densityJourney.snapshot();
+        const before = store.getState();
+        if (before.loading || before._extendForwardInFlight || before._extendBackwardInFlight) {
+          throw new Error("Overlapping metadata work");
+        }
+        counter.reset();
+        counter.active = true;
+        let movement;
+        let journey;
+        try {
+          movement = await driver.scrollAtSpeed({ evaluate: (callback: any, argument: any) => callback(argument) },
+            "table", calibration.commandedSpeedPxPerSec, 1000, { measureBounds: true, maxDistancePx: 2560 });
+          await new Promise(resolve => requestAnimationFrame(resolve));
+          journey = (window as any).__densityJourney.snapshot();
+        } finally {
+          counter.active = false;
+          (window as any).__densityJourney?.dispose();
+        }
+        const endpoint = JSON.stringify(Array.from(region.querySelectorAll<HTMLElement>('[role="row"][data-image-id]'))
+          .map(row => ({ id: row.dataset.imageId, text: row.textContent, style: row.getAttribute("style") })));
+        counter.endpoint ??= endpoint;
+        return { disabled, pageResets: counter.stats.pageResets, paginationUpdates: counter.stats.paginationUpdates,
+          stateUpdates: counter.stats.stateUpdates, tableRenders: counter.stats.tableRenders,
+          renders: counter.stats.renders, uniqueRows: counter.stats.unique.size,
+          durationMs: movement.drivenDurationMs, appliedPx: movement.drivenDistancePx,
+          physicalClampMs: movement.physicalClampMs, publications: journey.appendPublications + journey.prependPublications,
+          sameData: before.results === store.getState().results, sameEndpoint: endpoint === counter.endpoint,
+          focusPreserved: before.focusedImageId === store.getState().focusedImageId,
+          pageIndex: table.getState().pagination.pageIndex,
+          paginationStageConfigured: Boolean(table.options.getPaginationRowModel),
+          treatmentApplied: table.options.autoResetPageIndex === false,
+          foreground: document.visibilityState === "visible" };
+      }, disabled);
+      const afterMetrics = await session.send("Performance.getMetrics");
+      const metrics = Object.fromEntries(["TaskDuration", "ScriptDuration", "LayoutDuration", "RecalcStyleDuration"].map(name => {
+        const before = beforeMetrics.metrics.find(metric => metric.name === name)?.value;
+        const after = afterMetrics.metrics.find(metric => metric.name === name)?.value;
+        return [name, before === undefined || after === undefined ? null : (after - before) * 1000];
+      }));
+      console.log(JSON.stringify({ fixture: "table-scroll-pagination-reset", ...record, controllerWindowMs: metrics }));
+      expect(record.foreground).toBe(true);
+      expect(record.treatmentApplied).toBe(disabled);
+      expect(record.paginationStageConfigured).toBe(false);
+      expect(record.pageIndex).toBe(0);
+      expect(record.physicalClampMs).toBe(0);
+      expect(record.appliedPx).toBe(2560);
+      expect(record.publications).toBe(0);
+      expect(record.sameData).toBe(true);
+      expect(record.sameEndpoint).toBe(true);
+      expect(record.focusPreserved).toBe(true);
+      expect(record.renders).toBeLessThanOrEqual(record.uniqueRows * 3);
+      if (disabled) {
+        expect(record.pageResets).toBe(0);
+        expect(record.paginationUpdates).toBe(0);
+      } else {
+        expect(record.pageResets).toBeGreaterThan(0);
+        expect(record.paginationUpdates).toBe(record.pageResets);
+      }
+    }
+  } finally {
+    await session?.detach();
+    await context.close();
+  }
+});
+
+test("Table scrolling layout scope: motion-bounded attribution", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
+    viewport: { width: 1200, height: 999 }, deviceScaleFactor: 2 });
+  let session: CDPSession | undefined;
+  let tracing = false;
+  try {
+    await installJourneyFixtureRoutes(context);
+    const page = await context.newPage();
+    await prepareRenderWorkWindow(page, "table");
+    session = await context.newCDPSession(page);
+    const hookResponse = await page.request.get("/src/hooks/useScrollEffects.ts");
+    expect(hookResponse.ok()).toBe(true);
+    const hookLines = (await hookResponse.text()).split("\n");
+    for (const direction of [1, -1] as const) {
+      await page.evaluate(async direction => {
+        const path = "/e2e-perf/density-browser.ts";
+        const driver = await import(path);
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        region.scrollTop = direction === 1 ? 0 : 2560;
+        region.scrollLeft = 0;
+        for (let frame = 0; frame < 3; frame++) await new Promise(resolve => requestAnimationFrame(resolve));
+        driver.installDensityJourney({ density: "table", direction, resultsPerSecond: 100 });
+        performance.clearMarks("table-scroll-start");
+        performance.clearMarks("table-scroll-end");
+      }, direction);
+      const events: any[] = [];
+      const retainedNames = new Set(["table-scroll-start", "table-scroll-end", "FunctionCall", "EvaluateScript",
+        "RunMicrotasks", "EventDispatch", "Layout", "UpdateLayoutTree", "RecalculateStyles", "Paint", "PrePaint",
+        "Layerize", "CompositeLayers", "UpdateLayerTree", "Decode Image", "ImageDecodeTask", "ImageDecode"]);
+      let receivedEvents = 0;
+      let overflow = false;
+      const collect = ({ value }: { value: any[] }) => {
+        receivedEvents += value.length;
+        for (const event of value) {
+          if (!retainedNames.has(event.name)) continue;
+          if (events.length >= 50000) { overflow = true; continue; }
+          events.push(event);
+        }
+      };
+      session.on("Tracing.dataCollected", collect);
+      await session.send("Tracing.start", { categories: "devtools.timeline,blink.user_timing",
+        transferMode: "ReportEvents" });
+      tracing = true;
+      const observed = await page.evaluate(async direction => {
+        const path = "/e2e-perf/density-browser.ts";
+        const driver = await import(path);
+        const store = (window as any).__kupua_store__;
+        const before = store.getState();
+        if (before.loading || before._extendForwardInFlight || before._extendBackwardInFlight) {
+          throw new Error("Overlapping metadata work");
+        }
+        const calibration = (window as any).__densityJourney.snapshot();
+        performance.mark("table-scroll-start");
+        const movement = await driver.scrollAtSpeed({ evaluate: (callback: any, argument: any) => callback(argument) },
+          "table", direction * calibration.commandedSpeedPxPerSec, 1000, { measureBounds: true, maxDistancePx: 2560 });
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        performance.mark("table-scroll-end");
+        const journey = (window as any).__densityJourney.snapshot();
+        const region = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
+        return { appliedPx: movement.drivenDistancePx, physicalClampMs: movement.physicalClampMs,
+          durationMs: movement.drivenDurationMs, scrollTop: region.scrollTop,
+          mountedRows: region.querySelectorAll('[role="row"][data-image-id]').length,
+          sameData: before.results === store.getState().results,
+          focusPreserved: before.focusedImageId === store.getState().focusedImageId,
+          publications: journey.appendPublications + journey.prependPublications,
+          foreground: document.visibilityState === "visible" };
+          }, direction);
+      const completed = new Promise<any>(resolve => session!.once("Tracing.tracingComplete", resolve));
+      await session.send("Tracing.end");
+      tracing = false;
+      const completion = await completed;
+      session.off("Tracing.dataCollected", collect);
+      expect(completion.dataLossOccurred).not.toBe(true);
+      expect(overflow, "Retained Table scroll event bound exceeded").toBe(false);
+      const start = events.find((event: any) => event.name === "table-scroll-start");
+      const end = events.find((event: any) => event.name === "table-scroll-end");
+      expect(start).toBeTruthy();
+      expect(end).toBeTruthy();
+      const layouts = events.filter((event: any) => event.name === "Layout" && event.ph === "X"
+        && event.pid === start.pid && event.tid === start.tid && event.ts >= start.ts && event.ts < end.ts);
+      const calls = events.filter((event: any) => event.name === "FunctionCall" && event.ph === "X"
+        && event.pid === start.pid && event.tid === start.tid);
+      const owners = new Map<string, { count: number; ms: number }>();
+      for (const layout of layouts) {
+        const call = calls.filter((event: any) => event.ts <= layout.ts
+          && event.ts + event.dur >= layout.ts + layout.dur)
+          .sort((left: any, right: any) => left.dur - right.dur)[0];
+        const source = call?.args?.data;
+        const owner = source ? `${source.functionName || "anonymous"} (${String(source.url ?? "").split("/").at(-1)?.split("?")[0]}:${source.lineNumber})`
+          : "outside traced FunctionCall";
+        const record = owners.get(owner) ?? { count: 0, ms: 0 };
+        record.count++;
+        record.ms += layout.dur / 1000;
+        owners.set(owner, record);
+      }
+      const scope = layouts.map((event: any) => ({ dirty: event.args?.beginData?.dirtyObjects ?? null,
+        total: event.args?.beginData?.totalObjects ?? null, partial: event.args?.beginData?.partialLayout ?? null }));
+      console.log(JSON.stringify({ fixture: "table-scroll-layout-scope", direction, ...observed,
+        receivedEvents, retainedEvents: events.length,
+        trace: returnTraceSummary(events, undefined, ["table-scroll-start", "table-scroll-end"]),
+        layoutOwners: [...owners.entries()].sort((left, right) => right[1].ms - left[1].ms)
+          .map(([callback, record]) => ({ callback, ...record })),
+        hookCallbackSources: [...new Set(calls.filter((event: any) =>
+          String(event.args?.data?.url ?? "").includes("/src/hooks/useScrollEffects.ts"))
+          .map((event: any) => event.args.data.lineNumber as number))].map(line => ({ traceLine: line,
+            nearbySource: hookLines.slice(Math.max(0, line - 2), line + 2).map(source => source.trim()) })),
+        layoutScope: { count: scope.length, maxDirty: Math.max(0, ...scope.map((entry: any) => entry.dirty ?? 0)),
+          maxTotal: Math.max(0, ...scope.map((entry: any) => entry.total ?? 0)),
+          missingScope: scope.filter((entry: any) => entry.dirty === null || entry.total === null).length,
+          fullLayouts: scope.filter((entry: any) => entry.partial === false).length } }));
+      expect(observed.foreground).toBe(true);
+      expect(observed.sameData).toBe(true);
+      expect(observed.focusPreserved).toBe(true);
+      expect(observed.publications).toBe(0);
+      expect(observed.physicalClampMs).toBe(0);
+      expect(Math.abs(observed.appliedPx)).toBe(2560);
+      expect(observed.scrollTop).toBe(direction === 1 ? 2560 : 0);
+      expect(layouts.length).toBeGreaterThan(0);
+      await page.evaluate(() => (window as any).__densityJourney.dispose());
+    }
+  } finally {
+    if (tracing) await session?.send("Tracing.end").catch(() => {});
+    await session?.detach();
+    await context.close();
+  }
+});
 
 test("Table retained-row reference churn: bounded semantic reuse control", async ({ browser }) => {
   const context = await browser.newContext({ baseURL: "http://127.0.0.1:3041",
