@@ -29,9 +29,10 @@ class S3(bucket: String) {
       Tagging.builder().tagSet(tag).build()
     }
 
+    val s3key = s"${config.name}-$key"
     val base = PutObjectRequest.builder()
       .bucket(bucket)
-      .key(s"${config.name}-$key")
+      .key(s3key)
 
     val request = (ttlDays match {
       case Some(days) => base.tagging(buildTag(days))
@@ -41,6 +42,7 @@ class S3(bucket: String) {
     val body = RequestBody.fromString(Json.stringify(Json.toJson(config)))
 
     s3.putObject(request, body)
+    println(s"Uploaded API key $s3key to S3")
   }
 
 }

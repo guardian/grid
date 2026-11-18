@@ -19,6 +19,5 @@ object CreateKeyV2 extends App {
 
   val key = KeyGenerator.randomKey()
   s3Client.upload(key, apiKeyConfig)
-  println(s"Uploaded API key $key to S3")
 
 }
