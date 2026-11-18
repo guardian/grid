@@ -1,8 +1,8 @@
 import type { APIRequestContext } from '@playwright/test';
 import { expect } from '../../setup.ts';
-import { API_KEY, SERVICE_PORTS } from '../../../setup/constants.ts';
+import { API_KEY, SERVICE_CONFIGS } from '../../../setup/constants.ts';
 
-const METADATA_EDITOR_URL = `http://localhost:${SERVICE_PORTS['metadata-editor']}`;
+const METADATA_EDITOR_URL = `http://localhost:${SERVICE_CONFIGS['metadata-editor'].port}`;
 
 export interface UsageRightsCategory {
   name: string;
