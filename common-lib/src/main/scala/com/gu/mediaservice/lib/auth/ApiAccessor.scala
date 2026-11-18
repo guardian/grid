@@ -2,7 +2,10 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.config.Services
+import play.api.libs.json.{Format, JsError, JsString, JsSuccess, Json, Writes, __}
 import play.api.mvc.{RequestHeader, Result}
+
+import java.time.Instant
 
 sealed trait Tier
 case object Internal extends Tier
@@ -15,11 +18,44 @@ object Tier {
     case "syndication" => Syndication
     case _ => ReadOnly // readonly by default
   }
+  def asString(tier: Tier): String = tier match {
+    case Internal => "internal"
+    case ReadOnly => "readonly"
+    case Syndication => "syndication"
+  }
+
+  implicit val format: Format[Tier] = Format(
+    __.read[String].map(Tier(_)),
+    Writes(t => JsString(asString(t)))
+  )
 }
 
-case class ApiAccessor(identity: String, tier: Tier)
+case class ApiAccessor(identity: String, tier: Tier, expiry: Option[Instant] = None) {
+  val hasExpired = expiry.exists(_.isBefore(Instant.now()))
+}
 object ApiAccessor extends ArgoHelpers {
   def apply(content: String): ApiAccessor = {
+    parseContentV2(content) getOrElse parseContentV1(content)
+  }
+
+  private def parseContentV2(content: String): Option[ApiAccessor] = {
+    try {
+      val json = Json.parse(content)
+      json.validate[ApiKeyConfig] match {
+        case JsSuccess(config, _) =>
+          Some(ApiAccessor(config.name, config.tier, config.expiry))
+        case JsError(errors) =>
+          logger.warn(s"Failed to parse API key config JSON: $errors")
+          None
+      }
+    } catch {
+      case e: Exception =>
+        logger.warn(s"Failed to parse API key config JSON: ${e.getMessage}")
+        None
+    }
+  }
+
+  private def parseContentV1(content: String): ApiAccessor = {
     val rows = content.split("\n")
     val name = rows.headOption.getOrElse("")
     val tier = rows.tail.headOption.map(Tier(_)).getOrElse(Internal)
