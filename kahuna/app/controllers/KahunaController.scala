@@ -10,6 +10,7 @@ import play.api.libs.json._
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.play.SentryUserContext
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
 
@@ -27,15 +28,26 @@ class KahunaController(
 
   override def services: Services = config.services
 
-  private def sentryClientConfig: String = {
+  /**
+   * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
+   * that email is supplied only for authenticated users when Sentry reporting is enabled.
+   */
+  private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
     val sentry = config.sentryConfig
+
+    val identity = maybeUser.flatMap(SentryUserContext.identityForPrincipal(sentry, _))
 
     Json.stringify(Json.obj(
       "enabled" -> sentry.enabled,
       "dsn" -> sentry.dsn,
       "environment" -> sentry.environment,
       "release" -> release,
-      "consoleCaptureLevels" -> sentry.consoleCaptureLevels
+      "tracesSampleRate" -> sentry.tracesSampleRate,
+      "replayOnErrorSampleRate" -> sentry.replayOnErrorSampleRate,
+      "consoleCaptureLevels" -> sentry.consoleCaptureLevels,
+      "tracePropagationTargets" -> config.services.allInternalUris,
+      "userId" -> identity.flatMap(_.id),
+      "userEmail" -> identity.flatMap(_.email)
     ))
   }
 
@@ -95,7 +107,7 @@ class KahunaController(
       featureSwitchesJson,
       imageTypes,
       agencyPicksIngredients,
-      sentryClientConfig
+      sentryClientConfig(maybeUser)
     ))
   }
 
