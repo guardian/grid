@@ -4,6 +4,8 @@ import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
 import { deleteImageCopies, indexImageCopy } from '../setup/seed-image.ts';
+import MCR from 'monocart-coverage-reports';
+import coverageOptions from '../setup/mcr.config';
 import type { ImageOverrides } from '../setup/seed-image.ts';
 import type { SeedUsage, UsageStatus } from './image-usages/usages.ts';
 import { addCoverage } from '../setup/mcr.config.ts';
