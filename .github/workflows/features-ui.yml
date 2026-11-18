@@ -165,6 +165,21 @@ jobs:
         path: e2e-tests/coverage-reports/
         retention-days: 30
         if-no-files-found: ignore
+    - name: Download coverage for this commit
+      # test:video disables coverage, so use the Playwright Tests run for the same commit.
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+      run: |
+        run="$TRIGGER_RUN_ID"
+        if [ -z "$run" ]; then
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow playwright.yml --commit "$COMMIT_SHA" --event push --status completed --limit 1 --json databaseId -q '.[0].databaseId')
+        fi
+        if [ -n "$run" ] && gh run download "$run" --repo "$GITHUB_REPOSITORY" --name e2e-coverage --dir "$RUNNER_TEMP/e2e-coverage"; then
+          echo "Using coverage from run $run"
+        else
+          echo "::warning::No e2e-coverage artifact for $COMMIT_SHA; building without coverage."
+        fi
     - name: Build features UI
       run: npm run features:build -- --coverage "$RUNNER_TEMP/e2e-coverage"
     - uses: actions/upload-artifact@v7
