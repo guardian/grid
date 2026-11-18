@@ -13,12 +13,16 @@ export const outputDir = path.resolve(directory, '../dist/feature-library');
 
 /**
  * @param reportDir - Playwright HTML report directory; defaults to e2e-tests/playwright-report.
+ * @param coverageDir - Monocart coverage directory written by the e2e run; defaults to e2e-tests/coverage-reports.
  * @returns The absolute output directory after writing the bundle, assets, manifest and videos.
  * Reuses Grid's logo/fonts, logs missing-media warnings and removes previously generated
  * videos no longer referenced by the snapshot. Source features and report files are untouched.
  * @throws If importing, bundling, copying or writing any required output fails.
  */
-export async function buildLibrary(reportDir = path.resolve(directory, '../playwright-report')): Promise<string> {
+export async function buildLibrary(
+  reportDir = path.resolve(directory, '../playwright-report'),
+  coverageDir = path.resolve(directory, '../coverage-reports'),
+): Promise<string> {
   const { manifest, media, warnings } = await createLibrary({
     featuresDir: path.resolve(directory, '../features'), reportDir,
   });
@@ -45,9 +49,9 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   ].map(([source, destination]) => cp(path.join(fontsDir, source), path.join(outputDir, 'fonts', destination))));
   await rm(path.join(outputDir, 'icons.js'), { force: true });
   await Promise.all([...media].map(([destination, source]) => cp(source, path.join(outputDir, destination))));
-  const summary = await loadCoverageSummary(path.resolve(directory, '../coverage-reports'));
+  const summary = await loadCoverageSummary(coverageDir);
   await writeFile(path.join(outputDir, 'library.json'), JSON.stringify(summary ? { ...manifest, coverage: summary } : manifest));
-  const loaded = await loadCoverage(path.resolve(directory, '../coverage-reports/features'));
+  const loaded = await loadCoverage(path.join(coverageDir, 'features'));
   const coverage = loaded?.coverage ?? null;
   for (const [file, data] of [['coverage.json', coverage], ['source-coverage.json', loaded?.sources]] as const) {
     if (data) await writeFile(path.join(outputDir, file), JSON.stringify(data));
@@ -69,6 +73,9 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
 
 // Importing buildLibrary does not trigger a build; only direct CLI execution parses --report.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values } = parseArgs({ options: { report: { type: 'string' } } });
-  await buildLibrary(values.report ? path.resolve(values.report) : undefined);
+  const { values } = parseArgs({ options: { report: { type: 'string' }, coverage: { type: 'string' } } });
+  await buildLibrary(
+    values.report ? path.resolve(values.report) : undefined,
+    values.coverage ? path.resolve(values.coverage) : undefined,
+  );
 }
