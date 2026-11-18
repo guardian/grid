@@ -3,7 +3,7 @@ package com.gu.mediaservice.lib.play
 import com.gu.mediaservice.lib.config.SentryConfig
 import com.typesafe.scalalogging.StrictLogging
 import io.sentry.{Hint, Sentry, SentryEvent, SentryLevel}
-import io.sentry.protocol.{Request => SentryRequest}
+import io.sentry.protocol.{Request => SentryRequest, User => SentryUser}
 import play.api.http.DefaultHttpErrorHandler
 import play.api.mvc.{RequestHeader, Result}
 import play.api.routing.Router
@@ -41,6 +41,18 @@ class GridSentryErrorHandler(
         event.setRequest(requestMetadata(request))
 
         RequestLoggingFilter.requestIdFor(request).foreach(event.setTag("request_id", _))
+        SentryUserContext.identityFor(request).foreach { identity =>
+          val user = new SentryUser()
+          identity.email.foreach(user.setEmail)
+          identity.id.foreach(user.setId)
+          event.setUser(user)
+        }
+
+        // Links the error to its request transaction where tracing is on. Read from the request
+        // attribute rather than Sentry's scope, which is not reliable across async boundaries.
+        SentryTracingFilter.transactionFor(request).foreach { transaction =>
+          event.getContexts.setTrace(transaction.getSpanContext)
+        }
 
         Sentry.captureEvent(event, new Hint())
       } catch {

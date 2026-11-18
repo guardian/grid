@@ -21,6 +21,7 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
     captured = None
     Sentry.init { options =>
       options.setDsn("https://key@sentry.example.com/1")
+      options.setTracesSampleRate(1d)
       options.setTransportFactory((_, _) => NoOpTransport.getInstance())
       options.setBeforeSend { (event, _) =>
         captured = Some(event)
@@ -36,12 +37,16 @@ class GridSentryErrorHandlerTest extends AnyFunSpec with Matchers with ScalaFutu
   private val enabledConfig = SentryConfig(
     dsn = Some("https://key@o0.ingest.us.sentry.io/1"),
     environment = "TEST",
+    tracesSampleRate = 0,
+    replayOnErrorSampleRate = 0,
     consoleCaptureLevels = Seq("error")
   )
 
   private val disabledConfig = SentryConfig(
     dsn = None,
     environment = "TEST",
+    tracesSampleRate = 0,
+    replayOnErrorSampleRate = 0,
     consoleCaptureLevels = Seq("error")
   )
 
