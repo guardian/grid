@@ -8,9 +8,9 @@ Use the current `@guardian/cql` input, not the legacy chips input or its retirin
 ## Scope and coverage strategy
 
 The suite uses **12 core images plus 16 supplemental images**, with
-**35 interaction cases and 74 result cases** (109 browser cases, excluding
+**31 interaction cases and 74 result cases** (105 browser cases, excluding
 shared authentication setup). All planned behaviors have runnable scenarios and
-step definitions. Four cases expose confirmed application defects; implemented
+step definitions. Two result cases expose a confirmed search defect; implemented
 coverage is not the same as a fully passing application.
 Suggestions are not validation lists: most chips also accept manually typed
 values. Dynamic values below describe the checked-in e2e configuration, not
@@ -372,7 +372,7 @@ name. No scenario is left as `@todo` or awaiting step definitions.
 
 | Suite | Cases | Feature file | Step definitions |
 | --- | --- | --- | --- |
-| Interactions | 35 | [search-chips.feature](./search-chips.feature) | [search-chips.steps.ts](../../steps/search/search-chips.steps.ts), plus shared search steps |
+| Interactions | 31 | [search-chips.feature](./search-chips.feature) | [search-chips.steps.ts](../../steps/search/search-chips.steps.ts), plus shared search steps |
 | Results | 74 | [search-chips-results.feature](./search-chips-results.feature) | [search-chips-results.steps.ts](../../steps/search/search-chips-results.steps.ts) |
 
 ### Interactions
@@ -381,13 +381,19 @@ name. No scenario is left as `@todo` or awaiting step definitions.
 | --- | --- |
 | Manual entry and field names | City, suggested field names, manual credit outside completions, free-entry alias and unsuggested usage status. |
 | Local/configured suggestions | Format, subject, conditional platforms and predicates, persistence reasons, option-list and existence aliases. |
-| Real API suggestions | Photographer, supplier, category, prefixed credit completion, label shortcut and illustrator; the last two expose defects. |
-| Editing | A photographer suggestion replaces an existing chip without duplicating it. |
+| Real API suggestions | Photographer, supplier and category options from metadata-editor's `/usage-rights/categories`; prefixed credit and photoshoot completions from media-api's `/suggest/metadata/credit` and `/suggest/metadata/photoshoot`. |
+| Editing | A supplier suggestion replaces an existing chip without duplicating it. |
 | Negation and removal | Polarity serializes correctly; removing one chip preserves neighboring text and another chip. |
 | Quoting | A complete quoted expression remains one multi-word chip value and round-trips correctly. |
 | Keyboard | Navigation into a chip permits character deletion; Backspace removes a newly typed empty chip. |
 | URL and history | URL hydration, browser back and forward restore values, polarity and adjacent text. |
-| Lookup failure | The real source lookup returns 404, after which a complete manual query still works. |
+
+Label, source and illustrator value suggestions have no browser scenarios: the
+label resolver follows a `suggested-labels` relation media-api does not advertise,
+the source resolver expands to an unrouted `/suggest/metadata/source`, and the
+illustrator resolver reads `options` that the contract-illustrator `creator`
+property does not provide (it only has `optionsMap`). Those chips are still
+covered by manual entry and result scenarios.
 
 ### Results
 
@@ -414,21 +420,28 @@ lookup APIs and seeded search data are exercised without per-test API mocks.
 The shared CQL input is not redundantly tested across both layouts; AI
 similarity and unrelated controls remain in the parent search plan.
 
+## Suggestion data sources
+
+Every remaining suggestion scenario uses a routed endpoint on the running stack,
+with no network mocks:
+
+| Chip | Endpoint | Data source |
+| --- | --- | --- |
+| `by` | metadata-editor `/usage-rights/categories` | `photographer` options of `staff-photographer`/`contract-photographer`; both categories are added to `usageRights.applicable` in the [e2e config](../../setup/config.ts), with names from [service-config.js](../../../dev/script/generate-config/service-config.js#L67). |
+| `supplier` | metadata-editor `/usage-rights/categories` | Agency `supplier` options from `freeSuppliers` in [service-config.js](../../../dev/script/generate-config/service-config.js#L54). |
+| `category` | metadata-editor `/usage-rights/categories` | Category values/search aliases from `usageRights.applicable`. |
+| `credit` | media-api `/suggest/metadata/credit` | `suggestMetadataCredit` completions indexed by the search-chip fixtures. |
+| `photoshoot` | media-api `/suggest/metadata/photoshoot` | `userMetadata.photoshoot.suggest` on `staff-photo-multi-persisted`. |
+
 ## Known application defects
 
-Four strict regression cases carry `@known-defect`. This is a label, not a skip:
+Two strict regression cases carry `@known-defect`. This is a label, not a skip:
 the default suite still runs them. Their failures are not unfinished tests, and
-the fixtures are not padded to hide incorrect application behavior.
+neither the fixtures nor network mocks are used to hide incorrect application behavior.
 
 | Defect | Failing cases | Evidence |
 | --- | --- | --- |
 | Identifier persistence requires every identifier instead of any one | `tiff-identifier-over-quota` fails `persisted:persistence-identifier` and incorrectly matches `is:reapable`. | [Persistence query](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/PersistedQueries.scala#L28) uses the [AND-based helper](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala#L51), unlike the [response-side reason](../../../media-api/app/lib/ImagePersistenceReasons.scala#L35). Live API/Elasticsearch probes confirm this. |
-| Label suggestions follow a missing relation | The `#` shortcut creates the chip but cannot offer the seeded label. | [Frontend lookup](../../../kahuna/public/js/services/api/media-api.js#L115) requests `suggested-labels`, absent from the [advertised API links](../../../media-api/app/controllers/MediaApi.scala#L139). |
-| Illustrator suggestions omit the configured creator | The configured illustrator is searchable manually but absent from the chooser. | [Resolver](../../../kahuna/public/js/search/structured-query/query-suggestions.ts#L254), [configuration](../../../dev/script/generate-config/service-config.js#L78) and the real browser scenario. |
-
-The source suggestion route is also absent. Its passing recovery scenario
-asserts the real 404 and verifies manual query entry; it does not mock a
-successful lookup or claim that source suggestions work.
 
 ## Validation
 
@@ -447,9 +460,6 @@ npx playwright test search-chips --grep @known-defect --project=chromium --worke
 npx playwright test search-chips --grep-invert @known-defect --project=chromium --workers=1 --retries=1 --reporter=list
 ```
 
-Validation generated all 109 cases without undefined steps and passed the five
-fixture/configuration checks. The live non-defect run passed all 105 chip cases
-plus authentication, with one keyboard case passing on retry. After adding
-caret-position synchronization, that case passed five consecutive runs without
-retries. Every owned test stack was torn down. The complete suite is not green
-while the four confirmed application regressions remain unresolved.
+Validation generated all 105 cases without undefined steps and passed the five
+fixture/configuration checks. The suite has not yet been re-run live since the
+suggestion mocks were removed and the photographer categories were configured.
