@@ -4,29 +4,9 @@
  */
 import { memo, useEffect, useMemo, useState } from 'react';
 import { CircleAlert, FileCode2, LoaderCircle } from 'lucide-react';
+import { featureFile, palette } from './scenario-list.tsx';
+import { combine, isRun } from './source-page.tsx';
 import type { CoverageManifest, SourceCoverage } from './types.ts';
-
-const palette = ['#00adee', '#ffbc01', '#99cf91', '#ff9980', '#c39bd3', '#5dd6c0', '#f5a3c7', '#d4c26a', '#8fb3ff', '#e0915a'];
-/** Reverses the report directory naming in setup/mcr.config.ts (`search__free-text` → `search/free-text.feature`). */
-const featureFile = (slug: string) => `${slug.replace(/__/g, '/')}.feature`;
-
-/** Line states from SourceCoverage, strongest first, so combining reports keeps the best result per line. */
-const strength = '+~-.';
-const isRun = (state: string | undefined) => state === '+' || state === '~';
-
-/** Merges per-file line states across reports, keeping the strongest state for each line. */
-function combine(maps: Record<number, string>[]): Record<number, string> {
-  const merged: Record<number, string> = {};
-  for (const map of maps) {
-    for (const [file, states] of Object.entries(map)) {
-      const current = merged[Number(file)];
-      merged[Number(file)] = current
-        ? [...states].map((state, i) => strength.indexOf(state) < strength.indexOf(current[i]) ? state : current[i]).join('')
-        : states;
-    }
-  }
-  return merged;
-}
 
 type LoadState = { status: 'loading' } | { status: 'missing' } | { status: 'error'; message: string }
   | { status: 'ready'; coverage: CoverageManifest; sources: SourceCoverage };

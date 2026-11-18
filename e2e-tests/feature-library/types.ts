@@ -130,3 +130,30 @@ export interface SourceCoverage {
   features: Record<number, string>[];
   scenarios: Record<number, string>[];
 }
+
+/** Serialized as callgraph.json: a static call graph of Kahuna's browser code with precomputed layout. */
+export interface CallGraph {
+  /** Source files under kahuna/; the nodes of the module view, sized by function count. */
+  files: { path: string; x: number; y: number; radius: number }[];
+  /** Importer → imported file indexes. */
+  imports: [number, number][];
+  functions: { name: string; file: number; line: number; x: number; y: number }[];
+  /** Caller → callee function indexes, resolved by name; enclosing functions also link to their callbacks. */
+  calls: [number, number][];
+  /** Graph function index for each CoverageManifest function, or -1 when it could not be matched. */
+  coverage: number[];
+  /** Horizontal bands of the layered layout, top to bottom, in layout coordinates. */
+  functionRows: { label: string; top: number; bottom: number; count: number }[];
+  moduleRows: { label: string; top: number; bottom: number; count: number }[];
+  /**
+   * Network endpoints found by static analysis, with positions in the bottom band of each view. kind is fetch,
+   * an HTTP method, or a Theseus relation lookup (follow/perform/link/action); label is the URL or relation name.
+   */
+  endpoints: {
+    kind: string; label: string; function: { x: number; y: number }; module: { x: number; y: number };
+    /** URL paths the Grid services advertise for this relation, e.g. `GET media-api /images/{id}`; empty if unknown. */
+    paths: string[];
+  }[];
+  /** Function index → endpoint index for each function that makes that request. */
+  network: [number, number][];
+}
