@@ -17,7 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import play.api.http.{DefaultHttpRequestHandler, HttpConfiguration, HttpRequestHandler}
 import play.api.libs.typedmap.TypedMap
 import play.api.mvc.{EssentialAction, Handler, PlayBodyParsers, RequestHeader, Result, Results}
-import play.api.routing.Router
+import play.api.routing.{HandlerDef, Router}
 import play.api.test.FakeRequest
 import play.api.{Configuration, Environment, Mode}
 import play.core.WebCommands
@@ -32,7 +32,10 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
   private implicit val ec: scala.concurrent.ExecutionContext = system.dispatcher
   private val captured = new ConcurrentLinkedQueue[SentryEvent]()
 
-  private val sentryConfig = SentryConfig(Some("https://key@sentry.example.com/1"), "TEST", Seq("error"))
+  private val sentryConfig = SentryConfig(
+    dsn = Some("https://key@sentry.example.com/1"), environment = "TEST",
+    tracesSampleRate = 0, replayOnErrorSampleRate = 0, consoleCaptureLevels = Seq("error")
+  )
   private val errorHandler = new GridSentryErrorHandler(
     Environment.simple(mode = Mode.Prod), Configuration.empty, None, None, sentryConfig
   )
@@ -43,6 +46,7 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     Sentry.init { options =>
       options.setDsn("https://key@sentry.example.com/1")
       options.setSendDefaultPii(false)
+      options.setTracesSampleRate(1d)
       options.setTransportFactory((_, _) => NoOpTransport.getInstance())
       options.setBeforeSend { (event, _) =>
         captured.add(event)
@@ -206,5 +210,44 @@ class SentryUserErrorIntegrationTest extends AnyFunSuite with Matchers with Scal
     whenReady(second)(_.header.status shouldBe 500)
     val usersByError = captured.asScala.map(event => event.getThrowable -> event.getUser.getEmail).toMap
     usersByError shouldBe Map(firstError -> "first@example.com", secondError -> "second@example.com")
+  }
+
+  test("keeps both authenticated email and distributed trace on a failed action") {
+    val error = new IllegalStateException("traced action failed")
+    val action = authentication().async(_ => Future.failed(error))
+    val router = Router.from {
+      case _ => Handler.Stage.modifyRequest(
+        _.addAttr(Router.Attrs.HandlerDef, HandlerDef(
+          getClass.getClassLoader, "router", "controllers.Test", "index", Seq.empty, "GET", "/images/:id"
+        )),
+        action
+      )
+    }
+    val tracingConfig = sentryConfig.copy(tracesSampleRate = 1d)
+    val handler = new SentryUserRequestHandler(new SentryHttpRequestHandler(new DefaultHttpRequestHandler(
+      mock(classOf[WebCommands]), None, () => router, errorHandler, HttpConfiguration(),
+      Seq(new SentryTracingFilter(tracingConfig, mat))
+    )), tracingConfig)
+    val traceId = "0123456789abcdef0123456789abcdef"
+    val (serverRequest, routed) = handler.handlerForRequest(FakeRequest("GET", "/images/private-id").withHeaders(
+      "X-Test-User" -> "person@example.com",
+      "sentry-trace" -> s"$traceId-0123456789abcdef-1"
+    ))
+    val filtered = routed match {
+      case a: EssentialAction => a
+      case other => fail(s"Expected an EssentialAction, got $other")
+    }
+    val result = Future(filtered(serverRequest)).flatMap(_.run()).recoverWith {
+      case failure => errorHandler.onServerError(serverRequest, failure)
+    }
+
+    whenReady(result)(_.header.status shouldBe 500)
+    val events = captured.asScala.toList
+    events.size shouldBe 1
+    events.head.getThrowable shouldBe error
+    events.head.getUser.getEmail shouldBe "person@example.com"
+    events.head.getContexts.getTrace.getTraceId.toString shouldBe traceId
+    events.head.getContexts.getTrace.getSpanId shouldBe
+      SentryTracingFilter.transactionFor(serverRequest).get.getSpanContext.getSpanId
   }
 }

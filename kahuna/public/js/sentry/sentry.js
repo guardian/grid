@@ -55,6 +55,36 @@ sentry.factory('sentryConfig', [function() {
     return (window._clientConfig && window._clientConfig.sentry) || { enabled: false };
 }]);
 
+/**
+ * Builds the integration list from server-supplied config, so tracing and replay are absent
+ * entirely unless they have been deliberately switched on.
+ *
+ * @param {object} config
+ * @returns {Array}
+ */
+function integrationsFor(config) {
+    const integrations = [];
+
+    const consoleLevels = config.consoleCaptureLevels || [];
+    if (consoleLevels.length > 0) {
+        integrations.push(Sentry.captureConsoleIntegration({ levels: consoleLevels }));
+    }
+
+    if (config.tracesSampleRate > 0) {
+        integrations.push(Sentry.browserTracingIntegration());
+    }
+
+    // Grid's DOM contains unpublished imagery and photographer PII, so masking is not optional here.
+    if (config.replayOnErrorSampleRate > 0) {
+        integrations.push(Sentry.replayIntegration({
+            maskAllText: true,
+            blockAllMedia: true
+        }));
+    }
+
+    return integrations;
+}
+
 sentry.config(['$provide', function ($provide) {
     $provide.decorator('$exceptionHandler', ['$delegate', function ($delegate) {
         return function (exception, cause) {
@@ -74,24 +104,30 @@ sentry.config(['$provide', function ($provide) {
     }]);
 }]);
 
-sentry.run(['sentryConfig', (config) => {
-    if (!config.enabled || !config.dsn) {
+sentry.run(['sentryConfig', (sentryConfig) => {
+    if (!sentryConfig.enabled || !sentryConfig.dsn) {
         return;
     }
 
-    const levels = config.consoleCaptureLevels || [];
     Sentry.init({
-        dsn: config.dsn,
-        environment: config.environment,
-        release: config.release,
-        integrations: levels.length ? [Sentry.captureConsoleIntegration({ levels })] : []
+        dsn: sentryConfig.dsn,
+        environment: sentryConfig.environment,
+        release: sentryConfig.release,
+        integrations: integrationsFor(sentryConfig),
+        tracesSampleRate: sentryConfig.tracesSampleRate,
+        tracePropagationTargets: sentryConfig.tracePropagationTargets || [],
+        // Disable session sampling; error-triggered replay may buffer activity.
+        replaysSessionSampleRate: 0,
+        replaysOnErrorSampleRate: sentryConfig.replayOnErrorSampleRate
     });
-    if (config.userId || config.userEmail) {
+
+    if (sentryConfig.userId || sentryConfig.userEmail) {
         Sentry.setUser({
-            ...(config.userId ? { id: config.userId } : {}),
-            ...(config.userEmail ? { email: config.userEmail } : {})
+            ...(sentryConfig.userId ? { id: sentryConfig.userId } : {}),
+            ...(sentryConfig.userEmail ? { email: sentryConfig.userEmail } : {})
         });
     }
+
     // Identifies the kahuna instance that served the page, not the user's session.
     Sentry.setContext('grid', { instanceId: window._clientConfig.sessionId });
 }]);

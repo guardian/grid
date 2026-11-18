@@ -42,7 +42,10 @@ class KahunaController(
       "dsn" -> sentry.dsn,
       "environment" -> sentry.environment,
       "release" -> release,
+      "tracesSampleRate" -> sentry.tracesSampleRate,
+      "replayOnErrorSampleRate" -> sentry.replayOnErrorSampleRate,
       "consoleCaptureLevels" -> sentry.consoleCaptureLevels,
+      "tracePropagationTargets" -> config.services.allInternalUris,
       "userId" -> identity.flatMap(_.id),
       "userEmail" -> identity.flatMap(_.email)
     ))

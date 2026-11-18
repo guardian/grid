@@ -40,8 +40,12 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
     val defaultHandler = new DefaultHttpRequestHandler(
       webCommands, devContext, () => router, httpErrorHandler, httpConfiguration, httpFilters
     )
-    if (config.sentryConfig.enabled) new SentryUserRequestHandler(defaultHandler, config.sentryConfig)
-    else defaultHandler
+    if (config.sentryConfig.enabled) {
+      val handler =
+        if (config.sentryConfig.tracingEnabled) new SentryHttpRequestHandler(defaultHandler)
+        else defaultHandler
+      new SentryUserRequestHandler(handler, config.sentryConfig)
+    } else defaultHandler
   }
 
   final override def httpFilters: Seq[EssentialFilter] = {
@@ -52,6 +56,8 @@ abstract class GridComponents[Config <: CommonConfig](context: Context, val load
       securityHeadersFilter,
       gzipFilter,
       new RequestLoggingFilter(materializer),
+      // After RequestLoggingFilter so the request id is available to tag transactions with.
+      new SentryTracingFilter(config.sentryConfig, materializer),
       new ConnectionBrokenFilter(materializer),
       new RequestMetricFilter(config, materializer, actorSystem, applicationLifecycle)
     )
