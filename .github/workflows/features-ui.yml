@@ -37,7 +37,7 @@ jobs:
     # build files, with a prefix restore-key so an unrelated build change only
     # fetches the delta rather than everything.
     - name: Cache sbt dependencies (ivy/coursier)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           ~/.cache/coursier/v1
@@ -58,7 +58,7 @@ jobs:
     # recompile, and the prefix restore-key seeds an incremental build from the
     # most recent cache when sources have changed.
     - name: Cache sbt compile output (incremental)
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           **/target
@@ -70,7 +70,7 @@ jobs:
     # the resolved Playwright version in the lockfile, so a version bump busts it.
     - name: Cache Playwright browsers
       id: playwright-cache
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-playwright-${{ hashFiles('e2e-tests/package-lock.json') }}
@@ -89,7 +89,7 @@ jobs:
     # Authenticate so buildx can pull the registry layer cache. Only pushes to
     # main write it back; manual runs only read the cache.
     - name: Log in to GHCR
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -108,7 +108,17 @@ jobs:
         # intermediate layers too, so the mise toolchain layer is reused).
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+    - name: Set up local CA for devcontainer-nginx
+      id: local-ca
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mkcert libnss3-tools
+        export CAROOT="$HOME/.local/share/mkcert"
+        mkcert -install
+        echo "certificate=$CAROOT/rootCA.pem" >> "$GITHUB_OUTPUT"
     - name: Capture screen recordings
+      env:
+        NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
       run: npm run test:video
     - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}

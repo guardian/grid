@@ -21,6 +21,28 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
   );
 }
 
+/**
+ * Run `save` and check the metadata editor accepted both requests a usage rights save makes:
+ * the rights, then the metadata derived from them. This confirms the requests succeeded, not
+ * what the server stored as a result.
+ */
+export async function expectUsageRightsSaveAccepted(
+  page: Page,
+  imageId: string,
+  save: () => Promise<void>,
+): Promise<void> {
+  const isRequest = (method: string, path: string) => (response: Response) =>
+    response.request().method() === method && new URL(response.url()).pathname === path;
+  const [rights, derivedMetadata] = await Promise.all([
+    page.waitForResponse(isRequest('PUT', `/metadata/${imageId}/usage-rights`)),
+    page.waitForResponse(isRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+    save(),
+  ]);
+  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
+  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
+    .toBeTruthy();
+}
+
 async function mediaApiRootLinks(page: Page): Promise<string[]> {
   const response = await page.request.get(await getMediaApiUrl(page));
   const { links } = (await response.json()) as { links: { rel: string }[] };
@@ -48,6 +70,22 @@ export async function expectNoEditPermissionForImage(
   imageId: string,
   expectedUploader: string,
 ): Promise<void> {
+  expect(await imageLinksForUploader(page, imageId, expectedUploader)).not.toContain('edits');
+}
+
+export async function expectEditPermissionForImage(
+  page: Page,
+  imageId: string,
+  expectedUploader: string,
+): Promise<void> {
+  expect(await imageLinksForUploader(page, imageId, expectedUploader)).toContain('edits');
+}
+
+async function imageLinksForUploader(
+  page: Page,
+  imageId: string,
+  expectedUploader: string,
+): Promise<string[]> {
   const response = await page.request.get(
     `${await getMediaApiUrl(page)}/images/${imageId}`,
   );
@@ -58,7 +96,26 @@ export async function expectNoEditPermissionForImage(
   };
 
   expect(data.uploadedBy).toBe(expectedUploader);
-  expect(links.map((link) => link.rel)).not.toContain('edits');
+  return links.map((link) => link.rel);
+}
+
+/** The image's `delete` action is only offered to its uploader or holders of delete_image. */
+export async function expectNoDeletePermission(
+  page: Page,
+  imagePath: string,
+  expectedUploader: string,
+): Promise<void> {
+  const response = await page.request.get(
+    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
+  );
+  expect(response.ok()).toBeTruthy();
+  const { data, actions } = (await response.json()) as {
+    data: { uploadedBy: string };
+    actions: { name: string }[];
+  };
+
+  expect(data.uploadedBy).toBe(expectedUploader);
+  expect(actions.map((action) => action.name)).not.toContain('delete');
 }
 
 /** Search lags the image's own endpoint, so wait until the upload is findable by uploader. */

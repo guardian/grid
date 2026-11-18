@@ -1,5 +1,9 @@
 import * as path from 'node:path';
+import type { Page } from '@playwright/test';
 import { Given, Then, When, expect } from '../setup.ts';
+import { TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { openUploadPageAs } from '../common.steps.ts';
+import { expectNoDeletePermission } from '../utils/api/media-api.assertions.ts';
 import {
   failDelete,
   failIngest,
@@ -136,13 +140,17 @@ Given('an image is uploaded', async ({ page, testContext }) => {
   await expect(uploadPage(page).deleteJobButton).toBeVisible();
 });
 
-Given('then deleted using the delete button at the bottom of the job form', async ({ page }) => {
+async function deleteCurrentUpload(page: Page): Promise<void> {
   const remove = uploadPage(page).deleteJobButton;
   await remove.click();
   await remove.click();
   // The section clears only once the soft-delete is committed (the app polls for it), so
   // waiting for it to disappear guarantees the re-upload below sees the image as deleted.
   await expect(uploadPage(page).currentUploads).toBeHidden();
+}
+
+Given('then deleted using the delete button at the bottom of the job form', async ({ page }) => {
+  await deleteCurrentUpload(page);
 });
 
 Given('the same image is uploaded again', async ({ page, testContext }) => {
@@ -153,9 +161,48 @@ Given('I have delete permission', async () => {
   // Precondition satisfied by the default e2e permissions (delete_image is granted).
 });
 
-Then('it should be present in my current uploads', async ({ page }) => {
+Then('it should be present in (my )current uploads', async ({ page }) => {
   await expect(uploadPage(page).metadataEditor).toBeVisible();
 });
+
+Given('an image is uploaded by a user that is not me', async ({ page, testContext }) => {
+  // Uploaded as the full-access account; the scenario switches to the restricted one after.
+  const image = uniqueImage();
+  testContext.uploadedImagePath = image.path;
+  await uploadPage(page).fileInput.setInputFiles(image.path);
+  await expect(uploadPage(page).deleteJobButton).toBeVisible();
+});
+
+Given('then deleted', async ({ page }) => {
+  await deleteCurrentUpload(page);
+});
+
+Given('the same image is uploaded again by me', async ({ page, testContext }) => {
+  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+  await uploadPage(page).fileInput.setInputFiles(testContext.uploadedImagePath!);
+});
+
+Given('I do not have delete permissions', async ({ page, testContext }) => {
+  await expectNoDeletePermission(page, testContext.uploadedImagePath!, TEST_ACCOUNTS.fullAccess);
+});
+
+Then('I should see the undelete button', async ({ page }) => {
+  await expect(uploadPage(page).undeleteJobButton).toBeVisible();
+});
+
+Then('the undelete button is disabled', async ({ page }) => {
+  await expect(uploadPage(page).undeleteJobButton).toBeDisabled();
+});
+
+Then(
+  'there should be a message indicating that I do not have permission to undelete',
+  async ({ page }) => {
+    const { deletionStatus, undeleteJobButton } = uploadPage(page);
+    const message = 'Only the uploader or a user with delete permission can';
+    await expect(deletionStatus).toContainText(message);
+    await expect(undeleteJobButton).toHaveAccessibleDescription(new RegExp(message));
+  },
+);
 
 Then('I should be able to undelete it', async ({ page }) => {
   const undelete = uploadPage(page).undeleteJobButton;

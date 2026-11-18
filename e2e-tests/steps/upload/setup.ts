@@ -133,6 +133,7 @@ export const uploadPage = (page: Page) => {
   const currentUploads = page.getByRole('region', { name: 'Your current uploads' });
   const pastUploads = page.getByRole('region', { name: 'Your past 50 uploads' });
   const metadataEditor = currentUploads.getByRole('region', { name: 'Image metadata' });
+  const deletionStatus = currentUploads.getByRole('group', { name: 'Deletion status' });
   const job = (fileName: string) => page.getByRole('region', { name: `${fileName} upload` });
 
   return {
@@ -177,11 +178,9 @@ export const uploadPage = (page: Page) => {
     metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
-    /* The per-item undelete control, an <a role="button">. The batch action bar renders a
-       second "Undelete" button, so intersect with the anchor to pick the per-item one. */
-    undeleteJobButton: currentUploads
-      .getByRole('button', { name: 'Undelete' })
-      .and(currentUploads.locator('a')),
+    /** The deleted-image notice on a re-uploaded image, holding its undelete control and message. */
+    deletionStatus,
+    undeleteJobButton: deletionStatus.getByRole('button', { name: 'Undelete' }),
   };
 };
 

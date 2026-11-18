@@ -35,10 +35,10 @@ export async function openUploadPage(page: Page): Promise<void> {
   await goToUploadPage(page);
 }
 
-/** Sign in afresh as `account` and land on the upload page. */
+/** Sign in afresh as `account` and land on the upload page, arriving from search. */
 export async function openUploadPageAs(page: Page, account: TestAccount): Promise<void> {
   await switchAccount(page, account);
-  await goToUploadPage(page);
+  await openUploadPage(page);
 }
 
 Given('I have opened the image upload page', async ({ page, testContext }) => {

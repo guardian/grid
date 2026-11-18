@@ -23,6 +23,8 @@ ThisBuild / libraryDependencySchemes +=
 
 lazy val jacksonVersion = "2.21.7"
 lazy val jacksonAnnotationsVersion = "2.21"
+lazy val guavaVersion = "33.7.2-jre"
+lazy val snappyJavaVersion = "1.1.10.9"
 lazy val jacksonOverrides = Seq(
   "com.fasterxml.jackson.core" % "jackson-core",
   "com.fasterxml.jackson.core" % "jackson-databind",
@@ -55,7 +57,10 @@ val commonSettings = Seq(
     "org.mockito" % "mockito-core" % "2.18.0" % Test,
     "org.scalamock" %% "scalamock" % "5.1.0" % Test,
   ),
-  dependencyOverrides ++= jacksonOverrides,
+  dependencyOverrides ++= jacksonOverrides ++ Seq(
+    "com.google.guava" % "guava" % guavaVersion,
+    "org.xerial.snappy" % "snappy-java" % snappyJavaVersion,
+  ),
 
   Compile / doc / sources := Seq.empty,
   Compile / packageDoc / publishArtifact := false
@@ -87,7 +92,7 @@ Global / concurrentRestrictions := Seq(
 val awsSdkVersion = "1.12.797"
 val awsSdkV2Version = "2.54.13"
 val elastic4sVersion = "8.19.1"
-val awsKclVersion = "3.4.3"
+val awsKclVersion = "3.5.3"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -113,6 +118,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "thrift-serializer" % "5.0.8",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
+    "app.photofox.vips-ffm" % "vips-ffm-core" % "1.9.9",
     "com.gu" % "kinesis-logback-appender" % "2.1.3",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     logback, // play-logback; needed when running the scripts

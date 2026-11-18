@@ -19,12 +19,14 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
 
   val s3Client = new S3(config)
 
-  val usageQuota = new UsageQuota(config, actorSystem.scheduler)
+  lazy val usageQuota: UsageQuota = new UsageQuota(config, actorSystem.scheduler,
+    id => { implicit val lm = com.gu.mediaservice.lib.logging.MarkerMap(); elasticSearch.quotaCountBySupplier(id) }
+  )
   usageQuota.quotaStore.update()
   usageQuota.scheduleUpdates()
   applicationLifecycle.addStopHook(() => Future{usageQuota.stopUpdates()})
 
-  val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
+  lazy val elasticSearch = new ElasticSearch(config, mediaApiMetrics, config.esConfig, () => usageQuota.usageStore.overQuotaAgencies, actorSystem.scheduler)
   elasticSearch.ensureIndexExistsAndAliasAssigned()
 
   val imageResponse = new ImageResponse(config, s3Client, usageQuota)
@@ -37,7 +39,7 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
-  val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, elasticSearch)
+  val elasticSearchHealthCheck = new ElasticSearchHealthCheck(controllerComponents, auth, elasticSearch)
   val healthcheckController = new Management(controllerComponents, buildInfo)
   val configurationController = new ConfigurationController(controllerComponents)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)

@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.management
 
 import com.gu.mediaservice.lib.argo._
+import com.gu.mediaservice.lib.auth.Authentication
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchClient, ElasticSearchImageCounts}
 import com.gu.mediaservice.lib.logging.GridLogging
@@ -33,7 +34,7 @@ trait ManagementController extends HealthCheck with BaseController with ArgoHelp
 
 class Management(override val controllerComponents: ControllerComponents, override val buildInfo: BuildInfo) extends ManagementController
 
-class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
+class ElasticSearchHealthCheck(override val controllerComponents: ControllerComponents, auth: Authentication, elasticsearch: ElasticSearchClient)(implicit val ec: ExecutionContext)
   extends HealthCheck with GridLogging {
 
   override def healthCheck: Action[AnyContent] = Action.async {
@@ -56,7 +57,7 @@ class ElasticSearchHealthCheck(override val controllerComponents: ControllerComp
     }
   }
 
-  def imageCounts: Action[AnyContent] = Action.async {
+  def imageCounts: Action[AnyContent] = auth.async {
     implicit val imageCountsFormat: Format[ElasticSearchImageCounts] =
       Json.format[ElasticSearchImageCounts]
 

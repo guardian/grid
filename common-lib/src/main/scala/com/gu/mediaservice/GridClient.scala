@@ -3,7 +3,7 @@ package com.gu.mediaservice
 import java.net.{URI, URL}
 import com.gu.mediaservice.GridClient.{Error, Found, NotFound, Response}
 import com.gu.mediaservice.lib.config.Services
-import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SyndicationRights}
+import com.gu.mediaservice.model.{Collection, Crop, Edits, Image, ImageMetadata, ImageStatusRecord, SourceImage, SyndicationRights}
 import com.gu.mediaservice.model.leases.LeasesByMedia
 import com.gu.mediaservice.model.usage.Usage
 import com.typesafe.scalalogging.LazyLogging
@@ -104,12 +104,13 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
    * process before returning data.
    * See also https://www.playframework.com/documentation/2.6.x/ScalaWS#Configuring-Timeouts
    */
-  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None)
+  def makeGetRequestAsync(url: URL, authFn: WSRequest => WSRequest, requestTimeout: Option[Duration] = None,
+                          queryStringParameters: Option[Seq[(String, String)]] = None)
                          (implicit ec: ExecutionContext): Future[Response] = {
-    val request: WSRequest = wsClient.url(url.toString)
+    val request: WSRequest = wsClient.url(url.toString).withQueryStringParameters(queryStringParameters.getOrElse(Seq.empty): _*)
     val requestWithTimeout = requestTimeout.fold(request)(request.withRequestTimeout)
-    val authorisedRequest = authFn(requestWithTimeout)
-    authorisedRequest.get().map { response => validateResponse(response, url)}
+    val authorisedRequest = authFn(requestWithTimeout.withMethod("GET"))
+    authorisedRequest.get().map { response => validateResponse(response, url) }
   }
 
   private def validateResponse(
@@ -234,6 +235,16 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
     }
   }
 
+  def getSourceImage(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[SourceImage] = {
+    logger.info("attempt to get image")
+    val url = URI.create(s"${services.apiBaseUri}/images/$mediaId").toURL
+    makeGetRequestAsync(url, authFn, queryStringParameters = Some(Seq("include" -> "fileMetadata"))) map {
+      case Found(json, _) => json.as[SourceImage]
+      case nf@NotFound(_, _) => Error(nf.status, url, nf.underlying).logErrorAndThrowException()
+      case e@Error(_, _, _) => e.logErrorAndThrowException()
+    }
+  }
+
   def getMetadata(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext): Future[ImageMetadata] = {
     logger.info("attempt to get metadata")
     val url = URI.create(s"${services.apiBaseUri}/images/$mediaId").toURL
@@ -256,13 +267,13 @@ class GridClient(services: Services, originDomain: String)(implicit wsClient: WS
   def postUsage(usageType: String, data: JsObject, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
     val url = URI.create(s"${services.usageBaseUri}/usages/$usageType").toURL
     val request: WSRequest = wsClient.url(url.toString)
-    val authorisedRequest = authFn(request)
+    val authorisedRequest = authFn(request.withMethod("POST"))
     authorisedRequest.post(Json.obj("data" -> data)).map { response => validateResponse(response, url)}
   }
 
   def putArchived(mediaId: String, authFn: WSRequest => WSRequest)(implicit ec: ExecutionContext) = {
     val url = URI.create(s"${services.metadataBaseUri}/metadata/$mediaId/archived").toURL
-    val request = authFn(wsClient.url(url.toString))
+    val request = authFn(wsClient.url(url.toString).withMethod("PUT"))
     request.put(Json.obj("data" -> JsTrue)).map { response => validateResponse(response, url)}
   }
 }

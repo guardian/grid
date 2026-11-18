@@ -223,6 +223,7 @@ function getMediaApiConfig(config) {
         |}
         |metrics.request.enabled=false
         |syndication.review.useRuntimeFieldsFix=true
+        |images.imgproxy.enabled=true
         |capi.preview.url="previewurl"
         |capi.preview.role="previewrole"
         |capi.maxRetries=3

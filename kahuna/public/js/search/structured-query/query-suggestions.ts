@@ -16,13 +16,6 @@ export type FieldAlias = {
   searchHintOptions: string[];
 };
 
-export type Chip = {
-  filterType: "inclusion" | "exclusion";
-  type: "filter-chooser" | "filter";
-  key: string | undefined;
-  value: string;
-};
-
 const subjects = [
   "arts",
   "crime",
@@ -90,7 +83,6 @@ type TypeaheadField = {
 };
 
 export type QuerySuggestionsService = {
-  getChipSuggestions: (chip: Chip) => string[];
   typeaheadFields: TypeaheadField[];
 };
 
@@ -205,8 +197,6 @@ querySuggestions.factory("querySuggestions", [
       return -1;
     }) as TypeaheadField[];
 
-    const fieldNames = typeaheadFields.map((field) => field.fieldName);
-
     function prefixFilter(prefix: string) {
       const lowerPrefix = prefix.toLowerCase();
       return (values: string[]) =>
@@ -305,30 +295,8 @@ querySuggestions.factory("querySuggestions", [
         : undefined;
     }
 
-    function getChipSuggestions(chip: Chip): string[] {
-      if (chip.type === "filter-chooser") {
-        return fieldNames.filter((f) => f.startsWith(chip.value));
-      } else if (chip.type === "filter") {
-        const field = typeaheadFields.find(
-          (field) => field.fieldName === chip.key,
-        );
-        if (!field?.resolver) {
-          return [];
-        }
-
-        if (Array.isArray(field.resolver)) {
-          return field.resolver;
-        }
-
-        return field.resolver(chip.value);
-      } else {
-        return [];
-      }
-    }
-
     return {
-      typeaheadFields,
-      getChipSuggestions
+      typeaheadFields
     };
   }
 ]);

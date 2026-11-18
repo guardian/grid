@@ -14,13 +14,7 @@ dndUploader.controller('DndUploaderCtrl',
                    function($state, uploadManager) {
 
     var ctrl = this;
-    //hack to prevent grid thumbnails being re-added to the grid for now
-    //TODO make generic - have API tell kahuna S3 buckets' domain
-    const gridThumbnailPattern = /https:\/\/media-service([0-9-a-z]+)thumbbucket([0-9-a-z]+)/;
-
     ctrl.uploadFiles = uploadFiles;
-    ctrl.isNotGridThumbnail = (uri)  => !gridThumbnailPattern.test(uri);
-    ctrl.loadUriImage = loadUriImage;
 
     function uploadFiles(files) {
         // Queue up files for upload and go to the upload state to
@@ -30,10 +24,6 @@ dndUploader.controller('DndUploaderCtrl',
         });
     }
 
-   function loadUriImage(fileUri) {
-        uploadManager.uploadUri(fileUri);
-        $state.go('upload', {}, { reload: true });
-    }
 }]);
 
 /**
@@ -82,18 +72,11 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                 return types.some(t => mimeTypes.indexOf(t) !== -1);
             }
             function isGridFriendly(e) {
-                // we search through the types array as we don't have the `files`
-                // or `data` (uris etc) ondragenter, only drop.
                 const types       = Array.from(e.dataTransfer.types);
-
-                // Dragging out of the Firefox URL bar uses a Mozilla specific MIME type without
-                // text/uri-list as a fallback
-                const isUri = hasType(types, 'text/uri-list') || hasType(types, 'text/x-moz-url');
-
                 const hasFiles    = hasType(types, 'Files');
                 const isGridImage = hasGridMimetype(types);
 
-                const isFriendly = (hasFiles || isUri) && !isGridImage;
+                const isFriendly = hasFiles && !isGridImage;
 
                 return isFriendly;
             }
@@ -131,17 +114,16 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
             function drop(event) {
                 const dataTransfer = event.dataTransfer;
                 const files = Array.from(dataTransfer.files);
-                const uri = dataTransfer.getData('text/uri-list');
 
                 event.preventDefault();
 
                 if (isGridFriendly(event)) {
-                    performDropAction(files, uri);
+                    performDropAction(files);
                 }
                 scope.$apply(deactivate);
             }
 
-            function performDropAction(files, uri) {
+            function performDropAction(files) {
                 if (files.length > 0) {
                     ctrl.uploadFiles(files);
                     $rootScope.$emit(
@@ -152,8 +134,6 @@ dndUploader.directive('dndUploader', ['$window', '$rootScope', 'delay', 'safeApp
                       null,
                       dropAction('Files')
                     );
-                } else if (ctrl.isNotGridThumbnail(uri)) {
-                    ctrl.loadUriImage(uri);
                 }
             }
 

@@ -638,7 +638,7 @@ class ElasticSearch(
       val images = result.hits.hits.toList
         .flatMap(resolveHit)
         .map(sourceWrapperImage => sourceWrapperImage.instance)
-        .map(image => ImageUsagesBySupplier(image.id, image.usageRights, image.usages.filter(isQualifyingUsage)))
+        .map(image => ImageUsagesBySupplier(image, image.usages.filter(isQualifyingUsage)))
         .distinctBy(_.id)
       ImageUsagesBySupplierResult(images, result.totalHits)
     }
