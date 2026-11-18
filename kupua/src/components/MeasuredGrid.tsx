@@ -5,12 +5,11 @@ import { imageRatio } from "@/lib/result-geometry";
 import type { Image } from "@/types/image";
 import type { MeasuredCells } from "@/hooks/useMeasuredLayout";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
-import { DETAIL_PANEL_FIELDS } from "@/lib/field-registry";
-import { ImageMetadata } from "./ImageMetadata";
+import { FORM_METADATA_FIELDS, ImageMetadata } from "./ImageMetadata";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
 
 export const useFormFields = create<{ fields: ReadonlySet<string> }>(() => ({
-  fields: new Set(DETAIL_PANEL_FIELDS.map(field => field.id)),
+  fields: new Set(FORM_METADATA_FIELDS.map(field => field.id)),
 }));
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
@@ -35,7 +34,6 @@ export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
     render: (image, thumbnail) => <div className="form-density-item">
       <div data-measured-field="image" className="min-w-0 self-start">
         {thumbnail}
-        <p className="px-3 py-2 text-xs text-grid-text-muted wrap-anywhere select-text">{image.uploadInfo?.filename ?? image.id}</p>
       </div>
       <div data-form-content className="min-w-0 p-3 cursor-text select-text"
         onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}

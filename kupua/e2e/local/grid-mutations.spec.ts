@@ -46,7 +46,7 @@ test.describe("U3 isolated uploads", () => {
   test("U4.5 combines one batch with all other uploads and preserves section inspection origins", async ({ page }) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => localStorage.setItem("kupua-allow-uploads", "true"));
-    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true } });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, status: "COMPLETED", visible: true, searchable: true } });
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 650 } });
     await page.goto(`${origin}/__continuation?density=table`);
     await new KupuaHelpers(page).waitForResults();
@@ -58,7 +58,6 @@ test.describe("U3 isolated uploads", () => {
     await page.locator('input[type="file"]').setInputFiles([{ name: "older.jpg", mimeType: "image/jpeg", buffer: Buffer.from("older upload") }]);
     const older = new URL(page.url()).searchParams.get("batch")!;
     await expect(page.getByRole("region", { name: "Image results form", exact: true })).toBeVisible();
-    await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
     await expect(page.getByRole("button", { name: "Upload activity: 1 completed", exact: true })).toBeVisible();
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections?.batch)).toBe(1);
     const olderId = await page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().results.find(Boolean)!.id);
@@ -222,7 +221,7 @@ test.describe("U3 isolated uploads", () => {
     await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing");
       Object.defineProperty(crypto, "randomUUID", { configurable: true, value: undefined });
     });
-    await page.request.post(`${origin}/__upload-control`, { data: { reset: true } });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, status: "COMPLETED", visible: true, searchable: true } });
     await page.goto(`${origin}/__continuation?density=grid`);
     await new KupuaHelpers(page).waitForResults();
     await page.getByRole("button", { name: /^Sort by:/ }).click();
@@ -241,6 +240,10 @@ test.describe("U3 isolated uploads", () => {
       { name: "a.jpg", mimeType: "image/jpeg", buffer: Buffer.from("second fixture") },
     ]);
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(2);
+    const results = page.locator('[role="region"][aria-label^="Image results "]');
+    await expect.poll(() => results.evaluate(element => element.scrollTop)).toBe(0);
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections?.batch)).toBe(2);
+    await expect.poll(() => results.evaluate(element => element.scrollTop)).toBe(0);
     const first = new URL(page.url()).searchParams.get("batch");
     expect(first).toMatch(/^local-/);
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
@@ -250,19 +253,45 @@ test.describe("U3 isolated uploads", () => {
       transfer.items.add(new File(["third fixture"], "next.jpg", { type: "image/jpeg" }));
       return transfer;
     });
+    const statusPattern = "**/grid-loader/uploadStatus/**";
+    let releaseProcessing!: () => void;
+    const processing = new Promise<void>(resolve => { releaseProcessing = resolve; });
     try {
       await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
       await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(3);
       const second = new URL(page.url()).searchParams.get("batch");
       expect(second).toMatch(/^local-/);
       expect(second).not.toBe(first);
+      await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections?.batch)).toBe(1);
       await page.getByRole("button", { name: "Sort by: Filename", exact: true }).click();
       await page.getByRole("option", { name: "Uploaded", exact: true }).click();
+      await expect.poll(() => page.evaluate(() => {
+        const state = (window as CommandWindow).__kupua_store__.getState();
+        return { orderBy: state.params.orderBy, loading: state.loading,
+          pendingPlacement: state._searchContinuity?.phase === "pending" || state._searchContinuity?.phase === "ready" };
+      })).toEqual({ orderBy: "-uploadTime", loading: false, pendingPlacement: false });
+      await page.request.post(`${origin}/__upload-control`, { data: { status: "QUEUED", visible: false, searchable: false } });
+      await page.route(statusPattern, async route => { await processing; await route.continue(); });
+      await results.hover();
+      await page.mouse.wheel(0, 1500);
+      await expect.poll(() => results.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+      await expect.poll(() => results.evaluate(element => {
+        const viewport = element.getBoundingClientRect();
+        const input = Array.from(element.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea"))
+          .find(input => { const bounds = input.getBoundingClientRect(); return bounds.bottom > viewport.top && bounds.top < viewport.bottom; });
+        input?.focus({ preventScroll: true });
+        return !!input && document.activeElement === input;
+      })).toBe(true);
       await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
       await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(4);
       expect(new URL(page.url()).searchParams.get("batch")).not.toBe(second);
       expect(new URL(page.url()).searchParams.get("batch")).not.toBe(first);
       await expect(page.getByRole("button", { name: "Sort by: Filename", exact: true })).toBeVisible();
+      await expect.poll(() => results.evaluate(element => element.scrollTop)).toBe(0);
+      await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
+      releaseProcessing();
+      await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections?.batch)).toBe(1);
+      await expect.poll(() => results.evaluate(element => element.scrollTop)).toBe(0);
       expect(new URL(page.url()).searchParams.get("orderBy")).toBeNull();
       await page.getByRole("button", { name: "Sort by: Filename", exact: true }).click();
       await page.getByRole("option", { name: "Uploaded", exact: true }).click();
@@ -281,7 +310,7 @@ test.describe("U3 isolated uploads", () => {
       await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
       await expect(page.getByRole("button", { name: "Sort by: Filename", exact: true })).toBeVisible();
       expect(new URL(page.url()).searchParams.get("orderBy")).toBeNull();
-    } finally { await drop.dispose(); }
+    } finally { releaseProcessing(); await page.unroute(statusPattern); await drop.dispose(); }
   });
 
   test("U4 retained batch URLs survive reload beyond five choices without resuming jobs", async ({ page }) => {

@@ -146,7 +146,7 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
   await stableFrames(() => cell.getByRole("textbox", { name: "Description", exact: true }).fill(growth));
   expect(await cell.evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(await region.evaluate(element => element.clientHeight));
   await stableFrames(() => cell.getByRole("textbox", { name: "Description", exact: true }).fill("Retained form draft"));
-  const nextField = cell.locator('[data-measured-field="metadata_specialInstructions"]');
+  const nextField = cell.locator('[data-measured-field="metadata_byline"]');
   const fieldTop = await nextField.evaluate(element => element.getBoundingClientRect().top);
   await page.evaluate(() => (window as any).__kupua_form__.field("metadata_description", false));
   await expect(cell.getByRole("textbox", { name: "Description", exact: true })).toHaveCount(0);

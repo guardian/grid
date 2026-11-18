@@ -30,7 +30,8 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const addRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { if (adding) return () => { addRef.current?.focus(); }; }, [adding]);
   const collection = field.id === "collections";
-  const noun = collection ? "collection" : field.id === "people" ? "person" : "keyword";
+  const noun = collection ? "collection" : field.id === "people" ? "person"
+    : field.id === "subjects" ? "subject" : field.id === "labels" ? "label" : "keyword";
   const hasAll = (value: string) => values.some(item => item.value === value.trim() && item.count === targetIds.length);
   const prepare = (action: "add" | "remove", value: string) => {
     if (!available || !value.trim() || !targetIds.length || action === "add" && hasAll(value)) return;
@@ -46,9 +47,9 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     </span>
   }>
       <div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
-        {!available && <Dash />}
+        {!dataAvailable && <Dash />}
         {(expanded ? sorted : sorted.slice(0, 20)).map(item => <EditableSearchPill key={item.value} value={item.value}
-          cqlKey={field.cqlKey!} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} coverageKnown={available}
+          cqlKey={field.cqlKey!} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} coverageKnown={dataAvailable}
           onAdd={() => prepare("add", item.value)} onRemove={() => prepare("remove", item.value)}
           label={collection ? <span className="inline-flex max-w-full flex-wrap items-center gap-x-1">
             {(collectionPaths?.get(item.value) ?? item.value.split("/")).map((part, index) => <span key={index} className="inline-flex min-w-0 items-center gap-1">

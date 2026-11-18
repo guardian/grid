@@ -93,9 +93,8 @@ export function RecentUploadsEntry({ iconOnly = false, shortLabel = false, onOpe
 }
 
 function openSubmittedBatch(navigate: ReturnType<typeof useNavigate>, batch: string) {
-  useUploadLayoutStore.getState().followBatch(batch);
   const withinUpload = useUiPrefsStore.getState().densityContext === "upload";
-  pushNavigate(navigate, { to: "/upload", search: { batch }, state: withFreshKupuaKey({ _uploadFresh: !withinUpload, _uploadAddressed: withinUpload }) });
+  pushNavigate(navigate, { to: "/upload", search: { batch }, state: withFreshKupuaKey({ _uploadFresh: !withinUpload, _uploadAddressed: withinUpload, _uploadSubmitted: true }) });
 }
 
 export function useUploadAccess(): "loading" | "available" | "denied" | "disabled" | "unavailable" {

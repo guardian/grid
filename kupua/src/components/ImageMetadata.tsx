@@ -36,7 +36,7 @@
 
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
-import { DETAIL_PANEL_FIELDS } from "@/lib/field-registry";
+import { DETAIL_PANEL_FIELDS, FIELDS_BY_ID } from "@/lib/field-registry";
 import {
   useMetadataSearch,
   MetadataSection,
@@ -61,6 +61,23 @@ import { findLink } from "@/dal/grid-api/argo";
 
 
 const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
+const FORM_SECTIONS = [
+  ["metadata_imageType", "metadata_title", "metadata_description", "metadata_byline", "metadata_credit", "metadata_dateTaken", "location",
+    "metadata_copyright", "metadata_usageInstructions", "metadata_specialInstructions"],
+  ["collections", "labels", "people", "keywords", "photoshoot"],
+  ["uploadInfo_filename", "source_mimeType"],
+].map(section => section.map(id => {
+  const field = FIELDS_BY_ID.get(id)!;
+  if (id === "source_mimeType") return { ...field, id: "form_fileInfo", label: "File info", cqlKey: undefined,
+    formatter: undefined, accessor: (image: Image) => ["source_mimeType", "dimensions", "source_size"].map(key => {
+      const part = FIELDS_BY_ID.get(key)!;
+      const value = part.accessor(image);
+      return typeof value === "string" && part.formatter ? part.formatter(value) : value;
+    }).filter(Boolean).join(", ") };
+  return field.id === "metadata_byline" ? { ...field, label: "Byline" } : field;
+}));
+
+export const FORM_METADATA_FIELDS = FORM_SECTIONS.flat();
 
 /** Human-readable labels for lease access types (Kahuna inventory row 28). */
 const LEASE_ACCESS_LABELS: Record<string, string> = {
@@ -347,7 +364,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Leases section — own section with heading, matching Kahuna layout.
           Counts come from enrichment (always available); individual cards only
           render when raw ES lease data is present (after SOURCE_INCLUDES fix). */}
-      {hasLeases && (
+      {(hasLeases || formFields) && (
         <MetadataSection>
           <div className="text-xs font-bold text-grid-text-dim pb-1">Leases</div>
           {allLeases.length > 0 ? (
@@ -396,15 +413,15 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
           ) : (
             /* Enrichment-only: show count summary without expandable cards */
             <span className="text-xs text-grid-text">
-              {currentLeaseCount} current{inactiveLeaseCount > 0 ? ` · ${inactiveLeaseCount} inactive` : ""}
+              {hasLeases ? <>{currentLeaseCount} current{inactiveLeaseCount > 0 ? ` · ${inactiveLeaseCount} inactive` : ""}</> : "None"}
             </span>
           )}
         </MetadataSection>
       )}
 
       {/* Regular metadata fields from field registry */}
-      {SECTIONS.map((section, sIdx) => (
-        <MetadataSection key={sIdx} additional={section[0]?.detailGroup === "extended"}>
+      {(formFields ? FORM_SECTIONS : SECTIONS).map((section, sIdx) => (
+        <MetadataSection key={sIdx} additional={!formFields && section[0]?.detailGroup === "extended"}>
           {section.map((field) => {
             if (field.visibleWhen?.() === false) return null;
             if (formFields && !formFields.has(field.id)) return null;
@@ -418,17 +435,35 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
             const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
-            const readOnly = (hasValue || field.showWhenEmpty)
+            const readOnly = (hasValue || field.showWhenEmpty || formFields && ["collections", "labels", "keywords"].includes(field.id))
               && !(field.id === "metadata_specialInstructions" && !hasValue && image.metadata?.usageInstructions)
               ? <Layout key={field.id} label={field.label}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <span className="text-grid-text-dim">Unknown</span>}
               </Layout> : null;
 
             if (formFields) {
+              if (field.id === "location") return <div key={field.id} data-measured-field={field.id} className="metadata-form-field" role="group" aria-label="Location">
+                <div className="text-xs text-grid-text-dim">Location</div>
+                <div className="metadata-form-location">
+                  {["subLocation", "state", "city", "country"].map(key => {
+                    const component = LOCATION_COMPONENTS.find(component => component.key === key)!;
+                    return <MetadataFormField key={component.key} imageId={image.id} field={FIELDS_BY_ID.get(component.fieldId)!}
+                      value={image.metadata?.[component.key] ?? ""}
+                      editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} />;
+                  })}
+                </div>
+              </div>;
+              if (field.isList) return <div key={field.id} data-measured-field={field.id}>
+                <MetadataPillEditor field={field} targetIds={[image.id]} onSearch={onSearch}
+                  editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} readOnly={readOnly}
+                  values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
+                  collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />
+              </div>;
               const control = METADATA_EDIT_CONTROLS.get(field.id);
-              if (control && control !== "datetime-local" && (field.id !== "metadata_copyright" || hasValue)) {
+              if (control && (field.id !== "metadata_copyright" || hasValue)) {
                 return <MetadataFormField key={field.id} imageId={image.id} field={field} value={typeof raw === "string" ? raw : ""}
                   editable={canEditMetadata && !enriched?.metadataStale && !image.__availability}
+                  editorialGuidance
                   required={field.id === "metadata_description" || field.id === "metadata_credit"} />;
               }
               return readOnly ? <div key={field.id} data-measured-field={field.id}>{readOnly}</div> : null;
@@ -466,7 +501,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Syndication Rights section (row 48 in detail inventory) — bottom of panel.
           `isInferred` and `published` are available on the type but not rendered in v1
           (matches Kahuna; data layer is ready for a future iteration without schema changes). */}
-      <MetadataSection>
+      {!formFields && <MetadataSection>
         <div className="text-xs font-bold text-grid-text-dim pb-1">Syndication rights</div>
         <p className="text-xs text-grid-text">
           {!hasSyndicationRightsInfo ? (
@@ -477,7 +512,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             <>Syndication rights have <strong>not</strong> been acquired for this image.</>
           )}
         </p>
-      </MetadataSection>
+      </MetadataSection>}
     </dl>
   );
 }

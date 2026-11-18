@@ -9,7 +9,7 @@ import { gridConfig } from "@/lib/grid-config";
 import { LOCATION_COMPONENTS, MetadataLocationEditor } from "./MetadataLocationEditor";
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
-import { ImageMetadata } from "./ImageMetadata";
+import { FORM_METADATA_FIELDS, ImageMetadata } from "./ImageMetadata";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
@@ -94,6 +94,122 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
+  it("uses Upload's editorial order and guidance without changing Details", () => {
+    gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph");
+    const image: Image = { ...images[0],
+      uploadInfo: { ...images[0].uploadInfo, filename: "editorial-image.jpg" },
+      source: { ...images[0].source, mimeType: "image/jpeg", size: 1024, orientedDimensions: { width: 700, height: 500 } },
+      metadata: { ...images[0].metadata, title: "Retained title", description: "Short", byline: "Picture desk",
+        credit: "Desk", copyright: "Desk copyright", city: "London", dateTaken: "2026-11-18T12:00:00Z",
+        usageInstructions: "Supplied instructions", specialInstructions: "Further instructions",
+        subjects: ["News"], peopleInImage: ["A person"], keywords: ["Editorial"], source: "Wire source" },
+      userMetadata: { ...images[0].userMetadata, labels: ["Desk label"], photoshoot: { title: "Assignment" } },
+      collections: [{ pathId: "desk/news", path: ["desk", "news"] }],
+    };
+    const mounted = render(<ImageMetadata image={image} formFields={new Set(FORM_METADATA_FIELDS.map(field => field.id))} />);
+    expect([...mounted.container.querySelectorAll("[data-measured-field]")].map(element => element.getAttribute("data-measured-field"))).toEqual([
+      "metadata_imageType", "metadata_title", "metadata_description", "metadata_byline", "metadata_credit", "metadata_dateTaken", "location",
+      "location_subLocation", "location_state", "location_city", "location_country",
+      "metadata_copyright", "metadata_usageInstructions", "metadata_specialInstructions",
+      "collections", "labels", "people", "keywords", "photoshoot", "uploadInfo_filename", "form_fileInfo",
+    ]);
+    expect(screen.getByLabelText("Byline").getAttribute("placeholder")).toBe("Author’s name ONLY, leave empty if unknown");
+    expect(screen.getByText(/Your description is too short/).className).toContain("text-grid-warning");
+    expect(screen.getByRole("option", { name: /choose type/ }).textContent).toBe("───  choose type  ───");
+    expect(fieldRow("File info").textContent).toContain("jpeg, 700 × 500, 1 KB");
+    expect(screen.queryByText("File type", { selector: "dt" })).toBeNull();
+    expect(screen.queryByText("Dimensions", { selector: "dt" })).toBeNull();
+    for (const noun of ["collection", "label", "person", "keyword"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Add ${noun}` }));
+      expect(screen.getByLabelText(`New ${noun}`)).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: `Cancel new ${noun}` }));
+    }
+    for (const label of ["Subjects", "Uploaded", "Modified", "Uploader", "Additional metadata", "Syndication rights"]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+    expect(screen.getByLabelText("Special instructions").tagName).toBe("TEXTAREA");
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "An editorial description with enough context about this image." } });
+    expect(screen.queryByText(/Your description is too short/)).toBeNull();
+    for (const label of ["Description", "Credit"]) {
+      const input = screen.getByLabelText(label) as HTMLInputElement | HTMLTextAreaElement;
+      fireEvent.change(input, { target: { value: "" } });
+      expect(input.checkValidity()).toBe(false);
+      expect(screen.queryByText(`${label} is required.`)).toBeNull();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Add label" }));
+    act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
+    expect(within(fieldRow("Labels")).queryByText("Empty")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Apply .* to all selected images/ })).toBeNull();
+    expect((screen.getByRole("button", { name: "Commit new label" }) as HTMLButtonElement).disabled).toBe(true);
+    mounted.rerender(<ImageMetadata image={image} />);
+    expect(fieldRow("By")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Additional metadata" })).toBeTruthy();
+    expect(screen.getByText("Syndication rights")).toBeTruthy();
+    expect(screen.queryByText("File type", { selector: "dt" })).toBeNull();
+    expect(screen.queryByText(/Your description is too short/)).toBeNull();
+  });
+
+  it("edits supplied and missing Form locations and dates directly with retained unsent drafts", () => {
+    const formFields = new Set(FORM_METADATA_FIELDS.map(field => field.id));
+    const image = { ...images[0], metadata: { ...images[0].metadata, subLocation: "Venue", state: "Region",
+      city: "London", country: "United Kingdom", dateTaken: "2026-11-18T12:00:00Z" } };
+    const mounted = render(<ImageMetadata image={image} formFields={formFields} />);
+    for (const label of ["Sublocation", "State", "City", "Country", "Taken on"]) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+      expect(document.activeElement).not.toBe(screen.getByLabelText(label));
+    }
+    for (const name of ["Edit Location", "Commit Location", "Cancel Location", "Edit Taken on", "Commit Taken on", "Cancel Taken on"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("London");
+    expect((screen.getByLabelText("Taken on") as HTMLInputElement).type).toBe("datetime-local");
+    expect((screen.getByLabelText("Taken on") as HTMLInputElement).value).not.toBe("");
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "Manchester" } });
+    fireEvent.change(screen.getByLabelText("Taken on"), { target: { value: "2026-11-19T13:15" } });
+    expect(useMetadataDrafts.getState().drafts.get(image.id)?.get("location_city")?.value).toBe("Manchester");
+    expect(useMetadataDrafts.getState().drafts.get(image.id)?.has("metadata_dateTaken")).toBe(true);
+    expect(screen.getAllByText("Not sent")).toHaveLength(2);
+    expect(image.metadata.city).toBe("London");
+    expect(image.metadata.dateTaken).toBe("2026-11-18T12:00:00Z");
+    mounted.unmount();
+    const restored = render(<ImageMetadata image={image} formFields={formFields} />);
+    expect((screen.getByLabelText("City") as HTMLInputElement).value).toBe("Manchester");
+    expect((screen.getByLabelText("Taken on") as HTMLInputElement).value).toBe("2026-11-19T13:15");
+    restored.unmount();
+    render(<ImageMetadata image={{ ...images[1], metadata: {} }} formFields={formFields} />);
+    for (const label of ["Sublocation", "State", "City", "Country", "Taken on"]) {
+      const input = screen.getByLabelText(label) as HTMLInputElement;
+      expect(input.value).toBe("");
+      expect(document.activeElement).not.toBe(input);
+    }
+    fireEvent.change(screen.getByLabelText("Country"), { target: { value: "France" } });
+    expect(useMetadataDrafts.getState().drafts.get(images[1].id)?.get("location_country")?.value).toBe("France");
+    act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
+    expect((screen.getByLabelText("Country") as HTMLInputElement).readOnly).toBe(true);
+    expect((screen.getByLabelText("Taken on") as HTMLInputElement).readOnly).toBe(true);
+  });
+
+  it("keeps the Form calendar at whole seconds while preserving original fractions and typed wall-clock values", () => {
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
+    const original = "2026-11-10T11:22:33.123Z";
+    render(<MetadataFormField imageId="first" field={field} value={original} editable />);
+    const input = screen.getByLabelText("Taken on") as HTMLInputElement;
+    const originalSecond = input.value.slice(0, 19);
+    expect(input.step).toBe("1");
+    expect(input.getAttribute("value")).toBe(originalSecond);
+    fireEvent.change(input, { target: { value: "2026-11-12T10:20:30" } });
+    expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-11-12T10:20:30.000");
+    fireEvent.change(input, { target: { value: originalSecond } });
+    expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    fireEvent.change(input, { target: { value: "2026-03-29T01:30" } });
+    expect(input.value).toBe("2026-03-29T01:30");
+    expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-03-29T01:30:00.000");
+    fireEvent.change(input, { target: { value: "" } });
+    expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("");
+    fireEvent.change(input, { target: { value: originalSecond } });
+    expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+  });
+
   it("retains sparse form drafts across unmount and canonical changes without changing canonical metadata", () => {
     const field = RECONCILE_FIELDS.find(field => field.id === "metadata_description")!;
     const view = (value: string, editable = true) => <MetadataFormField imageId="first" field={field} value={value} editable={editable} required />;
@@ -109,7 +225,7 @@ describe("metadata field preparation", () => {
     next.rerender(view("New canonical"));
     fireEvent.change(input, { target: { value: "" } });
     expect(input.checkValidity()).toBe(false);
-    expect(screen.getByText("Description is required.")).toBeTruthy();
+    expect(screen.queryByText("Description is required.")).toBeNull();
     fireEvent.change(input, { target: { value: "Original" } });
     expect(input.value).toBe("Original");
     const warning = new Event("beforeunload", { cancelable: true });

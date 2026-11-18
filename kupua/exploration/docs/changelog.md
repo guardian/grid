@@ -24,6 +24,49 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 18 November 2026 - Separate Upload field presentation from Details
+
+Give Form its own ordered field groups while retaining shared definitions, inputs,
+drafts and authority checks. Keep Title; order Credit, Taken on and Location, and
+put People between Labels and Keywords. Omit Subjects until editing is supported.
+Finish with Filename and one
+File info row combining type, dimensions and size. Remove detail-only information
+and the duplicate preview filename without changing Details.
+
+Restore Byline naming and editorial placeholders, retain red required-input borders
+without repeated required messages, and use the existing warning colour for short
+descriptions. Keep Special instructions multiline and narrow Image type with an
+explicit choose-type placeholder. Reuse preparation-only plus controls for all
+Form pill fields; distinguish known values from edit authority when access changes.
+
+Keep supplied and empty Taken on/Location directly editable without pencils or
+commit/cancel controls. Location uses labelled Sublocation/State and City/Country
+pairs; date and location drafts share Form's retained sparse owner. The native date
+calendar displays whole seconds, preserving original milliseconds on an unchanged
+second and resetting them for a different second, as Details does. Retain typed
+wall-clock values without timezone reinterpretation. Saving remains U5 work.
+Keep the density witness anchored to the next field in the new order rather than
+changing its position-preservation assertion.
+
+Elect measurement-only correction anchors from the committed viewport-centre row,
+after any visible active editor. This keeps newly measured forms above a browsing
+destination from moving that destination away while an explicit focus remains
+offscreen. It also avoids electing a different neighbour from DOM bounds that
+already reflect new heights. Keep resize/field-change policy, captured field points
+and the shared scrolling owner unchanged. Reuse the existing Upload scroll-away/Tab
+and indexed scrubber journeys without weakening visibility or continuity assertions.
+
+Arm new-submission following when the destination Upload batch is admitted, not
+before asynchronous navigation. An old-route effect could otherwise cancel the
+new batch's follow state, letting delayed images grow above the viewport after
+the initial top reset. Picker submissions and external drops now retain top
+placement through processing completion until the user takes control. Consume
+the submission marker so history does not re-arm it; extend the existing intake
+journey with delayed arrivals rather than adding another setup. Use a held status
+response for that arrival witness and real wheel input for its browsing departure.
+Start the section-inspection fixture completed, since processing cadence is not
+its subject; retain all completion, visibility and placement assertions.
+
 ### 17 November 2026 - Bound the Justified forward-eviction selection control
 
 Reuse the existing forward-eviction research case for a selection-only

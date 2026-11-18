@@ -73,27 +73,45 @@ export function MetadataTextInput({ field, value, onChange, placeholder, autoFoc
       style={natural ? { fieldSizing: "content" } : undefined} onChange={event => onChange(event.target.value)} />
     : METADATA_EDIT_CONTROLS.get(field.id) === "image-type"
     ? <select aria-label={field.label} value={value} disabled={readOnly} onChange={event => onChange(event.target.value)}>
-      <option value="">Unknown</option>
+      <option value="">{natural ? "───  choose type  ───" : "Unknown"}</option>
       {value && !gridConfig.imageTypes.includes(value) && <option value={value}>{value}</option>}
       {gridConfig.imageTypes.map(value => <option key={value} value={value}>{value}</option>)}
     </select>
+    : METADATA_EDIT_CONTROLS.get(field.id) === "datetime-local"
+    ? <input type="datetime-local" step="1" aria-label={field.label} value={value.slice(0, 19)} autoFocus={autoFocus}
+      readOnly={readOnly} onChange={event => {
+        const input = event.currentTarget;
+        const next = input.value.slice(0, 19);
+        if (input.validity.valid) onChange(next.length === 16 ? `${next}:00` : next);
+      }} />
     : <MetadataSuggestionInput label={field.label} fieldKey={field.cqlKey ?? field.id} value={value}
       placeholder={placeholder} autoFocus={autoFocus} required={required} readOnly={readOnly} onChange={onChange} />;
 }
 
-export function MetadataFormField({ imageId, field, value, editable, required = false }: {
-  imageId: string; field: FieldDefinition; value: string; editable: boolean; required?: boolean;
+export function MetadataFormField({ imageId, field, value, editable, required = false, editorialGuidance = false }: {
+  imageId: string; field: FieldDefinition; value: string; editable: boolean; required?: boolean; editorialGuidance?: boolean;
 }) {
   const draft = useMetadataDrafts(state => state.drafts.get(imageId)?.get(field.id));
-  const displayed = draft?.value ?? value;
+  const baseline = field.id === "metadata_dateTaken" ? dateTimeDraft(value) : value;
+  const displayed = draft?.value ?? baseline;
+  const placeholder = !editorialGuidance ? undefined : field.id === "metadata_description"
+    ? "Give some context about the image including who, what, where, when and why"
+    : field.id === "metadata_byline" ? "Author’s name ONLY, leave empty if unknown"
+    : field.id === "metadata_credit" ? "Source, agency or institution which owns the image" : undefined;
+  const shortDescription = editorialGuidance && field.id === "metadata_description"
+    && (displayed.length < 30 || displayed.split(" ").length < 5);
   return <div data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field">
     <div className="flex items-baseline justify-between gap-2 text-xs text-grid-text-dim">
       <span>{field.label}{required && <span className="text-grid-error"> *</span>}</span>
       {draft && <span role="status">Not sent</span>}
     </div>
-    <MetadataTextInput field={field} value={displayed} autoFocus={false} natural required={required} readOnly={!editable}
-      onChange={next => useMetadataDrafts.getState().setDraft(imageId, field.id, value, next)} />
-    {required && !displayed.trim() && <p className="text-xs text-grid-error">{field.label} is required.</p>}
+    <MetadataTextInput field={field} value={displayed} placeholder={placeholder} autoFocus={false} natural required={required} readOnly={!editable}
+      onChange={next => {
+        const nextValue = field.id !== "metadata_dateTaken" || !next ? next
+          : next === baseline.slice(0, 19) ? baseline : `${next}.000`;
+        useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue);
+      }} />
+    {shortDescription && <p className="text-xs text-grid-warning">Your description is too short! Ideally, please state who, what, where, when and why.</p>}
   </div>;
 }
 

@@ -49,6 +49,16 @@ latest revision. The trade-off is bounded arrival-display latency, not delayed j
 membership or uploads. U2 fields retain Not sent drafts; efficient saves, propagation
 and the remaining command families still belong to U5-U7, not disconnected parity.
 
+Form has its own field recipe rather than inheriting Details' arrangement. It retains
+Title, Taken on, Location and People alongside the Upload editorial fields,
+omits Subjects until editing is supported, and condenses file facts into one row.
+Date and Location use persistent direct-entry
+draft controls, not Details' pencil/commit interaction. The native Form date calendar
+shows whole seconds and follows Details' original-fraction retention/reset policy;
+unlike the Details editor it does not expose manual fraction entry. This keeps routine
+Upload entry direct and compact, at the cost of distinct presentation and native date
+typing behaviour. It does not implement saves or change Details.
+
 ### Recent Uploads in the Shared Browser
 
 Kahuna shows a newest-50 recent-upload preview and links to all uploads in Search.

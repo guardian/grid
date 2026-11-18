@@ -297,11 +297,11 @@ unit checkpoints for exact validation and live-trial limits.
 | P05 | **Done locally:** authenticated lower-section browsing and Search link (U4/U4.5). | The explicit Search URL contains the current uploader identity by operator decision; Upload does not persist or log that identity. Final deployment acceptance remains U8. |
 | P06 | **Done locally:** attempt identity, canonical deduplication and submitted-filename ordering (U3/U4/U4.5). | Server isolation for concurrent same-name submissions is not established; batch editing deduplication remains U5-U7. |
 | P07 | **Not connected:** label add/remove exists for Search/detail, but not automatic Upload follow-ups. | U5: filename-description fallback and captured preset labels, with separate outcomes. |
-| P08 | **Partial:** Form has sparse retained unsent drafts and required-field guidance; Search/detail controls prepare intent. | U5 and Step 8: shared ordinary-metadata commands, authoritative merge, save/readback and outcomes. Domain editors are excluded from Upload. |
+| P08 | **Partial:** Form has retained direct-entry text/date/location drafts, required-input borders and editorial guidance; Search/detail retain their separate explicit preparation controls. | U5 and Step 8: shared ordinary-metadata commands, authoritative merge, save/readback and outcomes. Domain editors are excluded from Upload. |
 | P09 | **Not connected:** U4.5 establishes explicit upper-batch ownership. | U5-U7: captured, offscreen-capable batch arrows and accessible exclusions; no lower-section or later-arrival targets. |
 | P10 | **Not connected:** rights and lease facts/display exist. | U6a/U6b: authorized commands, side effects, readback and partial outcomes. |
 | P11 | **Deferred by operator:** templates are not a current Upload acceptance gate. | U6c only if separately selected; not a passed feature. |
-| P12 | **Partial:** labels are connected in Search/detail; other panel controls prepare intent. | U7: Upload targeting and connected keywords, collection membership and photoshoot operations. |
+| P12 | **Partial:** labels are connected in Search/detail; Form list plus/add/remove controls and other panel controls prepare unsent intent. | U7: Upload targeting and connected keywords, collection membership and photoshoot operations. |
 | P13 | **Partial:** per-attempt outcomes and deduplicated canonical membership exist. | U7/Step 17: authorized deletion/restore, duplicate eligibility and lifecycle handling. No automatic restore or re-upload. |
 | P14 | **Partial:** batch-aware detail/crop return and disconnected crop eligibility/notices are implemented. | U7/Steps 7 and 13: archive and actual crop creation/readback. |
 | P15 | **Done locally at bounded recovery scope:** retained descriptors, interrupted/uncertain outcomes and read-only Recheck (U3/U4). | No durable draft/transfer recovery or automatic replay; real expiry/login-return acceptance remains separate. |
@@ -550,6 +550,7 @@ Update one line when a unit's state changes; this is not a session diary.
 | U2 | complete locally 14 November: real Upload Form density, sparse retained drafts and passive-arrival integration; cold-review repairs and final full gates pass; no new saves, live-upload or real-editor performance claim |
 | Post-U2 UI polish | implemented locally 15 November: toolbar/activity presentation, Kahuna-like Form proportions and upload-access gating; cold-review repairs and final full gates pass; operator visual acceptance remains separate, U5 and R27 are not started |
 | U4.5 | implemented and independently reviewed 15 November: unified batch-plus-all-other-uploads page, retained-batch discovery and explicit entry/return navigation; local validation closed with the operator-approved KUP-053 E2E exception; U5 remains separate |
+| Pre-U5 Form presentation | implemented 18 November: Upload-specific field recipe, editorial guidance, preparation-only list controls, direct-entry date/location drafts and condensed file facts; Details unchanged and U5 saves/arrows remain disconnected; mechanics in the Form component reference |
 | U5-U8 | not started; U5 overlaps the shared ordinary-metadata portion of editing Step 8, while domain editors are excluded from Upload and U6c templates are deferred by U0a decision |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**

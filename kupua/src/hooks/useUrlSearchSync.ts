@@ -192,6 +192,13 @@ export function useUrlSearchSync() {
     const previousParams = useSearchStore.getState().params;
     const previousScope = previousParams.imageScope ?? previousParams.recentUploadScope?.batch;
     const contextChanged = (previousParams.imageScope?.key ?? previousParams.recentUploadScope?.key) !== (imageScope?.key ?? recentUploadScope?.key);
+    if (contextChanged && path === "/upload" && routeSearch.batch &&
+        (location.state as { _uploadSubmitted?: boolean })._uploadSubmitted) {
+      useUploadLayoutStore.getState().followBatch(routeSearch.batch);
+      const entryState = { ...history.state };
+      delete entryState._uploadSubmitted;
+      history.replaceState(entryState, "");
+    }
     const nextScope = imageScope ?? recentUploadScope?.batch;
     const membershipChanged = !contextChanged && previousScope?.revision !== nextScope?.revision;
     if (contextChanged) restoreBrowsingDensity(path);

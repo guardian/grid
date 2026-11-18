@@ -50,7 +50,10 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     const viewportBounds = element.getBoundingClientRect();
     const activeId = activeBounds && activeBounds.bottom > viewportBounds.top && activeBounds.top < viewportBounds.bottom
       ? activeCell?.dataset.imageId : undefined;
-    const id = resolve(activeId ?? null) ?? chooseReflowAnchor({ selection: resolve(!params.imageScope && !params.recentUploadScope && selection.selectedIds.size ? selection.anchorId : null),
+    const measuredRow = current.current.readings !== readings
+      ? source?.window.rowAtOffset(element.scrollTop + element.clientHeight / 2) : undefined;
+    const measuredId = measuredRow ? source?.window.getItemId(measuredRow.firstItemIndex) : undefined;
+    const id = resolve(activeId ?? null) ?? resolve(measuredId ?? null) ?? chooseReflowAnchor({ selection: resolve(!params.imageScope && !params.recentUploadScope && selection.selectedIds.size ? selection.anchorId : null),
       focus: focusRow && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(), focusRow, element.scrollTop, element.clientHeight) ? focused : null,
       viewport: getViewportAnchorId });
     anchorId = id;

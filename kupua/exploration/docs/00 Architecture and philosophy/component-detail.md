@@ -816,7 +816,9 @@ clipping the action. Failed lower reads do not masquerade as a successful zero c
 
 `upload-layout-store` owns measured intro/batch/other chrome heights, fresh-batch following
 and section-jump cancellation generations, not a second browsing buffer or placement owner.
-Fresh entry/submission arms following at the top; deliberate browsing, field focus, detail
+Fresh entry/submission arms following at the top. Submitted batches arm it when URL sync
+admits the destination, consuming a one-shot navigation marker; arming before asynchronous
+navigation lets an old-route effect cancel it. Deliberate browsing, field focus, detail
 entry or context departure releases it. Later membership changes preserve the existing
 represented image/field through shared continuity instead of dragging an editor to the top.
 Natural Form height, retained drafts and result-container-based stacking remain view-owned.
@@ -1066,7 +1068,16 @@ capture/reflow ownership, not column arithmetic; results zoom (below) steps each
 Upload exposes Form alongside Grid, Table and Justified. `ImageGrid` remains the
 shared browsing host; its variable-row policy is separate from thumbnail zoom and
 cell activation. The form renderer composes an explicit image/detail entry with
-registry-driven `ImageMetadata` in a centered, at-most-900px form. Desktop uses a
+`ImageMetadata` in a centered, at-most-900px form. Its Upload-specific field recipe
+reuses registry definitions without inheriting Details ordering or visibility.
+Unlabelled groups contain ordinary metadata, organisation fields and file information;
+rights and leases remain above them. Title is retained; Credit is followed by Taken on
+and Location. People sits between Labels and Keywords; Subjects is omitted until
+editing is supported. Filename and a single
+File info value (type, dimensions, size) finish the form, without a duplicate filename
+beneath the preview.
+Uploaded, Modified, Uploader, additional metadata and syndication-rights information
+remain available in their existing non-Form surfaces, not Upload Form. Desktop uses a
 256px preview column and a 10px gap; editable labels and read-only label/value rows
 align in a 120px label column. Preview height is derived from the same bounded
 preview width and image ratio, capped at 256px, for both rendering and anchor geometry.
@@ -1081,12 +1092,29 @@ mounted outside ordinary overscan so Tab cannot skip intervening forms.
 metadata editors. `MetadataFormField` reads sparse image/field intent from
 `metadata-drafts-store`, never from a mutated canonical image or measurement cache.
 Fields do not autofocus or request suggestions until focused. Description/Credit
-retain required guidance; optional Copyright appears when present. Existing server
-capabilities and stale/unavailable state control editing. Other metadata families
-remain read-only here until their owning commands are connected. Form changes are
-marked Not sent: U5 saving, filename fallback, presets and batch arrows are not wired.
+retain required-input borders and editorial placeholders without repeated required
+messages. Kahuna's short-description guidance uses the existing warning colour.
+Byline uses its editorial label and author-only placeholder. Image type has a bounded
+width and choose-type placeholder. Special instructions keeps the existing multiline
+presentation. Optional Copyright appears when present.
 
-The global field set defaults to all registry fields; it has no product toggle UI.
+Taken on and Location are always-visible direct-entry controls, whether populated or
+empty, without pencils or commit/cancel controls. Location pairs Sublocation/State
+above City/Country, retaining each subfield's draft independently. Taken on uses a
+native whole-second calendar; initial display converts the supplied timestamp to
+local time, but newly typed wall-clock values are not reparsed through a timezone.
+The draft retains original milliseconds if the original second is selected, resets
+them to zero for a different second and supports an explicit empty value. This matches
+Details' calendar fraction policy without changing its separate explicit editor.
+
+All Form pill fields, including empty Collections, Labels, People and
+Keywords, use the shared plus/add/remove preparation controls. Losing edit authority
+does not make already-known membership unknown. An empty Leases summary remains
+visible; rights and leases are read-only. Existing server capabilities and
+stale/unavailable state control editing. Form drafts and prepared list changes are
+Not sent: U5 saving, filename fallback, presets and batch arrows are not wired.
+
+The global field set defaults to the Upload recipe's fields; it has no product toggle UI.
 `useMeasuredLayout` observes mounted forms and retains measurements for loaded
 identities only. `windowed-measured-layout` uses individual loaded rows and estimated
 head/tail spans. Its virtual-row indices are distinct from logical item coordinates
@@ -1094,8 +1122,11 @@ used for spatial navigation and visible reporting. Extents are rounded upward to
 avoid cumulative fractional native-scroll drift; content itself is never clipped.
 The existing scroll-effect owner compensates old/new identity geometry, including
 internal-field points and input captures. Anchor election uses committed geometry
-only when layout inputs change, not every scroll render. A changing neighbour cannot
-replace the represented image as the measurement correction anchor.
+only when layout inputs change, not every scroll render. For measurement updates,
+after any visible active editor, elect the committed viewport-centre row before
+selection/focus or post-measurement DOM bounds. Offscreen explicit focus and a
+changing neighbour cannot replace the represented image as the measurement
+correction anchor. Resize and field-change election retain the existing policy.
 
 Measurement callbacks are published after commit. Layout effects handle initial
 measurement; observer corrections flush synchronously before paint. Observation,

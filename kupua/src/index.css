@@ -161,7 +161,9 @@
 }
 
 .metadata-form-field textarea { resize: vertical; }
+.metadata-form-field select { width: min(100%, 240px); }
 .metadata-form-field :is(input, textarea):read-only { border-color: transparent; }
+.metadata-form-field :is(input, textarea):required:invalid { border-color: var(--color-grid-error); }
 .metadata-form-field :is(input, textarea, select):focus-visible { outline: 2px solid var(--color-grid-accent); outline-offset: 1px; }
 
 @container form-results (max-width: 679px) {
@@ -304,6 +306,9 @@
 .metadata-date-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; bottom: 0; right: 0; }
 .metadata-location-fields { display: grid; gap: 8px; }
 .metadata-location-row { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 6px; }
+.metadata-form-location { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.form-density-item .metadata-form-location .metadata-form-field { grid-template-columns: minmax(0, 1fr); padding: 0; }
+.form-density-item .metadata-form-location .metadata-form-field > :not(:first-child) { grid-column: 1; }
 .metadata-location-fields input { width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
 .metadata-location-fields input[data-mixed]::placeholder { font-style: italic; }
 .metadata-location-fields input:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
