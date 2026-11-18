@@ -221,6 +221,8 @@ export function generateServiceConfig(
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
       'enforceUploadImagesPermission = true',
       'image.record.download = true',
+      'persistence.identifier = "picdarUrn"',
+      'persistence.onlyTheseCollections = null',
       `field.aliases = ${JSON.stringify(E2E_SEARCH_FIELD_ALIASES)}`,
       `usageRights.applicable = ${JSON.stringify([
         "com.gu.mediaservice.model.NoRights",
