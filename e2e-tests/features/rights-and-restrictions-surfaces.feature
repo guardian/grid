@@ -13,7 +13,6 @@ Feature: Rights and restrictions in the search results panel and upload editor
   # ---------------------------------------------------------------------------
   # Starts from a real category: a broken image binding shows "Unknown", and the upload
   # editor opens its rights editor automatically for an image without a category.
-  @todo
   Scenario Outline: Rights can be viewed and changed
     Given I am working in the <surface>
     And I am signed in with edit metadata permission
@@ -35,7 +34,6 @@ Feature: Rights and restrictions in the search results panel and upload editor
   # Evidence: kahuna/public/js/edits/image-editor.js lines 83, 179, 193-194, 293-298, 316-320
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 213-226
 
-  @todo
   Scenario: Selected images can't be edited without permission
     Given I am working in the search results panel
     And I am signed in without edit metadata permission
@@ -49,7 +47,6 @@ Feature: Rights and restrictions in the search results panel and upload editor
   # ---------------------------------------------------------------------------
   # Without edit metadata permission, only the user's own uploads are editable. The editable
   # image is selected first so that checking only the first image would show the button.
-  @todo
   Scenario Outline: Rights can only be edited when every selected image is editable
     Given I am working in the search results panel
     And I am signed in without edit metadata permission
@@ -65,9 +62,6 @@ Feature: Rights and restrictions in the search results panel and upload editor
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 40-44
   # Evidence: kahuna/public/js/search/results.js lines 783
 
-  # Characterise before relying on this: the editor's starting category for a mixed
-  # selection may depend on whether a $watch on the first image or the multiCat stream wins.
-  @todo
   Scenario: The rights editor can't save "Multiple categories"
     Given I am working in the search results panel
     And I am signed in with edit metadata permission
@@ -82,7 +76,6 @@ Feature: Rights and restrictions in the search results panel and upload editor
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.js lines 36, 65-88, 108, 163-174
   # Evidence: kahuna/public/js/usage-rights/usage-rights-editor.html lines 20-23, 204-208
 
-  @todo
   Scenario: Saving rights for a mixed selection applies them to every image
     Given I am working in the search results panel
     And I am signed in with edit metadata permission
