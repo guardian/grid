@@ -84,7 +84,7 @@ async function openCopies(
   for (const { source, overrides = {} } of copies) {
     const fileName = forUpload ? uniqueUploadFileName() : undefined;
     const fields: ImageOverrides = fileName
-      ? { ...overrides, ...asPastUpload(source, fileName) }
+      ? { ...asPastUpload(source, fileName), ...overrides }
       : overrides;
     images.push({ id: await seedImage(source, fields), fileName });
   }
