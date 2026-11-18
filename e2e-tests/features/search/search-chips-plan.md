@@ -4,21 +4,13 @@ Interaction coverage for search chips in the
 [search bar plan](./search-bar-plan.md). The registered keys are listed in the
 [chip inventory](./search-chips-inventory.md).
 
-Use the current `@guardian/cql` input, not the legacy chips input or its retiring feature switch.
-
 ## Scope and coverage strategy
 
 The suite has **31 interaction cases**, excluding shared authentication setup.
 They cover creating, editing and removing chips and choosing typeahead
 suggestions; search-result combinations are covered separately.
 Suggestions are not validation lists: most chips also accept manually typed
-values. Dynamic values below describe the checked-in e2e configuration, not
-production.
-
-The suite samples distinct interaction semantics rather than the Cartesian
-product of all values. Exhaustive parser permutations, arbitrary metadata
-strings and every possible dotted field path belong in lower-level tests, not
-additional browser cases.
+values.
 
 ## Fixtures
 
@@ -31,15 +23,7 @@ lookups:
 - `staff-photo-multi-persisted` supplies the `Search Chips Harbour Shoot`
   photoshoot completion.
 
-Run `node --test fixtures/elasticsearch/search-chips.test.ts` from the e2e
-package to check this data and the generated chip configuration. Restart
-`dev:e2e` to regenerate configuration and reseed before running scenarios.
-
 ## Implemented coverage
-
-All planned behaviors have evidence-annotated scenarios and executable steps.
-Each outline example is an independent browser test with a stable descriptive
-name. No scenario is left as `@todo` or awaiting step definitions.
 
 | Suite | Cases | Feature file | Step definitions |
 | --- | --- | --- | --- |
@@ -67,8 +51,6 @@ covered by manual entry.
 
 ## Suggestion data sources
 
-Every remaining suggestion scenario uses a routed endpoint on the running stack,
-with no network mocks:
 
 | Chip | Endpoint | Data source |
 | --- | --- | --- |
