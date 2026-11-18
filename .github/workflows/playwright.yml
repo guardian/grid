@@ -108,11 +108,43 @@ jobs:
         # intermediate layers too, so the mise toolchain layer is reused).
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+    - name: Set up local CA for devcontainer-nginx
+      id: local-ca
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mkcert libnss3-tools
+        export CAROOT="$HOME/.local/share/mkcert"
+        mkcert -install
+        echo "certificate=$CAROOT/rootCA.pem" >> "$GITHUB_OUTPUT"
     - name: Run Playwright tests
+      env:
+        NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
       run: npm test
-    - uses: actions/upload-artifact@v7
+    - name: Upload e2e reports
+      uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
-        name: playwright-report
-        path: e2e-tests/playwright-report/
-        retention-days: 30
+        name: e2e-report
+        path: |
+          e2e-tests/playwright-report/
+          e2e-tests/cucumber-report/
+        retention-days: 14
+        if-no-files-found: ignore
+    - name: Upload testcontainers log
+      id: testcontainers-log
+      uses: actions/upload-artifact@v7
+      if: ${{ failure() }}
+      with:
+        name: testcontainers-log
+        path: e2e-tests/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    # Annotations show on the job page, which doesn't list the run's artifacts.
+    - name: Show testcontainers debug log
+      if: ${{ failure() && steps.testcontainers-log.outputs.artifact-url != '' }}
+      env:
+        ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
+      run: |
+        echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
+        cat logs/*/testcontainers.log
+

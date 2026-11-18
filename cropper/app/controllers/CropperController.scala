@@ -105,7 +105,7 @@ class CropperController(auth: Authentication, crops: Crops, store: CropStore, no
 
   private def downloadExportLink(imageId: String, exportId: String, width: Int) = Link(s"crop-download-$exportId-$width", s"${config.apiUri}/images/$imageId/export/$exportId/asset/$width/download")
 
-  def getCrops(id: String) = auth.async { httpRequest =>
+  def getCrops(id: String) = auth.allowInnerService.async { httpRequest =>
 
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "getCrops",

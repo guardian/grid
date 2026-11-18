@@ -210,19 +210,23 @@ class ReaperController(
       Ok(views.html.reaper(isPaused, INTERVAL.toString(), countOfImagesToReap, recentRecordKeys))
   }}
 
-  def reaperRecord(key: String) = auth { config.maybeReaperBucket match {
-    case None => NotImplemented("Reaper bucket not configured")
-    case Some(reaperBucket) =>
-      store.getObjectAsString(reaperBucket, key) match {
-        case Some(res) => Ok(res).as(JSON)
-        case None => NotFound
-      }
-  }}
-
-  def pauseReaper = auth { request =>
+  def reaperRecord(key: String) = auth { request =>
     if (!authorisation.hasPermissionTo(DeveloperAdmin)(request.user)) {
       authorisation.forbidden(DeveloperAdmin)
     } else config.maybeReaperBucket match {
+      case None => NotImplemented("Reaper bucket not configured")
+      case Some(reaperBucket) =>
+        store.getObjectAsString(reaperBucket, key) match {
+          case Some(res) => Ok(res).as(JSON)
+          case None => NotFound
+        }
+    }
+  }
+
+  def pauseReaper = auth { request =>
+      if (!authorisation.hasPermissionTo(DeveloperAdmin)(request.user)) {
+        authorisation.forbidden(DeveloperAdmin)
+      } else config.maybeReaperBucket match {
       case None => NotImplemented("Reaper bucket not configured")
       case Some(reaperBucket) =>
         store.putString(reaperBucket, CONTROL_FILE_NAME, "")

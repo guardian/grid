@@ -178,7 +178,7 @@ class MediaLeaseController(auth: Authentication, store: LeaseStore, config: Leas
     )
   }
 
-  def getLeasesForMedia(id: String) = auth.async { _ =>
+  def getLeasesForMedia(id: String) = auth.allowInnerService.async { _ =>
     for { leases <- store.getForMedia(id) } yield {
       respond[LeasesByMedia](
         uri = config.leasesMediaUri(id),

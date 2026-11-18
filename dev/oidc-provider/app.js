@@ -21,6 +21,10 @@ const oidc = makeProvider(
   findAccount
 );
 
+if (process.env.OIDC_TRUST_PROXY === "true") {
+  oidc.proxy = true;
+}
+
 oidc.listen(port, () => {
   console.log(`local oidc provider listening: ${issuer}`);
 });
