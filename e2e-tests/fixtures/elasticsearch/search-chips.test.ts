@@ -103,6 +103,9 @@ test('conditional chips and aliases are enabled consistently in generated e2e co
         assert.match(kahuna, /agencyPicks\.ingredients=/);
         assert.match(mediaApi, /agencyPicks\.ingredients=/);
         assert(common.includes(`field.aliases = ${JSON.stringify(E2E_SEARCH_FIELD_ALIASES)}`));
+        for (const spec of ['StaffPhotographer', 'ContractPhotographer']) {
+            assert(common.includes(`"com.gu.mediaservice.model.${spec}"`), `Missing ${spec} for photographer suggestions`);
+        }
         for (const alias of E2E_SEARCH_FIELD_ALIASES) {
             const fieldName = alias.elasticsearchPath.split('.')[1];
             const values = fixtures.flatMap((hit) => {

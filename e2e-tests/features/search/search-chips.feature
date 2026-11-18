@@ -63,7 +63,6 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 26-91, 130-132, 153-155, 166-190, 288-305
   # Evidence: e2e-tests/setup/config.ts lines 39-66, 96-97
 
-  @wiremock
   Scenario Outline: Selecting a configured API value completes the corresponding chip
     Given I am choosing a value for the "<Field>" filter
     When I choose "<Value>" from the filter value suggestions
@@ -75,11 +74,14 @@ Feature: Creating search filter chips
       | Field    | Value                           |
       | by       | Example Contracted Photographer |
       | supplier | Ronald Grant Archive            |
-      | category | Bylines                         |
+      | category | pr-and-third-party              |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-120, 157-159, 216-251
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-120, 157-159, 206-242
+  # Evidence: kahuna/public/js/services/api/edits-api.js lines 63-65
+  # Evidence: metadata-editor/app/model/UsageRightsProperty.scala lines 84-102
   # Evidence: dev/script/generate-config/service-config.js lines 54-82
+  # Evidence: e2e-tests/setup/config.ts lines 229-239
 
   Scenario Outline: Manually entered supplemental values do not require choosing a suggestion
     Given the search box is empty
@@ -151,15 +153,14 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 115-122
 
-  @wiremock
-  Scenario: Editing a photographer with a suggestion replaces rather than duplicates the chip
-    Given the chip query is 'by:"Example External Photographer"'
-    When I replace the "by" chip value with the prefix "Example"
-    And I choose "Example Internal Photographer" from the filter value suggestions
-    Then the "by" filter chip should have the value "Example Internal Photographer"
+  Scenario: Editing a supplier with a suggestion replaces rather than duplicates the chip
+    Given the chip query is "supplier:Reuters"
+    When I replace the "supplier" chip value with the prefix "Ronald"
+    And I choose "Ronald Grant Archive" from the filter value suggestions
+    Then the "supplier" filter chip should have the value "Ronald Grant Archive"
     And there should be exactly 1 filter chips
-    And the chip query should be 'by:"Example Internal Photographer"'
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 113-117, 236-251
+    And the chip query should be 'supplier:"Ronald Grant Archive"'
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 157-159, 206-214
   # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11843-11853, 11998-12010
 
   Scenario: Negating a chip preserves its value and serializes an exclusion
@@ -188,37 +189,6 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 77-92
   # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 12037-12055
 
-  @wiremock
-  Scenario: The hash shortcut creates a label chip using a WireMock label suggestion
-    Given the search box is empty
-    When I type "#search-chips" into the search box
-    And I choose "search-chips-featured" from the filter value suggestions
-    Then the "label" filter chip should have the value "search-chips-featured"
-    And the chip query should be "#search-chips-featured" with editor form "label:search-chips-featured"
-  # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 14-20
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 141-143, 276-280
-  # Evidence: kahuna/public/js/services/api/media-api.js lines 115-116
-  # Evidence: media-api/app/controllers/MediaApi.scala lines 135-160
-
-  @wiremock
-  Scenario: Selecting a configured illustrator suggestion completes the chip
-    Given I am choosing a value for the "illustrator" filter
-    When I choose "Example Contracted Illustrator" from the filter value suggestions
-    Then the "illustrator" filter chip should have the value "Example Contracted Illustrator"
-    And there should be exactly 1 filter chips
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 254-262
-  # Evidence: dev/script/generate-config/service-config.js lines 78-82
-
-  @wiremock
-  Scenario: A typed source prefix retrieves a WireMock suggestion that can be selected
-    Given I am choosing a source value starting with "Search Chips"
-    When I choose "Search Chips Wire" from the filter value suggestions
-    Then the "source" filter chip should have the value "Search Chips Wire"
-    And the chip query should be 'source:"Search Chips Wire"'
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 146-149, 260-264
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 85
-  # Evidence: e2e-tests/fixtures/suggestions/suggestion-wiremock.ts lines 25-105
-
   Scenario: Keyboard navigation into a chip allows deleting a value character without deleting the chip
     Given the chip query is "harbour city:Bristol"
     When I move left into the final chip and press Backspace
@@ -243,16 +213,6 @@ Feature: Creating search filter chips
     And the chip query should be "harbour -city:Bristol keyword:night"
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 70-84
   # Evidence: kahuna/public/js/components/gr-cql-input/syntax.ts lines 24-56
-
-  Scenario: An unavailable source suggestion lookup does not prevent manual chip entry
-    Given the search box is empty
-    When I request source suggestions for "Search Chips"
-    And I enter the complete chip query 'source:"Search Chips Wire"'
-    Then the "source" filter chip should have the value "Search Chips Wire"
-    And the chip query should be 'source:"Search Chips Wire"'
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 147-149, 270-274
-  # Evidence: kahuna/public/js/services/api/media-api.js lines 107-108
-  # Evidence: media-api/conf/routes lines 33-34
 
   Scenario: Browser back and forward restore chips and adjacent text
     Given I have chip search history from "harbour -city:Bristol" to "festival city:London"

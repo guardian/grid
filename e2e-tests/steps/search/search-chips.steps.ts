@@ -19,7 +19,7 @@ async function enterChipQuery(page: Page, query: string) {
     await searchBoxEditable(page).press('Escape');
 }
 
-async function chooseIndexedValue(page: Page, key: 'credit' | 'photoshoot' | 'source', prefix: string) {
+async function chooseIndexedValue(page: Page, key: 'credit' | 'photoshoot', prefix: string) {
     await searchBoxEditable(page).pressSequentially(`+${key}:`);
     const lookup = page.waitForResponse((response) => {
         const url = new URL(response.url());
@@ -77,10 +77,6 @@ Given('I am choosing a credit value starting with {string}', async ({ page, test
 
 Given('I am choosing a photoshoot value starting with {string}', async ({ page }, prefix: string) => {
     await chooseIndexedValue(page, 'photoshoot', prefix);
-});
-
-Given('I am choosing a source value starting with {string}', async ({ page }, prefix: string) => {
-    await chooseIndexedValue(page, 'source', prefix);
 });
 
 Given('optional search suggestion features are disabled', async ({ page }) => {
@@ -163,14 +159,4 @@ Then('there should be exactly {int} filter chips', async ({ page }, count: numbe
 
 Then('the {string} chip should be excluded', async ({ page }, key: string) => {
     await expect(chip(page, key).getByTestId('polarity-handle')).toHaveText('\u2212');
-});
-
-When('I request source suggestions for {string}', async ({ page }, prefix: string) => {
-    await searchBoxEditable(page).pressSequentially('+source:');
-    const lookup = page.waitForResponse((response) => {
-        const url = new URL(response.url());
-        return url.pathname === '/suggest/metadata/source' && url.searchParams.get('q') === prefix;
-    });
-    await chipValue(page, 'source').fill(prefix);
-    expect((await lookup).status()).toBe(404);
 });

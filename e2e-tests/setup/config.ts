@@ -232,6 +232,9 @@ export function generateServiceConfig(
         "com.gu.mediaservice.model.Agency",
         "com.gu.mediaservice.model.PublisherPhotography",
         "com.gu.mediaservice.model.PublisherIllustration",
+        // Kahuna's `by:` chip suggestions read photographers from these two categories.
+        "com.gu.mediaservice.model.StaffPhotographer",
+        "com.gu.mediaservice.model.ContractPhotographer",
       ])}`,
       "",
     ].join("\n"),
