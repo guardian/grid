@@ -13,13 +13,11 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Feature, LibraryManifest, Recording, Run, RunStatus, Scenario, ScenarioStatus, Step } from './types.ts';
-import { CallGraphPage } from './callgraph-page.tsx';
-import { SourcePage } from './source-page.tsx';
 import { FilesPage } from './files-page.tsx';
 
-type Page = 'library' | 'callgraph' | 'source' | 'files';
+type Page = 'library' | 'files';
 /** URL fragments that open a page other than the catalogue. */
-const pageHashes: Partial<Record<string, Page>> = { '#callgraph': 'callgraph', '#source': 'source', '#files': 'files' };
+const pageHashes: Partial<Record<string, Page>> = { '#files': 'files' };
 const currentPage = (): Page => pageHashes[location.hash] ?? 'library';
 
 /** A scenario paired with its parent feature and lowercased searchable text. */
@@ -123,8 +121,6 @@ function PageHeader({ library, loading = false, page = 'library' }: { library?: 
       <span className="masthead-divider" /><span className="masthead-label">Feature library</span>
       <nav className="masthead-nav" aria-label="Pages">
         <a href="#" aria-current={page === 'library' ? 'page' : undefined}>Scenarios</a>
-        <a href="#callgraph" aria-current={page === 'callgraph' ? 'page' : undefined}>Call graph</a>
-        <a href="#source" aria-current={page === 'source' ? 'page' : undefined}>Source</a>
         <a href="#files" aria-current={page === 'files' ? 'page' : undefined}>Files</a>
       </nav>
       <span className="snapshot"><span className="snapshot-dot" /><span id="report-date" title={reportDate?.toLocaleString()}>
@@ -136,7 +132,7 @@ function PageHeader({ library, loading = false, page = 'library' }: { library?: 
       <div className="totals" id="totals" aria-label="Library totals">
         {[[library?.features.length ?? 0, 'Features'], [entries.length, 'Scenarios'], [videoCount, 'With video']].map(([count, label]) =>
           <div className="total" key={label}><strong>{String(count).padStart(2, '0')}</strong><span>{label}</span></div>)}
-        {library?.coverage && <a className="total" href="#source" title={`Browser code covered by the e2e tests: ${library.coverage.lines}% of lines, ${library.coverage.functions}% of functions, ${library.coverage.branches}% of branches`}>
+        {library?.coverage && <a className="total" href="#files" title={`Browser code covered by the e2e tests: ${library.coverage.lines}% of lines, ${library.coverage.functions}% of functions, ${library.coverage.branches}% of branches`}>
           <strong>{Math.round(library.coverage.lines)}%</strong><span>Line coverage</span>
         </a>}
       </div>
@@ -535,7 +531,7 @@ function App() {
 
   if (state.status === 'ready') {
     if (page === 'library') return <FeatureLibrary library={state.library} />;
-    return <><PageHeader library={state.library} page={page} />{page === 'callgraph' ? <CallGraphPage /> : page === 'source' ? <SourcePage library={state.library} /> : <FilesPage />}</>;
+    return <><PageHeader library={state.library} page={page} /><FilesPage /></>;
   }
   return <>
     <PageHeader loading={state.status === 'loading'} />

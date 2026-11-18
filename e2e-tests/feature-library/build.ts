@@ -4,8 +4,6 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { build } from 'esbuild';
-import { buildCallGraph } from './callgraph.ts';
-import { endpointPaths, loadApiRoutes } from './api-routes.ts';
 import { loadCoverage, loadCoverageSummary } from './coverage.ts';
 import { createLibrary } from './library.ts';
 
@@ -55,10 +53,6 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
     if (data) await writeFile(path.join(outputDir, file), JSON.stringify(data));
     else await rm(path.join(outputDir, file), { force: true });
   }
-  const callGraph = await buildCallGraph(path.resolve(directory, '../../kahuna'), coverage);
-  const routes = await loadApiRoutes(path.resolve(directory, '../..'));
-  for (const endpoint of callGraph.endpoints) endpoint.paths = endpointPaths(routes, endpoint.kind, endpoint.label);
-  await writeFile(path.join(outputDir, 'callgraph.json'), JSON.stringify(callGraph));
   // Only prune filenames produced by this exporter, leaving other files in media/ alone.
   for (const file of await readdir(path.join(outputDir, 'media'))) {
     if (/^[a-f0-9]{16}\.(webm|mp4)$/.test(file) && !media.has(`media/${file}`)) {
@@ -69,8 +63,6 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   const scenarios = manifest.features.flatMap((feature) => feature.scenarios);
   console.log(`Feature library: ${manifest.features.length} features, ${scenarios.length} scenarios, ${media.size} videos.`);
   console.log(coverage ? `Coverage: ${coverage.features.length} features, ${coverage.scenarios.length} scenarios, ${coverage.functions.length} covered functions.` : 'Coverage: no coverage-reports found.');
-  const matched = callGraph.coverage.filter((node) => node !== -1).length;
-  console.log(`Call graph: ${callGraph.files.length} files, ${callGraph.functions.length} functions, ${callGraph.calls.length} calls, ${callGraph.endpoints.length} network endpoints; ${matched}/${callGraph.coverage.length} covered functions matched.`);
   console.log(`Built ${outputDir}`);
   return outputDir;
 }
