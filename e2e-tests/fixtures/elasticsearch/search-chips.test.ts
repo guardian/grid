@@ -29,7 +29,7 @@ test('conditional chips and aliases are enabled consistently in generated e2e co
         const mediaApi = readFileSync(join(configDir, 'media-api.conf'), 'utf8');
         assert.match(common, /image\.record\.download = true/);
         assert.match(kahuna, /useReaper = true/);
-        assert.match(kahuna, /showSendToPhotoSales = true/);
+        assert.doesNotMatch(kahuna, /showSendToPhotoSales/);
         assert.match(kahuna, /agencyPicks\.ingredients=/);
         assert.match(mediaApi, /agencyPicks\.ingredients=/);
         assert(common.includes(`field.aliases = ${JSON.stringify(E2E_SEARCH_FIELD_ALIASES)}`));

@@ -48,7 +48,6 @@ Feature: Creating search filter chips
       | fileType         | tiff                   |
       | subject          | weather                |
       | usages@platform  | download               |
-      | usages@platform  | Added to Photo Sales   |
       | usages@status    | removed                |
       | persisted        | persistence-identifier |
       | persisted        | commissioned-agency    |
@@ -62,6 +61,14 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 26-91, 130-132, 153-155, 166-190, 288-305
   # Evidence: e2e-tests/setup/config.ts lines 39-66, 96-97
+
+  Scenario: Enabling Photo Sales adds its usage platform suggestion
+    Given the send to Photo Sales feature is enabled
+    And I am choosing a value for the "usages@platform" filter
+    When I choose "Added to Photo Sales" from the filter value suggestions
+    Then the "usages@platform" filter chip should have the value "Added to Photo Sales"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 277-288
+  # Evidence: e2e-tests/steps/image-usages/image-usages.steps.ts lines 239-241
 
   Scenario Outline: Selecting a configured API value completes the corresponding chip
     Given I am choosing a value for the "<Field>" filter
