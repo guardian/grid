@@ -223,6 +223,9 @@ lazy val thrall = playProject("thrall", 9002)
       "com.gu" %% "kcl-pekko-stream" % "0.1.4",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
+    ),
+    dependencyOverrides ++= Seq(
+      "org.apache.pekko" %% "pekko-stream" % "1.0.3"
     )
   )
 
