@@ -17,6 +17,7 @@ import type { ImageOverrides } from "../../setup/seed-image.ts";
 import {
   openOnSurface,
   openedImageIds,
+  revealEditButton,
   rightsSurface,
   rightsSurfaceName,
   uniqueUploadFileName,
@@ -51,8 +52,11 @@ const usageSummary = (page: Page) =>
 const rightsEditor = (page: Page) =>
   rightsAndRestrictions(page).getByRole("form", { name: "Image usage rights" });
 
+const editRightsButton = (page: Page) => rightsSurface(page).editButton(page);
+
 async function openRightsEditor(page: Page): Promise<void> {
-  await (await rightsSurface(page).editButton(page)).click();
+  await revealEditButton(page);
+  await editRightsButton(page).click();
 }
 
 /** Open a seeded fixture, read-only, on the scenario's surface. */
@@ -274,7 +278,8 @@ Then(
       await expectEditPermissionForImage(page, image.id, image.uploadedBy);
     }
     await expect(rightsAndRestrictions(page).getByRole("definition")).toContainText(/\S/);
-    const button = await rightsSurface(page).editButton(page);
+    await revealEditButton(page);
+    const button = editRightsButton(page);
     await expect(button).toBeVisible();
     await expect(button).toBeEnabled();
   },
@@ -608,7 +613,8 @@ Then(
 );
 
 Then("the edit rights and restrictions button is hidden", async ({ page }) => {
-  await expect(await rightsSurface(page).editButton(page)).toBeHidden();
+  await revealEditButton(page);
+  await expect(editRightsButton(page)).toBeHidden();
 });
 
 Then("the rights editor closes", async ({ page }) => {
@@ -646,7 +652,8 @@ Then(
   async ({ page }) => {
     const section = rightsAndRestrictions(page);
     await expect(section.getByRole("definition")).toContainText(/\S/);
-    await expect(await rightsSurface(page).editButton(page)).toBeHidden();
+    await revealEditButton(page);
+    await expect(editRightsButton(page)).toBeHidden();
     await expect(rightsEditor(page)).toBeHidden();
   },
 );

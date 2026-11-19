@@ -29,18 +29,19 @@ export interface RightsSurface {
   open(page: Page, images: OpenedImage[]): Promise<void>;
   /** The rights and restrictions section; every rights locator is scoped to it. */
   section(page: Page): Locator;
-  /** The control that opens the rights editor, revealed if the surface hides it. */
-  editButton(page: Page): Promise<Locator>;
+  /**
+   * The control that opens the rights editor. Every surface only shows it while the section
+   * is hovered, so call `revealEditButton` first.
+   */
+  editButton(page: Page): Locator;
 }
 
 const rightsRegion = (scope: Page | Locator) =>
   scope.getByRole('region', { name: 'Rights and restrictions', exact: true });
 
-/** gr-image-metadata only reveals its edit button while the section is hovered. */
-async function hoverForEditButton(section: Locator): Promise<Locator> {
-  await section.hover();
-  return section.getByRole('button', { name: '✎', includeHidden: true });
-}
+// includeHidden so that `toBeHidden` checks the button itself, not that the name is wrong.
+const metadataEditButton = (section: Locator) =>
+  section.getByRole('button', { name: '✎', exact: true, includeHidden: true });
 
 const singleImageView: RightsSurface = {
   async open(page, [image]) {
@@ -48,7 +49,7 @@ const singleImageView: RightsSurface = {
     await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
   },
   section: (page) => rightsRegion(page),
-  editButton: (page) => hoverForEditButton(rightsRegion(page)),
+  editButton: (page) => metadataEditButton(rightsRegion(page)),
 };
 
 const infoPanel = (page: Page) => page.getByRole('region', { name: 'Image information', exact: true });
@@ -79,7 +80,7 @@ const searchResultsPanel: RightsSurface = {
     await expect(rightsRegion(infoPanel(page))).toBeVisible();
   },
   section: (page) => rightsRegion(infoPanel(page)),
-  editButton: (page) => hoverForEditButton(rightsRegion(infoPanel(page))),
+  editButton: (page) => metadataEditButton(rightsRegion(infoPanel(page))),
 };
 
 /** Upload editors are found by the file name the past upload is labelled with. */
@@ -104,12 +105,9 @@ const uploadEditor: RightsSurface = {
     await expect(uploadRights(page)).toBeVisible();
   },
   section: uploadRights,
-  // Like gr-image-metadata's, this edit button is only revealed while the rights are hovered.
-  editButton: async (page) => {
-    const section = uploadRights(page);
-    await section.hover();
-    return section.locator('[data-cy="edit-rights-button"]');
-  },
+  // Named by its "edit" icon ligature.
+  editButton: (page) =>
+    uploadRights(page).getByRole('button', { name: 'edit', exact: true, includeHidden: true }),
 };
 
 const SURFACES: Record<RightsSurfaceName, RightsSurface> = {
@@ -145,6 +143,11 @@ export const useRightsSurface = (page: Page, surface: RightsSurfaceName): void =
 export const rightsSurfaceName = (page: Page): RightsSurfaceName => stateOf(page).surface;
 
 export const rightsSurface = (page: Page): RightsSurface => SURFACES[stateOf(page).surface];
+
+/** Hover the rights section, which is what shows its edit button on every surface. */
+export async function revealEditButton(page: Page): Promise<void> {
+  await rightsSurface(page).section(page).hover();
+}
 
 /** Open `images` on the scenario's surface and remember them as the ones being worked on. */
 export async function openOnSurface(page: Page, images: OpenedImage[]): Promise<void> {
