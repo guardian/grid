@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.guardian.auth
 
+import com.gu.mediaservice.auth.Permissions
 import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.Permissions._
 import com.gu.mediaservice.lib.auth.SimplePermission
