@@ -1,7 +1,6 @@
 package com.gu.mediaservice.scripts.key
 
 import com.gu.mediaservice.lib.auth._
-import play.api.libs.json.Json
 
 object CreateKeyV2 extends App {
 

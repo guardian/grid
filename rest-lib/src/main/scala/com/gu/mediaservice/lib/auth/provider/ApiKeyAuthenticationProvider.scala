@@ -46,18 +46,19 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
           // api key provided
+          case Some(apiKey) if apiKey.hasExpired =>
+            logger.info(apiKeyMarkers(apiKey), s"API key ${apiKey.identity} has expired")
+            Invalid(s"API key ${apiKey.identity} has expired")
+          // valid api key
+          case Some(apiKey) if ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services) =>
+            // valid api key which has access
+            // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
+            val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
+            logger.info(apiKeyMarkers(apiKey), s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}")
+            Authenticated(accessor)
           case Some(apiKey) =>
-            // valid api key
-            if (ApiAccessor.hasAccess(apiKey, request, resources.commonConfig.services)) {
-              // valid api key which has access
-              // store the header that was used in the attributes map of the principal for use in onBehalfOf calls
-              val accessor = MachinePrincipal(apiKey, TypedMap(ApiKeyAuthenticationProvider.ApiKeyHeader -> (ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)))
-              logger.info(apiKeyMarkers(apiKey), s"Using api key with name ${apiKey.identity} and tier ${apiKey.tier}")
-              Authenticated(accessor)
-            } else {
-              // valid api key which doesn't have access
-              NotAuthorised(s"API key ${apiKey.identity} valid but not authorised for this request")
-            }
+            // valid api key which doesn't have access
+            NotAuthorised(s"API key ${apiKey.identity} valid but not authorised for this request")
           // provided api key not known
           case None => Invalid("API key not valid")
         }
