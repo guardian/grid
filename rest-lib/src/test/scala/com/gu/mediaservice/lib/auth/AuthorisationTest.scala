@@ -2,6 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Request, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider.AuthorisationProvider
+import com.gu.permissions.PermissionDefinition
 import org.scalamock.scalatest.AsyncMockFactory
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -16,7 +17,8 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
   private val roMachine = MachinePrincipal(ApiAccessor("machine", ReadOnly))
   private val syndicationMachine = MachinePrincipal(ApiAccessor("machine", Syndication))
   private val editMetadata = Permissions.EditMetadata
-
+  private val uploadImages = Permissions.UploadImages
+  private val machineWithEditPermission = MachinePrincipal(ApiAccessor("machine", PermissionTier(Seq(PermissionDefinition(editMetadata.name, "grid")))))
   "hasPermissionTo (context)" - {
     "delegates to provider when a user principal" in {
       val mockProvider = mock[AuthorisationProvider]
@@ -25,7 +27,7 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
       val filter = auth.hasPermissionTo(editMetadata)
       filter(dave) shouldBe true
     }
-    "shortcuts when a machine principal is presented with an internal tier" - {
+    "shortcuts when a machine principal is presented with an internal tier or permission tier" - {
       val mockProvider = mock[AuthorisationProvider]
       val auth = new Authorisation(mockProvider, executionContext)
       "internal should always be allowed" in {
@@ -33,6 +35,19 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
         val filter = auth.hasPermissionTo(editMetadata)
         filter(internalMachine) shouldBe true
       }
+
+      "permission tier with the correct permission should always be allowed" in {
+        (mockProvider.hasPermissionTo _).expects(editMetadata, *).returns(true).never()
+        val filter = auth.hasPermissionTo(editMetadata)
+        filter(machineWithEditPermission) shouldBe true
+      }
+
+      "permission tier with the incorrect permission should not be allowed" in {
+        (mockProvider.hasPermissionTo _).expects(uploadImages, *).returns(true).never()
+        val filter = auth.hasPermissionTo(uploadImages)
+        filter(machineWithEditPermission) shouldBe false
+      }
+
       "others should be delegated to the provider" in {
         (mockProvider.hasPermissionTo _).expects(editMetadata, *).returns(false).twice()
         val filter = auth.hasPermissionTo(editMetadata)
