@@ -7,7 +7,8 @@ import com.gu.permissions.PermissionDefinition
 case class KeyArgs(
                     name: String,
                     principalType: PrincipalType,
-                    permissions: Seq[PermissionDefinition]
+                    permissions: Seq[PermissionDefinition],
+                    expiryDays: Option[Int]
                   )
 
 object KeyArgs {
@@ -20,6 +21,7 @@ object KeyArgs {
        |  --name=<name>         Name for the key (required)
        |  --type=<type>         'developer' (default) or 'machine'
        |  --permissions=<csv>   Comma-separated list. Defaults to none.
+       |  --expiry=<days>       Optional expiry in days. Defaults to 1 day for developer keys.
        |  --help                Show this message
        |
        |Available permissions:
@@ -70,7 +72,15 @@ object KeyArgs {
         }
         known.map(p => permissionsByName(p.toLowerCase)).distinct
     }
+    val expiryDays = options.get("expiry") match {
+      case None => None
+      case Some(value) =>
+        value.toIntOption match {
+          case Some(days) if days > 0 => Some(days)
+          case _ => fail(s"invalid --expiry '$value' (expected a positive whole number of days)")
+        }
+    }
 
-    KeyArgs(name, principalType, permissions)
+    KeyArgs(name, principalType, permissions, expiryDays)
   }
 }

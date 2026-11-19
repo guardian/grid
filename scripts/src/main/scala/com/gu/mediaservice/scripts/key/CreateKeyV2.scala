@@ -10,7 +10,7 @@ object CreateKeyV2 extends App {
   val s3Client = new S3(s3Bucket)
 
   val parsed = KeyArgs.parse(args)
-  val apiKeyConfig = ApiKeyConfig(parsed.name, parsed.permissions, parsed.principalType)
+  val apiKeyConfig = ApiKeyConfig(parsed.name, parsed.permissions, parsed.principalType, parsed.expiryDays)
 
   val key = KeyGenerator.randomKey()
 

@@ -27,15 +27,17 @@ case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], ex
 
 
 object ApiKeyConfig {
-  def expiry(principalType: PrincipalType) = {
-    principalType match {
-      case Machine => None
-      case Developer => Some(Instant.now().plusSeconds(60 * 60 * 24 * 1)) // 1 day
-    }
-  }
 
-  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType): ApiKeyConfig = {
-    ApiKeyConfig(name, permissions, expiry(principalType), principalType)
+  val defaultExpiryDays = 1
+
+  def expiry(expiryDays: Option[Int], principalType: PrincipalType): Option[Instant] = {
+    val days = expiryDays
+      .filter(_ >= 1)
+      .orElse(Option.when(principalType == Developer)(defaultExpiryDays))
+    days.map(d => Instant.now().plusSeconds(60 * 60 * 24 * d))
+  }
+  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType, expiryDays: Option[Int]): ApiKeyConfig = {
+    ApiKeyConfig(name, permissions, expiry(expiryDays, principalType), principalType)
   }
 
   implicit val apiKeyConfigFormat: OFormat[ApiKeyConfig] = Json.format[ApiKeyConfig]
