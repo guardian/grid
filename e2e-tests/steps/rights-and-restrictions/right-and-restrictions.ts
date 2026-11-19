@@ -51,6 +51,16 @@ const usageSummary = (page: Page) =>
 // Scoped to the section: the upload page opens an editor for every past upload without rights.
 const rightsEditor = (page: Page) =>
   rightsAndRestrictions(page).getByRole("form", { name: "Image usage rights" });
+// The category <select> is the editor's first control and has no label of its own.
+const categorySelect = (page: Page) =>
+  rightsEditor(page).getByRole("combobox").first();
+const selectedCategory = (page: Page) =>
+  categorySelect(page).locator("option:checked");
+const saveButton = (page: Page) =>
+  rightsEditor(page).getByRole("button", {
+    name: "Save usage rights",
+    exact: true,
+  });
 
 const editRightsButton = (page: Page) => rightsSurface(page).editButton(page);
 
@@ -346,11 +356,7 @@ const isUsageRightsSave =
     );
 
 async function selectCategory(page: Page, category: string): Promise<void> {
-  // The category <select> is the editor's first control and has no label of its own.
-  await rightsEditor(page)
-    .getByRole("combobox")
-    .first()
-    .selectOption({ label: category });
+  await categorySelect(page).selectOption({ label: category });
 }
 
 type PropertyControl =
@@ -422,9 +428,7 @@ async function expectProperty(
 async function saveRights(page: Page): Promise<void> {
   // The editor closes whether or not the save succeeds, so check the requests themselves.
   await expectUsageRightsSaveAccepted(page, openedImageIds(page), () =>
-    rightsEditor(page)
-      .getByRole("button", { name: "Save usage rights", exact: true })
-      .click(),
+    saveButton(page).click(),
   );
 }
 
@@ -905,11 +909,10 @@ Then(
   async ({ page, request }) => {
     const editor = rightsEditor(page);
     await expect(editor).toBeVisible();
-    const category = editor.getByRole("combobox").first();
-    await expect(category.locator("option:checked")).toHaveText(
+    await expect(selectedCategory(page)).toHaveText(
       await rightsTemplateCategoryName(request),
     );
-    await expect(category).toBeDisabled();
+    await expect(categorySelect(page)).toBeDisabled();
     await expect(restrictedCheckbox(page)).toBeChecked();
     await expect(restrictionsInput(page)).toHaveValue(
       E2E_RIGHTS_TEMPLATE.usageRights.restrictions,
@@ -920,9 +923,7 @@ Then(
 
 Then("the rights editor offers no save or cancel buttons", async ({ page }) => {
   const editor = rightsEditor(page);
-  await expect(
-    editor.getByRole("button", { name: "Save usage rights", exact: true }),
-  ).toHaveCount(0);
+  await expect(saveButton(page)).toHaveCount(0);
   await expect(
     editor.getByRole("button", {
       name: "Close usage rights form",
@@ -1028,15 +1029,9 @@ Given(
 Then(
   "the rights editor shows the {string} category",
   async ({ page }, category: string) => {
-    // The category <select> is the editor's first control and has no label of its own.
-    await expect(
-      rightsEditor(page).getByRole("combobox").first().locator("option:checked"),
-    ).toHaveText(category);
+    await expect(selectedCategory(page)).toHaveText(category);
   },
 );
-
-const saveButton = (page: Page) =>
-  rightsEditor(page).getByRole("button", { name: "Save usage rights", exact: true });
 
 Then("the rights can't be saved", async ({ page }) => {
   await expect(saveButton(page)).toBeDisabled();
