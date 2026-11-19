@@ -132,15 +132,6 @@ jobs:
           e2e-tests/cucumber-report/
         retention-days: 14
         if-no-files-found: ignore
-    # Read by the Features UI workflow, which records videos without coverage.
-    - name: Upload e2e coverage
-      uses: actions/upload-artifact@v7
-      if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      with:
-        name: e2e-coverage
-        path: e2e-tests/coverage-reports/
-        retention-days: 30
-        if-no-files-found: ignore
     - name: Upload testcontainers log
       id: testcontainers-log
       uses: actions/upload-artifact@v7

@@ -1,33 +1,23 @@
 name: Features UI
 on:
-  # Runs once Playwright Tests finishes for a push to main, so its coverage is for the same commit.
-  workflow_run:
-    workflows: [ Playwright Tests ]
-    types: [ completed ]
+  push:
     branches: [ main ]
   workflow_dispatch:
 permissions:
   id-token: write
   contents: read
   pull-requests: write
-  # Required to download the coverage artifact from the Playwright Tests workflow.
-  actions: read
   # Required to read/write the buildx layer cache stored as a GHCR package.
   packages: write
 jobs:
   features-ui:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion != 'cancelled') }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: e2e-tests
-    env:
-      COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
     - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
-      with:
-        ref: ${{ env.COMMIT_SHA }}
     - uses: actions/setup-node@v7
       with:
         node-version: lts/*
@@ -143,45 +133,8 @@ jobs:
         path: e2e-tests/coverage-reports/
         retention-days: 30
         if-no-files-found: ignore
-    - name: Download coverage for this commit
-      # test:video disables coverage, so use the Playwright Tests run for the same commit.
-      env:
-        GH_TOKEN: ${{ github.token }}
-        TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
-      run: |
-        run="$TRIGGER_RUN_ID"
-        if [ -z "$run" ]; then
-          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow playwright.yml --commit "$COMMIT_SHA" --event push --status completed --limit 1 --json databaseId -q '.[0].databaseId')
-        fi
-        if [ -n "$run" ] && gh run download "$run" --repo "$GITHUB_REPOSITORY" --name e2e-coverage --dir "$RUNNER_TEMP/e2e-coverage"; then
-          echo "Using coverage from run $run"
-        else
-          echo "::warning::No e2e-coverage artifact for $COMMIT_SHA; building without coverage."
-        fi
-    - uses: actions/upload-artifact@v7
-      if: ${{ !cancelled() }}
-      with:
-        name: coverage-reports
-        path: e2e-tests/coverage-reports/
-        retention-days: 30
-        if-no-files-found: ignore
-    - name: Download coverage for this commit
-      # test:video disables coverage, so use the Playwright Tests run for the same commit.
-      env:
-        GH_TOKEN: ${{ github.token }}
-        TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
-      run: |
-        run="$TRIGGER_RUN_ID"
-        if [ -z "$run" ]; then
-          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow playwright.yml --commit "$COMMIT_SHA" --event push --status completed --limit 1 --json databaseId -q '.[0].databaseId')
-        fi
-        if [ -n "$run" ] && gh run download "$run" --repo "$GITHUB_REPOSITORY" --name e2e-coverage --dir "$RUNNER_TEMP/e2e-coverage"; then
-          echo "Using coverage from run $run"
-        else
-          echo "::warning::No e2e-coverage artifact for $COMMIT_SHA; building without coverage."
-        fi
     - name: Build features UI
-      run: npm run features:build -- --coverage "$RUNNER_TEMP/e2e-coverage"
+      run: npm run features:build
     - uses: actions/upload-artifact@v7
       with:
         name: stats-site
