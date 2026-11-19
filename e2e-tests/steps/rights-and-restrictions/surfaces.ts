@@ -43,10 +43,13 @@ const rightsRegion = (scope: Page | Locator) =>
 const metadataEditButton = (section: Locator) =>
   section.getByRole('button', { name: '✎', exact: true, includeHidden: true });
 
+export const imageInformation = (page: Page) =>
+  page.getByRole('complementary', { name: 'Image information' });
+
 const singleImageView: RightsSurface = {
   async open(page, [image]) {
     await page.goto(`${KAHUNA_APP_URL}/images/${image.id}`);
-    await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
+    await expect(imageInformation(page)).toBeVisible();
   },
   section: (page) => rightsRegion(page),
   editButton: (page) => metadataEditButton(rightsRegion(page)),

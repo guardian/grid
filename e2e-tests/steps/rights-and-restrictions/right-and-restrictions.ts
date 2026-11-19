@@ -5,6 +5,8 @@ import type {
   Response,
 } from "@playwright/test";
 import { Given, When, Then, expect } from "../setup.ts";
+import { defineParameterType } from "playwright-bdd";
+import { oneOf } from "../utils/parameter-types.ts";
 import type { SeedImage } from "../setup.ts";
 import {
   findSeededImage,
@@ -15,6 +17,7 @@ import {
 import type { ImageSource } from "../../setup/image-fixtures.ts";
 import type { ImageOverrides } from "../../setup/seed-image.ts";
 import {
+  imageInformation,
   openOnSurface,
   openedImageIds,
   revealEditButton,
@@ -42,8 +45,6 @@ const IMAGE_WITHOUT_RIGHTS = findSeededImage(
 );
 const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
-const imageInformation = (page: Page) =>
-  page.getByRole("complementary", { name: "Image information" });
 /** The rights and restrictions section on the scenario's surface (see surfaces.ts). */
 const rightsAndRestrictions = (page: Page) => rightsSurface(page).section(page);
 const usageSummary = (page: Page) =>
@@ -105,13 +106,6 @@ async function openCopies(
   await openOnSurface(page, images);
   return images;
 }
-
-const openCopy = (
-  page: Page,
-  seedImage: SeedImage,
-  source: ImageSource,
-  overrides?: Partial<ImageSource>,
-) => openCopies(page, seedImage, [{ source, overrides }]);
 
 async function openSummaryImage(
   page: Page,
@@ -278,16 +272,36 @@ Given("the image was uploaded by me", async ({ page, testContext }) => {
   ];
 });
 
+defineParameterType({
+  name: "shownOrNot",
+  regexp: /shown|not shown/,
+  transformer: (v) => v === "shown",
+});
+
+/** Hover the section, which would reveal the edit button, and check it stays hidden. */
+async function expectEditButtonHidden(page: Page): Promise<void> {
+  await revealEditButton(page);
+  await expect(editRightsButton(page)).toBeHidden();
+}
+
 Then(
-  "the edit rights and restrictions button is shown",
-  async ({ page, testContext }) => {
+  "the edit rights and restrictions button is {shownOrNot}",
+  async ({ page, testContext }, shown: boolean) => {
+    // The section has loaded, so a missing button isn't just a page still rendering.
+    await expect(
+      rightsAndRestrictions(page).getByRole("definition"),
+    ).toContainText(/\S/);
+    if (!shown) {
+      await expectEditButtonHidden(page);
+      await expect(rightsEditor(page)).toBeHidden();
+      return;
+    }
     const images = testContext.permissionImages;
     if (!images?.length)
       throw new Error("No image was selected by an earlier ownership step");
     for (const image of images) {
       await expectEditPermissionForImage(page, image.id, image.uploadedBy);
     }
-    await expect(rightsAndRestrictions(page).getByRole("definition")).toContainText(/\S/);
     await revealEditButton(page);
     const button = editRightsButton(page);
     await expect(button).toBeVisible();
@@ -310,11 +324,11 @@ Given("I have opened the rights editor", async ({ page }) => {
 
 /**
  * Values for the required properties of each category a scenario saves, keyed by category
- * display name then property label. A category's form can't be submitted without them.
+ * display name then property label. A category's form can't be submitted without them;
+ * categories with no required properties are left out.
  */
 const REQUIRED_PROPERTY_VALUES: Record<string, Record<string, string>> = {
   "Agency - subscription": { Supplier: "AP" },
-  "Pay to use": {},
 };
 
 /** Required and optional property values a scenario fills in before saving a category. */
@@ -435,12 +449,7 @@ async function saveRights(page: Page): Promise<void> {
 When(
   "I save the {string} usage rights category",
   async ({ page }, category: string) => {
-    const required = REQUIRED_PROPERTY_VALUES[category];
-    if (!required)
-      throw new Error(
-        `No required property values are defined for "${category}"`,
-      );
-
+    const required = REQUIRED_PROPERTY_VALUES[category] ?? {};
     await selectCategory(page, category);
     for (const [property, value] of Object.entries(required)) {
       await setProperty(page, property, value);
@@ -617,8 +626,7 @@ Then(
 );
 
 Then("the edit rights and restrictions button is hidden", async ({ page }) => {
-  await revealEditButton(page);
-  await expect(editRightsButton(page)).toBeHidden();
+  await expectEditButtonHidden(page);
 });
 
 Then("the rights editor closes", async ({ page }) => {
@@ -648,17 +656,6 @@ Given(
     const { id, uploadedBy } = imageUploadedBySomeoneElse();
     await openImage(page, id);
     testContext.permissionImages = [{ id, uploadedBy }];
-  },
-);
-
-Then(
-  "the edit rights and restrictions button is not shown",
-  async ({ page }) => {
-    const section = rightsAndRestrictions(page);
-    await expect(section.getByRole("definition")).toContainText(/\S/);
-    await revealEditButton(page);
-    await expect(editRightsButton(page)).toBeHidden();
-    await expect(rightsEditor(page)).toBeHidden();
   },
 );
 
@@ -737,7 +734,7 @@ Given(
     const { code, source } = await imageInCategory(request, category);
     testContext.usageRightsCategory = code;
     // A copy, as some scenarios save new rights on it.
-    await openCopy(page, seedImage, source);
+    await openCopies(page, seedImage, [{ source }]);
   },
 );
 
@@ -761,7 +758,9 @@ Given(
 
 Given("the image has no usage rights category", async ({ page, seedImage }) => {
   // A disposable copy, so scenarios that save rights don't change a shared fixture.
-  await openCopy(page, seedImage, IMAGE_WITHOUT_RIGHTS._source, { usageRights: {} });
+  await openCopies(page, seedImage, [
+    { source: IMAGE_WITHOUT_RIGHTS._source, overrides: { usageRights: {} } },
+  ]);
 });
 
 Given(
@@ -971,44 +970,39 @@ Given(
   },
 );
 
-/** Select copies uploaded by each of `uploaders`, in order, recording them for permission checks. */
-async function selectImagesUploadedBy(
-  page: Page,
-  seedImage: SeedImage,
-  testContext: { permissionImages?: { id: string; uploadedBy: string }[] },
-  uploaders: string[],
-): Promise<void> {
-  const images = await openCopies(
-    page,
-    seedImage,
-    uploaders.map((uploadedBy) => ({
-      source: IMAGE_WITHOUT_RIGHTS._source,
-      overrides: { uploadedBy },
-    })),
-  );
-  testContext.permissionImages = images.map(({ id }, index) => ({
-    id,
-    uploadedBy: uploaders[index],
-  }));
-}
+/** The uploaders of the images each selection step selects, in the order they're selected. */
+const SELECTION_UPLOADERS: Record<string, () => string[]> = {
+  "two images uploaded by me": () => [
+    TEST_ACCOUNTS.restricted,
+    TEST_ACCOUNTS.restricted,
+  ],
+  "an image uploaded by me, then an image uploaded by someone else": () => [
+    TEST_ACCOUNTS.restricted,
+    imageUploadedBySomeoneElse().uploadedBy,
+  ],
+};
+
+defineParameterType({
+  name: "uploaderSelection",
+  regexp: oneOf(Object.keys(SELECTION_UPLOADERS)),
+  transformer: (selection) => SELECTION_UPLOADERS[selection](),
+});
 
 Given(
-  "I have selected two images uploaded by me",
-  async ({ page, seedImage, testContext }) => {
-    await selectImagesUploadedBy(page, seedImage, testContext, [
-      TEST_ACCOUNTS.restricted,
-      TEST_ACCOUNTS.restricted,
-    ]);
-  },
-);
-
-Given(
-  "I have selected an image uploaded by me, then an image uploaded by someone else",
-  async ({ page, seedImage, testContext }) => {
-    await selectImagesUploadedBy(page, seedImage, testContext, [
-      TEST_ACCOUNTS.restricted,
-      imageUploadedBySomeoneElse().uploadedBy,
-    ]);
+  "I have selected {uploaderSelection}",
+  async ({ page, seedImage, testContext }, uploaders: string[]) => {
+    const images = await openCopies(
+      page,
+      seedImage,
+      uploaders.map((uploadedBy) => ({
+        source: IMAGE_WITHOUT_RIGHTS._source,
+        overrides: { uploadedBy },
+      })),
+    );
+    testContext.permissionImages = images.map(({ id }, index) => ({
+      id,
+      uploadedBy: uploaders[index],
+    }));
   },
 );
 
