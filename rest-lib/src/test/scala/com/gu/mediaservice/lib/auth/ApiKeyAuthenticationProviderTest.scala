@@ -14,6 +14,7 @@ import play.api.mvc.DefaultControllerComponents
 import play.api.test.{FakeRequest, WsTestClient}
 import play.api.{Configuration, Environment}
 
+import java.time.Instant
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future
 
@@ -45,6 +46,8 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
         key match {
           case "key-chuckle" => Some(ApiAccessor("brothers", Internal))
           case "key-limited" => Some(ApiAccessor("locked-down", ReadOnly))
+          case "key-expired" => Some(ApiAccessor("old-timer", Internal, Some(Instant.now().minusSeconds(60))))
+          case "key-valid-future" => Some(ApiAccessor("future-timer", Internal, Some(Instant.now().plusSeconds(60))))
           case _ => None
         }
       }
@@ -101,6 +104,18 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
         case NotAuthorised(message) =>
           message shouldBe "API key locked-down valid but not authorised for this request"
       }
+    }
+    "should return Invalid if the key has expired" in {
+      val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-expired"
+      val status = provider.authenticateRequest(FakeRequest().withHeaders(testHeader))
+      inside(status) {
+        case Invalid(message, _) =>
+          message shouldBe "API key old-timer has expired"
+      }
+    }
+    "should authenticate a key whose expiry is in the future" in {
+      val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-valid-future"
+      provider.authenticateRequest(FakeRequest().withHeaders(testHeader)) shouldBe a[Authenticated]
     }
   }
 }

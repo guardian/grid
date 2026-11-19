@@ -27,7 +27,9 @@ object Tier {
   }
 }
 
-case class ApiAccessor(identity: String, tier: Tier,  expiresAt: Option[Instant] = None)
+case class ApiAccessor(identity: String, tier: Tier,  expiresAt: Option[Instant] = None) {
+  def hasExpired: Boolean = expiresAt.exists(_.isBefore(Instant.now()))
+}
 
 object ApiAccessor extends ArgoHelpers with GridLogging {
   def apply(content: String): ApiAccessor = {
