@@ -18,29 +18,27 @@ class S3(bucket: String) {
     .credentialsProvider(DefaultCredentialsProvider.builder.profileName("media-service").build)
     .build
 
+  private  def buildTag(name: String, value: String): Tag = {
+    Tag.builder().key(name).value(value).build()
+  }
+  private def taggging(tags: List[Tag]): Tagging = {
+    Tagging.builder().tagSet(tags: _*).build()
+  }
   def upload(key: String, config: ApiKeyConfig): Unit = {
 
     val ttlDays = config.expiry.map(expiry => {
       math.ceil(Duration.between(Instant.now(), expiry).toMinutes / 1440.0).toLong + 2L
     })
-
-    def buildTag(ttlDays: Long): Tagging = {
-      val tag = Tag.builder().key("ttl").value(ttlDays.toString).build()
-      Tagging.builder().tagSet(tag).build()
-    }
+    val tags = List(buildTag("schema", "v2")) ++ ttlDays.map(days => buildTag("ttl", days.toString)).toList
 
     val s3key = s"${config.name}-$key"
-    val base = PutObjectRequest.builder()
+    val request = PutObjectRequest.builder()
       .bucket(bucket)
       .key(s3key)
-
-    val request = (ttlDays match {
-      case Some(days) => base.tagging(buildTag(days))
-      case None       => base
-    }).build()
+      .tagging(taggging(tags))
+      .build()
 
     val body = RequestBody.fromString(Json.stringify(Json.toJson(config)))
-
     s3.putObject(request, body)
   }
 
