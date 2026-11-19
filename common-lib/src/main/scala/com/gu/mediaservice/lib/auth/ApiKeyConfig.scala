@@ -22,8 +22,8 @@ object PrincipalType {
   )
 }
 
-case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], expiry: Option[Instant], principalType: PrincipalType) {
-  def isExpired: Boolean = expiry.exists(_.isBefore(Instant.now()))
+case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], expiresAt: Option[Instant], principalType: PrincipalType) {
+  def isExpired: Boolean = expiresAt.exists(_.isBefore(Instant.now()))
 }
 
 
@@ -41,5 +41,20 @@ object ApiKeyConfig {
     ApiKeyConfig(name, permissions, expiry(expiryDays, principalType), principalType)
   }
 
-  implicit val apiKeyConfigFormat: OFormat[ApiKeyConfig] = Json.format[ApiKeyConfig]
+  private val byName: Map[String, PermissionDefinition] =
+    Permissions.all.map(p => p.name -> p).toMap
+
+  private def resolve(name: String): PermissionDefinition =
+    byName.getOrElse(name, throw new IllegalArgumentException(s"Unknown permission '$name'"))
+
+  implicit val apiKeyConfigFormat: OFormat[ApiKeyConfig] = {
+    import play.api.libs.functional.syntax._
+    (
+      (__ \ "name").format[String] and
+        (__ \ "permissions").format[Seq[String]]
+          .inmap[Seq[PermissionDefinition]](_.map(resolve), _.map(_.name)) and
+        (__ \ "expiresAt").formatNullable[Instant] and
+        (__ \ "principalType").format[PrincipalType]
+      )(ApiKeyConfig.apply _ , a => (a.name, a.permissions, a.expiresAt, a.principalType))
+  }
 }

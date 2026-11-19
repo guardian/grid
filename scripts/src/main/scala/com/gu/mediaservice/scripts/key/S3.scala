@@ -26,7 +26,7 @@ class S3(bucket: String) {
   }
   def upload(key: String, config: ApiKeyConfig): Unit = {
 
-    val ttlDays = config.expiry.map(expiry => {
+    val ttlDays = config.expiresAt.map(expiry => {
       math.ceil(Duration.between(Instant.now(), expiry).toMinutes / 1440.0).toLong + 2L
     })
     val tags = List(buildTag("schema", "v2")) ++ ttlDays.map(days => buildTag("ttl", days.toString)).toList
