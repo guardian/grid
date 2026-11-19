@@ -3,9 +3,9 @@ const { merge } = require('webpack-merge');
 const ImageMinimizerPlugin = require("image-minimizer-webpack-plugin");
 const { sentryWebpackPlugin } = require("@sentry/webpack-plugin");
 
-// Absent for local builds and for pull requests from forks, which cannot see repository
-// secrets. Upload is skipped in that case rather than failing the build.
-const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const browserCoverage = process.env.GRID_BROWSER_COVERAGE === 'true';
+// Coverage builds keep their maps for Playwright and never upload them to Sentry.
+const sentryAuthToken = browserCoverage ? undefined : process.env.SENTRY_AUTH_TOKEN;
 const sentryOrg = process.env.SENTRY_ORG;
 const sentryProject = process.env.SENTRY_PROJECT;
 
@@ -43,8 +43,7 @@ const sentryPlugins = sentryAuthToken ? [
 
 module.exports = merge(shared, {
   mode: 'production',
-  // Generates maps for upload without advertising them to the browser.
-  devtool: 'hidden-source-map',
+  devtool: browserCoverage ? 'source-map' : 'hidden-source-map',
   plugins: sentryPlugins,
   optimization: {
     minimize: true,
