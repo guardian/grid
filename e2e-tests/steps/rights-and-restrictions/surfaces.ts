@@ -83,12 +83,11 @@ const searchResultsPanel: RightsSurface = {
   editButton: (page) => metadataEditButton(rightsRegion(infoPanel(page))),
 };
 
-/** Upload editors are found by the file name the past upload is labelled with. */
-const uploadEditorFiles = new WeakMap<Page, string>();
-
+/** The opened image's upload editor, found by the file name its past upload is labelled with. */
 const pastUpload = (page: Page) => {
-  const fileName = uploadEditorFiles.get(page);
-  if (!fileName) throw new Error('No past upload was opened in the upload editor');
+  const [image] = stateOf(page).images;
+  const fileName = image?.fileName;
+  if (!fileName) throw new Error('No image with an upload file name was opened in the upload editor');
   return page
     .getByRole('region', { name: 'Your past 50 uploads' })
     .getByRole('region', { name: fileName, exact: true });
@@ -98,9 +97,7 @@ const uploadRights = (page: Page) =>
   pastUpload(page).getByRole('region', { name: 'Image usage rights', exact: true });
 
 const uploadEditor: RightsSurface = {
-  async open(page, [image]) {
-    if (!image.fileName) throw new Error(`Image ${image.id} has no upload file name to find it by`);
-    uploadEditorFiles.set(page, image.fileName);
+  async open(page) {
     await page.goto(`${KAHUNA_APP_URL}/upload`);
     await expect(uploadRights(page)).toBeVisible();
   },
@@ -124,6 +121,7 @@ interface RightsState {
 /**
  * The surface a scenario works in and the images it opened, keyed by the scenario's page so
  * the many locator helpers needn't take the test context. Defaults to the single image view.
+ * `openOnSurface` records the images before opening them, so surfaces can locate them by it.
  */
 const states = new WeakMap<Page, RightsState>();
 
