@@ -8,8 +8,13 @@ const testDir = defineBddConfig({
   features: './features/**/*.feature',
   steps: './steps/**/*.ts',
   /* @todo marks scenarios that are specified but not yet implemented. Excluding them keeps
-     bddgen's "undefined step" failures meaningful for the scenarios we do implement. */
-  tags: 'not @todo',
+     bddgen's "undefined step" failures meaningful for the scenarios we do implement.
+     @timing-sensitive scenarios rely on keystrokes beating Kahuna's 500ms search debounce;
+     coverage instrumentation slows the page enough to break them, so skip them when
+     collecting coverage. They still run uninstrumented in the main Playwright job. */
+  tags: process.env.GRID_DISABLE_COVERAGE === 'true'
+    ? 'not @todo'
+    : 'not @todo and not @timing-sensitive',
 });
 
 /**
