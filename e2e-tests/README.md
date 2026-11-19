@@ -29,10 +29,13 @@ CI=true npm test
 ```
 
 `grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) bind-mounts the repo over
-`/build`, builds Kahuna's production bundle once (`npm ci` + `npm run dist`), stages
+`/build`, builds Kahuna's production bundle once (`npm ci` +
+`GRID_BROWSER_COVERAGE=true npm run dist`), stages
 the services with `sbt e2eStage` and runs the staged applications in production mode,
 so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
 are baked into the image, so the build is quick and staging happens on first run.
+The test bundle includes source map references so Playwright can report coverage of
+the original Kahuna sources. Release builds still use hidden maps.
 The stack starts the published Chekov image on ports `80` and `443` in both dev and CI.
 Chekov discovers each Grid service at its primary hostname from the port label and
 registers only additional hostnames as aliases (for example, `loader-projection.media`

@@ -32,7 +32,7 @@ if [[ " $SERVICES " == *" kahuna "* ]]; then
   echo "Installing Kahuna dependencies (npm ci)..."
   ( cd "$REPO/kahuna" && npm ci )
   echo "Building Kahuna production bundle (npm run dist)..."
-  ( cd "$REPO/kahuna" && npm run dist )
+  ( cd "$REPO/kahuna" && GRID_BROWSER_COVERAGE=true npm run dist )
 fi
 
 # --- Stage all services (production artefacts) with sbt.
@@ -81,5 +81,4 @@ for pid in "${pids[@]}"; do
 done
 wait 2>/dev/null || true
 exit 1
-
 
