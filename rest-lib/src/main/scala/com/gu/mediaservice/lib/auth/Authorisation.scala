@@ -67,7 +67,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     principal match {
       case user: UserPrincipal =>
         user.email.equalsIgnoreCase(uploadedBy) || hasPermissionTo(permission)(principal)
-      case MachinePrincipal(ApiAccessor(_, Internal), _) => true
+      case MachinePrincipal(ApiAccessor(_, Internal, _), _) => true
       case InnerServicePrincipal(_, _) => true
       case _ => false
     }
@@ -77,7 +77,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     principal: Principal => {
       principal match {
         // a machine principal with internal tier can always see anything
-        case MachinePrincipal(ApiAccessor(_, Internal), _) => true
+        case MachinePrincipal(ApiAccessor(_, Internal, _), _) => true
         case InnerServicePrincipal(_, _) => true
         case _ => provider.hasPermissionTo(permission, principal)
       }
