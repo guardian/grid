@@ -158,6 +158,13 @@ jobs:
         else
           echo "::warning::No e2e-coverage artifact for $COMMIT_SHA; building without coverage."
         fi
+    - uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: coverage-reports
+        path: e2e-tests/coverage-reports/
+        retention-days: 30
+        if-no-files-found: ignore
     - name: Build features UI
       run: npm run features:build -- --coverage "$RUNNER_TEMP/e2e-coverage"
     - uses: actions/upload-artifact@v7
