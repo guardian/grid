@@ -1,5 +1,6 @@
 package com.gu.mediaservice.lib.auth
 
+import com.gu.permissions.PermissionDefinition
 import play.api.libs.json.{Format, JsString, Json, OFormat, Writes, __}
 
 import java.time.Instant
@@ -20,22 +21,21 @@ object PrincipalType {
   )
 }
 
-case class ApiKeyConfig(name: String, tier: Tier, expiry: Option[Instant], principalType: PrincipalType) {
+case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], expiry: Option[Instant], principalType: PrincipalType) {
   def isExpired: Boolean = expiry.exists(_.isBefore(Instant.now()))
 }
 
 
 object ApiKeyConfig {
-  def expiry(tier: Tier, principalType: PrincipalType) = {
-    (principalType, tier) match {
-      case (Machine, _) => None
-      case (Developer, Internal) => Some(Instant.now().plusSeconds(60 * 60 * 24 * 7)) // 7 days
-      case (Developer, ReadOnly) => Some(Instant.now().plusSeconds(60 * 60 * 24 * 30)) // 30 days
-      case (Developer, Syndication) => Some(Instant.now().plusSeconds(60 * 60 * 24 * 30)) // 30 days
+  def expiry(principalType: PrincipalType) = {
+    principalType match {
+      case Machine => None
+      case Developer => Some(Instant.now().plusSeconds(60 * 60 * 24 * 1)) // 1 day
     }
   }
-  def apply(name: String, tier: Tier, principalType: PrincipalType): ApiKeyConfig = {
-    ApiKeyConfig(name, tier, expiry(tier, principalType), principalType)
+
+  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType): ApiKeyConfig = {
+    ApiKeyConfig(name, permissions, expiry(principalType), principalType)
   }
 
   implicit val apiKeyConfigFormat: OFormat[ApiKeyConfig] = Json.format[ApiKeyConfig]
