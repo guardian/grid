@@ -77,7 +77,13 @@ class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSuga
     when(usageNotice.build(any[String])(any[LogMarker]))
       .thenReturn(UsageEffectTestSupport.successful[Future, UsageNotice](notice))
 
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotice, mock[UsageNotifier])
+    val recorder = new UsageRecorder(
+      usageMetrics,
+      usageTable,
+      usageNotice,
+      mock[UsageNotifier],
+      notificationDelay = Duration.Zero
+    )
     val result = Promise[WithLogMarker[UsageNotice]]()
     val subscription = recorder.notificationStream.subscribe(
       value => result.trySuccess(value),
@@ -86,7 +92,7 @@ class UsageRecorderBridgeTest extends AnyFunSuite with Matchers with MockitoSuga
     )
 
     try {
-      recorder.usageApiSubject.onNext(usageGroupWithContext)
+      Await.result(recorder.record(usageGroupWithContext), 5.seconds)
       val notification = Await.result(result.future, 15.seconds)
 
       notification.value shouldBe notice

@@ -7,26 +7,42 @@ import play.api.libs.json._
 import rx.lang.scala.subjects.PublishSubject
 import rx.lang.scala.{Observable, Subject, Subscriber, Subscription}
 
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{Future, Promise}
+import scala.util.Try
 
 case class ResetException() extends Exception
+
+trait UsageGroupRecorder {
+  def record(usageGroup: WithLogMarker[UsageGroup]): Future[Unit]
+}
 
 class UsageRecorder(
   usageMetrics: UsageMetrics,
   usageTable: UsageTable,
   usageNotice: UsageNotifier,
-  usageNotifier: UsageNotifier
-) extends GridLogging {
+  usageNotifier: UsageNotifier,
+  notificationDelay: FiniteDuration = 5.seconds
+) extends GridLogging with UsageGroupRecorder {
 
-  val usageApiSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
-  val combinedObservable: Observable[WithLogMarker[UsageGroup]] = CrierUsageStream.observable.merge(usageApiSubject)
+  private val usageGroupSubject: Subject[WithLogMarker[UsageGroup]] = PublishSubject[WithLogMarker[UsageGroup]]()
+  private val started = new AtomicBoolean(false)
+  private val stopped = new AtomicBoolean(false)
+  private val processingCompletion = Promise[Unit]()
 
-  val subscriber: Subscriber[LogMarker] = Subscriber((markers: LogMarker) => logger.debug(markers, s"Sent Usage Notification"))
+  val subscriber: Subscriber[LogMarker] = Subscriber(
+    (markers: LogMarker) => logger.debug(markers, "Sent Usage Notification"),
+    error => {
+      logger.error("UsageRecorder stream failed", error)
+      processingCompletion.tryFailure(error)
+    },
+    () => processingCompletion.trySuccess(())
+  )
   var maybeSubscription: Option[Subscription] = None
 
-  val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = combinedObservable.flatMap(matchDb)
+  val dbMatchStream: Observable[WithLogMarker[MatchedUsageGroup]] = usageGroupSubject.flatMap(matchDb)
 
   case class MatchedUsageGroup(usageGroup: UsageGroup, dbUsages: Set[MediaUsage])
 
@@ -130,7 +146,7 @@ class UsageRecorder(
 
   private def getNotificationStream(dbUpdateStream: Observable[WithLogMarker[Set[String]]]): Observable[WithLogMarker[UsageNotice]] = {
     dbUpdateStream
-      .delay(5.seconds) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
+      .delay(notificationDelay) // give DynamoDB write a greater chance of reaching eventual consistency, before reading
       .flatMap{ mediaIdsImplicatedInDBUpdatesWithContext =>
         implicit val logMarker: LogMarker = mediaIdsImplicatedInDBUpdatesWithContext.logMarker
         logger.info(logMarker, s"Building ${mediaIdsImplicatedInDBUpdatesWithContext.value.size} usage notices")
@@ -142,13 +158,21 @@ class UsageRecorder(
       }
   }
 
-  def start(): Unit = {
-    // Eval subscription to start stream
-    maybeSubscription = Some(finalObservable.subscribe(subscriber))
-  }
+  override def record(usageGroup: WithLogMarker[UsageGroup]): Future[Unit] =
+    if (stopped.get()) Future.failed(new IllegalStateException("UsageRecorder is stopped"))
+    else Future.fromTry(Try(usageGroupSubject.onNext(usageGroup)))
 
-  def stop(): Unit = {
-    maybeSubscription.foreach(_.unsubscribe())
+  def start(): Unit =
+    if (started.compareAndSet(false, true)) {
+      maybeSubscription = Some(finalObservable.subscribe(subscriber))
+    }
+
+  def stop(): Future[Unit] = {
+    if (stopped.compareAndSet(false, true)) {
+      usageGroupSubject.onCompleted()
+    }
+    if (!started.get()) Future.unit
+    else processingCompletion.future.andThen { case _ => maybeSubscription.foreach(_.unsubscribe()) }
   }
 
 }

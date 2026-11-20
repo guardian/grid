@@ -20,12 +20,12 @@ import play.api.mvc.Security.AuthenticatedRequest
 import play.api.mvc.{Action, Request, Result}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
-import rx.lang.scala.subjects.PublishSubject
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.Try
 
 class UsageApiTest extends AnyFunSuite with Matchers with MockitoSugar {
   private implicit val ec: ExecutionContext = ExecutionContext.parasitic
@@ -38,11 +38,10 @@ class UsageApiTest extends AnyFunSuite with Matchers with MockitoSugar {
     val components = stubControllerComponents()
     val groups = ListBuffer.empty[WithLogMarker[UsageGroup]]
     var onDelivery: () => Unit = () => ()
-    private val subject = PublishSubject[WithLogMarker[UsageGroup]]()
-    private val subscription = subject.subscribe { group =>
+    private val recorder: UsageGroupRecorder = group => Future.fromTry(Try {
       onDelivery()
       groups += group
-    }
+    })
     private val userProvider = mock[UserAuthenticationProvider]
     private val innerProvider = mock[InnerServiceAuthenticationProvider]
     when(userProvider.loginLink).thenReturn(DisableLoginLink)
@@ -60,13 +59,13 @@ class UsageApiTest extends AnyFunSuite with Matchers with MockitoSugar {
     when(config.maxPrintRequestLengthInKb).thenReturn(64)
     val controller = new UsageApi(
       auth, new Authorisation(mock[AuthorisationProvider], ec), mock[UsageTable], ops,
-      mock[Notifications], config, subject, capi, components, components.parsers
+      mock[Notifications], config, recorder, capi, components, components.parsers
     )
 
     def post(action: Action[JsValue], body: JsValue): Result =
       Await.result(action.apply(FakeRequest("POST", "/usages").withBody(body)), 5.seconds)
 
-    def close(): Unit = subscription.unsubscribe()
+    def close(): Unit = ()
   }
 
   test("usage endpoints publish the parsed group and preserve its log context before returning accepted") {
@@ -146,8 +145,7 @@ class UsageApiTest extends AnyFunSuite with Matchers with MockitoSugar {
     } finally f.close()
   }
 
-  // Rx lets synchronous publication errors escape instead of returning an HTTP error.
-  ignore("a failed delivery returns a server error without accepting the usage group") {
+  test("a failed delivery returns a server error without accepting the usage group") {
     val f = new Fixture
     val request = FrontUsageRequest(modified, "user", "uk", "image-id")
     when(f.ops.build(Json.toJson(request).as[FrontUsageRequest]))
