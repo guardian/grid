@@ -1,7 +1,7 @@
 package lib.querysyntax
 
 import com.gu.mediaservice.lib.ImageFields
-import org.joda.time.{DateTime, DateTimeUtils}
+import org.joda.time.{DateTime, DateTimeUtils, DateTimeZone}
 import org.scalatest.BeforeAndAfter
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
@@ -385,6 +385,96 @@ class ParserTest extends AnyFunSpec with Matchers with BeforeAndAfter with Image
     }
 
     describe("date constraint") {
+
+      val cutoff = new DateTime("2000-01-01T14:30:45.123Z").withZone(DateTimeZone.UTC)
+      val tomorrow = new DateTime("2000-01-03T00:00:00Z")
+
+      Seq(
+        "2000-01-01T14:30:45.123Z" -> cutoff,
+        "2000-01-01T15:30:45.123+01:00" -> cutoff,
+        "2000-01-01T14:30:45Z" -> cutoff.withMillisOfSecond(0)
+      ).foreach { case (value, expected) =>
+        Seq("date" -> "uploadTime", "uploaded" -> "uploadTime", "taken" -> "dateTaken", "usages@added" -> "dateAdded").foreach {
+          case (key, field) =>
+            Seq(">" -> DateRange(expected, tomorrow), "<" -> DateRange(new DateTime(0L), expected)).foreach {
+              case (operator, range) =>
+                Seq(value, s"\"$value\"").foreach { input =>
+                  it(s"should parse $key $operator $input as an instant") {
+                    val nested = key.startsWith("usages@")
+                    val query = if (nested) s"usages@${operator}added:$input" else s"$operator$key:$input"
+                    val condition = if (nested) Nested(SingleField("usages"), SingleField(field), range)
+                      else Match(SingleField(field), range)
+                    Parser.run(query) shouldBe List(condition) ++ standardNegations
+                  }
+                }
+            }
+        }
+      }
+
+      it("should preserve timestamp precision in negated comparisons") {
+        Parser.run("""->taken:"2000-01-01T14:30:45.123Z"""") shouldBe
+          List(Negation(Match(SingleField("dateTaken"), DateRange(cutoff, tomorrow)))) ++ standardNegations
+        Parser.run("""-usages@<added:"2000-01-01T14:30:45.123Z"""") shouldBe
+          List(NegationNested(Nested(SingleField("usages"), SingleField("dateAdded"), DateRange(new DateTime(0L), cutoff)))) ++ standardNegations
+      }
+
+      Seq("2.hours" -> 7200000L, "30.minutes" -> 1800000L, "1.day" -> 86400000L).foreach {
+        case (duration, millis) =>
+          it(s"should resolve $duration again for each parsed comparison") {
+            val firstNow = new DateTime("2000-01-02T03:04:05Z")
+            Seq(firstNow, firstNow.plusMinutes(10)).foreach { now =>
+              DateTimeUtils.setCurrentMillisFixed(now.getMillis)
+              Parser.run(s"usages@>added:$duration") shouldBe List(
+                Nested(SingleField("usages"), SingleField("dateAdded"), DateRange(now.minus(millis), tomorrow))
+              ) ++ standardNegations
+            }
+          }
+      }
+
+      Seq("2000-01-01", "1/1/2000", "01/01/2000", "1.January.2000", "\"1 January 2000\"").foreach { value =>
+        it(s"should preserve the legacy date comparison $value") {
+          Parser.run(s"usages@<added:$value") shouldBe List(
+            Nested(SingleField("usages"), SingleField("dateAdded"), DateRange(new DateTime(0L), new DateTime("2000-01-01T00:00:00Z")))
+          ) ++ standardNegations
+        }
+      }
+
+      Seq("2000-01-01T14:30Z", "2000-01-01T14:30:45", "not-a-date").foreach { value =>
+        it(s"should preserve the existing text fallback for invalid comparison value $value") {
+          Parser.run(s"usages@>added:$value") shouldBe
+            List(Match(SingleField("usages@>added"), Words(value))) ++ standardNegations
+        }
+      }
+
+      Seq("Inf", "MinusInf", "Duration.Undefined").foreach { value =>
+        Seq("usages@>added", "usages@<added", ">taken", "<date").foreach { key =>
+          it(s"should preserve other terms and default exclusions for $key:$value") {
+            Parser.run(s"cats $key:$value") shouldBe List(
+              Match(AnyField, Words("cats")),
+              Match(SingleField(key), Words(value))
+            ) ++ standardNegations
+          }
+        }
+      }
+
+      it("should preserve local midnight for legacy dates in a non-UTC timezone") {
+        val originalZone = DateTimeZone.getDefault
+        try {
+          val zone = DateTimeZone.forID("Europe/London")
+          DateTimeZone.setDefault(zone)
+          val syntax = new QuerySyntax("")
+          syntax.parseDate("2000-07-01") shouldBe Some(new DateTime(2000, 7, 1, 0, 0, zone))
+          syntax.parseDate("2000-07-01T00:00:00Z") shouldBe Some(new DateTime(2000, 7, 1, 0, 0, DateTimeZone.UTC))
+        } finally {
+          DateTimeZone.setDefault(originalZone)
+        }
+      }
+
+      it("should leave whole-period parsing unchanged") {
+        val syntax = new QuerySyntax("")
+        syntax.parseDateRange("2000-01-01T14:30:45.123Z") shouldBe None
+        syntax.parseDateRange("2.hours") shouldBe None
+      }
 
       it("should match date constraint") {
         Parser.run("<date:2012-01-01") should be (List(
