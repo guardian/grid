@@ -282,6 +282,15 @@
 }
 
 .metadata-edit-tool { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; }
+.metadata-form-input { position: relative; --batch-tool-size: 24px; }
+.metadata-batch-tool { position: absolute; inset-block-start: 2px; inset-inline-end: 2px; }
+.metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { padding-inline-end: calc(var(--batch-tool-size) + 8px); }
+.metadata-form-input:has(.metadata-batch-tool) > :is(select, input[type="datetime-local"]) { width: calc(100% - var(--batch-tool-size) - 4px); padding-inline-end: 7px; }
+.metadata-batch-popover { position: absolute; z-index: 2; inset-inline-end: 0; width: max-content; max-width: min(210px, 50vw); padding: 6px 8px; border: 1px solid var(--color-grid-border); border-radius: 4px; background: var(--color-grid-bg); }
+@media (pointer: coarse) {
+  .metadata-form-input { --batch-tool-size: var(--mobile-edit-control-size); }
+  .metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { min-height: calc(var(--batch-tool-size) + 4px); }
+}
 .metadata-edit-form { min-width: 0; padding: 3px; }
 .metadata-row > dt { min-width: 6em; }
 .metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { padding-right: 0; }

@@ -59,16 +59,24 @@ describe("Grid upload transport", () => {
 
   it("keeps a readable image pending until indexed search visibility is confirmed, with uploads disabled", async () => {
     vi.stubGlobal("localStorage", { getItem: () => null });
-    const transport = vi.fn().mockResolvedValueOnce(Response.json({ data: { id } }))
+    const described = () => Response.json({ data: { id, metadata: { description: "Embedded caption" } } });
+    const transport = vi.fn().mockResolvedValueOnce(described())
       .mockResolvedValueOnce(Response.json({ total: 0 }))
-      .mockResolvedValueOnce(Response.json({ data: { id } })).mockResolvedValueOnce(Response.json({ total: 1 }));
+      .mockResolvedValueOnce(described()).mockResolvedValueOnce(Response.json({ total: 1 }));
     vi.stubGlobal("fetch", transport);
     const { observeUploadedImage } = await import("./upload-commands");
     const signal = new AbortController().signal;
     expect(await observeUploadedImage(id, signal)).toEqual({ outcome: "missing" });
-    expect(await observeUploadedImage(id, signal)).toEqual({ outcome: "visible" });
+    expect(await observeUploadedImage(id, signal)).toEqual({ outcome: "visible", hasDescription: true });
     expect(transport.mock.calls.map(([url]) => url)).toEqual([`/api/images/${id}`, "/api/images/count", `/api/images/${id}`, "/api/images/count"]);
     expect(JSON.parse(transport.mock.calls[1][1].body)).toEqual({ q: "", ids: [id] });
+  });
+
+  it.each(["", 42])("keeps the guarded description path for empty or unvalidated descriptions (%s)", async description => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(Response.json({ data: { id, metadata: { description } } }))
+      .mockResolvedValueOnce(Response.json({ total: 1 })));
+    const { observeUploadedImage } = await import("./upload-commands");
+    expect(await observeUploadedImage(id, new AbortController().signal)).toEqual({ outcome: "visible" });
   });
 
   it("uses discovered hosted targets directly without enabling metadata editing", async () => {

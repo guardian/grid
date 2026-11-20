@@ -1103,8 +1103,10 @@ empty, without pencils or commit/cancel controls. Location pairs Sublocation/Sta
 above City/Country, retaining each subfield's draft independently. Taken on uses a
 native whole-second calendar; initial display converts the supplied timestamp to
 local time, but newly typed wall-clock values are not reparsed through a timezone.
-The draft retains original milliseconds if the original second is selected, resets
-them to zero for a different second and supports an explicit empty value. This matches
+The draft retains original milliseconds if the original second is selected and resets
+them to zero for a different second. Empty date changes are temporarily refused under
+[GRID-025](../bug-backlog.md#grid-025), pending explicit backend clear support; Details
+also disables clearing. Setting and replacing dates remains available. This matches
 Details' calendar fraction policy without changing its separate explicit editor.
 
 All Form pill fields, including empty Collections, Labels, People and
@@ -1406,7 +1408,16 @@ pending/unknown gestures remain protected from replay. The
 [command contract](../../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
 owns scheduling, outcomes and readback rather than these presentation components.
 
-### Preparation-Only Field Owners
+### Metadata Field Owners
+
+Ordinary fields connect through [metadata-editor-store](../../../src/stores/metadata-editor-store.ts)
+and [metadata-operation](../../../src/lib/metadata-operation.ts), sharing the startup
+queue and existing observation/publication machinery with Labels. Form has revisioned
+pause/blur autosave outside row lifetimes; panels retain explicit Commit. Upper-Form
+arrows receive explicit batch provenance and retain captured receipts by operation ID.
+Collections/Photoshoot and other excluded editors remain preparation-only. The
+[U5 command contract](../../../src/dal/grid-api/README.md#u5-ordinary-metadata) owns transport,
+capacity, no-replay and original/override semantics.
 
 | Owner | Responsibility |
 | --- | --- |

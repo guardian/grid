@@ -371,6 +371,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
         old === geometry || old.window.width !== geometry.window.width ||
         beforeLayout.search !== layoutPublication.search || beforeLayout.seek !== layoutPublication.seek ||
         beforeLayout.sort !== layoutPublication.sort || beforeLayout.reset !== layoutPublication.reset) return;
+      const uploadScope = publication.params.recentUploadScope;
+      if (uploadScope?.combined && uploadScope.batch && beforeScroll === 0) return;
     const anchorIndex = layoutAnchor ? old.window.findItemIndex(layoutAnchor) : undefined;
     const row = anchorIndex !== undefined ? getItemLayoutRow(old, anchorIndex) : old.window.rowAtOffset(beforeScroll);
     if (!row) return;

@@ -1,11 +1,12 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { FieldDefinition } from "@/lib/field-registry";
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { PillActionButton } from "./SearchPill";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
-import { MetadataDateInput, type MetadataDateInputHandle } from "./MetadataDateInput";
+import { MetadataDateInput } from "./MetadataDateInput";
 import { gridConfig } from "@/lib/grid-config";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
+import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, useMetadataCommit } from "./MetadataEditing";
 
 export type MetadataLocationChange = Partial<Record<"subLocation" | "city" | "state" | "country", string>>;
 
@@ -82,7 +83,7 @@ export function MetadataTextInput({ field, value, onChange, placeholder, autoFoc
       readOnly={readOnly} onChange={event => {
         const input = event.currentTarget;
         const next = input.value.slice(0, 19);
-        if (input.validity.valid) onChange(next.length === 16 ? `${next}:00` : next);
+        if (input.validity.valid && next) onChange(next.length === 16 ? `${next}:00` : next);
       }} />
     : <MetadataSuggestionInput label={field.label} fieldKey={field.cqlKey ?? field.id} value={value}
       placeholder={placeholder} autoFocus={autoFocus} required={required} readOnly={readOnly} onChange={onChange} />;
@@ -91,6 +92,8 @@ export function MetadataTextInput({ field, value, onChange, placeholder, autoFoc
 export function MetadataFormField({ imageId, field, value, editable, required = false, editorialGuidance = false }: {
   imageId: string; field: FieldDefinition; value: string; editable: boolean; required?: boolean; editorialGuidance?: boolean;
 }) {
+  const editor = useContext(MetadataEditorContext);
+  const composing = useRef(false);
   const draft = useMetadataDrafts(state => state.drafts.get(imageId)?.get(field.id));
   const baseline = field.id === "metadata_dateTaken" ? dateTimeDraft(value) : value;
   const displayed = draft?.value ?? baseline;
@@ -100,17 +103,27 @@ export function MetadataFormField({ imageId, field, value, editable, required = 
     : field.id === "metadata_credit" ? "Source, agency or institution which owns the image" : undefined;
   const shortDescription = editorialGuidance && field.id === "metadata_description"
     && (displayed.length < 30 || displayed.split(" ").length < 5);
-  return <div data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field">
+  return <div data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field"
+    onCompositionStart={() => { composing.current = true; editor.getState().pause(imageId, field.id); }}
+    onCompositionEnd={() => { composing.current = false; if (editable) editor.getState().schedule(imageId, field.id); }}
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && !composing.current && editable) editor.getState().flush(imageId, field.id); }}>
     <div className="flex items-baseline justify-between gap-2 text-xs text-grid-text-dim">
       <span>{field.label}{required && <span className="text-grid-error"> *</span>}</span>
       {draft && <span role="status">Not sent</span>}
     </div>
+    <div className="metadata-form-input">
     <MetadataTextInput field={field} value={displayed} placeholder={placeholder} autoFocus={false} natural required={required} readOnly={!editable}
       onChange={next => {
         const nextValue = field.id !== "metadata_dateTaken" || !next ? next
           : next === baseline.slice(0, 19) ? baseline : `${next}.000`;
-        useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue);
+        const pending = [...editor.getState().saves.values()].some(save => save.state !== "finished"
+          && save.intent.targetIds.includes(imageId) && (save.intent.fieldId === field.id || save.intent.fieldId === "location" && field.id.startsWith("location_")));
+        useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue, pending);
+        if (!composing.current && editable) editor.getState().schedule(imageId, field.id);
       }} />
+    <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={displayed} disabled={!editable || composing.current} />
+    </div>
+    <MetadataSaveFeedback fieldId={field.id} targetIds={[imageId]} />
     {shortDescription && <p className="text-xs text-grid-warning">Your description is too short! Ideally, please state who, what, where, when and why.</p>}
   </div>;
 }
@@ -134,6 +147,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   editable?: boolean;
   readOnly?: ReactNode;
 }) {
+  const commit = useMetadataCommit();
   const available = dataAvailable && editable;
   const [editing, setEditing] = useState(false);
   const [initial, setInitial] = useState("");
@@ -141,9 +155,9 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   const [drafts, setDrafts] = useState({ overwrite: "", prepend: "", append: "" });
   const [mode, setMode] = useState<"overwrite" | "prepend" | "append">("overwrite");
   const [notice, setNotice] = useState("");
+  const [submitted, setSubmitted] = useState(false);
   const editRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const dateInputRef = useRef<MetadataDateInputHandle>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [inputValid, setInputValid] = useState(true);
   const [typeTouched, setTypeTouched] = useState(false);
@@ -162,6 +176,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   const mixedPlaceholder = editingMixed && mode === "overwrite" ? `Multiple ${MIXED_VALUE_NAMES.get(field.id) ?? field.label.toLowerCase()}` : undefined;
   const normalizedDraft = field.id === "photoshoot" ? draft.trim() : draft;
   const normalizedInitial = field.id === "photoshoot" ? initial.trim() : initial;
+  const validDraft = inputValid && (control !== "datetime-local" || draft !== "");
   let changed: boolean;
   if (mode !== "overwrite") {
     changed = draft.trim().length > 0;
@@ -180,6 +195,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
     setMode("overwrite");
     setNotice("");
     setInputValid(true);
+    setSubmitted(false);
     setTypeTouched(false);
     setEditing(true);
   };
@@ -190,18 +206,21 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   const updateDraft = (value: string) => {
     setDrafts(current => ({ ...current, [mode]: value }));
     setNotice("");
+    setSubmitted(false);
   };
   const changeMode = (nextMode: typeof mode) => {
     setMode(nextMode);
     setNotice("");
+    setSubmitted(false);
   };
   const prepare = () => {
-    if (!available || !targetIds.length || !changed) return;
-    if (!inputValid || !formRef.current?.checkValidity()) return;
+    if (!available || !targetIds.length || !changed || submitted) return;
+    if (!validDraft || !formRef.current?.checkValidity()) return;
     const prepared = control === "datetime-local" && draft ? dateTimeIntent(draft, originalOffset) : normalizedDraft;
     const intent: MetadataEditIntent = { fieldId: field.id, targetIds: [...targetIds], action: mode, value: prepared };
-    onPrepare?.(intent);
-    setNotice(`Not sent - ${field.label} change prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`);
+    const saveId = onPrepare ? (onPrepare(intent), undefined) : commit(intent);
+    setSubmitted(saveId !== undefined);
+    setNotice(saveId === undefined ? `Not sent - ${field.label} change prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.` : "");
   };
   const stacked = field.detailLayout === "stacked" || editing && control === "datetime-local";
   const Layout = stacked ? MetadataBlock : MetadataRow;
@@ -218,7 +237,7 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
       else if (event.key === "Enter") event.stopPropagation();
     }}>
       {multiline ? <MetadataTextInput field={field} textareaRef={textareaRef} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />
-        : control === "datetime-local" ? <MetadataDateInput ref={dateInputRef} initialValue={initial} mixed={editingMixed} validationId={validationId}
+        : control === "datetime-local" ? <MetadataDateInput initialValue={initial} mixed={editingMixed} validationId={validationId}
           onChange={(value, valid) => { updateDraft(value); setInputValid(valid); }} />
         : control === "image-type" ? <select autoFocus aria-label={field.label} data-mixed={editingMixed && !typeTouched || undefined}
           value={editingMixed && !typeTouched ? "mixed" : draft === "" ? "clear" : String(gridConfig.imageTypes.indexOf(draft))}
@@ -235,8 +254,8 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
         </select> : <MetadataTextInput field={field} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />}
       {!inputValid && <p id={validationId} role="alert" className="mt-1 text-xs text-grid-error">Enter a valid date and time.</p>}
       <div className="metadata-edit-footer">
-        {control === "datetime-local" && <button type="button" className="metadata-edit-tool" aria-label="Clear Taken on" title="Clear Taken on"
-          disabled={!available} onClick={() => dateInputRef.current?.clear()}>
+        {control === "datetime-local" && <button type="button" className="metadata-edit-tool" aria-label="Clear Taken on"
+          title="Date clearing is unavailable until Grid supports it" disabled>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
         </button>}
         {description && <fieldset className="metadata-edit-modes" aria-label="Description change">
@@ -249,10 +268,11 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
         </fieldset>}
         <div className="ml-auto flex shrink-0 gap-1">
           <PillActionButton action="cancel" label={`Cancel ${field.label}`} onClick={cancelEditing} />
-          <PillActionButton action="confirm" label={`Commit ${field.label}`} disabled={!available || !changed || !targetIds.length || !inputValid} onClick={() => prepare()} />
+          <PillActionButton action="confirm" label={`Commit ${field.label}`} disabled={!available || !changed || !targetIds.length || !validDraft || submitted} onClick={() => prepare()} />
         </div>
       </div>
       {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}
+      <MetadataSaveFeedback fieldId={field.id} targetIds={targetIds} />
     </form>}
   </Layout>;
 }

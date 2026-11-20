@@ -53,6 +53,23 @@ is not permission to edit. Use the ordinary UI for behavioural evidence.
 	payloads only in memory, return aggregate results, and restore fetch/XHR methods and
 	event subscriptions exactly in cleanup.
 
+## Authorised Local Upload Observations
+
+Require explicit local upload permission, approved files and verified service/storage
+destinations, as for mutation comparisons above. Do not apply the read-only guard to
+an authorized upload workflow or infer that local API means local storage.
+
+- Signed upload uses fetch for storage transfer while Angular service traffic uses
+	XHR. Observe and validate both collectors before selection; Resource Timing may
+	already have exhausted its startup buffer.
+- Count only the new submission's jobs from the upload manager's running/completed
+	groups. Recent-upload rows are not members of that submission, and content-hash
+	deduplication can make file count differ from canonical-image count.
+- Job status `uploaded` and its remaining counter settle before automatic filename
+	and preset-label edits. Measure transfer, uploaded/readable state and confirmed
+	metadata separately. Read canonical values or the updated job image, not only the
+	counter. Canonical singleton readability is not independent indexed visibility.
+
 ## Detail and Singleton Reads
 
 Visible image links can use `a[href^="/images/"]` filtered to contain an `img`.

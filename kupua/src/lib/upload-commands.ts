@@ -21,7 +21,7 @@ export type UploadSubmission = {
 };
 export type UploadObservation =
   | { outcome: "status"; status: string }
-  | { outcome: "visible" }
+  | { outcome: "visible"; hasDescription?: true }
   | { outcome: "failed"; errorMessage?: string }
   | { outcome: "missing" | "unavailable" };
 const imageIdPattern = /^[a-f0-9]{40}$/;
@@ -187,13 +187,15 @@ export async function observeUploadedImage(imageId: string, signal: AbortSignal)
     if (response.status === 401 || response.status === 419) invalidateGridSession();
     if (response.status === 404) return { outcome: "missing" };
     if (!response.ok) return { outcome: "unavailable" };
-    const resource = z.object({ data: z.object({ id: z.literal(imageId) }) }).safeParse(await response.json());
+    const resource = z.object({ data: z.object({ id: z.literal(imageId), metadata: z.unknown().optional() }) }).safeParse(await response.json());
     if (!resource.success || isGridSessionInvalidated()) return { outcome: "unavailable" };
     const body = buildReadBody({ nonFree: "true", imageScope: { key: `upload-visibility:${imageId}`, revision: 0, ids: [imageId] } });
     delete body.sort;
     const count = z.object({ total: z.number().int().nonnegative() }).safeParse(await postImageRead("/images/count", body, readSignal));
     if (!count.success || isGridSessionInvalidated()) return { outcome: "unavailable" };
-    return { outcome: count.data.total > 0 ? "visible" : "missing" };
+    if (!count.data.total) return { outcome: "missing" };
+    const described = z.object({ description: z.string().min(1) }).safeParse(resource.data.data.metadata);
+    return described.success ? { outcome: "visible", hasDescription: true } : { outcome: "visible" };
   } catch (error) {
     if (error instanceof SearchAfterApiError && (error.status === 401 || error.status === 419)) invalidateGridSession();
     return { outcome: "unavailable" };

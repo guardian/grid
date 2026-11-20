@@ -1,4 +1,4 @@
-import { useImperativeHandle, useLayoutEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type Ref } from "react";
+import { useLayoutEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { format, isValid, parse, parseISO } from "date-fns";
 
 const DATE_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS";
@@ -33,16 +33,11 @@ function dateValue(parts: Parts): string | null {
   return isValid(date) && format(date, DATE_FORMAT) === value ? value : null;
 }
 
-export interface MetadataDateInputHandle {
-  clear: () => void;
-}
-
-export function MetadataDateInput({ initialValue, mixed, validationId, onChange, ref }: {
+export function MetadataDateInput({ initialValue, mixed, validationId, onChange }: {
   initialValue: string;
   mixed: boolean;
   validationId: string;
   onChange: (value: string, valid: boolean) => void;
-  ref?: Ref<MetadataDateInputHandle>;
 }) {
   const [parts, setParts] = useState(() => dateParts(initialValue));
   const [showMixed, setShowMixed] = useState(mixed && !initialValue);
@@ -52,7 +47,7 @@ export function MetadataDateInput({ initialValue, mixed, validationId, onChange,
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const picker = useRef<HTMLInputElement>(null);
   const value = dateValue(parts);
-  const valid = value !== null;
+  const valid = value !== null && value !== "";
   useLayoutEffect(() => {
     if (showMixed) {
       mixedButton.current?.focus();
@@ -67,10 +62,8 @@ export function MetadataDateInput({ initialValue, mixed, validationId, onChange,
     setSelectedAll(false);
     setCalendarUnavailable(false);
     const draft = dateValue(next);
-    onChange(draft ?? "", draft !== null);
+    onChange(draft ?? "", draft !== null && draft !== "");
   };
-  const clear = () => update(emptyParts());
-  useImperativeHandle(ref, () => ({ clear }));
   const focusPart = (index: number) => {
     const input = inputs.current[index];
     input?.focus();
@@ -100,7 +93,6 @@ export function MetadataDateInput({ initialValue, mixed, validationId, onChange,
     if (selectedAll && (event.key === "Backspace" || event.key === "Delete")) {
       event.preventDefault();
       event.stopPropagation();
-      clear();
       return;
     }
     if (selectedAll && /^\d$/.test(event.key) && !event.ctrlKey && !event.metaKey) {
@@ -135,11 +127,7 @@ export function MetadataDateInput({ initialValue, mixed, validationId, onChange,
   };
   const changeCalendar = (event: ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
-    if (!input.validity.valid) return;
-    if (!input.value) {
-      clear();
-      return;
-    }
+    if (!input.validity.valid || !input.value) return;
     const chosen = parseISO(input.value);
     if (!isValid(chosen)) return;
     const chosenSecond = format(chosen, "yyyy-MM-dd'T'HH:mm:ss");

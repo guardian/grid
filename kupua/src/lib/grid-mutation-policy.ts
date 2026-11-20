@@ -11,6 +11,10 @@ export function isLabelAddRequest(method: string | undefined, path: string | und
   return method === "POST" && /^\/metadata\/[a-zA-Z0-9_-]+\/labels$/.test(path ?? "");
 }
 
+export function isMetadataUpdateRequest(method: string | undefined, path: string | undefined): boolean {
+  return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/metadata$/.test(path ?? "");
+}
+
 export function serviceOrigin(value: unknown, allowLocalHttp = false): string | undefined {
   if (typeof value !== "string") return undefined;
   try {

@@ -24,6 +24,46 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 November 2026 - Connect metadata editing and streamline Upload
+
+Edit metadata on one image or a selection in Details, or work directly in the
+Upload Form. Details uses explicit Commit; Form saves after a pause or on blur.
+An Upload arrow applies a field, such as Credit, to the other available images
+in the current batch. Later arrivals are not added to an action already started.
+An immediate repeat shares the pending save; A, then B, then A still ends at A.
+Taken on can be replaced but not cleared: Grid may reveal the embedded date
+instead of clearing it ([GRID-025](bug-backlog.md#grid-025)).
+
+Metadata and Labels share a bounded queue. Saves refresh the originals and
+owning overrides, preserve unrelated values, and distinguish acknowledgement
+from confirmed visibility. Stop cancels unsent work, not writes already made;
+uncertain writes are not replayed automatically. Guards protect successive
+saves in the same tab, not independent editors ([GRID-020](bug-backlog.md#grid-020)).
+
+Uploads submit serially in filename order and check indexed visibility as soon
+as the loader reports completion. The Form stays at the top until the user
+scrolls, without a waiting strip; ingestion can still finish out of order.
+Existing captions are preserved without starting an edit. If a caption is
+missing or inconclusive, the guarded filename fallback can turn `desk_photo.jpg`
+into `desk photo`. Preset labels run independently, and identical follow-up
+reports no longer rewrite the local batch record.
+
+Use inset Sync Alt actions for Upload batch edits. Each accepted edit shows
+its own progress circle, even while queued. Remove repeated inline batch
+counts and keep Stop and problem details on demand. Upload Activity keeps
+routine caption and label work quiet and shows one notice per file when an
+automatic follow-up needs attention.
+
+In local comparisons, 100 captioned uploads were all available in **28.0s**,
+versus **35.1s** in the earlier Kupua run and **29.6s** in Kahuna. All captions
+were verified and 100 metadata reads were eliminated, but the entire timing
+gain cannot be attributed to that change. On the same settled 300-image batch,
+Credit and Byline writes acknowledged in **11.0s and 21.6s** in Kupua versus
+**19.9s and 30.5s** in Kahuna; both final states verified. During upload overlap,
+Kupua acknowledged edits more slowly in the measured comparison, while Kahuna
+lost five descriptions. See the [performance summary](editing-performance-evidence.md#executive-summary-20-november)
+for workload differences, verification and remaining gates.
+
 ### 18 November 2026 - Separate Upload field presentation from Details
 
 Give Form its own ordered field groups while retaining shared definitions, inputs,

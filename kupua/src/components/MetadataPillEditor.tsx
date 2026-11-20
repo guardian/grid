@@ -6,6 +6,7 @@ import { FieldDisclosure } from "./FieldDisclosure";
 import { Dash, MetadataBlock } from "./metadata-primitives";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import type { MetadataEditIntent } from "./MetadataTextEditor";
+import { MetadataSaveFeedback, useMetadataCommit } from "./MetadataEditing";
 
 export const PILL_EDIT_FIELDS = new Set(["keywords", "collections", "people"]);
 
@@ -20,6 +21,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   editable?: boolean;
   readOnly?: ReactNode;
 }) {
+  const commit = useMetadataCommit();
   const available = dataAvailable && editable;
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
@@ -36,8 +38,8 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const prepare = (action: "add" | "remove", value: string) => {
     if (!available || !value.trim() || !targetIds.length || action === "add" && hasAll(value)) return;
     const intent: MetadataEditIntent = { fieldId: field.id, action, value: value.trim(), targetIds: [...targetIds] };
-    onPrepare?.(intent);
-    setNotice(`Not sent - ${action === "add" ? "Add" : "Remove"} ${noun} prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`);
+    const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent);
+    setNotice(submitted === undefined ? `Not sent - ${action === "add" ? "Add" : "Remove"} ${noun} prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.` : "");
   };
   const sorted = [...values].sort((first, second) => second.count - first.count);
   if (!editable && !adding) return readOnly ?? null;
@@ -72,5 +74,6 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
       </div>
     </form>}
     {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}
+    <MetadataSaveFeedback fieldId={field.id} targetIds={targetIds} />
   </MetadataBlock>;
 }

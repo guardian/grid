@@ -6,6 +6,7 @@ import { observeGridUpload, observeUploadedImage, submitGridUpload, type UploadS
 import { redactUploadError } from "@/lib/upload-error";
 
 export type UploadPhase = "waiting" | "preparing" | "transferring" | "processing" | "visibility" | "complete" | "failed" | "blocked" | "uncertain" | "interrupted";
+export type UploadFollowup = { label: string; summary: string; pending: boolean; attention: boolean };
 export type UploadAttempt = {
   id: string;
   name: string;
@@ -19,12 +20,20 @@ export type UploadAttempt = {
   message?: string;
   notificationDismissed?: boolean;
   serverError?: string;
+  followups?: readonly UploadFollowup[];
 };
 export type UploadBatch = { id: string; createdAt: number; restored?: boolean; attempts: readonly UploadAttempt[] };
 export const activeUploadPhases = new Set<UploadPhase>(["waiting", "preparing", "transferring", "processing", "visibility"]);
 export const attentionUploadPhases = new Set<UploadPhase>(["failed", "blocked", "uncertain", "interrupted"]);
 export const useUploadJobsStore = create<{ batches: readonly UploadBatch[]; activityAttemptIds: ReadonlySet<string> }>(() => ({ batches: [], activityAttemptIds: new Set() }));
 const reportedProblems = new Map<string, Set<string>>();
+export const useUploadPresets = create<{ labels: readonly string[] }>(() => ({ labels: [] }));
+const followupIntents = new Map<string, readonly string[]>();
+let runFollowups: ((imageId: string, filename: string | undefined, labels: readonly string[], report: (results: readonly UploadFollowup[]) => void) => void) | undefined;
+
+export function configureUploadFollowups(run: typeof runFollowups): void { runFollowups = run; }
+export const uploadPending = (attempt: UploadAttempt) => activeUploadPhases.has(attempt.phase) || attempt.followups?.some(result => result.pending) === true;
+export const uploadAttention = (attempt: UploadAttempt) => attentionUploadPhases.has(attempt.phase) || attempt.followups?.some(result => result.attention) === true;
 const files = new Map<string, File>();
 const requests = new Map<string, AbortController>();
 const observation = new Map<string, { due: number; deadline: number }>();
@@ -44,6 +53,18 @@ function update(id: string, patch: Partial<UploadAttempt>): void {
   const attempt = attemptById(id);
   if (attempt) reportProblem(attempt);
   refreshLifecycle();
+}
+
+function updateFollowups(id: string, followups: readonly UploadFollowup[]): void {
+  const attempt = attemptById(id);
+  if (!attempt) return;
+  const previous = attempt.followups;
+  if (previous?.length === followups.length && followups.every((result, index) => {
+    const prior = previous[index];
+    return result.label === prior.label && result.summary === prior.summary
+      && result.pending === prior.pending && result.attention === prior.attention;
+  })) return;
+  update(id, { followups });
 }
 
 function reportProblem(attempt: UploadAttempt): void {
@@ -72,14 +93,14 @@ function reportProblem(attempt: UploadAttempt): void {
 export function acknowledgeUploadNavigation(): void {
   const state = useUploadJobsStore.getState();
   const visible = state.batches.flatMap(batch => batch.attempts).filter(attempt => state.activityAttemptIds.has(attempt.id));
-  if (visible.length && visible.every(attempt => attempt.phase === "complete")) {
+  if (visible.length && visible.every(attempt => attempt.phase === "complete" && !uploadPending(attempt) && !uploadAttention(attempt))) {
     useUploadJobsStore.setState({ activityAttemptIds: new Set() });
   }
 }
 
 export function dismissUploadAttempt(id: string): void {
   const attempt = attemptById(id);
-  if (!attempt || !attentionUploadPhases.has(attempt.phase)) return;
+  if (!attempt || !uploadAttention(attempt)) return;
   update(id, { notificationDismissed: true });
   useUploadJobsStore.setState(state => ({ activityAttemptIds: new Set([...state.activityAttemptIds].filter(attemptId => attemptId !== id)) }));
 }
@@ -93,7 +114,7 @@ function warnBeforeUnload(event: BeforeUnloadEvent): void {
 function hasActiveWork(): boolean {
   const issues = useLocalPersistenceStore.getState().batchIssues;
   return useUploadJobsStore.getState().batches.some(batch => !!issues[batch.id] || batch.attempts.some(attempt =>
-    ["waiting", "preparing", "transferring", "processing", "visibility"].includes(attempt.phase)));
+    uploadPending(attempt)));
 }
 
 export function retainUploadBatches(): void {
@@ -122,15 +143,16 @@ function ownLifecycle(): void {
 export function submitUploadFiles(submitted: readonly File[]): string | undefined {
   if (!submitted.length) return undefined;
   const id = `local-${mintKupuaKey()}`;
-  const attempts = submitted.map(file => {
+  const attempts = [...submitted].sort((first, second) => first.name.localeCompare(second.name)).map(file => {
     const attemptId = mintKupuaKey();
     files.set(attemptId, file);
+    followupIntents.set(attemptId, [...useUploadPresets.getState().labels]);
     return { id: attemptId, name: file.name, size: file.size, phase: "waiting" as const };
-  }).sort((first, second) => first.name.localeCompare(second.name));
+  });
   useUploadJobsStore.setState(state => {
     const previous = state.batches.flatMap(batch => batch.attempts).filter(attempt => state.activityAttemptIds.has(attempt.id));
-    const continuing = previous.some(attempt => activeUploadPhases.has(attempt.phase));
-    const retained = previous.filter(attempt => continuing || attentionUploadPhases.has(attempt.phase));
+    const continuing = previous.some(uploadPending);
+    const retained = previous.filter(attempt => continuing || uploadAttention(attempt));
     return { batches: [...state.batches, { id, createdAt: Date.now(), attempts }],
       activityAttemptIds: new Set([...retained.map(attempt => attempt.id), ...attempts.map(attempt => attempt.id)]) };
   });
@@ -188,7 +210,11 @@ async function observeAttempt(id: string): Promise<void> {
   try {
     let result = attempt.phase === "visibility" ? await observeUploadedImage(attempt.statusId, controller.signal)
       : await observeGridUpload(attempt.statusId, controller.signal);
-    if (result.outcome === "missing" && attempt.phase !== "visibility" && !controller.signal.aborted) {
+    const completed = result.outcome === "status" && result.status === "COMPLETED";
+    const checkingVisibility = attempt.phase === "visibility" || completed;
+    if (completed && Date.now() < window.deadline && !controller.signal.aborted) {
+      result = await observeUploadedImage(attempt.statusId, controller.signal);
+    } else if (result.outcome === "missing" && attempt.phase !== "visibility" && !controller.signal.aborted) {
       const image = await observeUploadedImage(attempt.statusId, controller.signal);
       if (image.outcome === "visible") result = image;
     }
@@ -196,19 +222,31 @@ async function observeAttempt(id: string): Promise<void> {
     if (result.outcome === "visible") {
       update(id, { phase: "complete", imageId: attempt.statusId, message: undefined });
       observation.delete(id);
+      const presets = followupIntents.get(id);
+      followupIntents.delete(id);
+      if (presets) {
+        if (runFollowups) {
+          const { hasDescription } = result;
+          const preserved: UploadFollowup = { label: "Filename description", summary: "Existing description preserved", pending: false, attention: false };
+          const report = (followups: readonly UploadFollowup[]) => updateFollowups(id, hasDescription ? [preserved, ...followups] : followups);
+          if (hasDescription && !presets.length) report([]);
+          else runFollowups(attempt.statusId, hasDescription ? undefined : attempt.name, presets, report);
+        } else update(id, { followups: [{ label: "Metadata", summary: "Not sent: editing disabled", pending: false, attention: false }] });
+      }
     } else if (result.outcome === "failed") {
       update(id, { phase: "failed", message: "The loader reports processing failed.", serverError: result.errorMessage });
       observation.delete(id);
-    } else if (result.outcome === "unavailable" || (result.outcome === "missing" && attempt.phase !== "visibility")) {
-      update(id, { phase: "uncertain", message: result.outcome === "missing"
+    } else if (result.outcome === "unavailable" || (result.outcome === "missing" && !checkingVisibility)) {
+      update(id, { phase: "uncertain", ...(completed && { processingComplete: true }), message: result.outcome === "missing"
         ? "Upload status is missing or expired. This does not prove the upload failed."
         : "Status could not be checked. No upload was replayed." });
       observation.delete(id);
     } else if (Date.now() >= window.deadline) {
-      update(id, { phase: "uncertain", message: "Processing or search visibility is still unconfirmed. Check status again later." });
+      update(id, { phase: "uncertain", ...(completed && { processingComplete: true }),
+        message: "Processing or search visibility is still unconfirmed. Check status again later." });
       observation.delete(id);
     } else {
-      const processingComplete = attempt.processingComplete || result.outcome === "status" && result.status === "COMPLETED";
+      const processingComplete = attempt.processingComplete || completed;
       update(id, { phase: processingComplete ? "visibility" : "processing", processingComplete });
       observation.set(id, { ...window, due: Date.now() + 2_000 });
     }
@@ -233,6 +271,7 @@ export function disposeUploadJobs(): void {
   for (const controller of requests.values()) controller.abort();
   observation.clear();
   files.clear();
+  followupIntents.clear();
   useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => ({ ...batch,
     attempts: batch.attempts.map(attempt => ["waiting", "preparing", "transferring", "processing", "visibility"].includes(attempt.phase)
       ? { ...attempt, phase: "uncertain", interrupted: true, message: "This page was interrupted. No upload will be replayed." } : attempt),

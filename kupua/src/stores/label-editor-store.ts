@@ -28,12 +28,12 @@ interface LabelEditorState {
   dispose: () => void;
 }
 
-export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0], observation?: Parameters<typeof createLabelOperation>[1], executionMode: "simulated" | "connected" = "simulated") {
+export function createLabelEditorStore(simulate?: Parameters<typeof createLabelOperation>[0], observation?: Parameters<typeof createLabelOperation>[1], executionMode: "simulated" | "connected" = "simulated", sharedQueue?: ReturnType<typeof createBatchQueue>) {
   const operations = new Map<string, ReturnType<typeof createLabelOperation>>();
   const ordered: ReturnType<typeof createLabelOperation>[] = [];
   let disposed = false;
   const connected = Boolean(simulate) && executionMode === "connected";
-  const queue = createBatchQueue();
+  const queue = sharedQueue ?? createBatchQueue();
   return createStore<LabelEditorState>((set, get) => ({
     executionMode,
     targetLimit: connected ? BATCH_POLICY.maxTargets : undefined,
@@ -114,7 +114,7 @@ export function createLabelEditorStore(simulate?: Parameters<typeof createLabelO
     },
     dispose() {
       disposed = true;
-      queue.dispose();
+      if (!sharedQueue) queue.dispose();
       for (const operation of ordered) { operation.stopRemaining(); operation.cancelObservation(); }
     },
   }));

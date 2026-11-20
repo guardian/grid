@@ -2856,6 +2856,26 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           _isInitialLoad: false,
         });
 
+        const uploadScope = params.recentUploadScope;
+        const batch = uploadScope?.combined ? uploadScope.batch : undefined;
+        const lead = batch?.submittedOrder && (!params.orderBy || params.orderBy === "-__submittedFilename")
+          ? (params.orderBy ? batch.ids.at(-1) : batch.ids[0]) : undefined;
+        if (lead && result.hits[0]?.id === lead && get().bufferOffset === 0 && !get().results[0]) {
+          const seekGeneration = get()._seekGeneration;
+          const recoverySignal = AbortSignal.any([signal, AbortSignal.timeout(15_000)]);
+          void dataSource.getByIds([lead], recoverySignal).then(images => {
+            const current = get();
+            if (recoverySignal.aborted || _searchGeneration !== myGeneration || current._seekGeneration !== seekGeneration
+              || current.bufferOffset !== 0 || current.imagePositions.get(lead) !== 0 || current.results[0]
+              || current.params.recentUploadScope?.batch !== batch) return;
+            const image = images.find(hit => hit.id === lead);
+            if (!image) return;
+            const results = current.results.slice();
+            results[0] = image;
+            set({ results });
+          }).catch(() => {});
+        }
+
         if (historyPresentationCurrent() && focusedInFirstPage && options?.phantomOnly && !suppressPulse) {
           setTimeout(() => set({ _phantomPulseImageId: null }), 2500);
         }

@@ -6,13 +6,29 @@ import { useEnrichedImage } from "./useEnrichedImage";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { extractEnrichment } from "@/dal/grid-api-search-adapter";
 import type { Image } from "@/types/image";
-import { acceptObservedImages, admitLabelObservation, captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptObservedImages, admitLabelObservation, captureImageRead, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 const image = { id: "img-1", metadata: {}, usageRights: { category: "staff-photographer" } } as unknown as Image;
 
 afterEach(() => { resetImageFreshnessForTests(); useEnrichmentStore.getState().setEnrichment(new Map()); });
 
 describe("useEnrichedImage", () => {
+  it("preserves edit authority after confirming an unchanged image without an edit timestamp", () => {
+    const current = { ...image, metadata: { description: "Embedded description" }, userMetadata: { labels: [], metadata: {} } };
+    const permitted = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-1" }] } };
+    const operation = admitLabelObservation([current.id]);
+    if (typeof operation !== "number") throw new Error(operation);
+    recordLabelOutcome(operation, current.id, "unchanged");
+    stampImageRead(current, permitted, captureImageRead(), "lean");
+    attachEnrichment(current, permitted);
+    expect(acceptObservedImages([current], operation)).toEqual([current]);
+    expect(acceptEnrichedImage(current)).toBe(current);
+    releaseLabelObservation(operation);
+
+    const { result } = renderHook(() => useEnrichedImage(current));
+    expect(result.current?.resource?.links).toEqual(permitted.resource.links);
+  });
+
   it("withholds a touched image's old positive authority when a current below-floor read denies editing", () => {
     const oldRead = captureImageRead();
     const positive = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-1" }] } };

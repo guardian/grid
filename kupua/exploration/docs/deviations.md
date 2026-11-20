@@ -12,6 +12,43 @@
 
 ## From Grid / Kahuna
 
+### Bounded Label Dispatch Trial
+
+The local Label trial allows eight concurrent commands through Kupua's existing
+queue rather than adopting Kahuna's wider dispatch. Each retains its owning
+link read, and confirmation, throttle backoff and no-replay rules are unchanged.
+The separate ordinary-metadata policy uses five commands for a single captured
+multi-image action, independent of field. Individual saves, grouped individual
+saves and upload label follow-ups retain three. Full original and owning override
+reads and same-image write evidence are unchanged. No shared capacity claim follows.
+
+### Captured Metadata Propagation And Session Budget
+
+U5 arrows capture canonical members of the open upper batch, including offscreen
+members, rather than broadcasting to mounted editors. The source has its own save;
+pending arrivals and lower uploads do not inherit an arrow. Receipts retain the captured
+operation through later membership changes. Ordinary metadata reads fresh originals
+and overrides and changes only intended fields, retaining unrelated/domain overrides.
+The existing cross-client GET/PUT race remains accepted, not solved by client ordering.
+
+Metadata groups share the existing queue and speed controls with Labels. Groups are
+bounded at 100; complete actions reserve against a 10,000-distinct-image session
+freshness budget before dispatch. This permits larger captured actions without removing
+stale-read fences, at the cost of a visible session-capacity refusal before further new
+identities can be edited. This is a client memory bound, not a measured backend rate or
+a universal batch-size rule. Local tuning is a separate exercise.
+
+### Temporary Taken on Clear Restriction
+
+Kupua disables Taken on clearing until Grid can distinguish an explicit clear from
+removing a date override. The current backend can otherwise reveal the embedded date
+again. Keep valid setting/replacement and precision behavior, but disable the Clear
+button, ignore whole-date keyboard/native-calendar clears and refuse empty prepared
+date intents. This deliberately narrows the earlier preparation UI without inventing
+a sentinel date or pretending the canonical value is blank. [GRID-025](bug-backlog.md#grid-025)
+owns the source evidence, operator decision and backend/deployment condition for
+re-enabling the capability. Text/list clearing is unchanged.
+
 ### Local Upload Browsing Context
 
 Kupua's media-api-only Upload browsing boundary resolves short local batch references
@@ -125,8 +162,10 @@ Kahuna's label controls write immediately. Kupua uses the familiar searchable va
 remove and partial-value apply-to-all controls, but default-off gestures only prepare
 immutable intent and explicitly say the data was not sent. Opt-in API-mode editing
 uses one saved startup preference, changed through Hi, Joshua > Apply and reload.
-The common Step-6 policy permits 100 images, three command executions, 250 ms between
-starts and one waiting operation, without per-operation or bulk rollout flags.
+The common Step-6 policy permits 100 label targets, three command executions without
+fixed start spacing, and two retained execution/waiting/confirmation slots, without
+per-operation or bulk rollout flags. Guarded metadata's earlier execution release
+is described below; Labels still owns its slot through confirmation.
 Comma-separated execution remains refused. Current labels are
 never optimistically changed. Stop remaining cancels only never-started work, not dispatched
 commands; no undo or extra confirmation is introduced. Uncancelled input and receipts
@@ -183,16 +222,39 @@ of blindly accepting JavaScript's earlier-fold choice. No backend timezone, conf
 or save guarantee follows. The [UI register](gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage)
 owns field/control coverage and the unavailable domain-schema boundary.
 
+### Guarded Metadata Succession (19 November 2026)
+
+Unlike Kahuna's replacement built from an editor's held metadata, Kupua uses
+authoritative originals/overrides and, within an active or queued save chain,
+validated acknowledgement content as comparison evidence for the next owning read.
+Only a matching read can supply the next replacement base. Evidence has the existing
+reservation lifetime, is absent from receipt history, and is never a display cache
+or a substitute write body. Missing evidence keeps confirmation ordering; a mismatch
+can leave a successor unsent rather than risk losing an acknowledged field.
+
+This allows bounded overlap of confirmation and guarded execution without copying
+Kahuna's unbounded bursts or treating acknowledgement as visibility. The trade-off
+is extra bounded source reads and conservative refusal on disagreement, including
+legitimate independent metadata changes. Later independent saves after reservation
+release and cross-client GET/PUT races remain outside this guarantee. No backend
+change is required or authorized; the [command contract](../../src/dal/grid-api/README.md#u5-ordinary-metadata)
+owns the exact limits and fallback behavior.
+
 ### Bounded Label Readback (6 November 2026)
 
-Unlike Kahuna's per-image polling after writes, Kupua's connected and simulated label execution
-uses at most three grouped mget reads and one current standalone full follow-up. Simulated
-observation retains its ten-second budget; connected work separates a 120-second dispatch
+Unlike Kahuna's per-image polling after writes, Kupua uses grouped mget reads and at
+most one current standalone full follow-up. Simulated observation retains its
+three-attempt, ten-second budget; connected work separates a 120-second dispatch
 period from up to ten seconds of final observation, under a 130-second hard observation
-cap. Exact returned
-labels establish observation, not a count query or a boolean fixture assertion.
-One group of up to 200 IDs is admitted for synthetic multi-image addition; connected
-editing uses at most 100 of that budget without multiplying observers. One early read
+cap. Connected observation now checks remaining targets at least 500ms apart per
+group until verified or the deadline, permitting at most 21 reads including the
+early read per group. This replaces the stretched three-attempt schedule: more bounded read
+traffic, but no extra multi-second pause after data becomes visible. It does not raise
+write concurrency or add idle polling. Reads remain serial within each group; at
+most two groups share the 200-target observation budget. Exact returned labels establish
+observation, not a count query or a boolean fixture assertion.
+Synthetic multi-image addition can consume the 200-ID budget; connected groups use
+at most 100 targets each within the shared bound. One early read
 can publish verified items while dispatch is still queued; remaining attempts wait for
 dispatch to settle. Supplied-executor multi-label input is refused
 before dispatch, while disconnected comma-separated preparation is unchanged.
@@ -202,7 +264,7 @@ may change concurrently without blocking this postcondition. Missing data is not
 matching state establishes neither causation nor a known command outcome.
 
 Touched-ID issuance fences and metadata floors survive query replacement, with a
-1,000-ID document-lifetime admission bound and no canonical body cache. Current
+10,000-ID document-lifetime admission bound and no canonical body cache. Current
 permission withdrawal is independent of metadata age; captured grants are checked
 again at admission. Grouped same-slot publication preserves browsing geometry and
 selection membership. The trade-off is bounded prototype observation and explicit
@@ -219,6 +281,14 @@ for bounded prototype work. One shared policy keeps concurrency, pace, queue and
 bounds together; the [batch contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
 owns the precise limits. These controls do not protect shared infrastructure from other
 clients or substitute for server authorization/capacity decisions.
+
+Ready independent single-image metadata saves now share bounded execution/readback
+groups rather than holding this queue separately through each visibility wait.
+Unlike Kahuna's per-image polling, one group checks its captured images together;
+per-image values, outcomes and Stop ownership remain separate. Same-image successors
+stay ordered, and local failures do not cancel unrelated saves. This removes repeated
+serial waits without raising the common pressure limits or adding another scheduler.
+Large-action yielding remains separate work.
 
 ### Stable Display Coordinates During Simulated Editing
 

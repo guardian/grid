@@ -43,6 +43,131 @@ test.describe("U3 isolated uploads", () => {
     }
   });
 
+  test("U5 saves Form and Details metadata and captures only the open upper batch", async ({ page }) => {
+    await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+    await page.addInitScript(() => {
+      localStorage.setItem("kupua-allow-uploads", "true");
+      localStorage.setItem("kupua-allow-editing", "true");
+    });
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, editing: true, multiple: true, status: "COMPLETED", visible: true, searchable: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 5 } });
+    await page.goto(`${origin}/__continuation?density=table`);
+    await new KupuaHelpers(page).waitForResults();
+    await page.getByRole("button", { name: "My recent uploads", exact: true }).click();
+    await page.getByRole("textbox", { name: "Preset label", exact: true }).fill("submitted preset");
+    await page.getByRole("button", { name: "Add label to all uploads", exact: true }).click();
+    await page.locator('input[type="file"]').setInputFiles(Array.from({ length: 3 }, (_, index) => ({
+      name: `u5_${index}.original.jpg`, mimeType: "image/jpeg", buffer: Buffer.from(`U5 image ${index}`),
+    })));
+    const batch = new URL(page.url()).searchParams.get("batch")!;
+    const results = async () => (await (await page.request.get(`${origin}/__upload-control`)).json()) as {
+      metadata: Record<string, { description?: string; credit?: string; byline?: string; dateTaken?: string; domainMetadata?: unknown }>;
+      labels: Record<string, string[]>; metadataWrites: { id: string; method: string; data: Record<string, unknown> }[];
+      metadataReads: Record<string, number>;
+    };
+    await expect.poll(() => page.evaluate(async batchId => {
+      const path = "/src/stores/upload-jobs-store.ts";
+      const { useUploadJobsStore } = await import(path) as typeof import("../../src/stores/upload-jobs-store");
+      return useUploadJobsStore.getState().batches.find(item => item.id === batchId)?.attempts.filter(attempt => attempt.phase === "complete").length;
+    }, batch)).toBe(3);
+    await expect.poll(async () => Object.keys((await results()).labels).length).toBe(3);
+    await expect(page.getByRole("button", { name: "Upload activity: 3 completed", exact: true })).toBeVisible();
+    await expect.poll(async () => Object.values((await results()).metadata).map(value => value.description).sort())
+      .toEqual(["u5 0.original", "u5 1.original", "u5 2.original"]);
+    const ids = Object.keys((await results()).labels);
+    const form = page.getByRole("region", { name: "Image results form", exact: true });
+    const first = form.locator(`[data-measured-cell][data-image-id="${ids[0]}"]`);
+    await expect(first.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("u5 0.original");
+    await first.getByLabel("Byline", { exact: true }).focus();
+    const composition = await page.context().newCDPSession(page);
+    let composing = false;
+    try {
+      await composition.send("Input.imeSetComposition", { text: "Composed author", selectionStart: 15, selectionEnd: 15 });
+      composing = true;
+      await page.clock.install();
+      await page.clock.runFor(700);
+      expect((await results()).metadata[ids[0]].byline).toBeUndefined();
+      await composition.send("Input.insertText", { text: "Composed author" });
+      composing = false;
+      await first.getByLabel("Byline", { exact: true }).press("Tab");
+      await expect.poll(async () => (await results()).metadata[ids[0]].byline).toBe("Composed author");
+    } finally {
+      if (composing) await composition.send("Input.imeSetComposition", { text: "", selectionStart: 0, selectionEnd: 0 });
+      await composition.detach();
+    }
+    const takenOn = first.getByLabel("Taken on", { exact: true });
+    await takenOn.fill("2026-11-18T12:00");
+    for (let segment = 0; segment < 8; segment++) await takenOn.press("ArrowLeft");
+    await takenOn.press("Backspace"); await takenOn.press("0"); await takenOn.press("2");
+    await takenOn.press("Tab");
+    const expectedDate = await page.evaluate(() => new Date("2026-11-02T12:00:00").toISOString());
+    await expect.poll(async () => (await results()).metadata[ids[0]].dateTaken).toBe(expectedDate);
+    await page.request.post(`${origin}/__upload-control`, { data: { embeddedDescription: { filename: "newer.jpg", value: "Embedded caption" } } });
+    await page.locator('input[type="file"]').setInputFiles({ name: "newer.jpg", mimeType: "image/jpeg", buffer: Buffer.from("U5 newer image") });
+    await expect.poll(() => new URL(page.url()).searchParams.get("batch")).not.toBe(batch);
+    const newerBatch = new URL(page.url()).searchParams.get("batch")!;
+    await expect.poll(async () => Object.keys((await results()).labels).length).toBe(4);
+    const laterId = Object.keys((await results()).labels).find(id => !ids.includes(id))!;
+    expect((await results()).labels[laterId]).toEqual(["submitted preset"]);
+    expect((await (await page.request.get(`${origin}/api/images/${laterId}`)).json()).data.metadata.description).toBe("Embedded caption");
+    await page.getByRole("combobox", { name: "Upload batch", exact: true }).selectOption(batch);
+    await page.evaluate(async ({ batch, laterId }) => {
+      const path = "/src/stores/upload-jobs-store.ts";
+      const { useUploadJobsStore } = await import(path) as typeof import("../../src/stores/upload-jobs-store");
+      useUploadJobsStore.setState(state => ({ batches: state.batches.map(item => item.id === batch ? { ...item,
+        attempts: [...item.attempts, { id: "late-u5", name: "late.jpg", size: 1, phase: "processing", statusId: laterId }],
+      } : item) }));
+    }, { batch, laterId });
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let heldWrite = false;
+    const pattern = `**/grid-metadata/metadata/${ids[1]}/metadata`;
+    await page.route(pattern, async route => {
+      if (route.request().method() === "PUT") { heldWrite = true; await held; }
+      await route.continue();
+    });
+    const beforeArrow = (await results()).metadataWrites.length;
+    await first.getByLabel("Credit", { exact: true }).fill("Shared batch credit");
+    try {
+      await first.getByRole("button", { name: "Apply Credit to 2 batch images", exact: true }).click();
+      await expect.poll(() => heldWrite).toBe(true);
+      await page.getByRole("combobox", { name: "Upload batch", exact: true }).selectOption(newerBatch);
+      await page.evaluate(async ({ batch, laterId }) => {
+        const path = "/src/stores/upload-jobs-store.ts";
+        const { useUploadJobsStore } = await import(path) as typeof import("../../src/stores/upload-jobs-store");
+        useUploadJobsStore.setState(state => ({ batches: state.batches.map(item => item.id === batch ? { ...item,
+          attempts: item.attempts.map(attempt => attempt.id === "late-u5" ? { ...attempt, phase: "complete", imageId: laterId } : attempt),
+        } : item) }));
+      }, { batch, laterId });
+      await page.getByRole("combobox", { name: "Upload batch", exact: true }).selectOption(batch);
+      const creditField = first.locator('[data-measured-field="metadata_credit"]');
+      const progress = creditField.getByRole("button", { name: "Applying Credit...", exact: true });
+      await expect(progress.locator("circle")).toBeVisible();
+      await expect(creditField.getByText(/Saving: \d\/2 visible/)).toHaveCount(0);
+      await progress.click();
+      await expect(creditField.getByRole("button", { name: "Stop batch save", exact: true })).toBeVisible();
+      await expect(creditField.getByText(/Saving: \d\/2 visible/)).toBeVisible();
+    } finally { release(); await page.unroute(pattern); }
+    await expect.poll(async () => Object.values((await results()).metadata).filter(value => value.credit === "Shared batch credit").length).toBe(3);
+    expect((await results()).metadataWrites.slice(beforeArrow).filter(write => write.method === "PUT").map(write => write.id).sort()).toEqual([...ids].sort());
+    expect((await results()).metadataWrites.filter(write => write.id === laterId).map(write => write.method)).toEqual(["POST"]);
+    expect((await results()).metadataReads[laterId]).toBe(1);
+    expect(Object.values((await results()).metadata).every(value => JSON.stringify(value.domainMetadata) === JSON.stringify({ desk: { reference: "retained" } }))).toBe(true);
+    await (await getDensityChangeButton(page, "table"))?.click();
+    await page.getByRole("region", { name: "Image results table", exact: true }).locator(`[data-image-id="${ids[0]}"]`).dblclick();
+    await page.getByRole("button", { name: "Edit Description", exact: true }).click();
+    await page.getByRole("textbox", { name: "Description", exact: true }).fill("Details saved description");
+    await page.getByRole("button", { name: "Commit Description", exact: true }).click();
+    await expect.poll(async () => (await results()).metadata[ids[0]].description).toBe("Details saved description");
+    await expect(page.getByRole("button", { name: "Commit Description", exact: true })).toBeDisabled();
+    await page.getByRole("textbox", { name: "Description", exact: true }).fill("");
+    await page.getByRole("button", { name: "Commit Description", exact: true }).click();
+    await expect.poll(async () => (await (await page.request.get(`${origin}/api/images/${ids[0]}`)).json()).data.metadata.description).toBe("");
+    await expect(page.getByRole("button", { name: /Apply .* batch images/ })).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to uploads", exact: true }).click();
+    expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
+  });
+
   test("U4.5 combines one batch with all other uploads and preserves section inspection origins", async ({ page }) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => localStorage.setItem("kupua-allow-uploads", "true"));
@@ -1055,6 +1180,13 @@ test.describe("Unit B isolated continuation", () => {
     await page.evaluate(() => document.exitFullscreen());
     await expect(page.locator('[data-fullscreen-preview="active"]')).toHaveCount(0);
     const cell = region.locator('[data-image-id="local-1"]');
+    const takenOn = cell.getByLabel("Taken on", { exact: true });
+    await takenOn.fill("2026-11-18T12:00");
+    for (let segment = 0; segment < 8; segment++) await takenOn.press("ArrowLeft");
+    await takenOn.press("Backspace");
+    await takenOn.press("0");
+    await takenOn.press("2");
+    await expect(takenOn).toHaveValue("2026-11-02T12:00");
     const input = cell.getByRole("textbox", { name: "Description", exact: true });
     const originalDraft = "A retained editorial description. ".repeat(50);
     const composedDraft = originalDraft.slice(0, 4) + "composed" + originalDraft.slice(12);
@@ -1135,6 +1267,7 @@ test.describe("Unit B isolated continuation", () => {
       await expect(page.getByRole("region", { name: `Image results ${density}`, exact: true })).toBeVisible();
     }
     await expect(input).toHaveValue(composedDraft);
+    await expect(takenOn).toHaveValue("2026-11-02T12:00");
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await expect(page.getByRole("region", { name: "Image results table", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Form view", exact: true })).toHaveCount(0);
@@ -3661,6 +3794,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await page.getByRole("button", { name: "Cancel Image type", exact: true }).click();
     await page.getByRole("button", { name: "Edit Taken on", exact: true }).click();
     await expect(page.getByRole("group", { name: "Taken on", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clear Taken on", exact: true })).toBeDisabled();
     const day = page.getByRole("textbox", { name: "Day", exact: true });
     await day.fill("11");
     const month = page.getByRole("textbox", { name: "Month", exact: true });
@@ -3670,6 +3804,10 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     for (const [name, value] of [["Month", "11"], ["Year", "2026"], ["Hours", "10"], ["Minutes", "20"], ["Seconds", "30"], ["Milliseconds", "456"]]) {
       await page.getByRole("textbox", { name, exact: true }).fill(value);
     }
+    await day.press("Control+a");
+    await day.press("Backspace");
+    await expect(day).toHaveValue("11");
+    await expect(page.getByRole("textbox", { name: "Year", exact: true })).toHaveValue("2026");
     await expect(page.getByRole("button", { name: "Choose date and time", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Commit Taken on", exact: true }).click();
     await expect(page.getByText("Not sent - Taken on change prepared for 1 image.", { exact: true })).toBeVisible();

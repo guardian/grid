@@ -22,6 +22,218 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it.each(["evidence", "missing-evidence", "dispose", "overwrite"] as const)("orders metadata writes while confirmation is held (%s)", async mode => {
+    const withEvidence = mode !== "missing-evidence";
+    const initial = { credit: "Initial credit", domainMetadata: { desk: { reference: "Keep" } } };
+    let stored: Record<string, unknown> = structuredClone(initial);
+    let writes = 0;
+    let staleReads = 2;
+    let acknowledge!: () => void;
+    let releaseRead!: () => void;
+    let releaseOriginal!: () => void;
+    const acknowledgement = new Promise<void>(resolve => { acknowledge = resolve; });
+    const heldRead = new Promise<void>(resolve => { releaseRead = resolve; });
+    const heldOriginal = new Promise<void>(resolve => { releaseOriginal = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        stored = JSON.parse(String(init.body)).data;
+        if (++writes === 1) await acknowledgement;
+        return withEvidence ? Response.json({ data: stored }) : new Response(null, { status: 200 });
+      }
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") {
+        if (writes === 1 && mode === "dispose") await heldOriginal;
+        return Response.json({ data: { id: "fixture", originalMetadata: {} }, links: command.resource.links });
+      }
+      return Response.json({ data: { metadata: { uri: `${metadataOrigin}/metadata/fixture/metadata`,
+        data: writes === 1 && staleReads-- > 0 ? initial : stored } } });
+    }));
+    const { executeGridCommand } = await import("./grid-commands");
+    const { createMetadataEditorStore } = await import("../stores/metadata-editor-store");
+    const { captureImageRead, stampImageRead, getMetadataWriteWitness } = await import("./image-read-freshness");
+    const { attachEnrichment } = await import("../stores/enrichment-store");
+    let reads = 0;
+    const publishImages = vi.fn();
+    const editor = createMetadataEditorStore(executeGridCommand, {
+      readImages: async () => {
+        const read = ++reads;
+        const staleIndex = withEvidence && read === 3;
+        const image = { id: "fixture", metadata: structuredClone(staleIndex ? initial : stored),
+          userMetadata: { metadata: structuredClone(staleIndex ? initial : stored), lastModified: `2026-11-19T12:00:0${staleIndex ? 0 : writes}Z` },
+          uploadTime: "", uploadedBy: "", source: { mimeType: "image/jpeg", dimensions: { width: 1, height: 1 } } };
+        const overlay = { resource: command.resource };
+        stampImageRead(image, overlay, captureImageRead(), "lean");
+        attachEnrichment(image, overlay);
+        if (read === 2) await heldRead;
+        return [image];
+      }, publishImages,
+    });
+    vi.useFakeTimers();
+    try {
+      const first = editor.getState().submit({ fieldId: "metadata_description", action: "overwrite", value: "Saved description", targetIds: ["fixture"] })!;
+      await vi.advanceTimersByTimeAsync(0);
+      const second = editor.getState().submit({ fieldId: mode === "overwrite" ? "metadata_description" : "metadata_credit", action: "overwrite",
+        value: mode === "overwrite" ? "New description" : "New credit", targetIds: ["fixture"] })!;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(writes).toBe(1);
+      acknowledge();
+      await vi.advanceTimersByTimeAsync(500);
+      if (mode === "dispose") {
+        expect(writes).toBe(1);
+        staleReads = Infinity;
+        editor.getState().dispose();
+        releaseOriginal(); releaseRead();
+        await vi.advanceTimersByTimeAsync(1_000);
+        expect(writes).toBe(1);
+        expect(stored).toEqual({ ...initial, description: "Saved description" });
+        return;
+      }
+      expect(writes).toBe(withEvidence ? 2 : 1);
+      if (withEvidence) expect(editor.getState().saves.get(second)?.items).toMatchObject([{ observation: "observed" }]);
+      releaseRead();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(writes).toBe(2);
+      expect(stored).toEqual(mode === "overwrite" ? { ...initial, description: "New description" }
+        : { ...initial, credit: "New credit", description: "Saved description" });
+      expect(editor.getState().saves.get(first)?.items).toMatchObject([{ observation: mode === "overwrite" ? "superseded" : "observed" }]);
+      expect(editor.getState().saves.get(second)?.items).toMatchObject([{ observation: "observed" }]);
+      expect(publishImages.mock.calls.flatMap(([batch]) => batch).at(-1)?.metadata).toEqual(stored);
+      expect(getMetadataWriteWitness("fixture")).toBeUndefined();
+    } finally { acknowledge(); releaseRead(); releaseOriginal(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("compares metadata evidence without collapsing ordered values or explicit clears", async () => {
+    const { metadataWriteFingerprint: fingerprint } = await import("./grid-commands");
+    expect(fingerprint({ keywords: ["b", "a"], dateTaken: "2026-11-19T12:00:00+01:00" }))
+      .toBe(fingerprint({ dateTaken: "2026-11-19T11:00:00.000Z", keywords: ["a", "b"] }));
+    expect(fingerprint({ subjects: ["a", "b"] })).not.toBe(fingerprint({ subjects: ["b", "a"] }));
+    expect(fingerprint({ description: "", keywords: [] })).not.toBe(fingerprint({}));
+    expect(fingerprint({ domainMetadata: { desk: { reference: null } } })).toBeUndefined();
+  });
+
+  it("bounds stale override reads before a successor and never replays its predecessor", async () => {
+    const original = { credit: "Before", keywords: ["Zulu", "Alpha"], domainMetadata: { desk: { reference: "Keep" } } };
+    let stored: Record<string, unknown> = structuredClone(original);
+    let staleReads = 0;
+    let reads = 0;
+    const transport = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        stored = JSON.parse(String(init.body)).data;
+        return Response.json({ data: stored });
+      }
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture", originalMetadata: {} }, links: command.resource.links });
+      reads++;
+      const overrides = staleReads-- > 0 ? original : { ...Object.fromEntries(Object.entries(stored).reverse()), keywords: ["Alpha", "Zulu"] };
+      return Response.json({ data: { metadata: { uri: `${metadataOrigin}/metadata/fixture/metadata`, data: overrides } } });
+    });
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    const { admitLabelObservation, recordLabelOutcome, releaseLabelObservation, watchQueuedLabelTargets } = await import("./image-read-freshness");
+    const releaseTargets = watchQueuedLabelTargets(["fixture"])!;
+    const edit = (fieldId: string, value: string) => executeGridCommand({ operation: "edit-metadata", imageId: "fixture",
+      resource: command.resource, fieldId, action: "overwrite", value });
+    const first = admitLabelObservation(["fixture"]);
+    if (typeof first !== "number") throw new Error("Expected admission");
+    const description = await edit("metadata_description", "Saved description");
+    expect(description).toHaveProperty("metadataWitness", expect.any(String));
+    if (description.outcome !== "acknowledged") throw new Error("Expected acknowledgement");
+    recordLabelOutcome(first, "fixture", description.outcome, description.metadataWitness);
+    releaseLabelObservation(first);
+    const second = admitLabelObservation(["fixture"]);
+    if (typeof second !== "number") throw new Error("Expected admission");
+    vi.useFakeTimers();
+    try {
+      reads = 0;
+      staleReads = 2;
+      const pending = edit("metadata_credit", "New credit");
+      await vi.advanceTimersByTimeAsync(500);
+      const credit = await pending;
+      expect(credit).toMatchObject({ outcome: "acknowledged" });
+      expect(reads).toBe(3);
+      expect(stored).toEqual({ ...original, keywords: ["Alpha", "Zulu"], credit: "New credit", description: "Saved description" });
+      if (credit.outcome !== "acknowledged") throw new Error("Expected acknowledgement");
+      recordLabelOutcome(second, "fixture", credit.outcome, credit.metadataWitness);
+      releaseLabelObservation(second);
+      admitLabelObservation(["fixture"]);
+      reads = 0;
+      staleReads = Infinity;
+      const refused = edit("metadata_byline", "Must remain unsent");
+      await vi.advanceTimersByTimeAsync(500);
+      expect(await refused).toMatchObject({ outcome: "blocked", reason: "unavailable" });
+      expect(reads).toBe(3);
+      expect(transport.mock.calls.filter(([, init]) => init?.method === "PUT")).toHaveLength(2);
+    } finally { releaseTargets(); vi.useRealTimers(); }
+  });
+
+  it("preserves authoritative metadata across clear, location, list and conditional filename changes without replay", async () => {
+    const original = { description: "Embedded", city: "London", country: "UK", keywords: ["Original", "News, features"] };
+    let overrides: Record<string, unknown> = { credit: "Keep credit", domainMetadata: { desk: { reference: "keep" } } };
+    let lost = false;
+    const transport = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PUT") {
+        overrides = JSON.parse(String(init.body)).data;
+        if (lost) throw new TypeError("Synthetic lost response");
+        return new Response(null, { status: 200 });
+      }
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture", originalMetadata: original }, links: command.resource.links });
+      return Response.json({ data: { metadata: { uri: `${metadataOrigin}/metadata/fixture/metadata`, data: overrides } } });
+    });
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    const edit = (fieldId: string, value: unknown, action = "overwrite") => executeGridCommand({
+      operation: "edit-metadata", imageId: "fixture", resource: command.resource, fieldId, value, action,
+    });
+    expect((await edit("metadata_description", "")).outcome).toBe("acknowledged");
+    expect(overrides.description).toBe("");
+    await edit("location", { city: "Paris" });
+    expect(overrides.city).toBe("Paris");
+    expect(overrides).not.toHaveProperty("country");
+    await edit("metadata_keywords", "News, features", "remove");
+    expect(overrides.keywords).toEqual(["Original"]);
+    await edit("metadata_peopleInImage", "A person", "add");
+    expect(overrides.peopleInImage).toEqual(["A person"]);
+    await edit("metadata_description", "submitted.jpg", "if-empty");
+    expect(overrides.description).toBe("submitted.jpg");
+    const writes = () => transport.mock.calls.filter(([, init]) => init?.method === "PUT").length;
+    const before = writes();
+    expect((await edit("metadata_description", "duplicate.jpg", "if-empty")).outcome).toBe("unchanged");
+    expect((await edit("metadata_dateTaken", "")).outcome).toBe("blocked");
+    expect(writes()).toBe(before);
+    lost = true;
+    await expect(edit("metadata_description", "Suffix", "append")).resolves.toEqual({ outcome: "unknown", expected: { description: "submitted.jpg Suffix" } });
+    expect(writes()).toBe(before + 1);
+    expect(overrides.credit).toBe("Keep credit");
+    expect(overrides.domainMetadata).toEqual({ desk: { reference: "keep" } });
+  });
+
+  it("changes one metadata field using fresh originals and overrides without replacing unrelated values", async () => {
+    const transport = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "PUT") return new Response(null, { status: 200 });
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture",
+        originalMetadata: { byline: "Original author", credit: "Original credit" } }, links: command.resource.links });
+      if (url === "/grid-metadata/metadata/fixture") return Response.json({ data: { metadata: {
+        uri: `${metadataOrigin}/metadata/fixture/metadata`,
+        data: { byline: "Earlier author", credit: "Fresh credit", domainMetadata: { desk: { reference: "keep" } } },
+      } } });
+      throw new Error(`Unexpected fixture request: ${url}`);
+    });
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    await expect(executeGridCommand({ operation: "edit-metadata", imageId: "fixture", resource: command.resource,
+      fieldId: "metadata_byline", action: "overwrite", value: "Original author" })).resolves.toMatchObject({ outcome: "acknowledged" });
+    expect(transport).toHaveBeenLastCalledWith("/grid-metadata/metadata/fixture/metadata", expect.objectContaining({
+      method: "PUT", credentials: "include", redirect: "error",
+      body: JSON.stringify({ data: { credit: "Fresh credit", domainMetadata: { desk: { reference: "keep" } } } }),
+    }));
+  });
+
   it("uses discovered hosted services without injected addresses or rollout flags", async () => {
     vi.stubEnv("VITE_HOSTED", "true");
     vi.stubEnv("VITE_GRID_METADATA_ORIGIN", "");

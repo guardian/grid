@@ -3611,9 +3611,27 @@ describe("P1 non-uniform resident continuity", () => {
     expect(searchContinuity.captureSearchContinuity("membership")).toMatchObject({
       provenance: "maintenance", targetId: null, placement: { kind: "start" }, focus: "retain",
     });
+    const results = useSearchStore.getState().results.slice(0, 30);
+    useSearchStore.setState({ results, total: results.length, bufferOffset: 0 });
+    const build = (height: number) => {
+      const layout = buildMeasuredLayout(results, 1120,
+        { indexed: false, bufferOffset: 0, total: results.length, searchKey: "upload" },
+        { estimatedHeight: 320, estimate: () => 320, measurements: new Map([[results[0]!.id, height]]) });
+      return { layout, window: { ...layout.window,
+        correctionAnchor: { id: targetId, beforeOffset: 0, afterOffset: 0 } },
+        headerOffset: 0, preserveScrollLeftOnSort: false };
+    };
+    const view = mountDensity(build(320));
+    frame(); frame();
+    view.container.scrollTop = 0;
+    view.changeGeometry(build(420));
+    expect(view.container.scrollTop).toBe(0);
     const intent = useSearchStore.getState()._focusIntent;
     searchContinuity.stopFollowingUploadBatch();
     expect(useSearchStore.getState()._focusIntent).toBe(intent + 1);
+    view.container.scrollTop = 500;
+    view.changeGeometry(build(520));
+    expect(view.container.scrollTop).toBe(600);
     expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);
     useUploadLayoutStore.setState({ followingBatch: "local-different" });
     expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);

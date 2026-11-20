@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { activeUploadPhases, attentionUploadPhases, checkUploadAttempt, dismissUploadAttempt, useUploadJobsStore, type UploadAttempt, type UploadBatch } from "@/stores/upload-jobs-store";
+import { uploadPending, uploadAttention, checkUploadAttempt, dismissUploadAttempt, useUploadJobsStore, type UploadAttempt, type UploadBatch } from "@/stores/upload-jobs-store";
 import { redactUploadError, uploadFailureLabel } from "@/lib/upload-error";
 import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 import { pushNavigate } from "@/lib/orchestration/search";
@@ -34,9 +34,11 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   const [details, setDetails] = useState(false);
   const [copied, setCopied] = useState(false);
   const outputRef = useRef<HTMLPreElement>(null);
-  const active = activeUploadPhases.has(attempt.phase);
-  const failed = attentionUploadPhases.has(attempt.phase);
-  const label = failed ? uploadFailureLabel(attempt) : null;
+  const active = uploadPending(attempt);
+  const failed = uploadAttention(attempt);
+  const followupIssues = attempt.phase === "complete" ? attempt.followups?.filter(result => result.attention) : undefined;
+  const hasFollowupIssues = Boolean(followupIssues?.length);
+  const label = hasFollowupIssues ? "Uploaded; metadata needs attention" : failed ? uploadFailureLabel(attempt) : null;
   const recheckable = Boolean(attempt.statusId && (attempt.phase === "uncertain" || attempt.phase === "interrupted"));
   const serverError = attempt.serverError ? redactUploadError(attempt.serverError) : undefined;
   const batchDate = formatRecentGridDate(batch.createdAt);
@@ -69,12 +71,13 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
       {attempt.phase === "complete" && attempt.imageId
         ? <button type="button" className="upload-filename upload-link" title={attempt.name} onClick={openImage}>{attempt.name}</button>
         : <span className="upload-filename" title={attempt.name}>{attempt.name}</span>}
-      {serverError ? <button type="button" className="upload-link upload-row-action" aria-expanded={details} onClick={() => setDetails(value => !value)}>{label}</button>
+      {serverError || hasFollowupIssues ? <button type="button" className="upload-link upload-row-action" aria-expanded={details} onClick={() => setDetails(value => !value)}>{label}</button>
         : label && <span className="upload-row-label">{label}</span>}
       {recheckable && <button type="button" className="upload-link upload-row-action" onClick={() => checkUploadAttempt(attempt.id)}>Recheck</button>}
       {showBatch && <span className="upload-row-batch">{batchLabel}</span>}
       {failed && <button type="button" className="upload-dismiss" title="Acknowledge error" aria-label={`Acknowledge error for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
     </div>
+    {details && followupIssues?.map((result, index) => <p key={index} className="text-xs text-grid-text-muted wrap-anywhere">{result.label}: {result.summary}</p>)}
     {details && serverError && <section className="upload-error-detail" role="region" aria-label={`Upload error for ${attempt.name}`}>
       <div className="flex items-center gap-2"><span className="text-xs text-grid-text-muted">Server response</span>
         {copied && <span role="status" className="ml-auto text-xs">Copied</span>}
@@ -99,10 +102,10 @@ export function UploadProgress({ toolbar = false, split = false, renderBatchCont
   const inToolbar = location.pathname === "/upload" && list;
   const inSearch = location.pathname === "/search" && list;
   const entries = batches.flatMap(batch => batch.attempts.filter(attempt => activityIds.has(attempt.id) && !attempt.notificationDismissed).map(attempt => ({ attempt, batch })));
-  const priority = (attempt: UploadAttempt) => attentionUploadPhases.has(attempt.phase) ? 0 : activeUploadPhases.has(attempt.phase) ? 1 : 2;
+  const priority = (attempt: UploadAttempt) => uploadAttention(attempt) ? 0 : uploadPending(attempt) ? 1 : 2;
   entries.sort((left, right) => priority(left.attempt) - priority(right.attempt));
-  const errors = entries.filter(entry => attentionUploadPhases.has(entry.attempt.phase)).length;
-  const running = entries.filter(entry => activeUploadPhases.has(entry.attempt.phase)).length;
+  const errors = entries.filter(entry => uploadAttention(entry.attempt)).length;
+  const running = entries.filter(entry => uploadPending(entry.attempt)).length;
   const status = errors ? "error" : running ? "active" : "complete";
   const count = errors || running || entries.length;
   const statusLabel = errors ? `${errors} need attention` : running ? `${running} in progress` : `${count} completed`;

@@ -12,15 +12,18 @@ import { MultiImageMetadata } from "./MultiImageMetadata";
 import { FORM_METADATA_FIELDS, ImageMetadata } from "./ImageMetadata";
 import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
+import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
+import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext } from "./MetadataEditing";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
+import { createMetadataEditorStore } from "@/stores/metadata-editor-store";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { CostBadge, CostBadgeFromCost } from "./CostBadge";
 import { useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
 import * as typeahead from "@/lib/typeahead-fields";
 import type { GridCommandResult, LabelCommand } from "@/lib/grid-commands";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
-import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, getMetadataWriteWitness, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
 const fixture = vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
@@ -94,6 +97,416 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
+  it("shows progress independently for both accepted batch arrows while they wait", () => {
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    render(<MetadataEditorContext value={editor}>
+      <FormBatchContext value={{ key: "batch", ids: ["source", "peer"], processing: 0 }}>
+        <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
+        <MetadataBatchArrow imageId="source" fieldId="metadata_byline" label="Byline" value="Author" disabled={false} />
+      </FormBatchContext>
+    </MetadataEditorContext>);
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch images" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 batch images" }));
+      for (const label of ["Credit", "Byline"]) {
+        const progress = screen.getByRole("button", { name: `Applying ${label}...` });
+        expect(progress.querySelector("circle")).not.toBeNull();
+        expect(progress.getAttribute("title")).toBe(`Applying ${label}...`);
+      }
+      expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Applying Credit..." }));
+      expect(screen.getByRole("button", { name: "Stop batch save" })).toBeTruthy();
+    } finally { editor.getState().dispose(); }
+  });
+
+  it("bounds retained confirmations and disposes held reads without starting more work", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = [images[0].id, images[1].id, "third-save"];
+    const written = new Set<string>();
+    const releases = new Map<string, () => void>();
+    const aborted: string[] = [];
+    const execute = vi.fn(async (command: { imageId: string }): Promise<GridCommandResult> => {
+      written.add(command.imageId);
+      return { outcome: "acknowledged", expected: { credit: command.imageId }, metadataWitness: command.imageId };
+    });
+    const readImages = vi.fn(async (requested: string[], signal: AbortSignal) => {
+      const result = requested.map(id => {
+        const image = { ...images[0], id, metadata: { credit: written.has(id) ? id : "Before" },
+          userMetadata: { lastModified: written.has(id) ? "2026-11-19T12:00:01Z" : "2026-11-19T12:00:00Z" } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return image;
+      });
+      const id = requested[0];
+      if (!written.has(id)) return result;
+      return new Promise<Image[]>((resolve, reject) => {
+        const abort = () => { aborted.push(id); reject(new DOMException("Stopped", "AbortError")); };
+        signal.addEventListener("abort", abort, { once: true });
+        releases.set(id, () => { signal.removeEventListener("abort", abort); resolve(result); });
+      });
+    });
+    const editor = createMetadataEditorStore(execute, { readImages, publishImages: vi.fn() });
+    try {
+      const saves: number[] = [];
+      for (const id of ids) {
+        saves.push(editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: id, targetIds: [id] })!);
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids.slice(0, 2));
+      expect(editor.getState().saves.get(saves[2])?.state).toBe("queued");
+      releases.get(ids[0])!();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids);
+      expect(editor.getState().saves.get(saves[0])?.items).toMatchObject([{ observation: "observed" }]);
+      const reads = readImages.mock.calls.length;
+      editor.getState().dispose();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(aborted).toEqual(ids.slice(1));
+      expect(readImages).toHaveBeenCalledTimes(reads);
+      expect(execute).toHaveBeenCalledTimes(3);
+    } finally { editor.getState().dispose(); for (const release of releases.values()) release(); vi.useRealTimers(); }
+  });
+
+  it("observes first edits of newly uploaded images while queued targets are displayed", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const descriptions = new Map<string, string>();
+    let visible = false;
+    const readImages = vi.fn(async (ids: string[]) => ids.map(id => {
+      const description = visible ? descriptions.get(id) : undefined;
+      const image = { ...images[0], id, metadata: description ? { description } : {},
+        userMetadata: description ? { lastModified: "2026-11-18T12:00:00Z" } : {} };
+      const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+      stampImageRead(image, overlay, captureImageRead(), "lean");
+      attachEnrichment(image, overlay);
+      return image;
+    }));
+    const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
+      if (!descriptions.size) {
+        for (const image of await readImages(images.map(image => image.id))) acceptEnrichedImage(image);
+      }
+      descriptions.set(command.imageId, String(command.value));
+      return { outcome: "acknowledged", expected: { description: String(command.value) } };
+    });
+    const publishImages = vi.fn();
+    const editor = createMetadataEditorStore(execute, { readImages, publishImages });
+    try {
+      for (const image of images) editor.getState().submit({ fieldId: "metadata_description", action: "if-empty",
+        value: `Uploaded ${image.id}`, targetIds: [image.id] });
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.speed.startIntervalMs * 2);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(images.map(image => image.id));
+      expect(publishImages).not.toHaveBeenCalled();
+      visible = true;
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(images.map(image => image.id));
+      expect([...editor.getState().saves.values()].map(save => ({ state: save.state, excluded: save.excluded,
+        outcomes: save.items.map(item => item.observation) }))).toEqual(images.map(() => ({ state: "finished", excluded: 0,
+        outcomes: ["observed"] })));
+      expect(publishImages.mock.calls.flatMap(([published]) => published.map((image: Image) => image.id)))
+        .toEqual(images.map(image => image.id));
+      expect(readImages.mock.calls.some(([ids]) => ids.length === images.length)).toBe(true);
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("stops only one grouped save and keeps an uncertain same-image successor unsent", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = [images[0].id, images[1].id, "independent-upload", "stopped-before-start"];
+    const values = new Map<string, string>();
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
+      await held;
+      values.set(command.imageId, String(command.value));
+      return { outcome: command.imageId === ids[0] ? "unknown" : "acknowledged", expected: { description: String(command.value) } };
+    });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async requested => requested.map(id => {
+        const image = { ...images[0], id, metadata: { description: values.get(id) ?? "" },
+          userMetadata: values.has(id) ? { lastModified: "2026-11-18T12:00:00Z" } : {} };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return image;
+      }), publishImages: vi.fn(),
+    });
+    try {
+      const saves = ids.map(id => editor.getState().submit({ fieldId: "metadata_description", action: "overwrite",
+        value: `Value ${id}`, targetIds: [id] })!);
+      const successor = editor.getState().submit({ fieldId: "metadata_description", action: "overwrite",
+        value: "Later value", targetIds: [ids[0]] })!;
+      await vi.advanceTimersByTimeAsync(0);
+      editor.getState().stop(saves[3]);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.speed.startIntervalMs * 2);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids.slice(0, 3));
+      expect(editor.getState().saves.get(successor)?.state).toBe("queued");
+      release();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(editor.getState().saves.get(saves[0])?.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
+      expect(editor.getState().saves.get(saves[3])?.items).toMatchObject([{ state: "stopped" }]);
+      expect(editor.getState().saves.get(saves[2])?.items).toMatchObject([{ result: { outcome: "acknowledged" }, observation: "observed" }]);
+      expect(editor.getState().saves.get(successor)?.message).toBe("Not sent: conflict");
+      expect(execute).toHaveBeenCalledTimes(3);
+    } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("replaces an unsent Form revision after its group starts", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const values = new Map<string, string>();
+    const blockers = [images[0].id, "blocking-second", "blocking-third"];
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
+      if (blockers.includes(command.imageId)) await held;
+      values.set(command.imageId, String(command.value));
+      return { outcome: "acknowledged", expected: { credit: String(command.value) } };
+    });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async ids => ids.map(id => {
+        const image = { ...images[0], id, metadata: { credit: values.get(id) ?? "" },
+          userMetadata: values.has(id) ? { lastModified: "2026-11-18T12:00:00Z" } : {} };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return image;
+      }), publishImages: vi.fn(),
+    });
+    try {
+      for (const imageId of blockers) editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "First image", targetIds: [imageId] });
+      useMetadataDrafts.getState().setDraft(images[1].id, "metadata_credit", "", "Obsolete");
+      editor.getState().flush(images[1].id, "metadata_credit");
+      await vi.advanceTimersByTimeAsync(0);
+      useMetadataDrafts.getState().setDraft(images[1].id, "metadata_credit", "", "Latest");
+      editor.getState().flush(images[1].id, "metadata_credit");
+      release();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(execute.mock.calls.map(([command]) => [command.imageId, command.value]))
+        .toEqual([...blockers.map(imageId => [imageId, "First image"]), [images[1].id, "Latest"]]);
+      expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it.each(["unavailable", "reload-required", "readback"] as const)("scopes a grouped %s failure without replay", async reason => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = [images[0].id, images[1].id, "third-active", "unsent-after-session-loss"];
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const execute = vi.fn(async (command: { imageId: string }): Promise<GridCommandResult> => {
+      if (reason === "readback" && command.imageId !== ids[0]) await held;
+      return command.imageId === ids[0] && reason !== "readback"
+        ? { outcome: "blocked", reason } : { outcome: "unchanged", expected: { credit: "Ready" } };
+    });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async ids => {
+        if (reason === "readback" && ids.length === 1 && ids[0] === images[0].id) throw new Error("Readback unavailable");
+        return ids.map(id => {
+          const image = { ...images[0], id, metadata: { credit: "Ready" } };
+          const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+          stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+          return image;
+        });
+      }, publishImages: vi.fn(),
+    });
+    try {
+      const saves = ids.map(imageId => editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite",
+        value: "Ready", targetIds: [imageId] })!);
+      await vi.advanceTimersByTimeAsync(0);
+      release();
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(reason !== "reload-required" ? ids : ids.slice(0, 3));
+      expect(editor.getState().saves.get(saves[0])?.items[0]).toMatchObject(reason === "readback"
+        ? { result: { outcome: "unchanged" }, observation: "unavailable" } : { result: { outcome: "blocked", reason } });
+      expect(editor.getState().saves.get(saves[3])?.items[0]).toMatchObject(reason !== "reload-required"
+        ? { state: "unchanged", observation: "observed" } : { state: "stopped" });
+    } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("keeps an uncertain Form receipt and draft without resubmitting the same revision on blur", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const execute = vi.fn().mockResolvedValue({ outcome: "unknown", expected: { credit: "Uncertain credit" } });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async () => {
+        const image = { ...images[0], metadata: { credit: "Uncertain credit" }, userMetadata: { lastModified: new Date(Date.now()).toISOString() } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return [image];
+      }, publishImages: vi.fn(),
+    });
+    try {
+      useMetadataDrafts.getState().setDraft(images[0].id, "metadata_credit", "Original", "Uncertain credit");
+      editor.getState().flush(images[0].id, "metadata_credit");
+      await vi.advanceTimersByTimeAsync(0);
+      const receipt = [...editor.getState().saves.values()][0];
+      expect(receipt.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
+      editor.getState().flush(images[0].id, "metadata_credit");
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect([...editor.getState().saves.values()]).toEqual([receipt]);
+      expect(execute).toHaveBeenCalledOnce();
+      expect(useMetadataDrafts.getState().drafts.get(images[0].id)?.get("metadata_credit")?.value).toBe("Uncertain credit");
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("preserves a final arrow edit across a newer overlapping intent while coalescing an adjacent repeat", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const peers = images.slice(0, 2).map(image => image.id);
+    const credits = new Map<string, string>();
+    const versions = new Map<string, string>();
+    let revision = Date.now();
+    const originalVersion = new Date(revision - 1_000).toISOString();
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
+      await held;
+      const credit = String(command.value);
+      credits.set(command.imageId, credit);
+      versions.set(command.imageId, new Date(++revision).toISOString());
+      return { outcome: "acknowledged", expected: { credit }, metadataWitness: String(revision) };
+    });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async ids => ids.map(id => {
+        const image = { ...images[0], id, metadata: { credit: credits.get(id) ?? "Original" },
+          userMetadata: { lastModified: versions.get(id) ?? originalVersion } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return image;
+      }), publishImages: vi.fn(),
+    });
+    const click = (value: string, targetIds = peers) => {
+      editor.getState().submitArrow({ fieldId: "metadata_credit", action: "overwrite", value, targetIds }, "credit-arrow");
+      return editor.getState().arrowSaves.get("credit-arrow");
+    };
+    try {
+      const first = click("A");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(execute).toHaveBeenCalled();
+      expect(click("A")).toBe(first);
+      click("B", peers.slice(0, 1));
+      click("A");
+      release();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(execute).toHaveBeenCalledWith(expect.objectContaining({ imageId: peers[0], value: "B" }));
+      expect(peers.map(id => credits.get(id))).toEqual(["A", "A"]);
+    } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("executes captured offscreen metadata targets in bounded groups and refuses session overflow before dispatch", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = Array.from({ length: 101 }, (_, index) => `captured-${index}`);
+    const values = new Map<string, string>();
+    const bylines = new Map<string, string>();
+    const versions = new Map<string, string>();
+    const originalVersion = new Date(Date.now() - 1_000).toISOString();
+    let revision = Date.now();
+    let releaseDispatch!: () => void;
+    const dispatchHeld = new Promise<void>(resolve => { releaseDispatch = resolve; });
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const execute = vi.fn(async (command: { imageId: string; fieldId?: string; value?: unknown }): Promise<GridCommandResult> => {
+      if (execute.mock.calls.length <= 5) await dispatchHeld;
+      const field = command.fieldId === "metadata_byline" ? "byline" : "credit";
+      (field === "credit" ? values : bylines).set(command.imageId, String(command.value));
+      versions.set(command.imageId, new Date(++revision).toISOString());
+      return { outcome: "acknowledged", expected: { [field]: String(command.value) }, metadataWitness: String(revision) };
+    });
+    const readImages = vi.fn(async (requested: string[]) => {
+      const result = requested.map(id => {
+        const image = { ...images[0], id, metadata: { credit: values.get(id) ?? "Original", byline: bylines.get(id) }, userMetadata: { lastModified: versions.get(id) ?? originalVersion } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return image;
+      });
+      if (requested.length === 1 && requested[0] === ids.at(-1) && bylines.has(requested[0])) await held;
+      return result;
+    });
+    const editor = createMetadataEditorStore(execute, { readImages, publishImages: vi.fn() });
+    try {
+      const captured = [...ids, ids[0]];
+      const id = editor.getState().submit({ fieldId: "metadata_byline", action: "overwrite", value: "Batch byline", targetIds: captured })!;
+      captured.push("later-arrival");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids.slice(0, 5));
+      releaseDispatch();
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids);
+      expect(editor.getState().saves.get(id)?.state).toBe("saving");
+      expect(getMetadataWriteWitness(ids[0])).toBeTypeOf("string");
+      const successor = editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "New credit", targetIds: [ids[0]] })!;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual([...ids, ids[0]]);
+      expect(editor.getState().saves.get(successor)?.items).toMatchObject([{ observation: "observed" }]);
+      expect(editor.getState().saves.get(id)?.state).toBe("saving");
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(readImages.mock.calls.every(([requested]) => requested.length <= BATCH_POLICY.maxTargets)).toBe(true);
+      expect(editor.getState().saves.get(id)).toMatchObject({ state: "finished", excluded: 0 });
+      expect(editor.getState().saves.get(id)?.items.every(item => item.observation === "observed")).toBe(true);
+      expect(getMetadataWriteWitness(ids[0])).toBeUndefined();
+      const overflow = editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "Blocked",
+        targetIds: Array.from({ length: BATCH_POLICY.maxTouchedImages }, (_, index) => `overflow-${index}`) })!;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(editor.getState().saves.get(overflow)?.message).toContain("capacity");
+      expect(execute).toHaveBeenCalledTimes(102);
+    } finally { releaseDispatch(); release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("retains and coalesces Form intent behind shared work without clearing a newer draft", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const queue = createBatchQueue();
+    const blocker = queue.admit()!;
+    const waiter = queue.admit()!;
+    let credit = "Original";
+    let release!: () => void;
+    const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
+      await new Promise<void>(resolve => { release = resolve; });
+      credit = String(command.value);
+      return { outcome: "acknowledged", expected: { credit } };
+    });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async () => {
+        const image = { ...images[0], metadata: { credit }, userMetadata: { lastModified: new Date(Date.now()).toISOString() } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean");
+        attachEnrichment(image, overlay);
+        return [image];
+      }, publishImages: vi.fn(),
+    }, queue);
+    const change = (value: string) => {
+      useMetadataDrafts.getState().setDraft(images[0].id, "metadata_credit", "Original", value,
+        [...editor.getState().saves.values()].some(save => save.state !== "finished"));
+      editor.getState().schedule(images[0].id, "metadata_credit");
+    };
+    try {
+      change("First draft");
+      await vi.advanceTimersByTimeAsync(600);
+      change("Replacement draft");
+      await vi.advanceTimersByTimeAsync(600);
+      expect(execute).not.toHaveBeenCalled();
+      blocker.complete(); waiter.complete();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(execute).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ value: "Replacement draft" }));
+      change("Original");
+      await vi.advanceTimersByTimeAsync(600);
+      change("Replacement draft");
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useMetadataDrafts.getState().drafts.get(images[0].id)?.get("metadata_credit")?.value).toBe("Replacement draft");
+      expect(execute).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(250);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(600);
+      expect(execute).toHaveBeenCalledTimes(3);
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    } finally { editor.getState().dispose(); queue.dispose(); vi.useRealTimers(); }
+  });
+
   it("uses Upload's editorial order and guidance without changing Details", () => {
     gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph");
     const image: Image = { ...images[0],
@@ -205,7 +618,8 @@ describe("metadata field preparation", () => {
     expect(input.value).toBe("2026-03-29T01:30");
     expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-03-29T01:30:00.000");
     fireEvent.change(input, { target: { value: "" } });
-    expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("");
+    expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-03-29T01:30:00.000");
+    expect(input.value).toBe("2026-03-29T01:30");
     fireEvent.change(input, { target: { value: originalSecond } });
     expect(useMetadataDrafts.getState().drafts.size).toBe(0);
   });
@@ -521,7 +935,7 @@ describe("metadata field preparation", () => {
     } finally { gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, ...types); }
   });
 
-  it("prepares date changes at whole seconds, retains manual fractions and accepts a complete clear", () => {
+  it("prepares date changes and fractions but refuses button, calendar and keyboard clearing", () => {
     const prepare = vi.fn();
     const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
     const original = "2026-11-10T11:22:33.123Z";
@@ -542,14 +956,15 @@ describe("metadata field preparation", () => {
     expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: expected.toISOString() }));
     fireEvent.change(screen.getByRole("textbox", { name: "Year" }), { target: { value: "2" } });
     expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Clear Taken on" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
-    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: "" }));
+    expect(prepare).toHaveBeenCalledTimes(2);
     fireEvent.change(calendar, { target: { value: "2026-11-12T10:20:30" } });
     expect((screen.getByRole("textbox", { name: "Milliseconds" }) as HTMLInputElement).value).toBe("000");
     fireEvent.change(calendar, { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
-    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: "" }));
+    expect(prepare).toHaveBeenLastCalledWith(expect.objectContaining({ value: new Date("2026-11-12T10:20:30").toISOString() }));
     fireEvent.change(calendar, { target: { value: "2026-11-12T10:20:30" } });
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Day" }), { key: "a", ctrlKey: true });
     const minutes = screen.getByRole("textbox", { name: "Minutes" });
@@ -559,7 +974,13 @@ describe("metadata field preparation", () => {
     expect((screen.getByRole("textbox", { name: "Year" }) as HTMLInputElement).value).toBe("2026");
     fireEvent.keyDown(minutes, { key: "a", ctrlKey: true });
     fireEvent.keyDown(minutes, { key: "Backspace" });
-    expect((screen.getByRole("textbox", { name: "Year" }) as HTMLInputElement).value).toBe("");
+    expect((screen.getByRole("textbox", { name: "Year" }) as HTMLInputElement).value).toBe("2026");
+    for (const label of ["Day", "Month", "Year", "Hours", "Minutes", "Seconds", "Milliseconds"]) {
+      fireEvent.change(screen.getByRole("textbox", { name: label }), { target: { value: "" } });
+    }
+    expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
+    expect(prepare).toHaveBeenCalledTimes(3);
     fireEvent.click(screen.getByRole("button", { name: "Cancel Taken on" }));
     expect(screen.getByText("10 Nov 2026 11:22")).toBeTruthy();
   });
@@ -572,10 +993,12 @@ describe("metadata field preparation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
     expect(screen.getByRole("group", { name: "Taken on" }).textContent).toContain("Multiple dates");
     expect(screen.queryByRole("textbox", { name: "Day" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear Taken on" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
-    expect(screen.getByRole("group", { name: "Taken on" }).textContent).not.toContain("Multiple dates");
+    expect(screen.getByRole("group", { name: "Taken on" }).textContent).toContain("Multiple dates");
+    expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
-    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ value: "", targetIds: ["first", "second"] }));
+    expect(prepare).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Cancel Taken on" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Taken on" }));
     fireEvent.click(screen.getByRole("button", { name: "Multiple dates" }));
@@ -588,7 +1011,7 @@ describe("metadata field preparation", () => {
     expect(screen.getByRole("button", { name: "Commit Taken on" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Clear Taken on" }));
     fireEvent.click(screen.getByRole("button", { name: "Commit Taken on" }));
-    expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ value: "", targetIds: ["first", "second"] }));
+    expect(prepare).not.toHaveBeenCalled();
   });
 
   it("offers ordinary editable text fields without making Source editable", () => {
@@ -789,7 +1212,7 @@ describe("disconnected label editing", () => {
     } finally { store.getState().dispose(); vi.useRealTimers(); }
   });
 
-  it("holds the next operation until grouped observation finishes, preserving pacing across handoff", async () => {
+  it("shares observation admission and pacing across editor owners without disposing their shared queue", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.useFakeTimers();
     let release!: (images: Image[]) => void;
@@ -797,23 +1220,64 @@ describe("disconnected label editing", () => {
       .mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
     const readImages = vi.fn(() => new Promise<Image[]>(resolve => { release = resolve; }));
     const publishImages = vi.fn();
-    const store = createLabelEditorStore(executor, { readImages, publishImages }, "connected");
+    const queue = createBatchQueue();
+    const store = createLabelEditorStore(executor, { readImages, publishImages }, "connected", queue);
+    const other = createLabelEditorStore(executor, undefined, "connected", queue);
     const context = (imageId: string) => ({ targetIds: [imageId], targets: new Map([[imageId, {
       resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
     }]]) });
     try {
       store.getState().prepare("add", "news", context(images[0].id));
-      store.getState().prepare("add", "news", context(images[1].id));
+      expect(other.getState().prepare("add", "news", context(images[1].id))).toBe(true);
+      expect(other.getState().receipts[0].items[0].state).toBe("queued");
       await vi.advanceTimersByTimeAsync(100);
       expect(executor).toHaveBeenCalledTimes(1);
       release([{ ...images[0], userMetadata: { labels: ["news"] } }]);
-      await vi.advanceTimersByTimeAsync(149);
+      await vi.advanceTimersByTimeAsync(0);
       expect(publishImages).toHaveBeenCalledTimes(1);
-      expect(executor).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(1);
       expect(executor).toHaveBeenCalledTimes(2);
-      expect(store.getState().receipts.map(receipt => receipt.items[0].state)).toEqual(["accepted-awaiting-visibility", "rejected"]);
-    } finally { store.getState().dispose(); release?.([]); vi.useRealTimers(); }
+      expect(store.getState().receipts[0].items[0].state).toBe("accepted-awaiting-visibility");
+      expect(other.getState().receipts[0].items[0].state).toBe("rejected");
+      store.getState().dispose();
+      expect(other.getState().prepare("add", "later", context(images[1].id))).toBe(true);
+      await vi.advanceTimersByTimeAsync(250);
+      expect(executor).toHaveBeenCalledTimes(3);
+    } finally { store.getState().dispose(); other.getState().dispose(); queue.dispose(); release?.([]); vi.useRealTimers(); }
+  });
+
+  it("keeps a sibling queued while a disposed owner's dispatched mutation is still unresolved", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const releases: ((result: GridCommandResult) => void)[] = [];
+    const executor = vi.fn((command: LabelCommand) => command.imageId.startsWith("held")
+      ? new Promise<GridCommandResult>(resolve => { releases.push(resolve); })
+      : Promise.resolve({ outcome: "rejected" as const, status: 403, errorKey: "permission-denied" }));
+    const queue = createBatchQueue();
+    const observation = { readImages: vi.fn(), publishImages: vi.fn() };
+    const owner = createLabelEditorStore(executor, observation, "connected", queue);
+    const sibling = createLabelEditorStore(executor, observation, "connected", queue);
+    const context = (targetIds: string[]) => ({ targetIds, targets: new Map(targetIds.map(imageId => [imageId, {
+      resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
+    }])) });
+    try {
+      const held = Array.from({ length: 8 }, (_, index) => `held-${index}`);
+      expect(owner.getState().prepare("add", "news", context([...held, "unsent"]))).toBe(true);
+      expect(sibling.getState().prepare("add", "news", context(["sibling"]))).toBe(true);
+      owner.getState().dispose();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(executor.mock.calls.map(([command]) => command.imageId)).toEqual(held);
+      expect(owner.getState().receipts[0].items).toMatchObject([
+        ...held.map(() => ({ state: "submitted", observation: "superseded" })), { state: "stopped" },
+      ]);
+      expect(sibling.getState().receipts[0].items[0].state).toBe("queued");
+      for (const release of releases) release({ outcome: "unknown" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(executor.mock.calls.map(([command]) => command.imageId)).toEqual([...held, "sibling"]);
+      expect(owner.getState().receipts[0].items[0].state).toBe("unknown");
+      expect(sibling.getState().receipts[0].items[0].state).toBe("rejected");
+      expect(observation.readImages).not.toHaveBeenCalled();
+      expect(observation.publishImages).not.toHaveBeenCalled();
+    } finally { owner.getState().dispose(); sibling.getState().dispose(); queue.dispose(); for (const release of releases) release({ outcome: "unknown" }); vi.useRealTimers(); }
   });
 
   it("refuses a waiting target whose capability was withdrawn by a newer browsing read", async () => {

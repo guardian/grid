@@ -146,13 +146,17 @@ entry is retained. The existing local-to-UTC and ambiguous-hour conversion owner
 is unchanged, as is the formatted reading display.
 
 Mixed dates initially show an italic `Multiple dates` control; clicking it reveals
-the numeric groups and focuses Day. Clear works directly from that mixed state,
-dismissing the reminder and preparing an empty date for all targets. Incomplete
-or invalid groups disable preparation rather than becoming a clear. The grouped
-field has an explicit whole-date Clear and Ctrl/Cmd+A deletion, because individually
-emptying seven groups should not be necessary; native-calendar Clear is accepted too.
+the numeric groups and focuses Day. **Temporary operator restriction, 18 November:**
+Clear is disabled under [GRID-025](bug-backlog.md#grid-025), because the backend cannot
+represent clearing an embedded date. Whole-date Ctrl/Cmd+A deletion and native-calendar
+Clear leave the current draft unchanged. Individually editing/emptying segments is
+allowed for replacement, but empty, incomplete or invalid dates cannot be prepared,
+including from the mixed state. Form likewise refuses an empty native date change.
+Setting and replacing dates remains available. Re-enable clearing only after the
+separately authorized backend capability is deployed and its readback verified.
 Pending reads preserve drafts and disable preparation. An unavailable native picker
-does not prevent manual entry. New date intents remain disconnected.
+does not prevent manual entry. U5 connects valid replacement intents through the shared
+metadata operation; the GRID-025 clear refusal remains in force.
 
 The isolated date-entry study has been retired after integration. Production
 component tests do not certify physical phone keyboard/native-picker behavior.

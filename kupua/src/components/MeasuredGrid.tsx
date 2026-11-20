@@ -7,6 +7,9 @@ import type { MeasuredCells } from "@/hooks/useMeasuredLayout";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { FORM_METADATA_FIELDS, ImageMetadata } from "./ImageMetadata";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
+import { useBrowsingContext, useBrowsingSearch } from "@/lib/browsing-context";
+import { useUploadJobsStore } from "@/stores/upload-jobs-store";
+import { FormBatchContext } from "./MetadataEditing";
 
 export const useFormFields = create<{ fields: ReadonlySet<string> }>(() => ({
   fields: new Set(FORM_METADATA_FIELDS.map(field => field.id)),
@@ -28,6 +31,11 @@ const thumbnailHeight = (image: Image, width: number) => Math.min(256, Math.min(
 
 export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
   const fields = useFormFields(state => state.fields);
+  const context = useBrowsingContext();
+  const { batch } = useBrowsingSearch();
+  const record = useUploadJobsStore(state => state.batches.find(item => item.id === batch));
+  const scope = context.path === "/upload" ? context.recentUploadScope?.batch ?? context.imageScope : undefined;
+  const processing = record?.attempts.filter(attempt => !attempt.imageId).length ?? 0;
   const cells = useMemo<MeasuredCells>(() => ({
     key: [...fields].sort().join(","), thumbnailHeight,
     estimate: (_image, width) => (width < 680 ? 256 : 0) + 600,
@@ -38,9 +46,11 @@ export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
       <div data-form-content className="min-w-0 p-3 cursor-text select-text"
         onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
         onDragStart={event => event.stopPropagation()}>
-        <ImageMetadata image={image} formFields={fields} />
+        <FormBatchContext value={scope?.ids.includes(image.id) ? { key: scope.key, ids: scope.ids, processing } : undefined}>
+          <ImageMetadata image={image} formFields={fields} />
+        </FormBatchContext>
       </div>
     </div>,
-  }), [fields]);
+  }), [fields, scope, processing]);
   return <ImageGrid {...props} measuredCells={cells} />;
 }

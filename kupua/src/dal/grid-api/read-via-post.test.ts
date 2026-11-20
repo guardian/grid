@@ -62,7 +62,12 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
     metadataGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
     expect(next).toHaveBeenCalledOnce();
     next.mockClear();
+    metadataGuard({ method: "PUT", url: "/metadata/fixture/metadata" } as never, response as never, next);
+    expect(next).toHaveBeenCalledOnce();
+    next.mockClear();
     for (const request of [
+      { method: "PUT", url: "/metadata/fixture" },
+      { method: "PUT", url: "/metadata/fixture/metadata?target=other" },
       { method: "DELETE", url: "/metadata/fixture/labels" },
       { method: "POST", url: "/metadata/fixture/labels/extra" },
       { method: "POST", url: "/images/count" },

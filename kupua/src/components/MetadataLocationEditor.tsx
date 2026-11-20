@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { MetadataEditButton, MetadataEditHint, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
 import { PillActionButton } from "./SearchPill";
+import { MetadataSaveFeedback, useMetadataCommit } from "./MetadataEditing";
 
 export const LOCATION_COMPONENTS = [
   { key: "subLocation", fieldId: "location_subLocation", label: "Sublocation" },
@@ -25,6 +26,7 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   editable?: boolean;
   readOnly?: ReactNode;
 }) {
+  const commit = useMetadataCommit();
   const available = dataAvailable && editable;
   const [editing, setEditing] = useState(false);
   const [initial, setInitial] = useState(emptyLocation);
@@ -46,8 +48,9 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   }
   const prepare = () => {
     if (!available || !targetIds.length || !Object.keys(changes).length) return;
-    onPrepare?.({ fieldId: "location", action: "overwrite", value: changes, targetIds: [...targetIds] });
-    setNotice(`Not sent - Location change prepared for ${targetIds.length} ${targetIds.length === 1 ? "image" : "images"}.`);
+    const intent: MetadataEditIntent = { fieldId: "location", action: "overwrite", value: changes, targetIds: [...targetIds] };
+    const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent);
+    setNotice(submitted === undefined ? `Not sent - Location change prepared for ${targetIds.length} ${targetIds.length === 1 ? "image" : "images"}.` : "");
   };
   const cancel = () => { setEditing(false); setNotice(""); };
   const beginEditing = () => {
@@ -95,6 +98,7 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
         <PillActionButton action="confirm" label="Commit Location" disabled={!available || !Object.keys(changes).length} onClick={() => prepare()} />
       </div>
       {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}
+      <MetadataSaveFeedback fieldId="location" targetIds={targetIds} />
     </form>}
   </Layout>;
 }

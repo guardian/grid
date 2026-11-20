@@ -11,6 +11,11 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   const continuation = publication === "continuation" || upload;
   const readback = publication === "readback" || continuation;
   const projections = new Map<string, string>();
+  let uploadEdits = false;
+  const metadataOverrides = new Map<string, Record<string, unknown>>();
+  const presetLabels = new Map<string, string[]>();
+  const metadataWrites: { id: string; method: string; data: unknown }[] = [];
+  const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
   const hiddenFromSearch = new Set<string>();
   const held = new Set<() => void>();
   let holdNext = false;
@@ -81,10 +86,10 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
       data: {
         id, uploadTime: new Date(epoch - index * 1_000).toISOString(), uploadedBy: "synthetic-fixture",
         lastModified: label ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
-        metadata: { description: label ? `Readback ${id}` : `Original ${id}`, credit: "Fixture" },
+        metadata: { description: label ? `Readback ${id}` : `Original ${id}`, credit: "Fixture", ...(uploadEdits ? metadataOverrides.get(id) : {}) },
         ...(full && { originalMetadata: { title: `Original camera ${id}` }, fileMetadata: { data: { fixture: "EXIF retained" } } }),
         cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
-        userMetadata: { data: { lastModified: label ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
+        userMetadata: { data: { lastModified: uploadEdits && metadataOverrides.has(id) ? metadataVersion() : label ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
           labels: { data: [{ data: label ?? "original label" }] }, archived: { data: false }, metadata: {}, usageRights: {}, photoshoot: {} } },
         source: { dimensions, mimeType: "image/jpeg" },
         thumbnail: { secureUrl: `/__publication-media/${asset}.jpg`, dimensions, mimeType: "image/jpeg" },
@@ -103,11 +108,19 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   let uploadPermission = true;
   let multipleUploads = false;
   let uploadLimit: number | undefined;
+  const embeddedDescriptions = new Map<string, string>();
+  const metadataReads = new Map<string, number>();
   const uploaded = new Map<string, { name: string; ordinal: number }>();
   const uploadEntity = (id = uploadId) => {
     const resource = entity("local-0", true);
     const file = uploaded.get(id);
+    const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
     return { ...resource, uri: `/api/images/${id}`, data: { ...resource.data, id,
+      ...(uploadEdits ? { originalMetadata,
+        metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
+        userMetadata: { data: { ...resource.data.userMetadata.data,
+          lastModified: metadataOverrides.has(id) || presetLabels.has(id) ? metadataVersion() : undefined,
+          labels: { data: (presetLabels.get(id) ?? []).map(data => ({ data })) } } } } : {}),
       uploadInfo: { filename: file?.name ?? "fixture.jpg" }, uploadTime: new Date(epoch + 1_000_000 - (file?.ordinal ?? 0) * 1000).toISOString(),
     }, links: [...resource.links.map(link => ({ ...link, href: link.href.replace("local-0", id) })),
       { rel: "crops", href: `https://api.example.test/crops/${id}` }],
@@ -116,7 +129,8 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   return {
     name: "isolated-command-fixture",
     config() {
-      return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test") } } : undefined;
+      return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test"),
+        ...(upload ? { "import.meta.env.VITE_GRID_METADATA_ORIGIN": JSON.stringify("https://metadata.example.test") } : {}) } } : undefined;
     },
     resolveId(id) { if (id === virtualEntry) return id; },
     load(id) {
@@ -127,6 +141,27 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
+        if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata|\/labels)?$/.exec(pathname);
+          response.setHeader("Content-Type", "application/json");
+          if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
+          const id = match[1];
+          if (request.method === "GET" && !match[2]) {
+            metadataReads.set(id, (metadataReads.get(id) ?? 0) + 1);
+            response.end(JSON.stringify({ data: {
+              metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } } },
+              labels: { uri: `https://metadata.example.test/metadata/${id}/labels`, data: [] },
+            } })); return;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of request) chunks.push(Buffer.from(chunk));
+          const body = JSON.parse(Buffer.concat(chunks).toString());
+          if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
+          else if (match[2] === "/labels" && request.method === "POST") presetLabels.set(id, [...new Set([...(presetLabels.get(id) ?? []), ...body.data as string[]])]);
+          else { response.statusCode = 403; response.end("{}"); return; }
+          metadataWrites.push({ id, method: request.method, data: body.data });
+          response.end("{}"); return;
+        }
         if ((readback && ["/api", "/api/", "/grid-auth/session"].includes(pathname)) || upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
           || pathname.startsWith("/grid-loader/") || pathname === "/api" || pathname === "/api/"
           || /^\/api\/images\/[a-f0-9]{40}$/.test(pathname))) {
@@ -140,7 +175,11 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); }
+              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); metadataWrites.length = 0; metadataReads.clear(); }
+              if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
+                embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
+              }
+              if (typeof body.editing === "boolean") uploadEdits = body.editing;
               if (typeof body.canUpload === "boolean") uploadPermission = body.canUpload;
               if (typeof body.identityAvailable === "boolean") uploadIdentityAvailable = body.identityAvailable;
               if (typeof body.multiple === "boolean") multipleUploads = body.multiple;
@@ -152,9 +191,11 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
                 for (const member of body.members) uploaded.set(member.id, { name: member.name, ordinal: uploaded.size });
               }
             }
-            return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId });
+            return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId,
+              ...(uploadEdits ? { metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
           }
           if (pathname === "/api" || pathname === "/api/") return send({ links: [
+            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }] : []),
             ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
           ] });
           if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },

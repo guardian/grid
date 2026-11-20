@@ -621,6 +621,61 @@ it("keeps the freshest retained owner and the incoming AI ordinal when rejecting
   }
 });
 
+it("recovers the leading upload row when a held filename page loses it to a confirmed no-op", async () => {
+  useApiMode(2);
+  const image = {
+    id: "lead", uploadTime: "2026-11-01T00:00:00Z", uploadedBy: "fixture",
+    source: { mimeType: "image/jpeg", dimensions: { width: 400, height: 300 } },
+    metadata: { description: "Embedded description" },
+  };
+  const neighbour = { ...image, id: "neighbour" };
+  let releasePage!: () => void;
+  const heldPage = new Promise<void>(resolve => { releasePage = resolve; });
+  let releaseRecovery!: () => void;
+  const heldRecovery = new Promise<void>(resolve => { releaseRecovery = resolve; });
+  const read = () => {
+    const body = { ...image };
+    stampImageRead(body, undefined, captureImageRead(), "lean");
+    return body;
+  };
+  const page = vi.spyOn(state().dataSource, "searchAfter").mockImplementation(async () => {
+    const older = read();
+    await heldPage;
+    return { hits: [older, neighbour], total: 2, sortValues: [[0, image.id], [1, neighbour.id]] };
+  });
+  const recovery = vi.spyOn(state().dataSource, "getByIds").mockImplementation(async () => {
+    const fresh = read();
+    await heldRecovery;
+    return [fresh];
+  });
+  useSearchStore.setState({ params: { ...state().params, orderBy: undefined,
+    recentUploadScope: { key: "upload:page:local-lead", uploadedBy: "fixture", combined: true,
+      batch: { key: "upload:local-lead", revision: 1, ids: [image.id, neighbour.id], submittedOrder: true } },
+  } });
+  const pending = state().search();
+  try {
+    await waitFor(() => page.mock.calls.length === 1, "filename page starts");
+    const operation = admitLabelObservation([image.id]);
+    if (typeof operation !== "number") throw new Error("Observation not admitted");
+    recordLabelOutcome(operation, image.id, "unchanged");
+    publishImages(acceptObservedImages([read()], operation).map(image => ({ image })));
+    releaseLabelObservation(operation);
+    releasePage();
+    await pending;
+    expect(state().results.map(row => row?.id)).toEqual([undefined, neighbour.id]);
+    expect(recovery).toHaveBeenCalledExactlyOnceWith([image.id], expect.any(AbortSignal));
+    releaseRecovery();
+    await waitFor(() => state().results[0]?.id === image.id, "leading image restored");
+    expect(state().bufferOffset).toBe(0);
+    expect([...state().imagePositions]).toEqual([[image.id, 0], [neighbour.id, 1]]);
+    expect(state().results[1]).toBe(neighbour);
+  } finally {
+    releasePage();
+    releaseRecovery();
+    await pending;
+  }
+});
+
 it("releases an old API response after readback without restoring metadata or editing authority", async () => {
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
   vi.stubEnv("VITE_USE_MEDIA_API", "true");

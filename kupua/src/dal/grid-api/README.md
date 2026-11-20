@@ -283,7 +283,10 @@ CORS/CSP and auth independently; a local ES index does not make other writes loc
 ## Step-2 command boundary
 
 [`grid-commands.ts`](../../lib/grid-commands.ts) is separate from the read DAL and
-is connected at startup only in API mode with the temporary saved editing preference. `executeGridCommand` accepts `add-labels` or `remove-label`, a captured
+is connected at startup only in API mode with the temporary saved editing preference.
+It accepts label commands described here and the narrowly scoped `edit-metadata`
+command described under [U5 ordinary metadata](#u5-ordinary-metadata).
+`add-labels` or `remove-label` take a captured
 image ID, its retained resource links, and a nonempty label list or one exact label. It requires the
 matching per-image `edits` link, reads that metadata resource, and posts `{ data:
 labels }` only to its advertised labels URI on the discovered metadata origin.
@@ -401,39 +404,65 @@ owns startup preference, service discovery and retained bootstrap/site configura
 ## Step-6 bounded label execution
 
 `BATCH_POLICY` in [batch-execution.ts](../../lib/batch-execution.ts) owns the common limits: **100 actual
-target IDs, three command executions in flight, at least 250 ms between starts, and
-one waiting operation** behind the active operation. The store counts complete selected
+target IDs for Labels, no fixed start spacing, and at most two retained queue slots**
+across execution, waiting and confirmation. The default dispatch cap is three.
+The local tuning candidates use eight for connected Labels and five for one
+captured bulk ordinary-metadata action; grouped individual saves retain three.
+These are client bounds, not shared capacity decisions.
+Labels retain their slot through confirmation; guarded metadata can release its
+execution turn earlier without releasing its confirmation capacity. The store counts complete selected
 membership before consulting target metadata; it neither truncates targets nor hydrates
 an oversized edit. Ordinary selection display hydration remains independent and unchanged.
 All targets must be eligible. IDs, label and command links are captured at submission;
 waiting work is rechecked before execution. A command execution includes prerequisite
-reads and its possible write, so this is not a four-HTTP-requests/second certificate.
-Waiting targets reserve space in the existing 1,000-ID freshness map so permission
+reads and its possible write, so this is not a fixed request-rate or server-capacity certificate.
+Waiting targets reserve space in the 10,000-ID session freshness map so permission
 withdrawal received while waiting cannot be missed. Unchanged reservations are released
 on queue exit; newer authority/metadata evidence is retained. This issues no extra reads.
 
-The common queue serializes operations until commands and observation settle.
+`BATCH_POLICY.speed` contains the two speed controls: concurrency and minimum start
+spacing. The same policy owns command timeout, target/queue admission, observation
+limits and touched-ID capacity; changing speed does not change correctness rules.
+The mget protocol's request chunk size remains a DAL constraint, not an action limit.
+
+Application startup creates one queue and injects it into the connected editor store.
+Further connected edit families must borrow that same queue, not create a per-family
+scheduler. The store factory can still own a private queue for isolated consumers.
+A borrowing store disposes only its own operations; it cannot close the shared queue.
+Disposal stops unsent work and observation, while a submitted command keeps its slot
+until its outcome arrives. The common queue serializes write-execution groups. Labels
+and metadata without usable source evidence also wait for observation; the guarded
+metadata path below can overlap confirmation with a successor's execution.
 Uncertain or still-submitted same-image commands retain their freshness conflict protection.
 A 429 delays unsent starts for at least one second; post-dispatch 429 remains unknown
 and is never replayed. Authentication expiry or a blocked preparation stops unsent commands.
 Existing transport timeouts remain in force.
 
 Dispatch may start work for at most **120 seconds** from activation; at that boundary
-remaining unsent items stop. Observation keeps **one group, the existing 200-ID admission
-cap, three grouped mget attempts at least one second apart, and at most ten seconds
+remaining unsent items stop. Observation keeps **at most two groups sharing a 200-target
+admission budget, grouped mget attempts at least 500 ms apart per group, and at most ten seconds
 after dispatch settles, with a 130-second hard observation cap from activation**.
 Queue waiting does not start those clocks. One early read can verify and publish completed
 items while other targets wait; remaining attempts are reserved until dispatch settles.
-The final attempt waits until halfway from the preceding attempt to the remaining
-deadline, subject to the minimum interval, leaving time both for projection visibility
-and for its response. The attempt count and deadline are limits, not guarantees of visibility.
+Connected observation checks remaining targets at the minimum interval until verified
+or the deadline, without overlapping reads within a group. This permits at most twenty post-dispatch
+reads plus the early read per group under the current bounds, rather than stretching a third
+and final attempt across the window. It trades additional bounded read traffic for
+prompt confirmation; source writes remain ordered and bounded separately. Simulated observation
+retains its three-attempt limit. These bounds are not guarantees of visibility.
 All 100 IDs fit in one existing 200-ID mget request per attempt. Observation termination
 stops remaining unsent work; dispatched commands retain their eventual outcomes even
 after observation ends. Early canonical bodies can publish before the receipt's observation
 group settles. Newer browsing reads can supersede older evidence without being overwritten.
-Current standalone detail retains at most one full-projection follow-up. The document's
-1,000-touched-ID bound remains; stopped, never-started reservations are released without
+Each group retains at most one owner-qualified standalone full-projection follow-up. The document's
+10,000-touched-ID bound applies; stopped, never-started reservations are released without
 discarding newer permission or metadata evidence.
+
+The exact image read accepted as current may also supply its own server-provided
+edit links/actions when an untouched image has no edit timestamp. An unchanged
+follow-up must not leave that image read-only solely because the timestamp is absent.
+Older/unaccepted authority remains fenced, and a newer permission withdrawal still
+wins; this does not synthesize permissions or relax mutation authorization.
 
 Receipts expose progress and every bounded target outcome separately from observed state.
 Stop remaining affects only commands not yet started, including a waiting operation;
@@ -448,7 +477,85 @@ checks; a revoked capability remains revoked. Single-selection metadata uses the
 recovered selected body when its resident search-buffer copy is stale. This is a read
 recovery path, not mutation replay, a background polling loop or a global search refresh.
 
-These are adjustable prototype limits, not measured capacity or server protection from
+U5 metadata uses this same startup queue and operation lifecycle. Complete captured
+actions reserve freshness capacity before dispatch, then use groups of at most 100,
+each with the existing dispatch/readback deadlines. Reference-counted reservations
+prevent cancellation by one queued owner from releasing another's budget. Labels'
+100-target action limit is unchanged; it is not imposed on metadata propagation.
+The 10,000-distinct-image session budget refuses an action before writing when it
+cannot fit, without evicting existing stale-read protection. This is a prototype
+memory bound, not measured server capacity. Local speed evidence does not authorize shared rollout.
+
+At activation, the metadata owner co-admits up to 100 already-waiting single-image
+saves for distinct images into one execution/readback group. It stops collecting at
+a repeated image, a multi-target action or an unresolved command conflict; it adds
+no collection delay and never extends a captured group with later arrivals. Each
+save retains its own intent, receipt, reservation and revision acknowledgement.
+Stop removes only that save's unsent commands; submitted outcomes remain owned until
+settlement. A newer unsent Form revision can still supersede its earlier group member.
+
+Independent saves do not share image-local preparation refusals or early readback
+failures: the affected receipt remains failed/unavailable while siblings proceed.
+Disabled editing and session invalidation still stop unsent work. No failed read or
+mutation is automatically replayed. Ordinary bulk actions and Labels keep their
+existing stopping policy. A large action still waits for each non-final chunk's
+confirmation; only its final chunk can release execution early. This is not general
+large-action fairness or a priority scheduler.
+
+## U5 ordinary metadata
+
+`edit-metadata` reads the full singleton for original values and current edit authority,
+then reads owning edits immediately before PUT to the exact advertised metadata URI.
+Only supported ordinary fields are accepted. The replacement retains unrelated and
+domain overrides; values equal to originals remove that override, while text/list
+clears remain explicit when necessary. Date clearing is refused under GRID-025.
+Location changes only supplied components; list add/remove treats each pill literally.
+Filename fallback fills only a fresh missing description. This client's queue serializes
+same-image work but does not remove the accepted GRID-020 cross-client GET/PUT race.
+
+For an active/pending same-image chain, validated successful PUT content supplies
+a comparison fingerprint in the existing reserved freshness fact, not a display
+cache or future replacement body. The next executor captures that evidence before
+any await, including before disposal can release its reservation. Its owning GET
+must match before constructing replacement FROM THAT GET. A successful but differing
+GET can be rechecked at most three times, 100ms apart, under one 15-second source-read
+deadline. Failed reads are not replayed; persistent mismatch stays unsent, and an
+uncertain mutation is never replayed. Authority and full original reads remain required.
+
+Fingerprints sort object keys, treat Keywords/People as sets and valid dates as
+instants, but retain Subjects order, exact text and absent-versus-explicit-clear
+distinctions. Ambiguous null/unsupported evidence cannot authorize early release.
+An unreadable successful PUT body remains acknowledged, not rejected or unknown;
+it installs a missing-evidence fence. Accepted canonical raw overrides may fill
+that fence after normal confirmation. Without comparable evidence the queued
+successor remains unsent rather than blindly accepting a stale replacement base.
+
+Only a final metadata execution group whose items are acknowledged/unchanged with
+usable evidence can release its execution turn before confirmation. Receipts,
+draft revisions, Stop and reservations remain owned until observation settles.
+Evidence is stripped from receipt history and cleared at the last reservation.
+Late older reads still pass normal issuance/version fences; rejected older snapshots
+are reread. An obsolete same-field confirmation ends as superseded only after a
+returned canonical override object matches a newer acknowledged write's evidence.
+This does not publish the obsolete value or label supersession as observation.
+
+The comparison guarantee is limited to active/pending save chains. After the last
+reservation, a later independent save has no retained source witness and the existing
+GET/PUT limitations remain. No general same-client or cross-client lost-update
+guarantee, new backend contract, conditional write or alternate source is introduced.
+
+Metadata uses exact command-computed postconditions with existing bounded canonical
+readback/publication. Acknowledgement does not mean visibility, and observation cannot
+turn an unknown response into an acknowledgement. Form uses a 600ms typing debounce
+and immediate explicit/blur commits, retaining revisioned
+intent outside mounted rows, coalesces unsent revisions and never replays an unchanged
+failed/uncertain draft on blur. Details commits are explicit. Batch arrows retain their
+captured operation identity even when membership changes. Upload follow-ups are distinct
+from ingestion, captured per submission and never reconstructed from restored batches.
+All writes still use the one startup-captured Allow editing switch; no new flag,
+backend endpoint, direct-ES writer or live/shared-system permission is introduced.
+
+These are prototype limits, not measured capacity or server protection from
 a broken client, multiple tabs or other writers. Any future change must compose dispatch,
 readback and memory bounds rather than raising a target constant alone. GRID-019 covers both Edits and the Photoshoots GSI. A conservative
 operator trial requires separate explicit activation; general shared activation requires

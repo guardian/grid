@@ -2,7 +2,7 @@ import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-s
 import type { LabelCommand, GridCommandResult } from "./grid-commands";
 import { findLink } from "@/dal/grid-api/argo";
 import type { Image } from "@/types/image";
-import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, captureUnsentLabelTargets, ensureImageRead, fullProjectionMatches, getImageAvailability, isLabelAuthorityCurrent, recordLabelOutcome, releaseLabelObservation } from "./image-read-freshness";
+import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, captureUnsentLabelTargets, ensureImageRead, fullProjectionMatches, getImageAvailability, getMetadataWriteWitness, hasNewerImageOperation, isLabelAuthorityCurrent, recordLabelOutcome, recordObservedMetadataWitness, releaseLabelObservation } from "./image-read-freshness";
 import { BATCH_POLICY, createBatchExecution } from "./batch-execution";
 
 export interface LabelTarget {
@@ -42,13 +42,15 @@ export function labelTargetCounts(context: LabelEditContext) {
   return counts;
 }
 
-export interface LabelReceipt {
-  readonly intent: Readonly<LabelIntent>;
+export interface ImageEditReceipt<Intent> {
+  readonly intent: Readonly<Intent>;
   readonly mode: "disconnected" | "simulated" | "connected";
   readonly counts: Readonly<{ selected: number; eligible: number; ineligible: number; unresolved: number; unavailable: number }>;
   readonly blocked?: "read-only" | "capabilities" | "unsupported" | "busy" | "target-limit" | "freshness-capacity" | "conflict";
   readonly items: readonly Readonly<LabelItem>[];
 }
+
+export type LabelReceipt = ImageEditReceipt<LabelIntent>;
 
 interface LabelItem {
   imageId: string;
@@ -77,23 +79,53 @@ export function createLabelOperation(
   mode: "simulated" | "connected" = "simulated",
   execution?: { wait?: Promise<void>; pacing: { nextStart: number } },
 ) {
+  return createImageEditOperation<LabelIntent, LabelCommand>({
+    valid: validLabelIntent,
+    dispatchConcurrency: 8,
+    normalize: input => ({ ...input, label: input.action === "remove" ? input.label : input.label.trim() }),
+    unsupported: intent => intent.action === "remove" && intent.targetIds.length !== 1,
+    command: (intent, imageId, resource) => ({
+      ...(intent.action === "remove" ? { operation: "remove-label" as const, label: intent.label }
+        : { operation: "add-labels" as const, labels: [intent.label] }), imageId, resource,
+    }),
+    matches: (image, intent) => {
+      const labels = image.userMetadata?.labels;
+      return Array.isArray(labels) && (intent.action === "remove" ? !labels.includes(intent.label) : labels.includes(intent.label));
+    },
+  }, simulate, observation, mode, execution);
+}
+
+export function createImageEditOperation<Intent extends { targetIds: readonly string[] }, Command extends { imageId: string }>(
+  behavior: {
+    valid: (intent: Intent) => boolean;
+    normalize: (intent: Intent) => Intent;
+    unsupported: (intent: Intent) => boolean;
+    command: (intent: Intent, imageId: string, resource: NonNullable<LabelTarget["resource"]>) => Command;
+    matches: (image: Image, intent: Intent, result: GridCommandResult | undefined) => boolean;
+    metadataWitness?: (image: Image, intent: Intent) => string | undefined;
+    dispatchConcurrency?: number;
+  },
+  simulate?: (command: Command) => Promise<GridCommandResult>,
+  observation?: LabelObservation,
+  mode: "simulated" | "connected" = "simulated",
+  execution?: { wait?: Promise<void>; pacing: { nextStart: number }; continueAfterLocalBlock?: boolean },
+) {
   const batched = mode === "connected";
-  let receipt: LabelReceipt | undefined;
+  let receipt: ImageEditReceipt<Intent> | undefined;
   const listeners = new Set<() => void>();
   let observe = () => {};
   let cancelObservation = () => {};
   let operationId: number | undefined;
   const outcomes = new Map<string, GridCommandResult>();
   let stopRemaining = () => {};
+  let stopTargets = (_ids: readonly string[]) => {};
   let finishDispatch = () => {};
 
   function matchesLabel(image: Image): boolean {
-    const labels = image.userMetadata?.labels;
-    return Array.isArray(labels) && (receipt!.intent.action === "remove"
-      ? !labels.includes(receipt!.intent.label) : labels.includes(receipt!.intent.label));
+    return behavior.matches(image, receipt!.intent, receipt!.items.find(item => item.imageId === image.id)?.result);
   }
 
-  function publish(next: LabelReceipt) {
+  function publish(next: ImageEditReceipt<Intent>) {
     receipt = Object.freeze(next);
     for (const listener of listeners) listener();
   }
@@ -122,6 +154,7 @@ export function createLabelOperation(
     const verified = new Map<string, Image>();
     const published = new Set<string>();
     const unavailable = new Set<string>();
+    const superseded = new Set<string>();
     let fullAttempted = false;
     let fullPending: { image: Image; owner: LabelStandaloneOwner } | undefined;
     let settled = false;
@@ -138,7 +171,14 @@ export function createLabelOperation(
       const accepted = acceptObservedImages([...verified.values()].filter(image => !published.has(image.id)
         && (observation!.publicationReady?.(image) ?? true)), operationId!);
       if (accepted.length) observation!.publishImages(accepted);
-      for (const image of accepted) published.add(image.id);
+      for (const image of accepted) {
+        published.add(image.id);
+        recordObservedMetadataWitness(operationId!, image.id, behavior.metadataWitness?.(image, receipt!.intent));
+      }
+      for (const image of verified.values()) {
+        if (!published.has(image.id) && hasNewerImageOperation(image.id, operationId!)
+          && (observation!.publicationReady?.(image) ?? true)) verified.delete(image.id);
+      }
     }
 
     finishDispatch = () => {
@@ -168,7 +208,7 @@ export function createLabelOperation(
       publish({ ...receipt, items: Object.freeze(receipt.items.map(item => Object.freeze({
         ...item,
         ...(item.observation === "pending" && {
-          observation: published.has(item.imageId) ? "observed" as const : unavailable.has(item.imageId) ? "unavailable" as const
+          observation: published.has(item.imageId) ? "observed" as const : superseded.has(item.imageId) ? "superseded" as const : unavailable.has(item.imageId) ? "unavailable" as const
             : verified.has(item.imageId) ? "superseded" as const : reason,
         }),
       }))) });
@@ -185,7 +225,7 @@ export function createLabelOperation(
       if (settled || running || !receipt) return;
       if (dispatching && attempts > 0) return;
       const queued = receipt.items.some(item => item.state === "queued");
-      const ids = receipt.items.filter(item => !verified.has(item.imageId) && !unavailable.has(item.imageId)
+      const ids = receipt.items.filter(item => !verified.has(item.imageId) && !unavailable.has(item.imageId) && !superseded.has(item.imageId)
         && (item.state === "accepted-awaiting-visibility" || item.state === "unchanged" || item.state === "unknown"))
         .map(item => item.imageId);
       const submitted = queued || receipt.items.some(item => item.state === "submitted");
@@ -193,11 +233,8 @@ export function createLabelOperation(
         if (!submitted) finish("unavailable");
         return;
       }
-      if (attempts === BATCH_POLICY.observationAttempts) { finish("deadline"); return; }
-      const interval = batched && !dispatching && attempts === BATCH_POLICY.observationAttempts - 1
-        ? Math.max(BATCH_POLICY.observationIntervalMs, (deadlineAt - lastAttempt) / 2)
-        : BATCH_POLICY.observationIntervalMs;
-      const delay = lastAttempt + interval - Date.now();
+      if (!batched && attempts === BATCH_POLICY.observationAttempts) { finish("deadline"); return; }
+      const delay = lastAttempt + BATCH_POLICY.observationIntervalMs - Date.now();
       if (delay > 0) {
         clearTimeout(retry);
         retry = setTimeout(() => observe(), delay);
@@ -225,6 +262,9 @@ export function createLabelOperation(
                 owner.unavailable();
               }
             } else verified.set(image.id, image);
+          } else if (hasNewerImageOperation(image.id, operationId!)) {
+            const witness = getMetadataWriteWitness(image.id);
+            if (typeof witness === "string" && behavior.metadataWitness?.(image, receipt.intent) === witness) superseded.add(image.id);
           }
         }
         if (fullPending) {
@@ -245,7 +285,14 @@ export function createLabelOperation(
         if (batched) publishVerified();
         running = false;
         observe();
-      }, () => { if (!settled) finish("unavailable"); });
+      }, () => {
+        if (settled) return;
+        if (execution?.continueAfterLocalBlock && dispatching) {
+          for (const id of ids) unavailable.add(id);
+          running = false;
+          observe();
+        } else finish("unavailable");
+      });
     };
     publish({ ...receipt, items: Object.freeze(receipt.items.map(item => Object.freeze({
       ...item, observation: "pending" as const,
@@ -260,16 +307,16 @@ export function createLabelOperation(
     },
     cancelObservation: () => cancelObservation(),
     stopRemaining: () => stopRemaining(),
-    async confirm(input: LabelIntent, targets: ReadonlyMap<string, LabelTarget>): Promise<boolean> {
+    stopTargets: (ids: readonly string[]) => stopTargets(ids),
+    async confirm(input: Intent, targets: ReadonlyMap<string, LabelTarget>): Promise<boolean> {
       if (receipt) return false;
-      const label = input.action === "remove" ? input.label : input.label.trim();
-      if (!validLabelIntent(input)) return false;
-      const intent = Object.freeze({ ...input, label, targetIds: Object.freeze([...new Set(input.targetIds)]) });
+      if (!behavior.valid(input)) return false;
+      const intent = Object.freeze({ ...behavior.normalize(input), targetIds: Object.freeze([...new Set(input.targetIds)]) });
       const counts = labelTargetCounts({ targetIds: intent.targetIds, targets });
       let blocked: LabelReceipt["blocked"] = import.meta.env.VITE_USE_MEDIA_API !== "true" ? "read-only"
         : counts.ineligible || counts.unresolved || counts.unavailable ? "capabilities"
         : simulate && (batched ? intent.targetIds.length > BATCH_POLICY.maxTargets
-          : intent.action === "remove" && intent.targetIds.length !== 1) ? "target-limit" : undefined;
+          : behavior.unsupported(intent)) ? "target-limit" : undefined;
       let restoreUnsent: ReturnType<typeof captureUnsentLabelTargets> | undefined;
       if (simulate && observation && !blocked && !execution?.wait) {
         if (batched) restoreUnsent = captureUnsentLabelTargets(intent.targetIds);
@@ -277,11 +324,8 @@ export function createLabelOperation(
         if (typeof admission === "number") operationId = admission;
         else blocked = admission;
       }
-      const commands: LabelCommand[] = simulate && !blocked ? intent.targetIds.map((imageId) => ({
-        ...(intent.action === "remove" ? { operation: "remove-label" as const, label }
-          : { operation: "add-labels" as const, labels: [label] }), imageId,
-        resource: { links: targets.get(imageId)!.resource!.links.map(({ rel, href }) => ({ rel, href })) },
-      })) : [];
+      const commands: Command[] = simulate && !blocked ? intent.targetIds.map(imageId => behavior.command(intent, imageId,
+        { links: targets.get(imageId)!.resource!.links.map(({ rel, href }) => ({ rel, href })) })) : [];
       publish({
         intent,
         mode: simulate ? mode : "disconnected",
@@ -313,23 +357,29 @@ export function createLabelOperation(
             return true;
           }
         }
-        const execute = async (command: LabelCommand) => {
+        const execute = async (command: Command) => {
           let result: GridCommandResult;
           try { result = await simulate(command); }
           catch { result = { outcome: "unknown" }; }
-          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, result.outcome);
-          recordOutcome(command.imageId, result);
+          const metadataWitness = "operation" in command && command.operation === "edit-metadata"
+            && (result.outcome === "acknowledged" || result.outcome === "unchanged") ? result.metadataWitness ?? null : undefined;
+          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, result.outcome, metadataWitness);
+          const reported = { ...result };
+          if ("metadataWitness" in reported) delete reported.metadataWitness;
+          recordOutcome(command.imageId, reported);
           return result;
         };
         if (batched) {
           const dispatch = createBatchExecution(commands, async command => {
             const result = await execute(command);
-            return { stop: result.outcome === "blocked" || "status" in result && (result.status === 401 || result.status === 419),
+            return { stop: result.outcome === "blocked" && (!execution?.continueAfterLocalBlock || result.reason === "disabled" || result.reason === "reload-required")
+              || "status" in result && (result.status === 401 || result.status === 419),
               throttled: "status" in result && result.status === 429 };
           }, {
             stopped: unsent => {
               if (operationId !== undefined) restoreUnsent?.(operationId, unsent.map(command => command.imageId));
-              publish({ ...receipt!, items: Object.freeze(receipt!.items.map(item => item.state === "queued"
+              const stoppedIds = new Set(unsent.map(command => command.imageId));
+              publish({ ...receipt!, items: Object.freeze(receipt!.items.map(item => item.state === "queued" && stoppedIds.has(item.imageId)
                 ? Object.freeze({ ...item, state: "stopped" as const, observation: undefined }) : item)) });
               observe();
             },
@@ -337,8 +387,12 @@ export function createLabelOperation(
               publish({ ...receipt!, items: Object.freeze(receipt!.items.map(item => item.imageId === command.imageId
                 ? Object.freeze({ ...item, state: "submitted" as const }) : item)) });
             },
-          }, execution?.pacing ?? { nextStart: 0 });
+          }, execution?.pacing ?? { nextStart: 0 }, behavior.dispatchConcurrency);
           stopRemaining = dispatch.stopRemaining;
+          stopTargets = ids => {
+            const selected = new Set(ids);
+            dispatch.stopMatching(command => selected.has(command.imageId));
+          };
           startObservation();
           dispatch.start();
           await dispatch.done;

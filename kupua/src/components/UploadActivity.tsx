@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { gridUploadsEnabled } from "@/lib/upload-commands";
 import { getGridSessionPermissions, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
@@ -7,7 +7,8 @@ import { pushNavigate } from "@/lib/orchestration/search";
 import { setPrevParamsSerialized } from "@/lib/orchestration/search";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
-import { activeUploadPhases, attentionUploadPhases, submitUploadFiles, useUploadJobsStore, type UploadBatch } from "@/stores/upload-jobs-store";
+import { uploadPending, uploadAttention, submitUploadFiles, useUploadJobsStore, useUploadPresets, type UploadBatch } from "@/stores/upload-jobs-store";
+import { MetadataEditorContext } from "./MetadataEditing";
 import { UploadProgress } from "./UploadProgress";
 import { formatRecentGridDate } from "@/lib/format-grid-date";
 import { useUploadLayoutStore } from "@/stores/upload-layout-store";
@@ -181,24 +182,39 @@ export function UploadEntry({ withActivity = false, onSubmitted }: { withActivit
 }
 
 export function UploadFilePrompt() {
+  const labels = useUploadPresets(state => state.labels);
+  const [draft, setDraft] = useState("");
+  const editor = useContext(MetadataEditorContext);
+  const add = () => {
+    const value = draft.trim();
+    if (!value || !editor.getState().connected) return;
+    useUploadPresets.setState({ labels: [...new Set([...labels, value])] });
+    setDraft("");
+  };
   return <section aria-label="File upload" className="upload-file-prompt">
     <div className="upload-prompt-message">
       <span>Either drag 'n drop images onto this screen or click Upload to get your images on the Grid.</span>
     </div>
     <div className="upload-preset-labels">
-      <span>Apply label e.g. culture</span>
-      <button type="button" disabled aria-label="Add label to all uploads" title="Add label to all uploads (not connected yet)" className="upload-preset-add">
+      <input aria-label="Preset label" placeholder="Label" value={draft} disabled={!editor.getState().connected}
+        className="min-w-0 max-w-48 bg-grid-bg border border-grid-border px-1" onChange={event => setDraft(event.target.value)}
+        onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); add(); } }} />
+      <button type="button" disabled={!draft.trim() || !editor.getState().connected} onClick={add} aria-label="Add label to all uploads" title="Add preset label" className="upload-preset-add">
         <svg viewBox="0 0 24 24" fill="currentColor" className="size-5" aria-hidden="true">
           <path fillRule="evenodd" d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5Zm6 4v4H7v2h4v4h2v-4h4v-2h-4V7h-2Z" clipRule="evenodd" />
         </svg>
       </button>
-      <span>to all uploads</span>
+      <span>on new uploads</span>
+      {labels.map(label => <span key={label} className="inline-flex items-center gap-1 text-xs">{label}<button type="button" aria-label={`Remove preset ${label}`}
+        title={`Remove preset ${label}`} onClick={() => useUploadPresets.setState({ labels: labels.filter(value => value !== label) })}>
+        <svg width="14" height="14" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+      </button></span>)}
     </div>
   </section>;
 }
 
-const outstanding = (batch: UploadBatch) => batch.attempts.some(attempt => activeUploadPhases.has(attempt.phase)
-  || attentionUploadPhases.has(attempt.phase) && !attempt.notificationDismissed);
+const outstanding = (batch: UploadBatch) => batch.attempts.some(attempt => uploadPending(attempt)
+  || uploadAttention(attempt) && !attempt.notificationDismissed);
 const batchReference = (id: string) => `Batch ${id.replace(/^local-/, "").slice(0, 8)}`;
 
 export function UploadBatchSelector({ batch }: { batch?: string }) {

@@ -1,6 +1,7 @@
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import type { GridCommandResult } from "./grid-commands";
+import { BATCH_POLICY } from "./batch-execution";
 
 interface ReadEvidence {
   issued: number;
@@ -16,20 +17,24 @@ interface ImageFact {
   acceptedRead: number;
   authorityRead: number;
   projection?: string;
+  metadataWitness?: string | null;
   availability?: { state: NonNullable<Image["__availability"]>; issued: number };
 }
 
 const facts = new Map<string, ImageFact>();
+const queuedReservations = new Map<string, number>();
 const evidence = new WeakMap<object, ReadEvidence>();
 const unavailableAuthority: EnrichmentFields = { resource: { links: [] }, actions: [] };
 let sequence = 0;
-let activeGroup: number | undefined;
+const activeGroups = new Map<number, readonly string[]>();
 let orderingRevision = 0;
 
 export function captureImageRead(): number { return ++sequence; }
 export function getImageReadSequence(value: object | undefined): number { return value ? evidence.get(value)?.issued ?? 0 : 0; }
 export function hasImageFences(): boolean { return facts.size > 0; }
 export function hasImageFence(id: string): boolean { return facts.has(id); }
+export function getMetadataWriteWitness(id: string): string | null | undefined { return facts.get(id)?.metadataWitness; }
+export function hasNewerImageOperation(id: string, operation: number): boolean { return (facts.get(id)?.operation ?? 0) > operation; }
 export function getOrderingRevision(): number { return orderingRevision; }
 export function hasOrderingUncertainty(): boolean { return facts.size > 0; }
 
@@ -37,7 +42,7 @@ export function getImageAvailability(id: string): Image["__availability"] { retu
 
 export function recordImageAvailability(ids: readonly string[], state: NonNullable<Image["__availability"]>): void {
   const unique = new Set(ids);
-  if (facts.size + [...unique].filter(id => !facts.has(id)).length > 1_000) throw new Error("Image freshness capacity exceeded");
+  if (facts.size + [...unique].filter(id => !facts.has(id)).length > BATCH_POLICY.maxTouchedImages) throw new Error("Image freshness capacity exceeded");
   const issued = ++sequence;
   for (const id of unique) {
     const fact = facts.get(id) ?? { operation: 0, command: "blocked", hasFloor: false, acceptedRead: 0, authorityRead: 0 };
@@ -99,19 +104,28 @@ export function withholdImageAuthority(id: string): void {
 }
 
 export function watchQueuedLabelTargets(ids: readonly string[]): (() => void) | undefined {
-  const missing = [...new Set(ids)].filter(id => !facts.has(id));
-  if (facts.size + missing.length > 1_000) return undefined;
-  const reservations = new Map<string, ImageFact>();
+  const unique = [...new Set(ids)];
+  const missing = unique.filter(id => !facts.has(id));
+  if (facts.size + missing.length > BATCH_POLICY.maxTouchedImages) return undefined;
   for (const id of missing) {
     const fact: ImageFact = { operation: 0, command: "blocked", hasFloor: false, acceptedRead: 0, authorityRead: 0 };
     facts.set(id, fact);
-    reservations.set(id, fact);
   }
+  for (const id of unique) queuedReservations.set(id, (queuedReservations.get(id) ?? 0) + 1);
+  let released = false;
   return () => {
-    for (const [id, fact] of reservations) {
-      if (facts.get(id) === fact && !fact.operation && !fact.hasFloor && !fact.authorityRead && !fact.availability) facts.delete(id);
+    if (released) return;
+    released = true;
+    for (const id of unique) {
+      const count = (queuedReservations.get(id) ?? 1) - 1;
+      if (count) queuedReservations.set(id, count);
+      else {
+        queuedReservations.delete(id);
+        const fact = facts.get(id);
+        if (fact) fact.metadataWitness = undefined;
+        if (fact && !fact.operation && !fact.hasFloor && !fact.authorityRead && !fact.availability) facts.delete(id);
+      }
     }
-    reservations.clear();
   };
 }
 
@@ -125,42 +139,56 @@ export function captureUnsentLabelTargets(ids: readonly string[]) {
       const fact = facts.get(id);
       if (fact?.operation !== operation || fact.command !== "submitted") continue;
       const prior = previous.get(id);
-      if (!prior && !fact.hasFloor && !fact.authorityRead && !fact.availability) facts.delete(id);
+      if (!prior && !fact.hasFloor && !fact.authorityRead && !fact.availability && !queuedReservations.has(id)) facts.delete(id);
       else {
         fact.operation = prior?.operation ?? 0;
         fact.command = prior?.command ?? "blocked";
       }
+      previous.delete(id);
     }
-    previous.clear();
+    if (!unsent.length) previous.clear();
   };
 }
 
+export function hasImageCommandConflict(id: string): boolean {
+  const fact = facts.get(id);
+  return fact?.command === "submitted" || fact?.command === "unknown";
+}
+
 export function admitLabelObservation(ids: readonly string[]): number | "busy" | "target-limit" | "freshness-capacity" | "conflict" {
-  if (ids.length > 200) return "target-limit";
-  if (activeGroup !== undefined) return "busy";
-  if (ids.some(id => {
-    const fact = facts.get(id);
-    return fact?.command === "submitted" || fact?.command === "unknown";
-  })) return "conflict";
-  if (facts.size + ids.filter(id => !facts.has(id)).length > 1_000) return "freshness-capacity";
+  if (ids.length > BATCH_POLICY.maxObservationTargets) return "target-limit";
+  if (activeGroups.size >= BATCH_POLICY.maxQueued + 1
+    || [...activeGroups.values()].reduce((total, targets) => total + targets.length, ids.length) > BATCH_POLICY.maxObservationTargets) return "busy";
+  if (ids.some(hasImageCommandConflict)) return "conflict";
+  if (facts.size + ids.filter(id => !facts.has(id)).length > BATCH_POLICY.maxTouchedImages) return "freshness-capacity";
   const operation = ++sequence;
   for (const id of ids) {
     const previous = facts.get(id);
     facts.set(id, { hasFloor: false, acceptedRead: 0, authorityRead: 0, ...previous,
       operation, command: "submitted" });
   }
-  activeGroup = operation;
+  activeGroups.set(operation, [...ids]);
   if (ids.length > 0) orderingRevision++;
   return operation;
 }
 
-export function recordLabelOutcome(operation: number, id: string, outcome: GridCommandResult["outcome"]): void {
+export function recordLabelOutcome(operation: number, id: string, outcome: GridCommandResult["outcome"], metadataWitness?: string | null): void {
   const fact = facts.get(id);
-  if (fact?.operation === operation) fact.command = outcome;
+  if (fact?.operation === operation) {
+    fact.command = outcome;
+    if (metadataWitness !== undefined) fact.metadataWitness = queuedReservations.has(id) ? metadataWitness : undefined;
+  }
+}
+
+export function recordObservedMetadataWitness(operation: number, id: string, witness: string | undefined): void {
+  const fact = facts.get(id);
+  if (fact?.operation === operation && fact.metadataWitness === null && witness !== undefined && queuedReservations.has(id)) {
+    fact.metadataWitness = witness;
+  }
 }
 
 export function releaseLabelObservation(operation: number): void {
-  if (activeGroup === operation) activeGroup = undefined;
+  activeGroups.delete(operation);
 }
 
 export function protectsImageOmission(id: string, issued: number): boolean {
@@ -183,7 +211,7 @@ export function isImageMetadataCurrent(image: Image, ...overlays: (EnrichmentFie
 
 export function needsImageRead(image: Image): boolean {
   const fact = facts.get(image.id);
-  if (!fact || fact.availability || fact.operation === activeGroup
+  if (!fact || fact.availability || activeGroups.has(fact.operation)
     || (!fact.operation && !fact.authorityRead && !fact.hasFloor)) return false;
   const stamp = evidence.get(image);
   return !isImageMetadataCurrent(image) || !stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead);
@@ -204,7 +232,7 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
   if (!stamp || stamp.issued < fact.operation) return retained;
   if (stamp.issued === fact.acceptedRead) return image;
   const projection = JSON.stringify([image.metadata, image.userMetadata, image.usageRights]);
-  if (fact.hasFloor && (stamp.version === undefined || fact.floor === undefined || stamp.version <= fact.floor)) {
+  if (fact.hasFloor && (stamp.version === undefined || (fact.floor !== undefined && stamp.version <= fact.floor))) {
     const sameProjection = stamp.issued >= fact.acceptedRead && stamp.version === fact.floor && projection === fact.projection;
     if (!sameProjection) return retained;
   }
@@ -218,7 +246,8 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
 }
 
 export function acceptObservedImages(images: Image[], operation: number): Image[] {
-  return images.filter(image => facts.get(image.id)?.operation === operation && acceptImageRead(image) === image);
+  return images.filter(image => (facts.get(image.id)?.operation === operation || activeGroups.get(operation)?.includes(image.id))
+    && acceptImageRead(image) === image);
 }
 
 export function acceptImageOverlay(id: string, overlay: EnrichmentFields, current?: EnrichmentFields): EnrichmentFields {
@@ -228,7 +257,7 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
   const stamp = evidence.get(overlay);
   if (!stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead)) return current ?? unavailableAuthority;
   fact.authorityRead = stamp.issued;
-  if (fact.hasFloor && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)) {
+  if (fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)) {
     const withheld = { ...overlay, resource: { links: [] }, actions: [] };
     evidence.set(withheld, stamp);
     return withheld;
@@ -247,7 +276,7 @@ export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields
     const stamp = overlay && evidence.get(overlay);
     if (overlay && stamp && stamp.issued >= latest) {
       latest = stamp.issued;
-      accepted = fact.hasFloor && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)
+      accepted = fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)
         ? unavailableAuthority : overlay;
     }
   }
@@ -256,6 +285,7 @@ export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields
 
 export function resetImageFreshnessForTests(): void {
   facts.clear();
-  activeGroup = undefined;
+  queuedReservations.clear();
+  activeGroups.clear();
   orderingRevision = 0;
 }

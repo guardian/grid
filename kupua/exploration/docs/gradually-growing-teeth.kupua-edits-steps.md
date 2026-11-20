@@ -1,5 +1,13 @@
 # Gradually Growing Teeth: Kupua Editing Steps
 
+**Status, 20 November:** the agreed metadata editing implementation is done:
+individual Form and Details saves, bounded selected metadata and Labels, and
+Upload batch arrows and follow-ups. This closes implementation in that scope,
+not all future operations below. Pre-commit Upload messaging, the full browser
+gate and shared-deployment decisions remain open. Cross-user conflict behavior
+is a review question, not a new guarantee or a policy change. See the
+[performance summary](editing-performance-evidence.md#executive-summary-20-november).
+
 **Proposed execution plan, 2 November 2026.** Requested scope: "Everything and then some",
 not only metadata fields. This document authorizes no implementation, shared-environment
 writes, safeguard changes or deployment. Each step is a separately selectable work unit;
@@ -14,6 +22,14 @@ was subsequently implemented at its bounded label scope.
 
 ## 0. The Recommendation
 
+### Cross-workflow performance evidence
+
+The [editing performance plan](editing-performance-plan.md) owns incremental tuning
+questions, exact-file/reset comparisons and the path from evidence to operation/service
+policy. Its [cumulative ledger](editing-performance-evidence.md) preserves results and
+open decisions across sessions. Use those before starting another benchmark; this
+capability plan still owns activation, correctness and destructive-operation prerequisites.
+
 ### Current status and shared ownership (16 November 2026)
 
 The numbering is a capability map, not the order in which work was done. **Done**
@@ -26,22 +42,26 @@ own the Upload-specific evidence and remaining work.
 | --- | --- | --- |
 | Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
 | Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions; batching currently covers labels, not every command. |
-| Steps 7-8 | Connected labels; ordinary metadata and collection controls prepare Not sent intent in Search/detail. Upload Form has retained unsent drafts. | Archive and collection writes; shared ordinary metadata commands, observation and publication; Step 8's configured-domain editors remain separate. |
+| Steps 7-8 | Connected labels and U5 ordinary metadata; explicit Search/detail commits, Form autosave and shared observation/publication. | Archive and collection writes; configured-domain editors and Subjects remain separate. |
 | Steps 9-11 | Existing rights/lease display and category reads; no connected editors or template execution. | Lease and rights operations and their side effects; templates separately selected and deferred for Upload. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
 | Steps 12, 14, 16, 17, 20 | Some membership, action and photoshoot presentation is prepared only. | Their respective commands, delivery and acceptance are not complete. |
-| Step 15 / Upload | U1, U3, U4, U2 and U4.5 delivered ingestion, local batches, Form and navigation at their recorded scopes. | U5-U8: metadata and other required editing, propagation and parity acceptance. |
+| Step 15 / Upload | U1-U5 delivered ingestion, local batches, Form, navigation, ordinary metadata and captured propagation at their recorded scopes. | U6-U8: other required editing and final parity acceptance. |
 | Steps 18-19, 21-22 | No completion claimed for privileged cleanup, takedown, parity rollout or beyond-Kahuna capabilities. | Separately select and authorize the relevant destructive, integration and follow-on work. |
 
-**Next candidate, not automatic authorization:** select Upload U5 together with the
-ordinary-metadata portion of Step 8. Build the authoritative metadata operation once
-for Form and the existing single/multi-image panels; U5 adds Form pause/blur saves,
-upper-batch arrows, filename fallback and preset-label follow-ups. Preserve their
-different interaction and target scopes. Step 8's configured-domain editors are
-outside the selected Upload scope and should not silently expand U5. U5 still needs
-an explicit decision on batch/freshness capacity: the existing 100-label ceiling is
-not an approved Upload limit. This recommendation is not a new conflict API,
-deployment approval or permission for live writes.
+**U5 coordination:** Upload and the ordinary-metadata portion of Step 8 share one
+authoritative metadata operation for Form and existing single/multi-image panels.
+Form pause/blur saves, upper-batch arrows, filename fallback and preset-label follow-ups
+retain their different interaction and target scopes. Configured-domain editors
+remain outside U5. This implementation is not deployment approval, a new conflict
+API or permission for live writes.
+
+**Selected U5 integration, 18 November:** ordinary metadata, Form autosave, upper-batch
+arrows and upload follow-ups share startup admission/pacing. Speed remains unchanged.
+Metadata actions reserve complete captured membership, execute in groups of 100 and
+retain freshness protection within a 10,000-image session budget. Cold review, repairs
+and full gates are complete; local tuning remains separate. The Upload U5 section
+owns scope and validation evidence.
 
 **Build a real editor with a disconnected submission path, then connect one complete operation.
 Do not build every button first, and do not enable every backend write first.**
@@ -1014,7 +1034,7 @@ remains the source reference; it is not Kupua's completion record.
 | Description | Multiline, independent Overwrite/Add before/Add after drafts; string. |
 | Special instructions | Multiline user addition only; upstream Usage instructions remain a separate read-only value. |
 | By, Credit, Copyright | Text entry; Credit uses the existing suggestion provider, other fields stay plain textboxes without invented catalogs. |
-| Taken on | Numeric day/month/year/time/millisecond groups with auto-selection, digit-group navigation, whole-field clear and a separate whole-second native calendar. Existing fractions survive unchanged/reverted entry; changing other date/time groups resets them to zero, while manual fraction edits remain possible. Mixed dates initially show italic Multiple dates; activation reveals/focuses the groups, while trash clears directly for all targets. Incomplete input cannot clear. Existing ambiguous-hour offset handling and formatted readout remain; prepares ISO instant or explicit empty clear. |
+| Taken on | Numeric day/month/year/time/millisecond groups with auto-selection, digit-group navigation and a separate whole-second native calendar. Existing fractions survive unchanged/reverted entry; changing other date/time groups resets them to zero, while manual fraction edits remain possible. Mixed dates initially show italic Multiple dates; activation reveals/focuses the groups. Clearing is temporarily disabled under [GRID-025](bug-backlog.md#grid-025), including empty mixed-date submission. Existing ambiguous-hour offset handling and formatted readout remain; prepares a valid ISO instant only. |
 | Image type | Select from configured image types; hidden without a catalog. Mixed placeholder differs from an explicit Unknown/clear choice. |
 | Location | One four-component form. Intent contains only changed components. Trashcan actions explicitly mark individual mixed components for clearing; untouched mixed components are preserved. Italic `Multiple cities`-style placeholders denote differing values, without the parentheses used in comma-separated reading text. There is no whole-location Clear action. |
 | People, Keywords | Existing editable-pill presentation; named add/remove preparation. |
@@ -1071,11 +1091,19 @@ last-writer-wins, not a universal commutative-operation guarantee.
 
 **Depends on:** step 5; step 6 for batch fields; a documented concurrency choice.
 
-**Presentation brought forward, execution not implemented.** The ordinary-field UI
-register under Step 7 is complete at its stated preparation-only scope. The commands,
-fresh original/override reads and merges, reset behavior, publication and configured-domain
-schema/editors described below remain future work. Subjects editing is separately
+**Ordinary metadata connected through U5; configured-domain editors remain excluded.**
+Ordinary fields use fresh original/override reads, intended-field merges and shared
+publication. Equality with an original removes that override; no separate Reset UI
+is introduced. The configured-domain schema/editors described below remain future work.
+Subjects editing is separately
 backlogged as KUP-051; its existing backend support does not imply a connected control.
+
+**Temporary date restriction (operator, 18 November 2026):** [GRID-025](bug-backlog.md#grid-025)
+records that the backend cannot explicitly clear an embedded Taken on date. Clearing
+is disabled in Form and single/multi-image Details; setting/replacing dates is connected
+through U5. A separately authorized backend PR
+and verified deployed support must precede re-enabling it. The clear requirements
+below remain the target capability, not a claim that today's backend supports dates.
 
 **Related follow-up:** when the shared list/override boundary is selected, assess
 [KUP-051](bug-backlog.md#kup-051) against the existing Subjects presentation and proposed

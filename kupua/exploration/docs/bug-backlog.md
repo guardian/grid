@@ -17,7 +17,8 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Current recorded status: 16 November 2026.** The tables below list open defects,
+**Latest intake: 19 November 2026.** Existing entries retain their cited verification dates.
+The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
 discriminating checks; they are not observed production incidents. PR status is as last documented,
@@ -51,6 +52,8 @@ The local remote-tracking ref `origin/fix/await-message-processing` contains can
 changes for GRID-009/012/013, but they are not ancestors of this checkout. They were
 not reviewed, tested or checked for deployment in this reconciliation; the current
 checkout's recorded dispositions remain open.
+The19November intake adds GRID-026: local SQS receive failures terminated consumers
+without recovery in their owning loops. Backend implementation remains deferred.
 Update this overview when a detailed disposition changes.
 
 **Migration relevance:** a prerequisite blocks its named slice's acceptance, not all migration work.
@@ -128,6 +131,8 @@ legacy-category expansion remains accepted lag.
 | [GRID-022](#grid-022) | Repeated crop saves regenerate shared assets and append duplicate export identities | Operator-reported UI repeat; source and read-only record inspection confirmed | Independent crop refresh/idempotency decision; local UI filtering is not a backend repair |
 | [GRID-023](#grid-023) | Distinguish unavailable saved crops from an empty crop list | Potential UX improvement; source-backed current behaviour | Preserve existing access policy; explanatory presentation not selected |
 | [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Local fresh/duplicate rejection and current production-codec mismatch confirmed; backend repair deferred | Kupua reconciles availability independently; settled receipt presentation mitigated in U3, not a backend repair |
+| [GRID-025](#grid-025) | Date overrides cannot explicitly clear an embedded Taken on value | Source-confirmed contract limitation; no live write trial | Date clearing temporarily disabled in Kupua; setting/replacement and other U5 metadata work can proceed |
+| [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
 
 <details>
 <summary>Completed bounded repairs and verification: 48 IDs</summary>
@@ -1164,7 +1169,25 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** two editors read the same override object, change different fields, then submit replacement objects. The later replacement can discard the other editor's field change. A fresh read immediately before saving reduces the window but cannot close it.
 - **Evidence:** [metadata read and setter](../../../metadata-editor/app/controllers/EditsController.scala#L146) accept and write the metadata object without a request-level version condition. The existing [Step 8 contract](gradually-growing-teeth.kupua-edits-steps.md#step-8-editable-metadata-including-configured-domain-fields) already records the residual GET/PUT race. Source-level limitation, not a newly observed incident or a claim that unrelated label operations share the same contract.
 - **Smallest discriminator:** isolated interleaved override reads and writes to different fields, asserting whether both survive. Proposed, not run; no live mutation.
+- **Same-client stale-read window (19 November):** [the owning read](../../../metadata-editor/app/controllers/EditsController.scala#L73) uses [DynamoDB get](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L39) without strong consistency. A successor can therefore receive pre-write overrides even after its predecessor is acknowledged; a separate GET alone does not prove freshness. Source-supported limitation, not a reproduced live Dynamo inconsistency. Kupua's rejected early-release candidate would expose this window; its current visibility barrier mitigates it without establishing a strong guarantee. The existing setter already returns ALL_NEW-derived overrides: the [frontend-only probe](editing-performance-evidence.md#frontend-only-research-and-stale-read-probe-19-november) demonstrated refusing a stale replacement base using that acknowledgement content, not fixing the backend or cross-client race.
+- **Improvement ideas, not prerequisites:** a narrowly scoped strongly consistent read could close that stale-own-read window at increased read capacity cost; conditional/field-level writes would address different concurrent-write guarantees. The operator explicitly prohibits backend changes at this stage (19 November). Document these only; pursue frontend work within current contracts.
 - **Dependency / disposition:** OPEN; the operator explicitly accepts this existing limitation for the single-operator prototype (10 November). Preserve fresh reads and same-client serialization on hookup, but do not claim concurrent-editor protection or make a new conflict API a blanket UI gate. Any server repair remains separately authorized.
+
+#### GRID-025
+**Date overrides cannot explicitly clear an embedded Taken on value**
+- **Component / owner:** shared ImageMetadata representation and metadata-editor replacement contract.
+- **User-visible consequence:** an image has an embedded Taken on date. Sending an empty date override removes the override instead of making Taken on blank; the original date becomes effective again. Removing a user-supplied date when no original exists can yield blank, but does not establish general clear support.
+- **Evidence:** [date parsing and merge](../../../common-lib/src/main/scala/com/gu/mediaservice/model/ImageMetadata.scala) parse an empty date string as `None` and select `that.dateTaken orElse this.dateTaken`; [metadata replacement](../../../metadata-editor/app/controllers/EditsController.scala#L155) stores the parsed object; [effective metadata merge](../../../common-lib/src/main/scala/com/gu/mediaservice/ImageDataMerger.scala#L78) combines originals and overrides. Unlike an explicit empty text string or empty list, this date representation has no clear tombstone. Source evidence, not a live/deployed reproduction.
+- **Operator disposition, 18 November 2026:** disable date clearing in Form and single/multi-image Details for now. Keep setting/replacing dates, precision handling and other fields' clear behavior. The dedicated Clear control is disabled; whole-date keyboard/native-calendar clearing cannot produce an empty intent. Partially editing segments remains possible, but an empty/incomplete date cannot be committed. No backend change or date write is enabled by this restriction.
+- **Backend follow-up:** submit a separately authorized PR to main defining distinct unchanged/reset/explicit-clear semantics across parsing, storage, effective merge and reads, while preserving existing callers. Prove embedded-original clear, user-override clear, reset and normal replacement in the owning backend tests. Re-enable Kupua clearing only after the capability is deployed to the selected backend and verified through canonical readback; merging a PR alone is insufficient. No sentinel date or client-only pretend clear.
+
+#### GRID-026
+**SQS receive failure can terminate ingestion and message-consumer loops**
+- **Component / owner:** image-loader ingestion stream and shared SQS-via-SNS consumer; backend owner to confirm.
+- **Trigger / actual:** queue receive exhausts SDK retries. The receive exception can fail the ingestion stream or exit the once-scheduled consumer loop while HTTP endpoints remain responsive; these paths do not restart themselves.
+- **Evidence:** [ingestion receive and completion handler](../../../image-loader/app/controllers/ImageLoaderController.scala#L112), [once-scheduled consumer loop](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/SqsViaSnsMessageConsumer.scala#L26), and [receive call](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/SimpleSqsMessageConsumer.scala#L13). Local R020 supplied terminal502/504 traces with100stored uploads not indexed; normal Grid restart followed by Recheck recovered100. Source-supported failure mechanism, not a production-frequency or underlying gateway-cause claim.
+- **Smallest discriminator / future direction:** isolated consumer test with one exhausted receive failure followed by a recoverable queue/message; check whether consumption resumes. Assess bounded backoff/supervision and consumer health reporting without hiding permanent failure or replaying writes. Proposed, not implemented or run.
+- **Disposition:** OPEN, backend-only and deferred. No backend changes during this tuning effort; not permission for a new recovery framework or wider local failure investigation.
 
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**

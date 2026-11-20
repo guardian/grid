@@ -128,6 +128,22 @@ it("shows one priority status, orders errors before running and complete files, 
   expect(screen.queryByRole("button", { name: /Dismiss all/i })).toBeNull();
 });
 
+it("keeps routine follow-ups quiet and only reveals problem details on demand", () => {
+  const preserved = { label: "Filename description", summary: "Existing description preserved", pending: false, attention: false };
+  load([
+    { id: "done", name: "done.jpg", size: 1, phase: "complete", followups: [preserved] },
+    { id: "running", name: "running.jpg", size: 1, phase: "complete", followups: [{ ...preserved, summary: "Saving: 0/1 visible", pending: true }] },
+    { id: "partial", name: "partial.jpg", size: 1, phase: "complete", followups: [preserved,
+      { label: "Preset label: Example", summary: "Not sent", pending: false, attention: true }] },
+  ]);
+  render(<UploadProgress split />);
+  fireEvent.click(screen.getByRole("button", { name: "Upload activity: 1 need attention" }));
+  expect(screen.queryByText(/Existing description preserved|Saving: 0\/1 visible|Preset label: Example/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Uploaded; metadata needs attention" }));
+  expect(screen.getByText("Preset label: Example: Not sent")).toBeTruthy();
+  expect(screen.queryByText(/Existing description preserved/)).toBeNull();
+});
+
 it("uses approved copy, keeps uncheckable outcomes honest and expands redacted server details", () => {
   const target = new URL("https://example.test/storage"); target.searchParams.set("X-Amz-Signature", "synthetic");
   load([

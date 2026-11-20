@@ -1,5 +1,13 @@
 # Upload: Reusable Density and Local Working Sets
 
+**Status, 20 November:** U5 metadata editing is implemented: required-field
+editing, captured batch arrows, and upload follow-ups. Batch arrows use inset
+Sync Alt controls and show progress in place, including queued work. Batch
+details stay on demand; the upload counters remain unchanged. Routine automatic
+follow-ups are quiet in Activity, with problems expandable per file. Browser
+regression validation remains open. See the
+[performance summary](editing-performance-evidence.md#executive-summary-20-november).
+
 **Research-backed workplan, 13 November 2026.** This document proposes separately
 selectable implementation sessions. It does not authorize implementation, new
 dependencies, changes outside `kupua/`, live mutations, commits or deployment.
@@ -551,7 +559,7 @@ Update one line when a unit's state changes; this is not a session diary.
 | Post-U2 UI polish | implemented locally 15 November: toolbar/activity presentation, Kahuna-like Form proportions and upload-access gating; cold-review repairs and final full gates pass; operator visual acceptance remains separate, U5 and R27 are not started |
 | U4.5 | implemented and independently reviewed 15 November: unified batch-plus-all-other-uploads page, retained-batch discovery and explicit entry/return navigation; local validation closed with the operator-approved KUP-053 E2E exception; U5 remains separate |
 | Pre-U5 Form presentation | implemented 18 November: Upload-specific field recipe, editorial guidance, preparation-only list controls, direct-entry date/location drafts and condensed file facts; Details unchanged and U5 saves/arrows remain disconnected; mechanics in the Form component reference |
-| U5-U8 | not started; U5 overlaps the shared ordinary-metadata portion of editing Step 8, while domain editors are excluded from Upload and U6c templates are deferred by U0a decision |
+| U5-U8 | U5 shared scheduling/policy foundation implemented 18 November; metadata commands, autosave, arrows and upload follow-ups remain unimplemented. U6-U8 not started. U5 overlaps ordinary editing Step 8; domain editors remain excluded and U6c templates deferred. |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**
 The deployed trial used the inherited hosting policy and existing TEST storage
@@ -1810,7 +1818,27 @@ append/merge and server persistence are not supplied by U4.5.
 **Depends on:** U2, U4.5 and the existing command/publication foundation. Use U4's
 retained membership and U4.5's explicit upper-batch/other-uploads origins.
 
-**Status: not started.** This is the same shared ordinary-metadata command work as
+**Status: U5 hookup implemented, cold-reviewed and validated (18 November).**
+Ordinary metadata now uses one command/operation path for explicit Details commits,
+Form pause/blur saves, upper-batch arrows and filename fallback. Preset labels are
+captured per submission and share startup admission/pacing with these saves and Labels.
+Metadata actions reserve their complete captured set, then execute in groups of 100;
+the session freshness budget is 10,000 distinct images. Each group retains the existing
+dispatch/readback bounds; speed remains three executions and 250 ms minimum spacing.
+The budget is a session resource refusal before dispatch, not a batch-size promise.
+Local tuning remains separate and has not been performed.
+Two independent cold reviews and a repair verification resolved the draft-revision,
+reservation-ownership, receipt-identity and repeat-submission findings. Full validation:
+3,938 units across 117 files; normal and isolated hosted builds; E2E/performance
+typechecks; 598 retry-free E2E tests in 10.7 minutes. Existing WASM/chunk-size build
+warnings remain. No live metadata mutations, deployment or speed tuning occurred.
+The new browser journey reuses the existing Upload fixture; eight unit witnesses
+were added within existing suites. Its final focused run took 17.8 seconds; this
+is measured suite runtime, not a production editing-performance result.
+The [command contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+owns the current queue, lifetime and remaining capacity boundaries.
+
+This is the same shared ordinary-metadata command work as
 editing Step 8, not a second implementation or a prerequisite to finish all of Step 8.
 When selected together, connect the existing Search/detail single/multi-image controls
 and Upload's Form through the same operation, authority, outcome and publication owners.
@@ -1825,6 +1853,14 @@ and [edits service](../../../kahuna/public/js/edits/service.js), and Kupua's
 [command boundary](../../src/lib/grid-commands.ts),
 [publication](../../src/lib/image-publication.ts),
 [freshness](../../src/lib/image-read-freshness.ts) and existing field controls.
+
+**Temporary date restriction (operator, 18 November 2026):** [GRID-025](bug-backlog.md#grid-025)
+documents the backend's inability to explicitly clear an embedded Taken on date.
+Form and Details clearing is disabled until a separately authorized backend PR
+provides that ability and deployed readback is verified. U5 must retain this refusal,
+including autosave and batch propagation; setting/replacing dates and other metadata
+clears remain in scope. This is an explicit temporary limitation, not a U5-wide gate
+or permission to implement a backend workaround.
 
 Connect real metadata commands, not a second Upload-only writer. Respect original
 metadata versus overrides, clearing semantics and unrelated overrides, including
@@ -1868,6 +1904,16 @@ shared-capacity risk remain distinct from the client capacity decision above.
 If the receipt-order intermittent R7 recurs, investigate its held-read invariant;
 do not add retries or weaken assertions. Reuse existing fixtures (R4), and apply R5's
 mapper-body/Scala replay discipline only if a POST read contract changes.
+
+**U5 disposition of R2/R25/R26:** defer cross-surface draft handoff, a global
+outstanding-edits/discard navigator and a newer-canonical-value comparison UI.
+Form owns revisioned image/field drafts and retained save receipts; panels retain
+explicit local editing intent and share commands/publication, not Form's autosave
+draft lifecycle. Newer Form revisions survive earlier saves, and unchanged blur
+does not resubmit rejected or uncertain intent. This preserves the chosen workflows
+without claiming conflict prevention or implementing those additional interfaces.
+People/Keywords ordinary metadata is connected; Subjects, Collections, Photoshoot,
+configured-domain editors, rights and leases remain outside U5.
 
 **Witnesses:** real single save and clear in the selected surfaces; preserved unrelated metadata; viewport
 eviction/density switch during edit and save; delayed stale read cannot undo a
@@ -2203,7 +2249,7 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | ID | Evidence and opportunity | Boundary |
 | --- | --- | --- |
 | R1 | The shared Grid/Table/detail/scroll consumers previously knew `/search` directly, and URL-level `ids=""` was dropped as unrestricted. | **U1 implementation:** a narrow [browsing context](../../src/lib/browsing-context.tsx), typed internal membership scope, fail-closed empty admission and route-aware shared consumers remove the coupling needed here. Upload is API-only; the direct-ES adapter is unchanged. Library CSV share links remain supported; batch IDs never become CSV browser URLs. Wider router/store cleanup remains deferred; no universal workspace framework or direct-ES Upload parity work. |
-| R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx) combined local drafts, preparation and rendering; Form needs controlled inputs without repeated autofocus. **U2 follow-on observation:** `MetadataFormField` reads an external image/field draft, while the panel's `beginEditing` seeds component-local state from its canonical value. Opening detail therefore does not show an unsent Form draft, though returning to Form retains it. | **U2:** shared controlled text/suggestion rendering and sparse image/field Form drafts in [metadata-drafts-store](../../src/stores/metadata-drafts-store.ts); existing explicit editors retain their workflow. **Candidate for U5:** an explicit single-image draft handoff could let someone start a description in Form and finish it in detail without seeing two competing values. Benefit: continuity of editing intent, in addition to shared commands. Cost/risk: different autosave/explicit-commit interactions, cancel semantics, stale authority and distinguishing single-image intent from multi-image overwrite/prepend/append operations. Trigger: U5 is selected and both surfaces are connected, with the handoff behavior explicitly chosen. Do not infer approval to merge every editor store or silently publish drafts as canonical data. |
+| R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx) uses external image/field Form drafts, while panel editing begins from the canonical value. U5 connects both through shared commands/publication, but a retained unsent or failed Form draft is not handed to Details; returning to Form retains it. | **Assessed and deferred in U5:** explicit single-image draft handoff could let someone start a description in Form and finish it in Details without competing values. Benefit: continuity beyond shared commands. Cost/risk: autosave versus explicit Commit, cancel semantics, stale authority and separation from multi-image overwrite/prepend/append intent. Trigger: operator selects this interaction after using connected surfaces, or encounters confusing divergent drafts. Do not merge every editor store or publish drafts as canonical data. |
 | R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) described obsolete hybrid/proxy/graceful-absence assumptions. | **Corrected in U3:** comments now describe explicit API routing, independently validated satellites, failure versus empty data and the actual site-settings owner. No working transport policy was changed to match obsolete commentary, and no broad cleanup was undertaken. |
 | R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | **U4:** extended the existing [API/label fixture](../../e2e/shared/label-editor-plugin.ts), including multiple canonical uploads and lifecycle qualification; compiled-hosted traffic reuses it rather than another API engine. Its initial Upload URL is preserved and production build environment isolated. Benefit: real mapper/control coverage without duplicate transport scaffolding. Wider unit stand-in extraction remains deferred until a contract change requires coordinated edits; it is not a new U4 gate or testing framework. |
 | R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
@@ -2213,8 +2259,8 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | R9 | The prototype reused [ImageGrid](../../src/components/ImageGrid.tsx) but conflated variable geometry with Justified thumbnail behavior. Real forms also exposed changed-neighbour measurement anchoring and native Tab skipping outside overscan. | **U2:** variable-row policy is named separately; the renderer composes explicit image entry with independent form content. Committed-geometry anchoring and immediate loaded focus neighbours repair the demonstrated placement/Tab defects. Benefit: shared browsing without thumbnail input policies or copied lifecycle. Cost/risk remains shared navigation/media behavior, covered by retained witnesses. Wider host extraction stays deferred until another necessary consumer exposes real duplication. |
 | R10 | [Measured geometry](../../src/lib/windowed-measured-layout.ts) maps logical items to bounded virtual rows, while its spatial interface uses logical rows. Confusing these domains caused the prototype's boundary-arrow defect. | **U2:** the touched host names `logicalItemCount` separately from virtual `rowCount`; navigation's existing parameter documents its logical extent. Boundary-arrow and tall-page witnesses remain. Benefit: clearer adapter domains without a shared API rewrite. Distinguishing types/grouped-row redesign stays deferred until a concrete additional adapter needs it; no universal coordinate-branding project. |
 | R11 | The [research transforms](../../e2e-perf/research/density-app-research.spec.ts) rely on literal import/cell-key text and occurrence counts, not application behavior. | **U2:** adapted the touched host-policy references and gave the real Form comparison a distinct workload/record name. Fail-closed checks and compiler validation remain; no campaign ran. Production naming is not retained solely for text matching. AST/hook replacement remains a deferred maintenance improvement if another integration repeatedly breaks these transforms; benefit is less incidental coupling, cost/risk is experiment-equivalence validation. No instrumentation, dependency or framework rebuild. |
-| R12 | **Operator report, U0b:** scrolling down while files are uploading loses orientation about remaining activity; even an experienced user cannot confidently predict which processing files an arrow will affect. **Source:** [job list](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L1) puts the remaining count at the section heading and creates editors only after images arrive; [metadata arrows](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L106) reach existing editable recipients, not future arrivals. This is not a new live-upload witness. | **U4 implemented:** compact persistent batch orientation, short references, processing/attention counts and expandable filename-ordered file outcomes, distinct from unique canonical-image counts. Startup compact and compiled-hosted controls have owning browser witnesses. **U5 still owns metadata-arrow scope**, target counts and exclusions; no applicator or pending-arrival intent was built. Benefit: visible activity without returning to the top; cost/risk remains phone space, status accessibility and unlike outcome lifetimes. An in-app completion/attention notice is still a deferred hypothesis, triggered by demonstrated repeated-batch need, not permission for browser notifications or background guarantees. |
-| R13 | **U0b source fact:** pending files have no current editor and do not inherit a metadata-arrow click. **Decision:** first-version arrows capture known canonical images with explicit exclusions. **Operator priority:** familiar parity before speculative improvements. | **Deferred hypothesis:** explicitly retaining an operation for the original batch's processing files could prevent a second manual application and omissions. Cost/risk: repeated arrows, intervening per-image edits, duplicate attempts, failed ingestion, changed authority and cancellation/reload semantics; never silently overwrite newer intent or auto-replay uncertain saves. Trigger: working Upload shows this omission is materially costly and the operator selects those semantics. Keep file-attempt identity, canonical membership and captured command intent separate now; do not build a pending-edit queue, automatic catch-up or template engine in advance. |
+| R12 | **Operator report, U0b:** scrolling during uploads makes remaining activity and arrow scope difficult to follow. Kahuna's [metadata arrows](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L106) reach existing editors, not future arrivals. U5's [Form arrow](../../src/components/MetadataEditing.tsx) now captures upper-batch canonical IDs, shows recipient/exclusion counts and retains the captured receipt when membership changes. The source image's save is separate and labelled separately from Batch. | **U4/U5 implemented:** persistent batch orientation, per-file activity, captured offscreen propagation and operation-specific feedback/Stop controls. The existing U5 browser journey covers an older batch, held execution, navigation and later canonical arrival without retargeting or losing the receipt. Benefit: visible scope and outcomes without inferring membership from the viewport. Remaining cost/risk: phone space and unlike activity lifetimes. Further completion/attention UI remains a hypothesis triggered by actual repeated-batch difficulty, not permission for browser notifications or background guarantees. |
+| R13 | **Implemented U5 boundary:** pending files do not inherit an arrow click. [Captured saves](../../src/stores/metadata-editor-store.ts) retain known canonical targets; a later arrival updates membership and displayed candidate counts, not the old operation. The browser journey witnesses this exclusion. | **Deferred hypothesis:** explicitly retaining intent for the original batch's processing files could avoid a second manual application and omissions. Cost/risk: repeated arrows, intervening edits, duplicate attempts, failed ingestion, changed authority and cancellation/reload semantics; never silently overwrite newer intent or replay uncertain saves. Trigger: connected Upload demonstrates material repeated work and the operator selects those semantics. Keep attempts, canonical membership and captured intent separate; no pending-arrival applicator or template engine is selected. |
 | R14 | **Operator ambition, not a measured failure in U0b:** robust uploads of large files, many files, or both, and recovery without losing trust. Existing transport/status limitations are recorded in B2/B3/B6 and C1/C4; splitting batches after failures is coping behaviour, not evidence of a preferred small workload. | **Deferred improvements selected by evidence:** clearer recovery/reconciliation and, only if justified, stronger transport support. Benefit: less repeated work and fewer lost outcomes. Cost/risk: browser memory/lifecycle limits, uncertain server outcomes and compatibility across loader/signed storage; no safe-resume or exactly-once guarantee exists merely from a local job record. Trigger: a separately authorized representative workflow demonstrates a specific bottleneck/failure or the operator selects a bounded investigation. Preserve independent jobs, separate phase/edit outcomes and bounded client resources now; do not invent a batch cap, resumable-upload subsystem or autonomous performance campaign. Backend amendments follow Section 7's additive-first policy and their owning register. |
 | R15 | [The current chooser](../../src/components/UploadActivity.tsx) exposes five recent records plus outstanding/selected work, labels them mainly by short IDs, and switches between batch and recent-query views. Older retained records are not discoverable through a complete chooser. The operator wants familiar combined-page orientation and useful return to earlier work, not batch removal. | **Selected for U4.5:** one open batch above all other uploads, recognizable labels and an Earlier batches expansion reaching all retained records. Benefit: exact-group return without a remembered URL or a second page. Cost/risk: phone space, local-history expectations, section provenance and position. A larger navigator and extra per-batch view recall remain deferred; B7 owns permanence and R32/R33 own the separately deferred selection opportunities. No Places sidebar, generalized workspace system or batch/selection-store merger. |
 | R16 | **Settled architecture plus U0b operator opportunity:** the image-and-fields layout is a genuine density, initially exposed only in Upload. Existing browsing, detail and metadata consumers already have different contexts; R1/R2/R9 identify the necessary shared boundaries. | **Deferred exposure:** use the density elsewhere in Grid and preserve coherent transitions between search, Upload and detail. Benefit: the same efficient image/metadata work outside a submission batch. Cost/risk: search-scale hydration, permissions, unavailable persisted density, competing panels and context-specific applicators. Trigger: working Upload density demonstrates reuse value, then select global exposure. Keep activity/batch controls outside the reusable renderer, shared commands/drafts outside rows and one browsing engine now; no separate Upload app or global rollout in U2. |
@@ -2227,6 +2273,20 @@ actual `[observed, observed]` bulk-editor receipt pair recurred in an early poli
 focused run. The final 611-case full gate passed without a causal repair to that
 path. R7 remains an unexplained intermittent, not a repaired Upload regression;
 retain its request-hold/observation invariant for a future recurrence.
+
+**Shared-foundation gate follow-up, 18 November (related to R7/R8):** the full
+retry-free browser run passed 596 cases and failed the API-fixture Table B10 case
+in [forced-seek](../../e2e/local/forced-seek.spec.ts#L70) before geometry sampling:
+`B10 native wheel did not stop before held sampling`. That unchanged case passed
+alone. The preserved trace shows an enclosing twelve-frame wait taking 2.51 seconds,
+against the probe's one-second bound for three stable scroll frames, with no new
+wheel command during that wait. This supports a frame-delay hypothesis, not a proven
+cause or a scrolling repair. The operator accepted this investigated gate exception;
+the full suite is not claimed green. If it recurs, capture bounded frame times and
+scroll offsets to distinguish scheduling delay from continuing scroll before changing
+readiness logic. Benefit: diagnose the actual failed prerequisite; cost/risk: local
+probe complexity and extra runs. No timeout increase, retry or weaker geometry assertion
+was introduced. Raw synthetic artifacts remain ignored, not committed.
 
 **U3 resource follow-up for R14:** [browser hashing](../../src/lib/upload-commands.ts)
 uses WebCrypto's whole-file SHA-1 with one active file, not an incremental digest.
@@ -2366,10 +2426,10 @@ R15/R17 already own broader batch navigation and field/zoom customization.
 
 | ID | Evidence and observation | Proposed benefit, cost/risk and trigger |
 | --- | --- | --- |
-| R25 | **Source:** [Form fields](../../src/components/MetadataTextEditor.tsx#L84) show Not sent per dirty field but have no explicit discard action; the [draft store](../../src/stores/metadata-drafts-store.ts) spans images and batches and only removes a field when its value matches the current canonical value. Its unload warning cannot identify or navigate to the outstanding work. This establishes the controls/lifetime gap, not observed user confusion or lost data. | **Proposal:** a small outstanding-edits summary with a jump to the affected image/field, plus deliberate per-field discard, could let someone find unfinished work after leaving a batch and abandon a draft without reconstructing the original text. Cost/risk: image-global drafts can appear in several batches; canonical reads can change; discarding an unsent draft must not erase an uncertain save receipt or imply rollback. Trigger: U5 defines pending/rejected/uncertain outcomes or an operator demonstrates difficulty finding/abandoning work. Start with existing activity/navigation owners; no new Places panel, durable storage or global editor framework is implied. |
-| R26 | **Source and retained unit witness:** the [draft store](../../src/stores/metadata-drafts-store.ts#L14) retains the initial baseline, while [MetadataFormField](../../src/components/MetadataTextEditor.tsx#L87) displays the draft over a newer canonical value and reports only Not sent. The metadata suite proves retention across canonical changes; it does not provide a compare/rebase UI or establish an actual concurrent-editor incident. | **Proposal:** when a fresh canonical value differs from the draft's baseline, offer a bounded comparison and explicit keep-draft/discard decision. Benefit: someone can see that the underlying value changed before replacing it. Cost/risk: own acknowledged writes, delayed readback and another editor's changes must not be conflated; a comparison is not server conflict prevention or an atomic save guarantee. Trigger: assess alongside U5's authoritative reads and publication receipts, or after a demonstrated conflicting-edit workflow. Do not add automatic merging, retries, a new versioning API or a universal conflict subsystem merely because a baseline exists. |
+| R25 | **U5 source:** [Form fields and receipts](../../src/components/MetadataTextEditor.tsx) now expose queued/saving/observed/uncertain outcomes and Stop controls. The [draft owner](../../src/stores/metadata-drafts-store.ts) clears a successful observed save only for its captured revision; failed/uncertain intent remains, and unchanged blur does not resubmit it. Drafts and receipts survive SPA navigation, but there is still no explicit per-field discard or global jump to outstanding edits. | **Assessed and deferred in U5:** a small outstanding-edits summary and deliberate discard could help find unfinished work or abandon unsent intent. Cost/risk: shared images across batches, changed canonical values and preserving uncertain receipts; discard must not imply undoing a dispatched write. Trigger: operator selects this interaction or demonstrates difficulty finding/abandoning retained work. Reuse existing activity/navigation owners; no Places panel, durable operation store or global editor framework is implied. |
+| R26 | **U5 source and witnesses:** the [draft store](../../src/stores/metadata-drafts-store.ts) retains baseline and revision; a draft can still cover a newer canonical value. Revision-based acknowledgement fixes the demonstrated A-to-B-to-A own-save race, while [commands](../../src/lib/grid-commands.ts) preserve fresh unrelated overrides. Neither establishes concurrent-editor conflict prevention or supplies a comparison UI. | **Assessed and deferred in U5:** bounded comparison/keep/discard could show that the underlying value changed before replacement. Cost/risk: distinguishing own writes, delayed readback and another editor's changes; a comparison is not an atomic save guarantee. Trigger: operator selects the interaction or demonstrates a conflicting-edit workflow. Preserve GRID-020's accepted residual race; no automatic merge/retry, new versioning API or universal conflict subsystem is selected. |
 | R27 | **Source and geometry evidence:** [MeasuredGrid](../../src/components/MeasuredGrid.tsx#L34) places a non-sticky preview at the start of each natural-height form; the retained tall-form journeys intentionally read interiors below that preview. The image can therefore leave view while lower metadata is being edited. No loss of identity or measured user error is claimed. | **Hypothesis:** a desktop preview constrained to stay within its own form while scrolling could keep the image available for checking credit/description, without opening detail or moving the field being edited. Cost/risk: sticky geometry must not alter anchor election, overlap the next image or consume scarce keyboard space on phones; virtualized disposal, graphic-image protection and detail entry must remain correct. Trigger: operator use of real forms demonstrates a need to keep the image visible. Evaluate separately from R17's field visibility and zoom choices; this is not permission for a second metadata panel or fixed-height clipping. |
-| R28 | **Source:** [setDraft](../../src/stores/metadata-drafts-store.ts#L13) copies the top-level draft map and the edited image's field map on every change. Draft records persist in memory across route/window disposal, so update cost depends on the number of edited identities, not just visible cells. This is an allocation/complexity observation, not a measured typing regression or a violation of the separate loaded-window geometry bound. | **Deferred hypothesis:** more localized draft updates could reduce typing work in a long session containing many edited images. Benefit is conditional on measured cost. Cost/risk: more complicated ownership/subscriptions and accidental eviction of unsaved intent; sparse state is currently simple and appropriate. Trigger: profile representative long-session editing and attribute material input latency or memory pressure to this store before selecting an optimization. No arbitrary draft cap, silent eviction, benchmark campaign or speculative store rewrite is approved. |
+| R28 | **Source, extended by U5:** [draft updates](../../src/stores/metadata-drafts-store.ts) copy sparse maps, but successful observed saves now remove their captured draft revision. Separately, [metadata saves](../../src/stores/metadata-editor-store.ts) retain completed receipts, copy the save map on updates and search it for repeated intent; [field feedback](../../src/components/MetadataEditing.tsx) searches retained saves. The 10,000-distinct-image freshness budget does not bound repeated saves on the same image. This is a retention/allocation observation, not measured typing or memory degradation. | **Deferred hypothesis:** localize subscriptions/lookups or compact eligible completed history if representative long-session editing attributes material cost here. Benefit: less work as save history grows, not merely as dirty-image count grows. Cost/risk: losing uncertainty, per-target outcomes or arrow receipt identities; never silently evict unresolved work or freshness protection. Trigger: meaningful measured input latency or retained-memory pressure during actual editing. Inspect drafts and receipts separately; no arbitrary draft cap, automatic pruning or speculative store rewrite is approved. |
 
 ##### Recommended Execution Placement
 
@@ -2378,10 +2438,10 @@ criteria or approval to implement every opportunity. None reopens U2.
 
 | Opportunity | Natural step/session | Sequencing and boundary |
 | --- | --- | --- |
-| R25: outstanding edits and discard | [U5: metadata saving and propagation](#u5-required-metadata-saving-and-batch-propagation) | Define discard and outstanding-work navigation alongside real pending/rejected/uncertain outcomes, so the UI does not confuse abandoning local intent with undoing a server write. Coordinate with R2's single-image draft handoff. A simple unsent-only discard control could be explicitly selected during pre-U5 polish, but defer the richer summary until U5's outcome model exists. U8 can refine its presentation during end-to-end review. |
-| R26: changed canonical value beneath a draft | [U5: metadata saving and propagation](#u5-required-metadata-saving-and-batch-propagation) | Assess the behavior when establishing authoritative reads, baseline handling and publication receipts, before connecting the same field through Form and panels. Select any comparison/keep/discard UI explicitly; it is not automatically a U5 gate. If deferred, retain that disposition rather than implying conflict prevention. U8 can exercise the selected behavior in the completed workflow. |
+| R25: outstanding edits and discard | Separately selected follow-up; [U8](#u8-visual-review-and-parity-acceptance) can expose concrete need | Assessed and deferred in U5. Real pending/rejected/uncertain outcomes now exist; select navigation/discard only with clear interaction semantics, coordinating with R2. Abandoning an unsent draft must not imply undoing a dispatched write or deleting uncertainty. |
+| R26: changed canonical value beneath a draft | Separately selected follow-up; U8 can exercise actual editing behavior | Assessed and deferred in U5. Authoritative reads and revisioned acknowledgements are implemented, not comparison/keep/discard UI or cross-client conflict prevention. Select an additional interaction explicitly after a demonstrated need. |
 | R27: form-bounded sticky preview | Operator-led UI polish after U2, before U5 | This is independent of save transport and is the most natural candidate for the planned polish session if the operator wants it. Keep it a bounded layout/interaction change with existing tall-form, field-anchor, density and compact witnesses. If not selected now, leave it for [U8's visual review](#u8-visual-review-and-parity-acceptance); it must not delay U5. |
-| R28: draft-store allocation/localized updates | Evidence-led follow-up after U5; [U8](#u8-visual-review-and-parity-acceptance) is a useful observation point | First use the real editing lifecycle to determine how many drafts remain outstanding and whether typing or memory cost is material. Existing evidence should be checked before selecting any profiling; performance campaigns remain operator-run. Optimize the owning draft store only if cost is attributed to it. There is no scheduled rewrite or additional U8 gate merely from the map-copy observation. |
+| R28: draft/receipt retention and update costs | Evidence-led local tuning after U5; [U8](#u8-visual-review-and-parity-acceptance) is also an observation point | Distinguish outstanding drafts from accumulated completed receipts, including repeated edits to the same IDs. Attribute material typing or memory cost before selecting localized updates or safe history compaction. Existing evidence comes first; performance campaigns remain operator-run. No scheduled rewrite or additional U8 gate follows from source complexity alone. |
 
 #### Navigation and Editing-Scope Opportunities
 
@@ -2389,10 +2449,313 @@ criteria or approval to implement every opportunity. None reopens U2.
 | --- | --- | --- |
 | R34 | **U4.5 source observation:** [section bounds](../../src/dal/upload-page-reader.ts) count upper/lower sources for cursor translation; submitted-order paging also performs its own authoritative membership count in [ApiDataSource](../../src/dal/api-data-source.ts). This can repeat a bounded count within one composed read. No latency or backend-work saving was measured. | **Deferred hypothesis:** reuse request-local authoritative count evidence where its query/generation is identical, reducing duplicate work without a new cache. Cost/risk: stale boundaries, lifecycle omissions, independent failures and cursor/rank consistency. Trigger: a selected request-lifetime change or representative evidence attributes meaningful cost here. No timer, parallel cache, transport tuning or performance campaign is selected. |
 | R29 | [SearchBar](../../src/components/SearchBar.tsx) labels `returnToBrowsing(..., "/upload")` as My recent uploads, but [the return owner](../../src/lib/browsing-navigation.ts) restores the departed batch or detail parameters. [DetailNavigation](../../src/components/DetailNavigation.tsx) also labels Upload detail's return Back to search. Hosted TEST reproduced both mismatches even with zero retained batches: the latter returned to Upload Form; leaving an Upload detail via Home and choosing My recent uploads reopened detail. The subsequent two-batch check also restored the older selected batch through that label. | **Selected for U4.5:** keep the familiar main entry label but make fresh entry show the newest batch/top without detail; history and inspection return preserve their actual destination. Upload detail says Back to uploads. Benefit: predictable navigation without removing membership or Form. Cost/risk: departure/history/position and compact controls; preserve meaningful history witnesses. No global history rewrite. |
-| R30 | [Job updates and their subscription](../../src/stores/upload-jobs-store.ts) scan retained batches/attempts, recompute membership and serialize the changed batch on phase updates. [Descriptor saving](../../src/lib/local-batch-storage.ts) synchronously scans stored descriptors to enforce its budget. The selector's five-choice limit does not bound this retained work. This is a source-derived cost and ownership observation, not a measured latency regression. | If a selected lifecycle change or representative profile demonstrates material cost, localize attempt lookup and avoid redundant persistence while preserving interruption recovery. Benefit: less repeated work in longer sessions. Cost/risk: freshness between jobs, membership and storage, and loss of the latest recovery facts. Keep the current small owners unless evidence justifies change; no storage framework, silent eviction or autonomous performance campaign. |
+| R30 | [Job updates and their subscription](../../src/stores/upload-jobs-store.ts) scan retained batches/attempts, recompute membership and serialize changed batches; [descriptor saving](../../src/lib/local-batch-storage.ts) scans storage to enforce its budget. **U5 adds a concrete path:** each active follow-up subscriber in [startup](../../src/main.tsx) reports on every metadata-store notification, even when its own summaries are unchanged. Reports still replace the attempt/batch and reach persistence, although follow-up fields are transient and excluded from the descriptor schema. The five-choice selector limit does not bound this work. No latency saving or regression has been measured. | **Deferred improvement:** suppress unchanged follow-up reports and/or avoid persistence when no persisted fact changed, before considering indexed lookup or wider reorganization. Benefit: less repeated rendering/serialization during overlapping uploads and saves. Cost/risk: missing a pending/uncertain transition, stale activity or lost interruption facts; preserve those witnesses. Trigger: selected lifecycle work or representative tuning attributes meaningful work to this path. No timer, storage framework, silent eviction or autonomous campaign is selected. |
+| R35 | **U5 save-fairness constraint:** [the metadata pump](../../src/stores/metadata-editor-store.ts) acquires one shared slot for an entire captured action and releases it only after all groups and their observation settle. Later individual autosaves, Details commits, Labels or upload follow-ups can wait behind that action. The held-arrow browser journey exposed independent Batch and queued source-image controls; it is not a latency benchmark. Smaller groups bound execution/readback but do not interleave other actions. | **Assess in the next authorized local tuning exercise:** edit an unrelated image while a representative batch runs; distinguish queue wait, execution/acknowledgement and canonical visibility for that individual save and the batch. Benefit of possible group-boundary yielding: responsive individual editing without necessarily increasing backend pressure. Cost/risk: same-image ordering, overlapping reservations, observation ownership, Stop behavior and starvation in either direction. Select scheduling changes only if observed waiting is unacceptable; speed knobs alone do not change admission order. No priority queue, job platform, automatic retry or new fairness guarantee is authorized here. |
 | R31 | [UploadPage](../../src/routes/search.tsx) currently admits one batch or one recent query; [URL synchronization](../../src/hooks/useUrlSearchSync.ts) and [detail](../../src/components/ImageDetail.tsx) use the active browsing state for query/traversal. The proposed combined page has independently ordered sections and a lower query whose exclusion changes with the open batch. One flat query/ordinal cannot describe both. This is an integration constraint, not a defect in the current single-source view. | **Address in U4.5:** explicit section provenance, independent read qualification and bounded composition under one placement owner. Benefit: no crossed detail traversal, stale section publication or accidental page-wide edit scope. Cost/risk: cursors, counts/ranks, headers, history and upper-arrival compensation while reading below. Select only the adapter needed here; no cloned search stores, catalogue geometry, fake images or universal workspace framework. |
 | R32 | [Batch membership](../../src/lib/browsing-context.tsx), [selection](../../src/stores/selection-store.ts) and [captured label operations](../../src/lib/label-operation.ts) are independent owners. A retained batch could supply an explicit snapshot of canonical image IDs to ordinary Search selection without redefining the upload attempt record. Current UI provides no such handoff. | **Deferred by operator:** consider Select this batch in Search after U5, exposing the captured set visibly and defining replace-versus-add for an existing selection. Benefit: reuse the existing multi-image editor for retained work. Cost/risk: unavailable/denied IDs, pending arrivals, selection hydration, local-reference/history qualification and accidentally retargeting prior operations. Deselecting must not rewrite the batch; later completions must not silently expand the selection. No server persistence or generalized set framework is implied. |
 | R33 | [Upload's route](../../src/routes/search.tsx) omits the selection metadata panel and [ImageGrid](../../src/components/ImageGrid.tsx) enables selection only for Search. Whole-batch Form arrows do not address editing a subset; other Upload densities currently offer browsing and individual detail, not selection editing. | **Deferred by operator:** consider explicit subset selection and the existing multi-image editor within Upload after the basic workflow works. Benefit: apply a change to three images rather than the whole batch, particularly in Grid/Table/Justified. Cost/risk: coexistence with whole-batch arrows, cross-section selection, dormant library selection and redundant Form panels. Keep selected-target and batch-target meanings explicit across densities; decide cross-section behavior separately. No checkbox/panel implementation or U5 gate now. |
+
+**R35 local upload-follow-up evidence, 18 November:** an operator-submitted batch
+of 100 JPEGs (27,774,867 bytes) used Vite and operator-confirmed local Grid,
+ES and LocalStack, with uploads and editing enabled. The first-edit freshness
+repair was present; concurrency remained three and minimum start spacing 250ms.
+A bounded passive fetch/activity observer ran from file selection to completion;
+its capture was not truncated and its wrappers/listeners were removed afterward.
+No request bodies, credentials, signed URLs or image identities were retained.
+
+All 100 storage PUTs completed by 26.805 seconds. Required upload visibility/count
+traffic ended by 32.160 seconds; final activity completion was 239.702 seconds.
+All 100 metadata PUTs returned 200 (median 40ms, p95 67ms), with at most one PUT
+in flight. Gaps from one PUT's response to the next PUT's start totalled 229.352
+seconds (median 1.469s, p95 5.990s). Those gaps include prerequisite reads and
+client/backend visibility waits, not pure browser CPU idle or measured backend
+processing time. All 100 saves were acknowledged and canonically observed with
+zero exclusions; a subsequent single bounded mget confirmed every description.
+The known 100 rejected QUEUED updates remained separate from successful ingestion.
+
+The source explains the largely serial tail: filename follow-ups are separate
+single-image actions, and each holds the shared slot through canonical observation.
+Their start gaps exceed the configured pacing interval; simply reducing that
+interval does not address this bottleneck. This is one local diagnostic capture,
+not a matched Kahuna comparison or shared-server capacity result. Earlier failed
+follow-ups skipped work and are not a valid faster baseline. Consider bounded
+shared execution/readback for independent ready follow-ups before increasing
+pressure; scheduling changes still require selection and must preserve distinct
+values, receipts, authority, same-image ordering and no automatic replay. Individual
+save fairness behind a large action remains a separate, unmeasured R35 question.
+
+**Selected repair after that observation:** ready independent single-image metadata
+saves now co-admit into groups of at most 100, sharing existing paced execution and
+canonical readback while retaining each save's value, outcome, reservation and Stop.
+Collection uses already-waiting work, not a timer or later-arrival promise, and stops
+at a same-image successor, multi-target action or unresolved command conflict. Unsent
+Form revisions still coalesce. Image-local command/readback failures remain local;
+session invalidation still stops the group. This repairs the observed serial-follow-up
+path without changing speed controls. It does not resolve large-action fairness.
+
+**Post-repair local capture, 18 November:** another 100-file submission, using the
+next sample files and the same confirmed local topology, transferred 30,307,254 bytes.
+Storage PUTs finished at 27.245 seconds (previously 26.805); the last metadata PUT
+finished at 49.344 seconds (previously 238.450), and activity completed at 54.702
+seconds (previously 239.702). All 100 description saves were acknowledged/observed,
+with zero exclusions, and a subsequent bounded mget confirmed 100 matching values.
+Mget request count fell from 319 to 19. Metadata PUT median/p95 were 56/140ms,
+versus 40/67ms previously; completion improved through scheduling, not quicker
+individual writes. Maximum overlapping metadata PUTs was two, versus one. The
+existing 3/250 controls remained unchanged. This is a 77% elapsed-time reduction
+across two local diagnostic submissions, not a matched benchmark: files/bytes and
+cache/server conditions differ. No Kahuna or shared-environment comparison follows.
+
+The post-repair capture retained 100 prepare/storage successes and the known 100
+QUEUED-update 400s. Count traffic contained 208 successes and 32 aborted requests;
+these were not failed metadata writes. The capture ended normally without truncation;
+fetch was restored, observers removed and the retained timing global deleted.
+
+**Operator-authorized Kahuna comparison, same local stack:** the next 100 sample
+files totalled 27,345,698 bytes. A separately validated fetch/XHR observer measured
+file selection through current-submission job descriptions, excluding recent rows.
+One bulk prepare covered 100 unique images. All 100 storage PUTs returned 200 and
+finished by 3.751 seconds; up to 100 were outstanding, including browser-queued work.
+The first job became uploaded at 4.405 seconds, and its description was present by
+5.662 seconds. All jobs were uploaded at 35.471 seconds; all descriptions were
+present in canonical job images at 37.960 seconds. All 100 initially lacked a
+description. Metadata PUTs all returned 200, finishing by 37.335 seconds, with
+median/p95 1.189/2.452 seconds and up to 14 outstanding. The known 100 QUEUED
+rejections remained; no failed job was observed. There were 747 status reads and
+550 singleton starts, of which 540 had completed and ten remained outstanding at
+the observation cutoff; those ten are not classified as failed requests.
+
+A subsequent bounded mget verified 100 distinct images and matching descriptions.
+The observer reported no errors or truncation, restored fetch/XHR descriptors and
+removed listeners; its retained global was deleted. There were 202 sampled model
+progress changes, not 202 independently observed paints. The operator reported quick
+first-image readiness and useful, unevenly progressing counters. Kahuna's uploaded
+state precedes metadata completion; its canonical job-image readiness also does not
+supply Kupua's exact-ID indexed-upload-count witness. Different files, payloads,
+cache conditions, request patterns and readiness contracts prevent a controlled
+throughput ranking. Nonetheless this ballpark run completed descriptions about
+16.7 seconds before the repaired Kupua run (38.0 versus 54.7 seconds), with substantially
+more outstanding transfers/writes. No speed policy or product behavior changed for
+this comparison, and no shared-environment capacity claim follows.
+
+**Progress opportunity observed in the same capture:** activity changed from 100
+to 99, 95, 75 and 46 in progress, then to 100 completed at group settlement. The
+operator also reported stale/jumping batch-chooser counts; that control was not
+instrumented. The metadata owner currently finishes individual save records at
+group completion, so activity does not report each independently settled member.
+Consider per-save terminal progress without releasing shared execution/observation
+ownership early. Benefit: truthful incremental feedback; risk: confusing published
+visibility, pending commands and failed/unknown outcomes. Select only after checking
+the relevant receipt transition, without adding artificial progress or delaying
+work. No counter or chooser repair was selected in this timing assessment.
+
+#### Next Investigation: Overlapping Upload and Edits
+
+**Operator direction, 18 November:** aim to exceed Kahuna's speed without losing
+data or trustworthy outcomes. The existing ingestion/edit separation is not rejected;
+the complete workflow must become usable quickly. Current conservative pacing is not
+a measured capacity requirement. Counter progression is secondary, and matching
+Kahuna's arrow appearance is later work. Neither is a substitute for correct fast saves.
+
+Users reportedly repeat Kahuna batch arrows because they do not trust the result.
+Contention with ongoing uploads or rapid edits to multiple fields/batches is an
+operator hypothesis. The local witness below demonstrates filename-description loss
+during overlapping edits, but does not establish the cause or frequency of those
+user reports. Distinguish excluded late arrivals, delayed visibility and unclear
+feedback from lost values.
+
+Recommended separately selected witnesses, using small cohorts before larger timing runs:
+
+1. After ingestion and automatic follow-ups settle, apply different fields in quick
+  succession. Establish exact per-field target/value expectations as a control.
+2. While both ingestion and automatic filename/preset saves remain active, apply
+  different field arrows and one individual edit. Capture actual overlap, the
+  source's separate save, each arrow's known targets and pending exclusions. Later
+  arrivals do not retroactively join a captured action under the current contract.
+3. If needed to isolate the cause, repeat during the metadata-follow-up tail after
+  ingestion ends, then test a deliberate repeated idempotent overwrite or a second
+  batch. Do not manufacture concurrency claims when the relevant work already ended.
+4. Keep Search selection bulk editing, settled Upload arrows and large-action
+  single-save fairness as distinct workflows. Success in one cannot certify another.
+
+Use Kahuna's real controls and recipient semantics for its comparison, not Kupua's
+internal hooks or assumed offscreen targeting. Record admission, dispatch, acknowledgement,
+canonical values and visible completion separately. Repair concrete correctness failures
+before changing one pressure control at a time; do not copy Kahuna's outstanding-request
+counts or weaken safeguards merely to match a completion counter.
+
+Fresh, similarly sized cohorts suffice for initial correctness and ballpark timing.
+The operator offered selected hard deletion or an operator-run `setup.sh --clean`
+as possible future ways to reuse identical files; no destructive action is selected.
+Reuploads with retained descriptions are not equivalent fresh-upload work, and an
+ES-only deletion does not prove Grid storage, edits or status were reset. Before any
+matched reset trial, choose and verify the supported local cleanup boundary, exact
+targets and effects with the operator, preserving needed local configuration. No
+direct-ES shortcut, invented hard-delete endpoint or broad wipe follows from this plan.
+
+#### Local Overlap Witnesses, 18 November
+
+Operator-authorized local Grid/ES/LocalStack only; no speed constants or product
+code changed. Browser instrumentation filled ordinary Form inputs and activated
+their arrow controls, respecting each app's readiness and blur-to-save behavior.
+The two arrows were approximately 200ms apart, followed by one individual Credit
+change. These are rapid browser-driven functional witnesses, not physical-input
+timings, incidence estimates or matched benchmarks. No request delays were injected.
+
+Both cohorts contained 20 fresh JPEGs without preset labels. Kupua used 4,548,554
+bytes; Kahuna used 5,646,481 bytes. Different images, readiness contracts and actual
+recipient counts prevent a fair throughput ratio. Capture started before file
+selection and covered fetch, plus XHR in Kahuna; identities and payloads remained
+in browser memory. All observed storage destinations were local. Known queued-status
+400 responses were recorded separately from successful ingestion. The accepted
+captures had no observer errors or truncation.
+
+| Observation | Kupua | Kahuna |
+|---|---|---|
+| Last storage PUT acknowledged | 3.815s | 1.540s |
+| All ingestion/readability reported by native app | 11.353s, includes indexed visibility | 7.877s, uploaded state |
+| Credit / Byline arrow times | 5.872s / 6.073s | 2.368s / 2.544s |
+| Recipients at each arrow | Six peers; source saved separately | Two editors, including source |
+| Actual overlap | Seven complete, 13 processing/visibility, seven filename follow-ups pending | Two uploaded, 18 indexing, filename metadata PUTs active |
+| Last metadata PUT acknowledged | 32.586s | 7.919s |
+| Metadata PUTs | 34 | 27 |
+| Pre-cleanup canonical descriptions | 20/20 correct | 18/20 correct; both arrow recipients empty |
+| Pre-cleanup Credit / Byline | 20/20 expected for each field | 20/20 expected for each field |
+| Unrelated metadata / excluded arrivals | Preserved; 13 late arrivals unchanged | Preserved; 18 late arrivals unchanged |
+
+**Kupua:** the newer individual source Credit superseded its earlier unsent draft;
+all intended values were independently verified. Activity progressed from 20 pending
+to 19 at 6.600s, to 13 at 14.295s, then 20 completed at 37.808s. The 23.5-second
+plateau concealed ongoing work, not a failed upload. The chooser separately reported
+ingested images; activity includes automatic follow-ups, not explicit arrow saves.
+The Credit arrow waited until 14.295s to enter saving and finished at 20.999s; Byline
+ran 21.034-27.722s, source Byline 27.740-29.094s, and individual Credit
+29.140-37.727s. This is a concrete queue-wait witness for the existing ownership
+model, not proof that a generic fairness redesign is necessary. Incremental counters
+alone would not remove those waits.
+
+**Kahuna:** the two filename-description PUTs returned 200 at 2.468s and 2.512s.
+Overlapping Credit/Byline/individual editor PUTs omitted description; canonical
+reads later confirmed it empty on exactly those two images. The full-object
+replacement contract is explicit in
+[editsService.update](../../../kahuna/public/js/edits/service.js#L157), while
+[the upload editor](../../../kahuna/public/js/upload/jobs/required-metadata-editor.js#L38)
+builds its override from its current local metadata and broadcasts arrows to
+mounted editable upload editors. The other 18 images retained their filename
+descriptions. This is an observed overwrite of automatic metadata, not a failed
+HTTP request or evidence that the tested Credit/Byline arrows themselves were lost.
+
+Kahuna's remaining counter advanced through every count and disappeared at 7.877s,
+when 15 descriptions were visible in its job models. Only 18 were present by 8.502s.
+The capture counted 646 singleton reads; 413 began after 8.502s, all for the two
+affected images, and reads continued through the approximately 62-second capture
+boundary. That tail is right-censored, not a measured termination time. Its
+[readback matcher](../../../kahuna/public/js/edits/service.js#L39) compares the whole
+edit object, consistent with polling for versions replaced by subsequent writes.
+Early UI completion must not be presented as completion of all background work.
+
+**Controls and cleanup:** two earlier Kupua cohorts were not overlap witnesses:
+one probe read a stale imported upload store, and the next attempted a mounted but
+not yet editable input. Neither dispatched an arrow or experimental field edit;
+their description results were independently verified. The driver was corrected
+and a single settled-image edit/restore verified before the accepted witness.
+Kahuna was reloaded before its run so previous completed-current jobs could not
+join its broadcasts. After evidence capture, all seven Kupua recipients and both
+Kahuna recipients had Credit/Byline restored through UI, with canonical checks.
+The two lost Kahuna descriptions were explicitly repaired as cleanup, not silently
+counted as successful experiment outcomes. Final Kahuna checks passed 20/20
+descriptions, original Credit/Byline and unrelated metadata. Observers and transport
+wrappers were restored; uploaded samples retained. No backend changes, reset,
+deletion, automatic mutation replay or TEST/PROD work followed.
+
+**Next decision:** retain this multi-field preservation witness while reducing
+Kupua's demonstrated queue/readback waits. Kahuna's visible speed remains useful
+evidence; its correctness failure is not justification for accepting slow Kupua
+operation. Search bulk edits, settled-batch rapid arrows, repeated arrows and
+large-action fairness remain separate, untested contexts in this investigation.
+
+#### Queue/Readback Investigation, 19 November
+
+After the operator restarted the apps, both local Upload pages were reopened.
+Kupua's initial 401 cleared after the operator reloaded. No further uploads,
+metadata writes, resets or live timing captures were performed.
+
+The initial hypothesis needs narrowing: releasing the metadata queue slot after
+dispatch is not an isolated repair. The [metadata pump](../../src/stores/metadata-editor-store.ts)
+holds it through observation, but [freshness admission](../../src/lib/image-read-freshness.ts)
+also permits only one active observation group. Releasing only the queue would
+leave subsequent operations refused as busy. Supporting independent concurrent
+groups would require a broader ownership change, and would not by itself remove
+the observed Credit/Byline delay on the same six images. Do not select that redesign
+merely because unrelated saves can be shown to wait too.
+
+The smaller timing mechanism is in [operation observation](../../src/lib/label-operation.ts):
+one early read may run during dispatch; further attempts wait for dispatch to end.
+The third and final attempt is spaced halfway through the remaining observation
+window, with a minimum one-second interval. A second read that is too early can
+therefore leave several seconds without another check even after data is visible.
+
+A temporary fake-clock probe in the existing metadata component suite used two
+acknowledged saves, existing 250ms write spacing, and visibility exactly two seconds
+after each acknowledgement. A later save was submitted at 250ms. Two cases varied
+only whether it targeted an earlier image or an independent image:
+
+| Event | Both cases |
+|---|---:|
+| Initial write acknowledgements | 0ms, 250ms |
+| Initial group's readback attempts | 0ms, 1,000ms, 5,625ms |
+| Both initial values available in fixture | 2,250ms |
+| Later save first dispatched | 5,625ms |
+| Available-but-not-rechecked interval | 3,375ms |
+
+Both probes passed their timing assertions. This is deterministic characterization
+of the actual operation/store code, not a live benchmark, measured server visibility
+delay or attribution of the entire earlier 23-second queue wait. The probe was
+removed afterward; all 96 existing tests in the metadata component and label-operation
+suites passed (6.48s measured runner duration). Existing delayed-four-second visibility,
+unknown-outcome, Stop and shared-queue witnesses were retained unchanged. No permanent
+source/test changes or full unit/E2E reruns followed this investigation.
+
+**Recommendation, pending approval:** investigate more regular bounded readback
+within the existing confirmation window before redesigning queue ownership. Keep
+write concurrency/spacing, exact-value verification, same-image ordering and uncertain
+outcome fences unchanged. Merely moving the third check earlier sacrifices the
+existing slow-visibility witness; regular checks require a deliberately larger read
+budget. Checking at most once per second until verified or the existing deadline
+would cost up to roughly ten post-dispatch grouped reads, plus the early read,
+instead of three total. This is an explicit latency/read-load trade-off and a tuning
+decision, not a proven correctness fix or an approved default. No policy changed.
+
+**Operator-approved experiment, 19 November:** connected observation now uses the
+existing one-second minimum interval until values are verified or the existing
+deadline. The stretched final check and connected three-attempt cap are removed;
+simulation keeps that cap. This is a small change in the existing operation, not
+a new scheduler, background polling service, cache or queue-ownership redesign.
+Write pacing, fresh originals/overrides, same-image ordering, unknown fences and
+Stop behavior are unchanged. See the [current contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
+for the read budget. The existing delayed-four-second test failed before the change
+and passed afterward; its full visibility assertion was retained. One additional
+case in the same suite bounds non-visible work to eleven reads, verifies deadline
+abort and no further reads, and preserves exactly two writes.
+
+Validation: all 3,945 units across 117 files passed (70.87s); normal build and browser
+typecheck passed with existing WASM/chunk warnings. Independent GPT-6.1 Sol review
+found no concrete defect and retained the read-load/capacity caveat. The full retry-free
+E2E run passed 595/598 cases (11.3 minutes), including Upload/editing journeys. It
+failed sort/comma-URL navigation on a load timeout, table early-keyboard restoration
+on pending focus, and B10 direct-ES table prepend on native-wheel settlement. Their
+traces contained no metadata writes; the case code does not exercise edit confirmation.
+All three unchanged cases passed together in a separate retry-free isolated run
+(17.0s, three workers). This does not retroactively make the full run clean or prove
+their causes. No unrelated fixes, weakened assertions, increased timeouts or automatic
+retries were introduced. Full-run failure artifacts remain under
+`kupua/node_modules/.cache/readback-cadence-failures/full-run/`.
+
+No new E2E cases were added. One existing operation test was strengthened and one
+deadline-bound case added to its existing suite. No new live upload/edit comparison
+or production-capacity measurement was performed; fixture timing is not a live speed
+claim. The operator stopped the Kupua dev server for validation; it was not implicitly
+restarted or reconfigured. Both MCP tabs remain open for a later authorized trial.
 
 ## 9. Completion Report
 
@@ -2407,6 +2770,59 @@ The finished implementation should be recognizably one Kupua browsing/editor
 experience with an Upload context, not two applications sharing a stylesheet.
 
 ## Followups
+
+### Recovery After Observation Stops: Bulk or Automatic Recheck
+
+**Deferred UX question, raised by the operator 19 November 2026; no decision,
+implementation authorization or new performance gate.** Consider recovery when
+processing finishes after Kupua's bounded observation has stopped. Per-file Recheck
+works, but a batch-wide interruption can leave users facing many individual clicks.
+
+In local R020,100 transferred uploads became uncertain during an ingestion-service
+interruption. After the operator restarted Grid, Recheck recovered the first image
+and then the other99 without a Kupua refresh or file resubmission. All100 captions
+were verified and follow-ups were unchanged, with no metadata writes. This shows
+the recovery interaction, not hosted incidence or expired-authentication behavior;
+hosted deauth resilience remains separately deferred. The [R020 record](editing-performance-evidence.md#r020-storage-complete-ingestion-blocked-by-sqs-19-november)
+owns the underlying run, not a new failure investigation here.
+
+Assess a batch-scoped "Recheck all", bounded automatic read checks after a meaningful
+recovery signal, or both. Decide scope (current batch versus retained history),
+authentication readiness, request limits/backoff, duplicate in-flight checks and
+stopping conditions before selecting a policy. Do not introduce indefinite polling.
+Temporary service/network interruptions, delayed visibility or a suspended client
+could produce a similar gap; the local incident does not establish their frequency.
+Also assess whether Activity distinguishes waiting, needs-attention and completed
+counts clearly: its numeric badge stayed100 while its label changed to100completed.
+
+Never retransmit files or replay submitted/uncertain mutations automatically.
+Recheck may resume previously captured unsent follow-ups through existing ownership
+and gates; it is not a blanket promise of zero writes. Reuse existing observation
+owners if selected; no new scheduler, retry framework or backend work is authorized.
+
+### Plain-Language Activity Follow-up Outcomes
+
+**Copy/presentation cleanup, raised by the operator 19 November 2026; not yet implemented.**
+Activity currently exposes "Filename description: Finished: 1/1 visible", produced
+by startup's upload-follow-up wiring using the generic metadata save summary.
+"Visible" means verified by canonical readback, not necessarily displayed onscreen.
+In the captioned R020 batch, the description already existed and nothing was changed;
+"Filename description" therefore misleadingly describes a write that did not happen.
+
+The operator explicitly rejected "Description already present" too: users need not
+know that filename fallback exists. Describe the upload or their requested action,
+not internal operation names/counters. Successful automatic filename handling should
+be quiet. Distinguish uploading, processing, ready, delayed/unconfirmed and failed
+outcomes without implying that a successfully transferred file failed to upload.
+For explicitly requested changes, use action-appropriate progress/outcomes that can
+cover entities beyond labels; do not hardcode all follow-ups as label operations.
+Exact strings/presentation still need a focused implementation, not a new UI framework.
+
+Keep pending work, rejected changes and uncertain outcomes distinguishable; an
+acknowledgement alone must not become "Saved" or a finished upload claim. Preserve
+attention flags and meaningful failure information, including requested entity changes.
+This is presentation work, not permission to change queue, confirmation or retry
+semantics. No product code or test behavior changed when recording this follow-up.
 
 ### Prompt Arrival Ticker Checks After Upload Completion
 
@@ -2442,7 +2858,7 @@ performance campaign is proposed.
 
 ### Use the Filename When Uploaded Metadata Has No Description
 
-**Deferred follow-up; not a U3 acceptance gate or implementation authorization.**
+**Implemented in U5; filename normalization corrected 18 November.**
 Match [Kahuna's post-upload behavior](../../../kahuna/public/js/upload/jobs/upload-jobs.js#L104):
 when the uploaded image has no Description, derive one from the submitted filename
 by removing the final extension and replacing underscores with spaces. For example,
@@ -2453,8 +2869,13 @@ metadata merely because the file has a different name.
 This is a post-upload metadata write owned with U5, not part of transfer success
 or a display-only default. Respect the separate editing gate, server capability
 and metadata-write outcome handling; enabling uploads must not silently enable
-this edit. Confirm missing/empty-description and duplicate semantics against the
-owning metadata boundary when implementing, without automatic mutation replay.
+this edit. Fresh `if-empty` command checks preserve existing descriptions, including
+duplicates, without automatic mutation replay. Startup removes the final extension
+and replaces underscores before submission; filenames without an extension retain
+their name. The existing U5 browser journey now uses `u5_0.original.jpg` and expects
+`u5 0.original`; it failed on the raw filename before this correction and passed
+afterward. Full units, normal build and browser typecheck passed after the fix;
+the earlier 598-case full E2E gate predates this narrow correction and was not rerun.
 
 ### Decide Whether Rare Duplicate Uploads Warrant an Existence Check
 
@@ -2492,3 +2913,30 @@ automatic replay. Until separately selected, duplicate-specific pre-upload looku
 must not be enabled as part of the toolbar/activity polish.
 
 A cheaper option is to compare the uploader on images already returned in batch results with the signed-in user, explaining the different-uploader case after indexing without extra requests or pre-upload delay, but without detecting reuploads of the user's own images.
+
+**Readback reuse assessment, 19 November:** the operator asked whether edit-confirmation
+reads could also perform this postponed check. They run after upload, for images already
+available for editing, and stop at confirmation or a bounded deadline; they are not an
+idle catalogue poll. Finding an image then establishes current existence, not existence
+before this submission. Reusing these reads cannot supply a general duplicate verdict.
+The cheaper different-uploader explanation above can use existing returned batch data
+without any additional request and directly addresses the reported My recent uploads
+confusion. Prefer assessing that bounded UI change separately from readback scheduling;
+do not add pre-upload lookups or label every returned image as an existing duplicate.
+No duplicate-specific lookup or UI behavior was implemented in the timing experiment.
+
+**Kahuna parity and deferred follow-up, 19 November:** in the signed mode verified
+in the local Kahuna tab, the [upload manager](../../../kahuna/public/js/upload/manager.js#L40)
+groups each submission by SHA-1 before creating jobs. Identical bytes get one
+slot even under different filenames; the last file wins. Direct mode creates a
+job per file. This says nothing about whether a matching image was already in Grid.
+Kahuna keeps ordinary failures in their [filename-sorted job rows](../../../kahuna/public/js/upload/jobs/upload-jobs.html#L7);
+files over the configured limit are named in an alert and skipped.
+
+Keep one real-image row per Grid ID in Kupua. Its [position lookup](../../src/lib/upload-section-layout.ts#L99)
+cannot distinguish two occurrences of one ID, so repeating image rows could
+restore focus or scroll to the wrong occurrence. Defer occurrence-aware image
+rows. The smaller follow-up is to surface failed filenames and reasons in
+Current batch, including when revisiting it, without adding failed attempts to
+search results, altering position anchors, or changing edit targets. Keep
+this separate from performance tuning and from any prior-existence lookup.

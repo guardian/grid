@@ -3,8 +3,10 @@ import { createLabelOperation, type LabelTarget } from "./label-operation";
 import type { LabelCommand } from "./grid-commands";
 import type { GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
-import { acceptImageOverlay, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
+import { acceptImageOverlay, admitLabelObservation, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
 import { attachEnrichment } from "@/stores/enrichment-store";
+import { createMetadataOperation } from "./metadata-operation";
+import { BATCH_POLICY } from "./batch-execution";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
@@ -19,6 +21,38 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("disconnected label operation", () => {
+  it("retains shared capacity reservations until every queued owner releases them", () => {
+    recordImageAvailability(Array.from({ length: BATCH_POLICY.maxTouchedImages - 1 }, (_, index) => `unavailable-${index}`), "unavailable");
+    const first = watchQueuedLabelTargets(["shared"])!;
+    const second = watchQueuedLabelTargets(["shared"])!;
+    first(); first();
+    expect(watchQueuedLabelTargets(["another"])).toBeUndefined();
+    second();
+    const available = watchQueuedLabelTargets(["another"]);
+    expect(available).toBeTypeOf("function");
+    available?.();
+  });
+
+  it("publishes metadata only after the command's exact expected fields become visible", async () => {
+    vi.useFakeTimers();
+    const stale = { ...observedImage(), metadata: { credit: "Earlier credit", city: "Keep city" } };
+    const current = { ...observedImage(), metadata: { credit: "New credit", city: "Keep city" },
+      userMetadata: { lastModified: "2026-11-06T00:01:00Z" } };
+    const execute = vi.fn().mockResolvedValue({ outcome: "unknown", expected: { credit: "New credit" } });
+    const publishImages = vi.fn();
+    const operation = createMetadataOperation(execute, {
+      readImages: vi.fn().mockResolvedValueOnce([stale]).mockResolvedValue([current]), publishImages,
+    });
+    try {
+      await operation.confirm({ fieldId: "metadata_credit", action: "overwrite", value: "New credit", targetIds: ["first"] }, targets);
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+      expect(operation.getSnapshot()?.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
+      expect(execute).toHaveBeenCalledOnce();
+    } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
   it("continues partial-coverage removal after an unchanged target and observes both images", async () => {
     vi.useFakeTimers();
     const ids = ["first", "second"];
@@ -37,7 +71,7 @@ describe("disconnected label operation", () => {
     } finally { operation.stopRemaining(); operation.cancelObservation(); await completion; vi.useRealTimers(); }
   });
 
-  it("observes 100 paced targets including visibility delayed after the last acknowledgement", async () => {
+  it("observes 100 targets including visibility delayed after the last acknowledgement", async () => {
     vi.useFakeTimers();
     const ids = Array.from({ length: 100 }, (_, index) => `batch-${index}`);
     let lastAcknowledgedAt = Infinity;
@@ -51,12 +85,40 @@ describe("disconnected label operation", () => {
     const operation = createLabelOperation(executor, { readImages, publishImages: vi.fn() }, "connected");
     const completion = operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(id => [id, { resource }])));
     try {
-      await vi.advanceTimersByTimeAsync(35_000);
+      await vi.advanceTimersByTimeAsync((ids.length - 1) * BATCH_POLICY.speed.startIntervalMs + 3_999);
+      expect(operation.getSnapshot()?.items.at(-1)?.observation).toBe("pending");
+      await vi.advanceTimersByTimeAsync(1);
       await completion;
       expect(executor.mock.calls.map(([command]) => command.imageId)).toEqual(ids);
       expect(operation.getSnapshot()?.items.every(item => item.state === "accepted-awaiting-visibility" && item.observation === "observed")).toBe(true);
-      expect(readImages).toHaveBeenCalledTimes(3);
+      expect(readImages).toHaveBeenCalledTimes(9);
       expect(readImages.mock.calls.at(-1)?.[0]).toEqual([ids.at(-1)]);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationWindowMs);
+      expect(readImages).toHaveBeenCalledTimes(9);
+    } finally { operation.stopRemaining(); operation.cancelObservation(); await completion; vi.useRealTimers(); }
+  });
+
+  it("bounds connected readback by the deadline without replaying writes", async () => {
+    vi.useFakeTimers();
+    const ids = ["first", "second"];
+    const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const readImages = vi.fn().mockResolvedValue([]);
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(executor, { readImages, publishImages }, "connected");
+    const completion = operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(imageId => [imageId, { resource }])));
+    try {
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.speed.startIntervalMs + BATCH_POLICY.observationWindowMs - 1);
+      expect(operation.getSnapshot()?.items.every(item => item.observation === "pending")).toBe(true);
+      expect(readImages).toHaveBeenCalledTimes(20);
+      await vi.advanceTimersByTimeAsync(1);
+      await completion;
+      expect(operation.getSnapshot()?.items).toMatchObject(ids.map(imageId => ({ imageId,
+        state: "accepted-awaiting-visibility", observation: "deadline" })));
+      expect(readImages.mock.calls.at(-1)?.[1].aborted).toBe(true);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationWindowMs);
+      expect(readImages).toHaveBeenCalledTimes(20);
+      expect(executor).toHaveBeenCalledTimes(2);
+      expect(publishImages).not.toHaveBeenCalled();
     } finally { operation.stopRemaining(); operation.cancelObservation(); await completion; vi.useRealTimers(); }
   });
 
@@ -65,21 +127,20 @@ describe("disconnected label operation", () => {
     const executor = vi.fn().mockResolvedValueOnce({ outcome: "unknown", status: 429 })
       .mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
     const operation = createLabelOperation(executor, undefined, "connected");
-    const ids = ["first", "second", "third"];
+    const ids = Array.from({ length: 9 }, (_, index) => `target-${index}`);
     const completion = operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(imageId => [imageId, { resource }])));
     try {
       await vi.advanceTimersByTimeAsync(999);
-      expect(executor).toHaveBeenCalledTimes(1);
+      expect(executor).toHaveBeenCalledTimes(8);
       await vi.advanceTimersByTimeAsync(1);
-      expect(executor).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(250);
+      expect(executor).toHaveBeenCalledTimes(9);
       await completion;
       expect(executor.mock.calls.map(call => call[0].imageId)).toEqual(ids);
-      expect(operation.getSnapshot()?.items.map(item => item.state)).toEqual(["unknown", "rejected", "rejected"]);
+      expect(operation.getSnapshot()?.items.map(item => item.state)).toEqual(["unknown", ...ids.slice(1).map(() => "rejected")]);
     } finally { operation.stopRemaining(); await completion; vi.useRealTimers(); }
   });
 
-  it("paces explicitly enabled connected batches without changing their captured targets", async () => {
+  it("bounds immediate connected dispatch without changing captured targets", async () => {
     vi.useFakeTimers();
     const starts: number[] = [];
     const releases: ((result: GridCommandResult) => void)[] = [];
@@ -88,30 +149,29 @@ describe("disconnected label operation", () => {
       return new Promise<GridCommandResult>(resolve => releases.push(resolve));
     });
     const operation = createLabelOperation(executor, undefined, "connected");
-    const input = { ...intent, targetIds: ["first", "second", "third", "fourth"] };
+    const ids = Array.from({ length: 9 }, (_, index) => `target-${index}`);
+    const input = { ...intent, targetIds: [...ids] };
     const completion = operation.confirm(input, new Map(input.targetIds.map(imageId => [imageId, { resource }])));
     try {
-      input.targetIds.splice(0, 4, "changed");
+      input.targetIds.splice(0, ids.length, "changed");
       await vi.advanceTimersByTimeAsync(0);
-      expect(executor).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(249);
-      expect(executor).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(1);
-      expect(executor).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(250);
-      expect(executor).toHaveBeenCalledTimes(3);
+      expect(executor).toHaveBeenCalledTimes(8);
       await vi.advanceTimersByTimeAsync(1_000);
-      expect(executor).toHaveBeenCalledTimes(3);
+      expect(executor).toHaveBeenCalledTimes(8);
       releases[0]({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
       await vi.advanceTimersByTimeAsync(0);
-      expect(executor).toHaveBeenCalledTimes(4);
-      expect(starts[1] - starts[0]).toBe(250);
-      expect(executor.mock.calls.map(call => call[0].imageId)).toEqual(["first", "second", "third", "fourth"]);
+      expect(executor).toHaveBeenCalledTimes(9);
+      expect(starts[1] - starts[0]).toBe(0);
+      expect(executor.mock.calls.map(call => call[0].imageId)).toEqual(ids);
       releases[1]({ outcome: "unknown" });
       releases[2]({ outcome: "acknowledged" });
       releases[3]({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
+      for (const release of releases.slice(4)) release({ outcome: "acknowledged" });
       await completion;
-      expect(operation.getSnapshot()?.items.map(item => item.state)).toEqual(["rejected", "unknown", "accepted-awaiting-visibility", "rejected"]);
+      expect(operation.getSnapshot()?.items.map(item => item.state)).toEqual([
+        "rejected", "unknown", "accepted-awaiting-visibility", "rejected",
+        ...ids.slice(4).map(() => "accepted-awaiting-visibility"),
+      ]);
     } finally {
       operation.stopRemaining();
       for (const release of releases) release({ outcome: "unknown" });
@@ -129,26 +189,25 @@ describe("disconnected label operation", () => {
     const readImages = vi.fn().mockResolvedValue([observedImage()]);
     const publishImages = vi.fn();
     const operation = createLabelOperation(executor, { readImages, publishImages }, "connected");
-    const ids = ["first", "held-a", "held-b", "held-c", "unsent", "withdrawn"];
+    const held = Array.from({ length: 8 }, (_, index) => `held-${index}`);
+    const ids = ["first", ...held, "unsent", "withdrawn"];
     const completion = operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(imageId => [imageId, { resource }])));
     try {
       await vi.advanceTimersByTimeAsync(750);
       expect(readImages).toHaveBeenCalledExactlyOnceWith(["first"], expect.any(AbortSignal));
-      expect(executor).toHaveBeenCalledTimes(4);
+      expect(executor).toHaveBeenCalledTimes(9);
       const denied = { resource: { links: [] } };
       stampImageRead(observedImage("withdrawn"), denied, captureImageRead(), "lean");
       acceptImageOverlay("withdrawn", denied);
       await vi.advanceTimersByTimeAsync(119_250);
       expect(operation.getSnapshot()?.items.slice(-2).map(item => item.state)).toEqual(["stopped", "stopped"]);
-      expect(executor).toHaveBeenCalledTimes(4);
+      expect(executor).toHaveBeenCalledTimes(9);
       expect(operation.getSnapshot()?.items[1].observation).toBe("pending");
       await vi.advanceTimersByTimeAsync(10_000);
       expect(publishImages).toHaveBeenCalledExactlyOnceWith([observedImage()]);
       expect(operation.getSnapshot()?.items).toMatchObject([
         { state: "accepted-awaiting-visibility", observation: "observed" },
-        { state: "submitted", observation: "deadline" },
-        { state: "submitted", observation: "deadline" },
-        { state: "submitted", observation: "deadline" },
+        ...held.map(() => ({ state: "submitted", observation: "deadline" })),
         { state: "stopped" },
         { state: "stopped" },
       ]);
@@ -156,7 +215,7 @@ describe("disconnected label operation", () => {
       expect(isLabelAuthorityCurrent("withdrawn", resource)).toBe(false);
       for (const release of releases) release({ outcome: "unknown" });
       await completion;
-      expect(executor).toHaveBeenCalledTimes(4);
+      expect(executor).toHaveBeenCalledTimes(9);
       expect(readImages).toHaveBeenCalledTimes(1);
     } finally {
       operation.stopRemaining();
@@ -229,10 +288,10 @@ describe("disconnected label operation", () => {
     try {
       await operation.confirm({ ...intent, action: "remove" }, targets);
       expect(executor).toHaveBeenCalledExactlyOnceWith({ operation: "remove-label", imageId: "first", label: "news", resource });
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
       expect(readImages).toHaveBeenCalledTimes(2);
       expect(publishImages).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
       expect(publishImages).toHaveBeenCalledExactlyOnceWith([remaining]);
       expect(operation.getSnapshot()?.items[0]).toMatchObject({ state: "unknown", observation: "observed" });
       expect(await operation.confirm({ ...intent, action: "remove" }, targets)).toBe(false);
@@ -295,11 +354,14 @@ describe("disconnected label operation", () => {
       ...targets, ["held", { resource }],
     ]));
     try {
+      const reservation = admitLabelObservation(["reserved-peer"]);
+      if (typeof reservation !== "number") throw new Error("Expected second observation slot");
       const busyExecutor = vi.fn();
       const busy = createLabelOperation(busyExecutor, { readImages, publishImages });
       await busy.confirm({ ...intent, targetIds: ["busy-peer"] }, new Map([["busy-peer", { resource }]]));
       expect(busy.getSnapshot()?.blocked).toBe("busy");
       expect(busyExecutor).not.toHaveBeenCalled();
+      releaseLabelObservation(reservation);
       await vi.advanceTimersByTimeAsync(10_000);
       expect(readImages).toHaveBeenCalledTimes(1);
       expect(readImages.mock.calls[0][0]).toEqual(["first"]);
@@ -427,11 +489,14 @@ describe("disconnected label operation", () => {
     await subsequent.confirm(intent, targets);
     expect(subsequent.getSnapshot()?.items[0]).toEqual({ imageId: "first", state: "not-started", result: { outcome: "blocked", reason: "reload-required" } });
     expect(executor).toHaveBeenCalledTimes(2);
-    executor.mockResolvedValueOnce({ outcome: "rejected", status: 419, errorKey: "authentication-expired" });
+    executor.mockResolvedValueOnce({ outcome: "rejected", status: 419, errorKey: "authentication-expired" })
+      .mockResolvedValue({ outcome: "blocked", reason: "reload-required" });
     const batch = createLabelOperation(executor, undefined, "connected");
-    await batch.confirm({ ...intent, targetIds: ["first", "unsent"] }, new Map([...targets, ["unsent", { resource }]]));
-    expect(batch.getSnapshot()?.items.map(item => item.state)).toEqual(["rejected", "stopped"]);
-    expect(executor).toHaveBeenCalledTimes(3);
+    const active = Array.from({ length: 7 }, (_, index) => `active-${index}`);
+    const ids = ["first", ...active, "unsent"];
+    await batch.confirm({ ...intent, targetIds: ids }, new Map(ids.map(imageId => [imageId, { resource }])));
+    expect(batch.getSnapshot()?.items.map(item => item.state)).toEqual(["rejected", ...active.map(() => "not-started"), "stopped"]);
+    expect(executor).toHaveBeenCalledTimes(10);
   });
 
   it.each(["acknowledged", "unknown"] as const)("observes exact canonical labels without changing the %s command outcome", async outcome => {
@@ -445,12 +510,12 @@ describe("disconnected label operation", () => {
     const operation = createLabelOperation(async () => ({ outcome }), { readImages, publishImages });
     try {
       await operation.confirm({ ...intent, label }, targets);
-      await vi.advanceTimersByTimeAsync(999);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs - 1);
       expect(readImages).toHaveBeenCalledTimes(1);
       expect(publishImages).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1);
       expect(readImages).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(1_000);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
       expect(readImages).toHaveBeenCalledTimes(3);
       expect(publishImages).toHaveBeenCalledExactlyOnceWith([observedImage("first", label)]);
       expect(operation.getSnapshot()?.items[0]).toMatchObject({
@@ -497,12 +562,12 @@ describe("disconnected label operation", () => {
     };
     expect((await submit(Array.from({ length: 201 }, (_, index) => `too-many-${index}`)))?.blocked).toBe("target-limit");
     expect(executor).not.toHaveBeenCalled();
-    for (let group = 0; group < 5; group++) {
+    for (let group = 0; group < BATCH_POLICY.maxTouchedImages / 200; group++) {
       expect((await submit(Array.from({ length: 200 }, (_, index) => `target-${group * 200 + index}`)))?.blocked).toBeUndefined();
     }
-    expect(executor).toHaveBeenCalledTimes(1_000);
+    expect(executor).toHaveBeenCalledTimes(BATCH_POLICY.maxTouchedImages);
     expect((await submit(["over-capacity"]))?.blocked).toBe("freshness-capacity");
-    expect(executor).toHaveBeenCalledTimes(1_000);
+    expect(executor).toHaveBeenCalledTimes(BATCH_POLICY.maxTouchedImages);
     expect(readImages).not.toHaveBeenCalled();
   });
 });

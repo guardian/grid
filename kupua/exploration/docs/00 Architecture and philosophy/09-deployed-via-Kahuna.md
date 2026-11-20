@@ -375,7 +375,11 @@ absence postconditions stay label-specific. Later edit families reuse common sch
 instead of introducing another rollout flag or scheduler.
 
 Concurrency limits unfinished work when services are slow; pacing limits starts when
-responses are fast. These are distinct common constants, not dashboard controls. Three
+responses are fast. They are colocated in `BATCH_POLICY.speed`, not dashboard controls;
+the same policy owns the other editing admission, timeout and freshness limits.
+Startup injects one queue into the connected editor store. Future edit families borrow
+that owner; disposing one borrower stops its own work without closing sibling admission.
+Three
 executions does not mean three separate operator batches or three HTTP requests/second:
 each execution includes prerequisite reads and a possible write. A 429 delays unsent
 starts by at least one second without replaying the uncertain write. The chosen values
@@ -386,7 +390,7 @@ seconds after dispatch settles, with a hard 130-second observation cap from acti
 One group uses at most three mget attempts at least one second apart; after an early
 read, remaining attempts wait for dispatch to settle. All 100 images fit in one existing
 200-ID mget request per check, instead of individual polling loops. Early canonical
-partial bodies can publish while other work remains. The 1,000-ID freshness budget and
+partial bodies can publish while other work remains. The 10,000-ID session freshness budget and
 at most one current standalone full-projection follow-up remain. Stop remaining affects
 only unsent commands; in-flight writes retain their eventual outcomes even after readback
 ends. Acknowledgement, uncertainty and canonical visibility remain distinct.
@@ -394,6 +398,12 @@ ends. Acknowledgement, uncertainty and canonical visibility remain distinct.
 These client policies do not establish safe shared capacity. GRID-019's table/GSI
 capacity decision and explicit authorization remain boundaries for general activation;
 no live capacity campaign or infrastructure repair is part of this work.
+U5 ordinary metadata shares this queue and the startup Allow editing preference.
+It reserves complete actions and executes groups of 100 under these bounds; Labels'
+action ceiling remains unchanged. Metadata PUTs preserve fresh unrelated overrides,
+and filename/preset follow-ups retain outcomes separately from ingestion. See the
+[command contract](../../../src/dal/grid-api/README.md#u5-ordinary-metadata).
+Local tuning of the two speed controls remains separate.
 
 ### Runtime payload
 
