@@ -64,6 +64,11 @@ export const findDomainMetadataFieldAlias = (fieldAliases, specName, fieldName) 
 export const supportsEditOptions = (field) =>
   field.fieldType === 'string' && field.allowEditOptions === true;
 
+export const isReadOnly = (field) => field.readOnly === true;
+
+export const hasDisplayableDomainMetadataValue = (values) =>
+  values.some(value => Boolean(value));
+
 /**
  * Combines the entered value with an image's current value according to the chosen
  * edit option. An image holding no value takes the entered value as-is, rather than

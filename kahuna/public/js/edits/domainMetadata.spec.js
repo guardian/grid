@@ -3,6 +3,8 @@ import {
   findDomainMetadataFieldAlias,
   getDistinctDomainMetadataValues,
   getNewDomainMetadataFieldValue,
+  hasDisplayableDomainMetadataValue,
+  isReadOnly,
   readDomainMetadataFieldValue,
   supportsEditOptions
 } from './domainMetadata';
@@ -200,6 +202,28 @@ describe('supportsEditOptions', () => {
 
   it('requires the flag to be a boolean true rather than merely truthy', () => {
     expect(supportsEditOptions({ fieldType: 'string', allowEditOptions: 'true' })).toBe(false);
+  });
+});
+
+describe('isReadOnly', () => {
+  it('is true only when the field explicitly opts in', () => {
+    expect(isReadOnly({ readOnly: true })).toBe(true);
+    expect(isReadOnly({ readOnly: false })).toBe(false);
+    expect(isReadOnly({})).toBe(false);
+    expect(isReadOnly({ readOnly: 'true' })).toBe(false);
+  });
+});
+
+describe('hasDisplayableDomainMetadataValue', () => {
+  it('is true when any distinct selected value is truthy', () => {
+    expect(hasDisplayableDomainMetadataValue([true])).toBe(true);
+    expect(hasDisplayableDomainMetadataValue([true, false])).toBe(true);
+  });
+
+  it('is false for false, absent, or empty values', () => {
+    [[false], [undefined], [false, undefined], []].forEach(values => {
+      expect(hasDisplayableDomainMetadataValue(values)).toBe(false);
+    });
   });
 });
 

@@ -39,7 +39,8 @@ class DomainMetadataSpecConfigTest extends AnyFreeSpec with Matchers {
               "name" -> "a.e",
               "label" -> "A.E",
               "type" -> "string",
-              "allowEditOptions" -> true
+              "allowEditOptions" -> true,
+              "readOnly" -> true
             )
           )
         ),
@@ -77,6 +78,7 @@ class DomainMetadataSpecConfigTest extends AnyFreeSpec with Matchers {
       specificationA.fields.map(_.fieldType) shouldBe List("string", "datetime", "integer", "select", "string")
       specificationA.fields.find(_.options.nonEmpty).flatMap(_.options) shouldBe Some(List("Option 1", "Option 2"))
       specificationA.fields.map(_.allowEditOptions) shouldBe List(false, false, false, false, true)
+      specificationA.fields.map(_.readOnly) shouldBe List(false, false, false, false, true)
 
 
       domainMetadataSpecifications.lastOption.nonEmpty shouldBe true

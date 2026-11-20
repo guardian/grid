@@ -781,7 +781,7 @@
         </div>
     </div>
 
-    <div ng-if="(ctrl.hasSelectedImages() && ctrl.userCanEdit) || (ctrl.hasSelectedImages() && !ctrl.userCanEdit && !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
+    <div ng-if="ctrl.hasSelectedImages() && ((ctrl.userCanEdit && ctrl.hasEditableDomainMetadataFields(spec.name)) || !ctrl.isDomainMetadataEmpty(spec.name))" ng-repeat="spec in ctrl.domainMetadata" class="image-info__group image-info__group--full-domain-metadata"
          role="region" aria-label="Domain metadata">
         <button class="metadata-reveal" ng-click="ctrl.showMetadataSection(spec.name)"
                 aria-label="{{ctrl.isMetadataSectionHidden(spec.name) ? 'Show' : 'Hide'}} {{spec.label}} domain metadata section">
@@ -794,10 +794,20 @@
             <span class="metadata__description" ng-if="spec.description">{{spec.description}}</span>
 
             <dl ng-repeat="specField in spec.fields" class="metadata__body image-info__group--dl">
-                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="specField.value || specField.hasMultipleValues || ctrl.userCanEdit">{{specField.label}}</dt>
-                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="specField.value || specField.hasMultipleValues || ctrl.userCanEdit">
+                <dt class="image-info__{{specField.name}} image-info__wrap metadata-line image-info__group--dl__key metadata-line__key" ng-if="(specField.readOnly && specField.hasDisplayableValue) || (!specField.readOnly && (specField.value || specField.hasMultipleValues || ctrl.userCanEdit))">{{specField.label}}</dt>
+                <dd data-cy="metadata-{{specField.name}}" class="image-info__wrap image-info__group--dl__value metadata-line__info" ng-if="(specField.readOnly && specField.hasDisplayableValue) || (!specField.readOnly && (specField.value || specField.hasMultipleValues || ctrl.userCanEdit))">
 
-                    <div ng-switch="specField.fieldType">
+                    <div ng-if="specField.readOnly">
+                        <span ng-if="specField.hasMultipleValues">{{specField.valueCount}} values</span>
+                        <span ng-if="!specField.hasMultipleValues && specField.value">
+                            <a ng-if="specField.alias"
+                               ui-sref="search.results({query: (specField.value | queryFilter:specField.alias), nonFree: ctrl.srefNonfree()})"
+                               ng-click="ctrl.searchWithModifiers($event, specField.alias, specField.value)"
+                               aria-label="Search images with {{specField.label}} '{{specField.value}}'">{{specField.value}}</a>
+                            <span ng-if="!specField.alias">{{specField.value}}</span>
+                        </span>
+                    </div>
+                    <div ng-if="!specField.readOnly" ng-switch="specField.fieldType">
                         <span ng-switch-when="string">
                             <span ng-if="!specField.allowEditOptions">
                             <button data-cy="it-edit-{{specField.name}}-button"
