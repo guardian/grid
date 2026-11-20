@@ -9,6 +9,7 @@
     "test": "bddgen && playwright test",
     "test:headed": "bddgen && playwright test --headed",
     "test:video": "bddgen && GRID_RECORD_VIDEO=true GRID_DISABLE_COVERAGE=true playwright test",
+    "test:video:coverage": "bddgen && GRID_RECORD_VIDEO=true playwright test",
     "test:report": "playwright show-report --host 0.0.0.0",
     "test:report:cucumber": "playwright show-report cucumber-report --host 0.0.0.0 --port 9324",
     "features:build": "npm run features:typecheck && tsx feature-library/build.ts",
@@ -17,7 +18,8 @@
     "features:test:browser": "npm run features:build && tsx --test feature-library/app.test.ts",
     "features:typecheck": "tsc --project feature-library/tsconfig.json",
     "test:ui": "bddgen && playwright test --ui-port 6080",
-    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080"
+    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080",
+    "debug:chekov": "sh ./setup/chekov-proxy.sh 6080"
   },
   "engines": {
     "node": ">=22.12"
@@ -44,6 +46,7 @@
     "json5": "^2.2.3",
     "listr2": "^10.1.2",
     "lucide-react": "^0.468.0",
+    "lz-utils": "^2.1.1",
     "monocart-coverage-reports": "^3.2.1",
     "playwright-bdd": "^9.2.0",
     "react": "^19.2.0",

@@ -13,7 +13,10 @@ class KahunaComponents(context: Context) extends GridComponents(context, new Kah
 
   final override val buildInfo = utils.buildinfo.BuildInfo
 
-  val controller = new KahunaController(auth, config, controllerComponents, authorisation, environment, KahunaSecurityConfig.contentSecurityPolicy(config))
+  val controller = new KahunaController(
+    auth, config, controllerComponents, authorisation, environment,
+    KahunaSecurityConfig.contentSecurityPolicy(config), buildInfo.gitCommitId
+  )
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   final override val router = new Routes(httpErrorHandler, controller, assets, management, InnerServiceStatusCheckController)
@@ -62,7 +65,6 @@ object KahunaSecurityConfig {
       URI.ensureSecure(config.fullOrigin).toString,
       URI.ensureSecure(config.thumbOrigin).toString,
       URI.ensureSecure(config.cropOrigin).toString,
-      URI.ensureSecure("app.getsentry.com").toString,
       "https://*.googleusercontent.com",
       "'self'"
     ).mkString(" ")} ${config.imageSources.mkString(" ")} ${config.telemetryUri.getOrElse("")}"
