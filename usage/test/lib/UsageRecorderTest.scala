@@ -34,12 +34,15 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     usageTable: UsageTable,
     usageNotifier: UsageNotifier,
     notificationDelay: FiniteDuration
-  ): UsageRecorder = {
-    val _ = actorSystem
-    val recorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier, notificationDelay)
-    recorder.start()
-    recorder
-  }
+  ): UsageRecorder =
+    new UsageRecorder(
+      usageMetrics,
+      usageTable,
+      usageNotifier,
+      actorSystem.scheduler,
+      notificationDelay,
+      retryBackoff = 20.millis
+    )(actorSystem.dispatcher)
 
   private def withRecorder(
     usageGroup: UsageGroup,
@@ -265,8 +268,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx PublishSubject.onNext returns immediately before asynchronous database writes complete.
-  ignore("record does not complete until database writes finish") {
+  test("record does not complete until database writes finish") {
     val usage = mediaUsage("media-await-write")
     val group = UsageGroup(Set(usage), usage.grouping, usage.lastModified)
     val write = Promise[JsObject]()
@@ -307,8 +309,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx resubscribes to the ingress subject instead of retrying individual database writes.
-  ignore("a transient database write failure is retried before succeeding") {
+  test("a transient database write failure is retried before succeeding") {
     val usage = mediaUsage("media-write-retry")
     val group = UsageGroup(Set(usage), usage.grouping, usage.lastModified)
 
@@ -328,8 +329,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx swallows exhausted match failures inside the stream instead of failing record after five attempts.
-  ignore("exhausted match retries fail record after five attempts without stopping later groups") {
+  test("exhausted match retries fail record after five attempts without stopping later groups") {
     val failedGroup = UsageGroup(Set.empty, "failed-match", DateTime.parse("2026-11-01T12:00:00Z"))
     val usage = mediaUsage("media-after-match-failure")
     val group = UsageGroup(Set(usage), usage.grouping, usage.lastModified)
@@ -352,8 +352,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx abandons sibling notifications and swallows write failures instead of retrying five times and failing record.
-  ignore("exhausted write retries fail record after five attempts while notifying successful sibling writes") {
+  test("exhausted write retries fail record after five attempts while notifying successful sibling writes") {
     val failed = mediaUsage("media-failed", "failed", "group-siblings")
     val successful = mediaUsage("media-successful", "successful", "group-siblings")
     val group = UsageGroup(Set(failed, successful), "group-siblings", DateTime.parse("2026-11-01T12:00:00Z"))
@@ -394,8 +393,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx applies the notification delay even when there are no media IDs to notify.
-  ignore("empty usage groups do not delay shutdown") {
+  test("empty usage groups do not delay shutdown") {
     val group = UsageGroup(Set.empty, "group-empty", DateTime.parse("2026-11-01T12:00:00Z"))
 
     withRecorder(group, Set.empty, notificationDelay = 5.seconds) { f =>
@@ -404,8 +402,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx resubscribes to ingress after a notice failure rather than retrying that notice.
-  ignore("notice building retries a transient failure before sending the notice") {
+  test("notice building retries a transient failure before sending the notice") {
     val usage = mediaUsage("media-notice-retry")
     val group = UsageGroup(Set(usage), usage.grouping, usage.lastModified)
     val notice = UsageNotice(usage.mediaId, JsArray())
@@ -430,8 +427,7 @@ class UsageRecorderTest extends AnyFunSuite with Matchers with MockitoSugar {
     }
   }
 
-  // Rx does not retry an individual failed notice five times.
-  ignore("notice building stops after five failed attempts and counts each error") {
+  test("notice building stops after five failed attempts and counts each error") {
     val usage = mediaUsage("media-notice-failed")
     val group = UsageGroup(Set(usage), usage.grouping, usage.lastModified)
 

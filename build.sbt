@@ -232,7 +232,6 @@ lazy val usage = playProject("usage", 9009).settings(
   libraryDependencies ++= Seq(
     "com.gu" %% "content-api-client-default" % "32.0.0",
     "com.gu" %% "content-api-client-aws" % "1.0.1",
-    "io.reactivex" %% "rxscala" % "0.27.0",
     "software.amazon.kinesis" % "amazon-kinesis-client" % awsKclVersion,
     // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
     "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
