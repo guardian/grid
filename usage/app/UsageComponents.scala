@@ -23,18 +23,19 @@ class UsageComponents(context: Context) extends GridComponents(context, new Usag
   val usageRecorder = new UsageRecorder(usageMetrics, usageTable, usageNotifier, usageNotifier)
   val notifications = new Notifications(config)
 
-  if(!config.apiOnly) {
-    val crierReader = new CrierStreamReader(config, usageGroupOps, executionContext)
-    crierReader.start()
+  usageRecorder.start()
+
+  val crierReader = Option.when(!config.apiOnly) {
+    val reader = new CrierStreamReader(config, usageGroupOps, usageRecorder, executionContext)
+    reader.start()
+    reader
   }
 
-  usageRecorder.start()
-  context.lifecycle.addStopHook(() => {
-    usageRecorder.stop()
-    Future.successful(())
-  })
+  context.lifecycle.addStopHook(() =>
+    crierReader.fold(Future.unit)(_.stop()).flatMap(_ => usageRecorder.stop())
+  )
 
-  val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder.usageApiSubject, liveContentApi, controllerComponents, playBodyParsers)
+  val controller = new UsageApi(auth, authorisation, usageTable, usageGroupOps, notifications, config, usageRecorder, liveContentApi, controllerComponents, playBodyParsers)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
 

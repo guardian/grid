@@ -23,6 +23,7 @@ import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.jdk.CollectionConverters._
+import scala.util.Try
 
 class CrierEventProcessorTest extends AnyFunSuite with Matchers with MockitoSugar {
   private val modified = DateTime.parse("2026-11-01T12:00:00Z")
@@ -33,7 +34,11 @@ class CrierEventProcessorTest extends AnyFunSuite with Matchers with MockitoSuga
     val checkpointer = mock[RecordProcessorCheckpointer]
     val delivered = ListBuffer.empty[String]
     var onDelivery: () => Unit = () => ()
-    val processor = new CrierEventProcessor(mock[UsageConfig], ops) {
+    private val recorder: UsageGroupRecorder = group => Future.fromTry(Try {
+      onDelivery()
+      delivered += group.value.grouping
+    })
+    val processor = new CrierEventProcessor(mock[UsageConfig], ops, recorder) {
       override val contentApiClient: UsageContentApiClient = capi
       override def getContentItem(content: Content, time: DateTime): ContentContainer = LiveContentItem(content, time)
     }
@@ -66,13 +71,7 @@ class CrierEventProcessorTest extends AnyFunSuite with Matchers with MockitoSuga
           Some(EventPayload.Content(Content.unsafeEmpty.copy(id = id)))))
       })
 
-    def observe(test: => Unit): Unit = {
-      val subscription = CrierUsageStream.observable.subscribe { group =>
-        onDelivery()
-        delivered += group.value.grouping
-      }
-      try test finally subscription.unsubscribe()
-    }
+    def observe(test: => Unit): Unit = test
   }
 
   test("a batch publishes its usage groups in record order before checkpointing the last record") {
@@ -124,8 +123,7 @@ class CrierEventProcessorTest extends AnyFunSuite with Matchers with MockitoSuga
     }
   }
 
-  // Rx swallows publication errors and checkpoints the failed delivery.
-  ignore("a failed delivery prevents checkpointing the batch") {
+  test("a failed delivery prevents checkpointing the batch") {
     val f = new Fixture
     f.onDelivery = () => throw new IllegalStateException("delivery failed")
 
@@ -135,8 +133,7 @@ class CrierEventProcessorTest extends AnyFunSuite with Matchers with MockitoSuga
     }
   }
 
-  // Rx detaches the Content API lookup Future, so later records emit and checkpoint before it completes.
-  ignore("a retrievable update completes before later records and before checkpointing") {
+  test("a retrievable update completes before later records and before checkpointing") {
     val f = new Fixture
     val query = ItemQuery("retrievable")
     val queryStarted = new CountDownLatch(1)

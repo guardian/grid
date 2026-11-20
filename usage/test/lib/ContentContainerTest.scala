@@ -9,9 +9,10 @@ import org.mockito.Mockito.{verify, when}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import rx.lang.scala.subjects.PublishSubject
 
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class ContentContainerTest extends AnyFunSuite with Matchers with MockitoSugar {
   private implicit val marker: MarkerMap = MarkerMap("requestId" -> "content-container-test")
@@ -21,13 +22,13 @@ class ContentContainerTest extends AnyFunSuite with Matchers with MockitoSugar {
     item: ContentContainer,
     ops: UsageGroupOps
   ): List[WithLogMarker[UsageGroup]] = {
-    val subject = PublishSubject[WithLogMarker[UsageGroup]]()
     val groups = ListBuffer.empty[WithLogMarker[UsageGroup]]
-    val subscription = subject.subscribe(group => groups += group)
-    try {
-      item.emitAsUsageGroup(subject, ops)
-      groups.toList
-    } finally subscription.unsubscribe()
+    val recorder: UsageGroupRecorder = group => {
+      groups += group
+      Future.unit
+    }
+    Await.result(item.emitAsUsageGroup(recorder, ops), 5.seconds)
+    groups.toList
   }
 
   private def check(item: ContentContainer, status: UsageStatus): Unit = {

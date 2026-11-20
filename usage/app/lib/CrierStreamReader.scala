@@ -18,8 +18,11 @@ import software.amazon.kinesis.retrieval.polling.PollingConfig
 
 import java.net.InetAddress
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.FutureConverters._
+import scala.util.{Failure, Success, Try}
 
 // it's annoyingly hard to get the streamName out of the configsBuilder once built, so pass them around together
 private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, streamName: String)
@@ -27,6 +30,7 @@ private case class ConfigsBuilderWithStreamName(configsBuilder: ConfigsBuilder, 
 class CrierStreamReader(
   config: UsageConfig,
   usageGroupOps: UsageGroupOps,
+  usageRecorder: UsageGroupRecorder,
   executionContext: ExecutionContext
 ) extends GridLogging {
 
@@ -97,12 +101,12 @@ class CrierStreamReader(
 
   private val LiveEventProcessorFactory = new ShardRecordProcessorFactory {
     override def shardRecordProcessor(): ShardRecordProcessor =
-      new CrierLiveEventProcessor(config, usageGroupOps)
+      new CrierLiveEventProcessor(config, usageGroupOps, usageRecorder)
   }
 
   private val PreviewEventProcessorFactory = new ShardRecordProcessorFactory {
     override def shardRecordProcessor(): ShardRecordProcessor =
-      new CrierPreviewEventProcessor(config, usageGroupOps)
+      new CrierPreviewEventProcessor(config, usageGroupOps, usageRecorder)
   }
 
   private lazy val liveConfig = config.liveKinesisReaderConfig
@@ -113,20 +117,35 @@ class CrierStreamReader(
   private lazy val liveScheduler = liveConfig.map(kinesisClientLibScheduler)
   private lazy val previewScheduler = previewConfig.map(kinesisClientLibScheduler)
 
-  def start(): Unit = {
-    logger.info("Trying to start Crier Stream Readers")
+  private val started = new AtomicBoolean(false)
 
-    liveScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Live Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Live Stream reader")
-      )
-    previewScheduler
-      .map(executionContext.execute)
-      .fold(
-        e => logger.error("No 'Crier Preview Stream reader' thread to start", e),
-        _ => logger.info("Starting Crier Preview Stream reader")
-      )
+  private def startScheduler(scheduler: Try[Scheduler], name: String): Option[Scheduler] =
+    scheduler match {
+      case Failure(error) =>
+        logger.error(s"No '$name' thread to start", error)
+        None
+      case Success(instance) =>
+        executionContext.execute(instance)
+        logger.info(s"Starting $name")
+        Some(instance)
+    }
+
+  private lazy val startedSchedulers: List[Scheduler] = List(
+    startScheduler(liveScheduler, "Crier Live Stream reader"),
+    startScheduler(previewScheduler, "Crier Preview Stream reader")
+  ).flatten
+
+  private lazy val shutdownFuture: Future[Unit] = {
+    implicit val ec: ExecutionContext = executionContext
+    Future.traverse(startedSchedulers)(_.startGracefulShutdown().asScala).map(_ => ())
   }
+
+  def start(): Unit =
+    if (started.compareAndSet(false, true)) {
+      logger.info("Trying to start Crier Stream Readers")
+      val _ = startedSchedulers
+    }
+
+  def stop(): Future[Unit] =
+    if (started.get()) shutdownFuture else Future.unit
 }

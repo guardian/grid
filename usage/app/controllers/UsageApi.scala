@@ -16,10 +16,10 @@ import model._
 import play.api.libs.json.{JsArray, JsError, JsValue, Json}
 import play.api.mvc._
 import play.utils.UriEncoding
-import rx.lang.scala.Subject
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import scala.util.control.NonFatal
 
 class UsageApi(
   auth: Authentication,
@@ -28,7 +28,7 @@ class UsageApi(
   usageGroupOps: UsageGroupOps,
   notifications: Notifications,
   config: UsageConfig,
-  usageApiSubject: Subject[WithLogMarker[UsageGroup]],
+  usageRecorder: UsageGroupRecorder,
   liveContentApi: LiveContentApi,
   override val controllerComponents: ControllerComponents,
   playBodyParsers: PlayBodyParsers
@@ -99,6 +99,18 @@ class UsageApi(
 
   }
 
+  private def recordUsageGroups(groups: Seq[WithLogMarker[UsageGroup]])(implicit logMarker: LogMarker): Future[Result] =
+    groups.foldLeft(Future.unit) { (previous, group) =>
+      previous.flatMap(_ => usageRecorder.record(group))
+    }.map(_ => Accepted).recover { case NonFatal(error) =>
+      logger.error(logMarker, "Failed to record usage group", error)
+      respondError(
+        InternalServerError,
+        "usage-group-record-failed",
+        Option(error.getMessage).getOrElse("Failed to record usage group")
+      )
+    }
+
   def reindexForContent(contentId: String) = auth.async { req =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "reindex-for-content",
@@ -108,25 +120,21 @@ class UsageApi(
 
     val query = liveContentApi.usageQuery(contentId)
 
-    liveContentApi.getResponse(query).map{response =>
+    liveContentApi.getResponse(query).flatMap { response =>
       response.content match {
         case Some(content) =>
           ContentHelpers
             .getContentFirstPublished(content)
-            .map(LiveContentItem(content, _))
-            .map(_.copy(isReindex = true))
-            .foreach(_.emitAsUsageGroup(
-              usageApiSubject,
-              usageGroupOps
-            ))
-          Accepted
+            .map(LiveContentItem(content, _, isReindex = true))
+            .fold(Future.unit)(_.emitAsUsageGroup(usageRecorder, usageGroupOps))
+            .map(_ => Accepted)
         case _ =>
-          NotFound
+          Future.successful(NotFound)
       }
-    }.recover { case error: Exception =>
-        logger.error(logMarker, s"UsageApi reindex for content ($contentId) failed!", error)
-        InternalServerError
-      }
+    }.recover { case NonFatal(error) =>
+      logger.error(logMarker, s"UsageApi reindex for content ($contentId) failed!", error)
+      InternalServerError
+    }
   }
 
   def forMedia(mediaId: String) = auth.allowInnerService.async { req =>
@@ -168,35 +176,31 @@ class UsageApi(
   val maxPrintRequestLength: Int = 1024 * config.maxPrintRequestLengthInKb
   val setPrintRequestBodyParser: BodyParser[JsValue] = playBodyParsers.json(maxLength = maxPrintRequestLength)
 
-  def setPrintUsages = auth(setPrintRequestBodyParser) { req => {
-
+  def setPrintUsages = auth.async(setPrintRequestBodyParser) { req =>
     val printUsageRequestResult = req.body.validate[PrintUsageRequest]
     printUsageRequestResult.fold(
-      e => {
+      e => Future.successful(
         respondError(BadRequest, "print-usage-request-parse-failed", JsError.toJson(e).toString)
-      },
+      ),
       printUsageRequest => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-print-usages",
           "requestId" -> RequestLoggingFilter.getRequestId(req),
         )
         val usageGroups = usageGroupOps.build(printUsageRequest.printUsageRecords)
-        usageGroups.map(WithLogMarker.includeUsageGroup).foreach(usageApiSubject.onNext)
-
-        Accepted
+        recordUsageGroups(usageGroups.map(WithLogMarker.includeUsageGroup))
       }
     )
-  }}
+  }
 
-  def setSyndicationUsages() = auth(parse.json) { req => {
-
+  def setSyndicationUsages() = auth.async(parse.json) { req =>
     val syndicationUsageRequest = (req.body \ "data").validate[SyndicationUsageRequest]
     syndicationUsageRequest.fold(
-      e => respondError(
+      e => Future.successful(respondError(
         BadRequest,
         errorKey = "syndication-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
-      ),
+      )),
       sur => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-syndication-usages",
@@ -206,21 +210,19 @@ class UsageApi(
 
         logger.info(logMarker, "recording syndication usage")
         val group = usageGroupOps.build(sur)
-        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
-        Accepted
+        recordUsageGroups(Seq(WithLogMarker.includeUsageGroup(group)))
       }
     )
-  }}
+  }
 
-  def setFrontUsages() = auth(parse.json) { req => {
-
+  def setFrontUsages() = auth.async(parse.json) { req =>
     val request = (req.body \ "data").validate[FrontUsageRequest]
     request.fold(
-      e => respondError(
+      e => Future.successful(respondError(
         BadRequest,
         errorKey = "front-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
-      ),
+      )),
       fur => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-front-usages",
@@ -229,21 +231,19 @@ class UsageApi(
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording front usage")
         val group = usageGroupOps.build(fur)
-        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
-        Accepted
+        recordUsageGroups(Seq(WithLogMarker.includeUsageGroup(group)))
       }
     )
-  }}
+  }
 
-  def setDownloadUsages() = auth(parse.json) { req => {
-
+  def setDownloadUsages() = auth.async(parse.json) { req =>
     val request = (req.body \ "data").validate[DownloadUsageRequest]
     request.fold(
-      e => respondError(
+      e => Future.successful(respondError(
         BadRequest,
         errorKey = "download-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
-      ),
+      )),
       usageRequest => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-download-usages",
@@ -252,21 +252,19 @@ class UsageApi(
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording download usage")
         val group = usageGroupOps.build(usageRequest)
-        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
-        Accepted
+        recordUsageGroups(Seq(WithLogMarker.includeUsageGroup(group)))
       }
     )
-  }}
+  }
 
-  def setChildUsages() = auth.allowInnerService(parse.json) { req => {
-
+  def setChildUsages() = auth.allowInnerService.async(parse.json) { req =>
     val request = (req.body \ "data").validate[ChildUsageRequest]
     request.fold(
-      e => respondError(
+      e => Future.successful(respondError(
         BadRequest,
         errorKey = "child-usage-parse-failed",
         errorMessage = JsError.toJson(e).toString
-      ),
+      )),
       usageRequest => {
         implicit val logMarker: LogMarker = MarkerMap(
           "requestType" -> "set-child-usages",
@@ -277,11 +275,10 @@ class UsageApi(
         ) ++ apiKeyMarkers(req.user.accessor)
         logger.info(logMarker, "recording child usage")
         val group = usageGroupOps.build(usageRequest)
-        usageApiSubject.onNext(WithLogMarker.includeUsageGroup(group))
-        Accepted
+        recordUsageGroups(Seq(WithLogMarker.includeUsageGroup(group)))
       }
     )
-  }}
+  }
 
   def updateUsageStatus(mediaId: String, usageId: String) =
     AuthenticatedAndAuthorisedToDeleteCropsOrUsages.async(parse.json) { req => {
