@@ -1,7 +1,7 @@
-Feature: Viewing and managing an image's leases
+Feature: Viewing and managing an image's leases in the single image view
   This lets a user see the use and syndication leases on an image, and lets users who
-  may edit the image add or delete leases, preview leases a metadata template would
-  apply, and copy or clear leases across every image in a multi-image upload.
+  may edit the image add or delete leases and preview leases a metadata template would
+  apply. Other surfaces are covered in leases-surfaces.feature.
 
   Background:
     Given the application stack is running
@@ -107,19 +107,6 @@ Feature: Viewing and managing an image's leases
     And I see a tooltip with "leased at: 1 Mar 2026, 09:30"
   # Evidence: kahuna/public/js/leases/leases.html lines 144-147
   # Evidence: kahuna/public/js/leases/leases.js lines 211-213
-
-  # Note: activeLeases()/inactiveLeases() have no return statement, so the counts render
-  # blank today. This scenario records the current (legacy) behaviour.
-  Scenario: Selecting several images shows a lease summary instead of the lease list
-    Given I am signed in with edit metadata permission
-    And 2 images with leases are shown in search results
-    When I select both images
-    Then the info panel's "Leases" region shows " current leases +  inactive leases"
-    And no individual leases are listed
-  # Evidence: kahuna/public/js/leases/leases.html lines 122-126
-  # Evidence: kahuna/public/js/leases/leases.js lines 215-220, 301-304
-  # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.html lines 50-54
-  # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.js lines 54-59
 
   # ---------------------------------------------------------------------------
   # Adding a lease
@@ -241,14 +228,6 @@ Feature: Viewing and managing an image's leases
     Then the image still has only its "Allow syndication" lease
   # Evidence: kahuna/public/js/leases/leases.js lines 63-64, 90-100
 
-  Scenario: Adding a syndication lease to several images warns about overwriting
-    Given I am signed in with edit metadata permission
-    And 2 images are shown in search results and one has a syndication lease
-    When I select both images and add an "Allow syndication" lease
-    Then I am asked "One or more of the selected images have syndication leases. These will be overwritten. Do you wish to proceed?"
-  # Evidence: kahuna/public/js/leases/leases.js lines 85-96
-  # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.html lines 50-54
-
   Scenario: A failed save tells the user to try again
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -335,70 +314,3 @@ Feature: Viewing and managing an image's leases
   # Evidence: kahuna/public/js/leases/leases.js lines 330
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 119-127
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 631-644
-
-  # ---------------------------------------------------------------------------
-  # Upload page: batch apply
-  # ---------------------------------------------------------------------------
-  Scenario: Apply-to-all is only offered when uploading more than one image
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    When I upload 1 image
-    Then the upload's leases have an "Add lease to image" button
-    And I do not see an "Apply these leases to all current uploads" button
-  # Evidence: kahuna/public/js/leases/leases.html lines 16-22
-  # Evidence: kahuna/public/js/edits/image-editor.html lines 187-194
-  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-42
-
-  Scenario: Applying one upload's leases to all current uploads
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    And I have uploaded 2 images
-    And the first upload has a "deny-use" lease
-    When I apply the first upload's leases to all current uploads
-    Then the other upload shows "Updating..." while its leases are replaced
-    And both uploads show a "Deny use" lease
-  # Evidence: kahuna/public/js/leases/leases.html lines 1-3, 16-22, 121
-  # Evidence: kahuna/public/js/leases/leases.js lines 123, 152-159, 167-170, 185-195
-  # Evidence: kahuna/public/js/services/api/leases.js lines 52-72
-  # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-42
-
-  Scenario: Apply-to-all from an upload with no leases asks to remove all leases
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    And I have uploaded 2 images
-    And the first upload has no leases
-    When I apply the first upload's leases to all current uploads
-    Then I see a "Remove ALL leases in job?" button in place of the apply-to-all button
-  # Evidence: kahuna/public/js/leases/leases.html lines 17-30
-  # Evidence: kahuna/public/js/leases/leases.js lines 167-176
-
-  Scenario: The remove all leases prompt lapses after five seconds
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    And I have uploaded 2 images
-    And the "Remove ALL leases in job?" prompt is shown on the first upload
-    When I wait five seconds
-    Then the apply-to-all button is shown again
-  # Evidence: kahuna/public/js/leases/leases.html lines 17-30
-  # Evidence: kahuna/public/js/leases/leases.js lines 171-175
-
-  Scenario: Confirming remove all clears the leases on every upload
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    And I have uploaded 2 images
-    And the second upload has a "deny-use" lease
-    And the "Remove ALL leases in job?" prompt is shown on the first upload
-    When I confirm removing all leases
-    Then neither upload has any leases
-  # Evidence: kahuna/public/js/leases/leases.html lines 24-30
-  # Evidence: kahuna/public/js/leases/leases.js lines 124, 160-165, 179-182
-  # Evidence: kahuna/public/js/services/api/leases.js lines 40-50
-
-  Scenario: Apply-to-all is hidden while a metadata template preview is shown
-    Given I am signed in with edit metadata permission
-    And I have opened the image upload page
-    And I have uploaded 2 images
-    When I select a metadata template with leases for the first upload
-    Then the first upload does not show the apply-to-all button
-  # Evidence: kahuna/public/js/leases/leases.html lines 16
-  # Evidence: kahuna/public/js/edits/image-editor.js lines 233-248
