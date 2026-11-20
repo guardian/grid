@@ -8,7 +8,7 @@ import org.mockito.Mockito.when
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
-import play.api.Configuration
+import play.api.{Configuration, Environment}
 import play.api.libs.json.{JsObject, Json}
 import play.api.test.Helpers.stubControllerComponents
 
@@ -32,6 +32,8 @@ class KahunaControllerTest extends AnyFunSuite with Matchers with MockitoSugar {
       config = config,
       controllerComponents = stubControllerComponents(),
       authorisation = mock[Authorisation],
+      environment = Environment.simple(),
+      contentSecurityPolicy = "default-src 'self'",
       release = "test-release"
     )
     Json.parse(controller.sentryClientConfig(principal)).as[JsObject]
