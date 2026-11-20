@@ -12,6 +12,7 @@ import { defineParameterType } from 'playwright-bdd';
 import { KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage } from '../setup.ts';
 import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
+import { quotedOneOf } from '../utils/parameter-types.ts';
 
 const USAGE_PLATFORMS = ['print', 'digital', 'syndication', 'download', 'derivative', 'replaced'] as const;
 const USAGE_STATUSES = [
@@ -25,8 +26,6 @@ export type UsageStatus = (typeof USAGE_STATUSES)[number];
 export type ChildUsageStatus = (typeof CHILD_USAGE_STATUSES)[number];
 export type UsageReferenceType = (typeof USAGE_REFERENCE_TYPES)[number];
 
-// A value outside these lists leaves the step undefined, so bddgen reports the typo.
-const quotedOneOf = (values: readonly string[]) => new RegExp(`"(${values.join('|')})"`);
 defineParameterType({ name: 'usagePlatform', regexp: quotedOneOf(USAGE_PLATFORMS), transformer: (v) => v as UsagePlatform });
 defineParameterType({ name: 'usageStatus', regexp: quotedOneOf(USAGE_STATUSES), transformer: (v) => v as UsageStatus });
 defineParameterType({
