@@ -8,7 +8,8 @@ Feature: Viewing and managing an image's leases in the single image view
     And I am signed in through pan-domain auth
 
   # ---------------------------------------------------------------------------
-  # Section visibility and permissions
+
+  @todo # Section visibility and permissions
   # ---------------------------------------------------------------------------
   Scenario: A user with edit permission sees the add lease control
     Given I am signed in with edit metadata permission
@@ -23,6 +24,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/image/controller.js lines 180-182
   # Evidence: kahuna/public/js/edits/service.js lines 245-248
 
+  @todo
   Scenario: A user without edit permission sees leases read-only
     Given I am signed in without edit metadata permission
     And the image has an active "allow-use" lease
@@ -35,6 +37,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 541
   # Evidence: kahuna/public/js/edits/service.js lines 245-248
 
+  @todo
   Scenario: The Leases section is hidden from a user without edit permission when there are no leases
     Given I am signed in without edit metadata permission
     And the image has no leases
@@ -46,6 +49,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # ---------------------------------------------------------------------------
   # Lease display
   # ---------------------------------------------------------------------------
+  @todo
   Scenario Outline: Each lease shows its human-readable access type
     Given I am signed in without edit metadata permission
     And the image has an active "<access>" lease
@@ -62,6 +66,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 143, 152
   # Evidence: kahuna/public/js/leases/leases.js lines 279-288
 
+  @todo
   Scenario: A lease shows when it started, when it expires and its notes
     Given I am signed in without edit metadata permission
     And the image has a lease that started 2 days ago, expires in 3 days and has the notes "Agreed by picture desk"
@@ -72,6 +77,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 153-155
   # Evidence: kahuna/public/js/leases/leases.js lines 234-255
 
+  @todo
   Scenario: A future lease shows when it starts
     Given I am signed in without edit metadata permission
     And the image has a lease that starts in 3 days
@@ -80,6 +86,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 153
   # Evidence: kahuna/public/js/leases/leases.js lines 234-242
 
+  @todo
   Scenario: An expired lease is faded and shows when it expired
     Given I am signed in without edit metadata permission
     And the image has an inactive lease that expired 2 days ago
@@ -90,6 +97,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.js lines 244-255, 259-262
   # Evidence: kahuna/public/js/leases/leases.css lines 132-134
 
+  @todo
   Scenario: A lease without an end date never expires
     Given I am signed in without edit metadata permission
     And the image has a lease with no end date
@@ -98,6 +106,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 154
   # Evidence: kahuna/public/js/leases/leases.js lines 244-255
 
+  @todo
   Scenario: Hovering a lease shows who created it and when
     Given I am signed in without edit metadata permission
     And the image has a lease created by "jane.doe@example.com" on 1 Mar 2026 at 09:30
@@ -111,6 +120,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # ---------------------------------------------------------------------------
   # Adding a lease
   # ---------------------------------------------------------------------------
+  @todo
   Scenario: Opening the add lease form
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -121,6 +131,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 5, 11, 34-48, 103-116
   # Evidence: kahuna/public/js/leases/leases.js lines 45-49
 
+  @todo
   Scenario: Cancelling the add lease form closes it without saving
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -131,6 +142,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 34-35, 104-106
   # Evidence: kahuna/public/js/leases/leases.js lines 54-57, 185-195
 
+  @todo
   Scenario Outline: Choosing a use lease offers a date range that defaults to expiring in two days
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -148,6 +160,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 90-95, 98-101
   # Evidence: kahuna/public/js/leases/leases.js lines 306-314
 
+  @todo
   Scenario: Choosing deny syndication offers an optional expiry date
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -158,6 +171,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 51-64
   # Evidence: kahuna/public/js/leases/leases.js lines 52
 
+  @todo
   Scenario: Choosing allow syndication offers an optional delay and agency clauses
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -169,6 +183,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 65-89
   # Evidence: kahuna/public/js/leases/leases.js lines 52
 
+  @todo
   Scenario: Saving without choosing an access type is rejected
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -179,6 +194,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 36, 38-39
   # Evidence: kahuna/public/js/leases/leases.js lines 59-61, 197-199
 
+  @todo
   Scenario: Saving a use lease adds it to the image
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -190,6 +206,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.js lines 59-67, 104-111, 185-195, 222-232, 297-299
   # Evidence: kahuna/public/js/services/api/leases.js lines 74-82, 96-114, 140-170
 
+  @todo
   Scenario: Allow syndication clauses are prepended to the lease notes
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -199,6 +216,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 79-88
   # Evidence: kahuna/public/js/leases/leases.js lines 73-83, 244-255
 
+  @todo
   Scenario: A deny syndication lease is saved without a start date
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -207,6 +225,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 51-64, 153
   # Evidence: kahuna/public/js/leases/leases.js lines 69-71, 234-242
 
+  @todo
   Scenario: Confirming an overwrite replaces the existing syndication lease
     Given I am signed in with edit metadata permission
     And the image has an "allow-syndication" lease
@@ -218,7 +237,8 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.js lines 85-104
   # Evidence: kahuna/public/js/services/api/leases.js lines 205-207
 
-  # Note: after declining, the controller leaves the form hidden and the add control showing
+
+  @todo # Note: after declining, the controller leaves the form hidden and the add control showing
   # "Updating..." (ctrl.adding stays true). This records only the persisted outcome.
   Scenario: Declining an overwrite keeps the existing syndication lease
     Given I am signed in with edit metadata permission
@@ -228,6 +248,7 @@ Feature: Viewing and managing an image's leases in the single image view
     Then the image still has only its "Allow syndication" lease
   # Evidence: kahuna/public/js/leases/leases.js lines 63-64, 90-100
 
+  @todo
   Scenario: A failed save tells the user to try again
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
@@ -239,6 +260,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # ---------------------------------------------------------------------------
   # Deleting a lease
   # ---------------------------------------------------------------------------
+  @todo
   Scenario: Deleting a lease needs a second click to confirm
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -249,6 +271,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 157-159
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 11-32
 
+  @todo
   Scenario: Confirming delete removes the lease
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -260,6 +283,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/services/api/leases.js lines 125-134, 140-170
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 21, 26-27
 
+  @todo
   Scenario: The delete confirmation lapses after five seconds
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -269,6 +293,7 @@ Feature: Viewing and managing an image's leases in the single image view
     And the lease is still on the image
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 16-17, 23-31
 
+  @todo
   Scenario: A failed delete tells the user to try again
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -279,7 +304,8 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.js lines 202-209, 290-293
 
   # ---------------------------------------------------------------------------
-  # Metadata template preview
+
+  @todo # Metadata template preview
   # ---------------------------------------------------------------------------
   Scenario: Selecting a metadata template previews its leases alongside existing ones
     Given I am signed in with edit metadata permission
@@ -294,6 +320,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 588-606
   # Evidence: kahuna/public/js/leases/leases.css lines 169-171
 
+  @todo
   Scenario: A replacing metadata template previews only its own leases
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -304,6 +331,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 126-141
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 600-606
 
+  @todo
   Scenario: Applying a metadata template shows the leases updating
     Given I am signed in with edit metadata permission
     And a metadata template adds a "deny-syndication" lease

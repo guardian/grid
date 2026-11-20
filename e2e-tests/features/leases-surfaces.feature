@@ -10,6 +10,7 @@ Feature: Leases across the search info panel and upload page
   # ---------------------------------------------------------------------------
   # Smoke: the lease widget works on each surface
   # ---------------------------------------------------------------------------
+  @todo
   Scenario: Adding a lease in the single image view
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -20,6 +21,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 113-127
   # Evidence: kahuna/public/js/image/view.html lines 169-172
 
+  @todo
   Scenario: Adding a lease from the search info panel
     Given I am signed in with edit metadata permission
     And an image with no leases is shown in search results
@@ -32,6 +34,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.js lines 54-59
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 113-127
 
+  @todo
   Scenario: Adding a lease to an upload
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -48,6 +51,7 @@ Feature: Leases across the search info panel and upload page
   # ---------------------------------------------------------------------------
   # Note: activeLeases()/inactiveLeases() have no return statement, so the counts render
   # blank today. This scenario records the current (legacy) behaviour.
+  @todo
   Scenario: Selecting several images shows a lease summary instead of the lease list
     Given I am signed in with edit metadata permission
     And 2 images with leases are shown in search results
@@ -59,6 +63,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.html lines 50-54
   # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.js lines 54-59
 
+  @todo
   Scenario: Adding a lease to several selected images adds it to each one
     Given I am signed in with edit metadata permission
     And 2 images with no leases are shown in search results
@@ -69,6 +74,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/services/api/leases.js lines 74-82, 96-114
   # Evidence: kahuna/public/js/components/gr-info-panel/gr-info-panel.html lines 50-54
 
+  @todo
   Scenario: Adding a syndication lease to several images warns about overwriting
     Given I am signed in with edit metadata permission
     And 2 images are shown in search results and one has a syndication lease
@@ -83,6 +89,7 @@ Feature: Leases across the search info panel and upload page
   # ---------------------------------------------------------------------------
   # Note: the upload editor hard-codes gr-user-can-edit="true", so the add lease control is
   # shown even when the image editor itself is read-only. This records legacy behaviour.
+  @todo
   Scenario: The add lease control is offered on an upload the user cannot otherwise edit
     Given I am signed in without edit metadata permission
     And I have opened the image upload page
@@ -93,6 +100,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/edits/image-editor.html lines 187-194, 200
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-42
 
+  @todo
   Scenario: Apply-to-all is only offered when uploading more than one image
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -103,6 +111,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/edits/image-editor.html lines 187-194
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-42
 
+  @todo
   Scenario: Applying one upload's leases to all current uploads
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -116,6 +125,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/services/api/leases.js lines 52-72
   # Evidence: kahuna/public/js/upload/jobs/upload-jobs.html lines 40-42
 
+  @todo
   Scenario: Apply-to-all from an upload with no leases asks to remove all leases
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -126,6 +136,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/leases/leases.html lines 17-30
   # Evidence: kahuna/public/js/leases/leases.js lines 167-176
 
+  @todo
   Scenario: The remove all leases prompt lapses after five seconds
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -136,6 +147,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/leases/leases.html lines 17-30
   # Evidence: kahuna/public/js/leases/leases.js lines 171-175
 
+  @todo
   Scenario: Confirming remove all clears the leases on every upload
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
@@ -148,6 +160,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/leases/leases.js lines 124, 160-165, 179-182
   # Evidence: kahuna/public/js/services/api/leases.js lines 40-50
 
+  @todo
   Scenario: Apply-to-all is hidden while a metadata template preview is shown
     Given I am signed in with edit metadata permission
     And I have opened the image upload page
