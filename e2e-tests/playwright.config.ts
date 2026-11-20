@@ -17,6 +17,10 @@ const testDir = defineBddConfig({
     : 'not @todo and not @timing-sensitive',
 });
 
+/* CI splits the suite with `--shard=n/N`. Each shard writes a blob report, which the
+   merge-reports job combines into the HTML and Cucumber reports using this config. */
+const isShardRun = process.argv.some((arg) => arg.startsWith('--shard'));
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
@@ -29,16 +33,20 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ...(process.env.CI ? [['github'] as ['github']] : []),
     ['list', { printFailuresInline: true }],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    cucumberReporter('html', {
-      outputFile: 'cucumber-report/index.html',
-      externalAttachments: true,
-    }),
+    ...(isShardRun
+      ? [['blob', { outputDir: 'blob-report' }] as ['blob', { outputDir: string }]]
+      : [
+          ['html', { outputFolder: 'playwright-report', open: 'never' }] as ['html', { outputFolder: string; open: 'never' }],
+          cucumberReporter('html', {
+            outputFile: 'cucumber-report/index.html',
+            externalAttachments: true,
+          }),
+        ]),
   ],
   /* Boot the Grid stack with Testcontainers before tests, and tear it down after. */
   globalSetup: './setup/global-setup.ts',
