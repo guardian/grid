@@ -3,6 +3,7 @@ import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { MetadataEditButton, MetadataEditHint, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
 import { PillActionButton } from "./SearchPill";
 import { panelSaveAdmitted, useMetadataCommit } from "./MetadataEditing";
+import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 
 export const LOCATION_COMPONENTS = [
   { key: "subLocation", fieldId: "location_subLocation", label: "Sublocation" },
@@ -29,11 +30,21 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
 }) {
   const commit = useMetadataCommit();
   const available = dataAvailable && editable;
-  const [editing, setEditing] = useState(false);
-  const [initial, setInitial] = useState(emptyLocation);
-  const [draft, setDraft] = useState(emptyLocation);
-  const [mixed, setMixed] = useState<ReadonlySet<LocationKey>>(() => new Set());
-  const [cleared, setCleared] = useState<ReadonlySet<LocationKey>>(() => new Set());
+  const { restored, update } = useDetailsDraft<{ initial: ReturnType<typeof emptyLocation>; changes: MetadataLocationChange;
+    mixed: ReadonlySet<LocationKey> }>("location");
+  const [editing, setEditing] = useState(Boolean(restored));
+  const [initial, setInitial] = useState(() => restored?.initial ?? emptyLocation());
+  const [changes, setChanges] = useState<MetadataLocationChange>(() => restored?.changes ?? {});
+  const [mixed, setMixed] = useState<ReadonlySet<LocationKey>>(() => restored?.mixed ?? new Set());
+  const [needsBaseline, setNeedsBaseline] = useState(Boolean(restored));
+  if (needsBaseline && available) {
+    const next = emptyLocation();
+    for (const field of fields) {
+      next[field.key] = field.mixed ? "" : field.value;
+    }
+    setInitial(next); setMixed(new Set(fields.filter(field => field.mixed).map(field => field.key)));
+    setNeedsBaseline(false);
+  }
   const id = useId();
   const editRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,10 +53,7 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
     const input = inputRef.current;
     if (editing && input) input.setSelectionRange(input.value.length, input.value.length);
   }, [editing]);
-  const changes: MetadataLocationChange = {};
-  for (const { key } of fields) {
-    if (cleared.has(key) || (mixed.has(key) ? draft[key] !== "" : draft[key] !== initial[key])) changes[key] = draft[key];
-  }
+  useLayoutEffect(() => { update("Location", editing && Object.keys(changes).length ? { initial, changes, mixed } : undefined); });
   const prepare = () => {
     if (!available || !targetIds.length || !Object.keys(changes).length) return;
     const intent: MetadataEditIntent = { fieldId: "location", action: "overwrite", value: changes, targetIds: [...targetIds] };
@@ -56,8 +64,8 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   const beginEditing = () => {
     const baseline = emptyLocation();
     for (const field of fields) baseline[field.key] = field.mixed ? "" : field.value;
-    setInitial(baseline); setDraft(baseline); setMixed(new Set(fields.filter(field => field.mixed).map(field => field.key)));
-    setCleared(new Set()); setEditing(true);
+    setInitial(baseline); setChanges({}); setMixed(new Set(fields.filter(field => field.mixed).map(field => field.key)));
+    setEditing(true);
   };
   const Layout = editing ? MetadataBlock : MetadataRow;
   if (!editable && !editing) return readOnly ?? null;
@@ -78,22 +86,24 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
         {fields.map((field, index) => <div key={field.key} className="metadata-location-row min-w-0">
           <label htmlFor={`${id}-${field.key}`} className="text-xs text-grid-text-dim">{field.label}</label>
           <div className="flex min-w-0 items-center gap-1">
-            <input id={`${id}-${field.key}`} ref={index === 0 ? inputRef : undefined} autoFocus={index === 0} type="text" value={draft[field.key]}
-              data-mixed={mixed.has(field.key) && !cleared.has(field.key) || undefined}
-              placeholder={mixed.has(field.key) && !cleared.has(field.key) ? `Multiple ${LOCATION_PLURALS[field.key]}` : field.key === "subLocation" ? "or place" : field.key === "state" ? "or region" : undefined}
+            <input id={`${id}-${field.key}`} ref={index === 0 ? inputRef : undefined} autoFocus={index === 0} type="text" value={changes[field.key] ?? initial[field.key]}
+              data-mixed={mixed.has(field.key) && changes[field.key] === undefined || undefined}
+              placeholder={mixed.has(field.key) && changes[field.key] === undefined ? `Multiple ${LOCATION_PLURALS[field.key]}` : field.key === "subLocation" ? "or place" : field.key === "state" ? "or region" : undefined}
               onChange={event => {
-                setDraft(current => ({ ...current, [field.key]: event.target.value }));
-                setCleared(current => { const next = new Set(current); next.delete(field.key); return next; });
+                const next = { ...changes, [field.key]: event.target.value };
+                if (next[field.key] === initial[field.key]) delete next[field.key];
+                setChanges(next);
               }} />
             {mixed.has(field.key) && <button type="button" className="metadata-edit-tool" disabled={!available}
               aria-label={`Clear ${field.label}`} title={`Clear ${field.label} for all ${targetIds.length} images`}
-              onClick={() => { setDraft(current => ({ ...current, [field.key]: "" })); setCleared(current => new Set([...current, field.key])); }}>
+              onClick={() => setChanges({ ...changes, [field.key]: "" })}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
             </button>}
           </div>
         </div>)}
       </div>
       <div className="metadata-edit-footer justify-end">
+        {Object.keys(changes).length > 0 && <DetailsTargetCount count={targetIds.length} />}
         <PillActionButton action="cancel" label="Cancel Location" onClick={cancel} />
         <PillActionButton action="confirm" label="Commit Location" disabled={!available || !Object.keys(changes).length} onClick={() => prepare()} />
       </div>

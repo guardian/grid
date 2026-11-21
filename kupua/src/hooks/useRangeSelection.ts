@@ -1,3 +1,4 @@
+import { afterDetailsDeparture, hasChangedDetails } from "@/lib/details-departure";
 /**
  * useRangeSelection -- handles shift-click range selection for S3a.
  *
@@ -129,6 +130,13 @@ export function useRangeSelection() {
         const eligible = ids.filter(id => !unavailable(id));
         const unavailableCount = new Set(ids.filter(id => unavailable(id))).size;
         if (unavailableCount) addToast({ category: "information", message: `${unavailableCount} unavailable ${unavailableCount === 1 ? "image" : "images"} skipped. Existing selection retained for those images.` });
+        if (polarity === "remove" && hasChangedDetails()) {
+          const removed = new Set(eligible);
+          if ([...useSelectionStore.getState().selectedIds].every(id => removed.has(id))) {
+            afterDetailsDeparture("Discard and deselect", () => { selStore.remove(eligible); if (effect.reanchorToTarget) selStore.setAnchor(targetId); });
+            return;
+          }
+        }
         if (polarity === "remove") selStore.remove(eligible);
         else selStore.add(eligible);
         if (effect.reanchorToTarget) selStore.setAnchor(targetId);

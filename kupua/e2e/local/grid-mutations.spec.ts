@@ -43,6 +43,66 @@ test.describe("U3 isolated uploads", () => {
     }
   });
 
+  test("selection draft follows the open panel and protects the last selected body double-click", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-editing", "true"));
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, editing: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10 } });
+    const writes = async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).metadataWrites;
+    await page.goto(`${origin}/__readback?density=grid`);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0"]));
+    await page.getByRole("button", { name: "Edit Description", exact: true }).click();
+    const input = page.getByRole("textbox", { name: "Description", exact: true });
+    await input.fill("Selection draft");
+    const body = (id: string) => page.locator(`[data-grid-cell][data-cell-id="${id}"]`);
+    const selected = () => page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds]);
+    await body("local-1").click();
+    await expect.poll(selected).toEqual(["local-0", "local-1"]);
+    await body("local-0").click();
+    await expect.poll(selected).toEqual(["local-1"]);
+    await expect(input).toHaveValue("Selection draft");
+    await body("local-1").dblclick();
+    const dialog = page.getByRole("dialog", { name: "Discard your Description edit?" });
+    await expect(dialog.getByRole("button", { name: "Discard and open" })).toBeVisible();
+    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    expect(await selected()).toEqual(["local-1"]);
+    await expect(input).toHaveValue("Selection draft");
+    expect(await writes()).toEqual([]);
+    await page.getByRole("button", { name: "Commit Description", exact: true }).click();
+    await expect.poll(writes).toEqual([expect.objectContaining({ id: "local-1", method: "PUT", data: expect.objectContaining({ description: "Selection draft" }) })]);
+    const edit = page.getByRole("button", { name: "Edit Description", exact: true });
+    await edit.click();
+    await input.fill("Not saved");
+    await page.getByRole("button", { name: "Deselect", exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Discard and deselect" })).toBeVisible();
+    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    await body("local-1").dblclick();
+    await dialog.getByRole("button", { name: "Discard and open" }).click();
+    await expect(page.locator('[data-detail-image-id="local-1"]')).toBeVisible();
+    await edit.click();
+    await expect(input).toHaveValue("Selection draft");
+    await input.fill("Full Detail only");
+    await page.evaluate(() => history.back());
+    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    await expect(page).toHaveURL(/image=local-1/);
+    await expect(input).toHaveValue("Full Detail only");
+    await page.evaluate(() => history.back());
+    await dialog.getByRole("button", { name: "Discard edit" }).click();
+    await expect(page).not.toHaveURL(/image=local-1/);
+    await expect(input).toHaveCount(0);
+    await edit.click();
+    await input.fill("Reload draft");
+    for (const leave of [false, true]) {
+      const warning = page.waitForEvent("dialog");
+      await page.evaluate(() => { setTimeout(() => location.reload(), 0); });
+      const native = await warning;
+      expect(native.type()).toBe("beforeunload");
+      if (leave) await native.accept();
+      else { await native.dismiss(); await expect(input).toHaveValue("Reload draft"); }
+    }
+    await expect(input).toHaveCount(0);
+    expect(await writes()).toHaveLength(1);
+  });
+
   test("U5 saves Form and Details metadata and captures only the open upper batch", async ({ page }) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => {
@@ -2105,9 +2165,15 @@ test.describe("Unit B isolated continuation", () => {
             } else {
               await page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().clear());
               selected = [];
-              const target = region().locator('[data-cell-id] img').first();
-              await target.scrollIntoViewIfNeeded();
-              const id = await target.evaluate(image => image.closest<HTMLElement>("[data-cell-id]")!.dataset.cellId!);
+              const id = await region().evaluate(element => {
+                const bounds = element.getBoundingClientRect();
+                const image = [...element.querySelectorAll("[data-cell-id] img")].find(image => {
+                  const box = image.getBoundingClientRect();
+                  return box.height > 0 && box.top >= bounds.top && box.bottom <= bounds.bottom;
+                });
+                if (!image) throw new Error("No visible result thumbnail to open");
+                return image.closest<HTMLElement>("[data-cell-id]")!.dataset.cellId!;
+              });
               await region().locator(`[data-cell-id="${id}"] img`).locator("..").dblclick();
               await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", id);
               await page.goBack();
@@ -3888,18 +3954,20 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await expect(page.getByText("Not sent - Add label: cold-detail", { exact: true })).toBeVisible();
     await realPlus.click();
     await realInput.fill("keep this input");
-    await page.evaluate(() => (window as CommandWindow).editorFixture.navigate());
+    const leaveDetail = page.evaluate(() => (window as CommandWindow).editorFixture.navigate());
+    await page.getByRole("dialog", { name: "Discard your Labels edit?" }).getByRole("button", { name: "Discard edit" }).click();
+    await leaveDetail;
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
     await realPlus.click();
-    await expect(realInput).toHaveValue("keep this input");
+    await expect(realInput).toHaveValue("");
+    await realInput.fill("off-screen");
     await expect(page.getByRole("button", { name: "Add label to images", exact: true })).toBeEnabled();
     heldMetadata = new Promise<void>(resolve => { releaseMetadata = resolve; });
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["other"]));
     await expect(page.getByRole("button", { name: "Add label to images", exact: true })).toBeDisabled();
-    await expect(realInput).toHaveValue("");
+    await expect(realInput).toHaveValue("off-screen");
     releaseMetadata!();
     heldMetadata = undefined;
-    await realInput.fill("off-screen");
     await expect(page.getByRole("button", { name: "Add label to images", exact: true })).toBeEnabled();
     await realInput.press("Enter");
     await expect(page.getByText("Not sent - Add label: off-screen", { exact: true })).toBeVisible();
@@ -3911,6 +3979,8 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await expect(page.getByText("Not sent - Remove label: news", { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("label-editor-desktop.png") });
     assertEditorReads();
+    await realPlus.click();
+    await realInput.fill("Unfinished label");
     const warning = page.waitForEvent("dialog");
     const navigation = page.goto(appOrigin);
     const dialog = await warning;

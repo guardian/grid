@@ -1,3 +1,4 @@
+import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LabelReceipt } from "@/lib/label-operation";
 import { useStore } from "zustand";
@@ -50,10 +51,15 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const store = useContext(LabelEditorContext);
   const submit = useMetadataCommit();
   const key = labelTargetKey(context.targetIds);
-  const value = useStore(store, state => state.drafts.get(key)?.value ?? "");
+  const { restored, scoped, update } = useDetailsDraft<string>("labels");
+  const storedValue = useStore(store, state => state.drafts.get(key)?.value ?? "");
+  const [panelValue, setPanelValue] = useState(restored ?? "");
+  const value = scoped ? panelValue : storedValue;
+  const setValue = (next: string) => scoped ? setPanelValue(next) : store.getState().setDraft(context.targetIds, next);
   const refusal = useStore(store, state => state.refusal);
   const [expanded, setExpanded] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(Boolean(restored));
+  useLayoutEffect(() => { update("Labels", adding && value.trim() ? value : undefined); });
   const [invalid, setInvalid] = useState(false);
   const [caret, setCaret] = useState(value.length);
   const [inputFocused, setInputFocused] = useState(false);
@@ -122,7 +128,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     return store.getState().prepare(action, label, current);
   };
   const cancel = () => {
-    store.getState().setDraft(context.targetIds, "");
+    setValue("");
     setInvalid(false);
     setAdding(false);
   };
@@ -133,7 +139,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     if (addDisabled || !labels.length || (!queueAdds && current.pending) || labelTargetKey(current.targetIds) !== key) return;
     const admitted = queueAdds && labels.length === 1 ? act("add", labels[0]) : store.getState().prepareLabels(labels, current);
     if (admitted) {
-      store.getState().setDraft(context.targetIds, "");
+      setValue("");
       setAdding(false);
     }
   };
@@ -144,7 +150,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     const nextValue = value.slice(0, tokenStart) + leadingSpace + suggestion.value + trailingSpace + value.slice(tokenEnd);
     const nextCaret = tokenStart + leadingSpace.length + suggestion.value.length;
     replacementCaret.current = nextCaret;
-    store.getState().setDraft(context.targetIds, nextValue);
+    setValue(nextValue);
     setCaret(nextCaret);
     setInvalid(false);
     setDismissedOwner(JSON.stringify([key, nextValue, nextCaret]));
@@ -187,7 +193,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
           setInvalid(false);
           setCaret(event.target.selectionStart ?? event.target.value.length);
           setDismissedOwner(null);
-          store.getState().setDraft(context.targetIds, event.target.value);
+          setValue(event.target.value);
         }}
         onKeyDown={event => {
           if (event.nativeEvent.isComposing) return;
@@ -209,6 +215,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
         className="h-6 pointer-coarse:h-[var(--mobile-edit-control-size)] min-w-0 w-full rounded-sm border border-grid-border bg-[#444] px-1.25 py-0 text-xs text-grid-text placeholder:text-[#888] aria-invalid:border-grid-error focus:outline-2 focus:-outline-offset-2 focus:outline-grid-accent"
         autoComplete="off" />
       <div className="flex justify-end gap-1.25">
+      {value.trim() && <DetailsTargetCount count={counts.selected} />}
       <PillActionButton action="cancel" label="Close label entry" title="Close" onClick={cancel} />
       <PillActionButton action="confirm" label="Add label to images" title="Save new label" disabled={addDisabled || !value.split(",").some(label => label.trim())} onClick={commit} />
       </div>

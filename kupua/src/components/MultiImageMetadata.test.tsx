@@ -16,6 +16,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
+import { DetailsDrafts } from "./DetailsDrafts";
 import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext, SelectionSaveIndicator } from "./MetadataEditing";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
 import { useToastStore } from "@/stores/toast-store";
@@ -972,6 +973,22 @@ describe("metadata field preparation", () => {
     } finally { gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, ...types); }
   });
 
+  it("keeps explicit scalar and component clears when passing through mixed values", () => {
+    const prepare = vi.fn();
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+    const view = (ids: string[], value: string) => <DetailsDrafts><dl key={ids.join()}>
+      <MetadataTextEditor field={field} targetIds={ids} value={value} mixed={ids.length > 1} onPrepare={prepare}>Credit</MetadataTextEditor>
+      <MetadataLocationEditor fields={LOCATION_COMPONENTS.map(part => ({ ...part, value: part.key === "city" ? value : "", mixed: part.key === "city" && ids.length > 1 }))}
+        targetIds={ids} available onPrepare={prepare}>Location</MetadataLocationEditor></dl></DetailsDrafts>;
+    const { rerender } = render(view(["first"], "First"));
+    for (const name of ["Credit", "Location"]) fireEvent.click(screen.getByRole("button", { name: `Edit ${name}` }));
+    for (const name of ["Credit", "City"]) fireEvent.change(screen.getByLabelText(name), { target: { value: "" } });
+    rerender(view(["first", "second"], ""));
+    rerender(view(["second"], "Second"));
+    for (const name of ["Credit", "Location"]) fireEvent.click(screen.getByRole("button", { name: `Commit ${name}` }));
+    expect(prepare.mock.calls.map(([intent]) => [intent.targetIds, intent.value])).toEqual([[["second"], ""], [["second"], { city: "" }]]);
+  });
+
   it("keeps Location input while selected metadata is temporarily pending", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const selected = images.map((image, index) => ({ ...image, metadata: { ...image.metadata, city: index ? "Paris" : "London", country: "United Kingdom" } }));
@@ -1199,22 +1216,32 @@ describe("metadata field preparation", () => {
   it("keeps Description mode drafts separate and permits clearing shared text without sending", () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const shared = images.map(image => ({ ...image, metadata: { ...image.metadata, description: "Shared description" } }));
-    const renderView = (pending = false) => <MultiImageMetadata images={shared} reconciledView={recomputeAll(shared, RECONCILE_FIELDS)} total={2}
-      labelEditing={{ targetIds: shared.map(image => image.id), targets: new Map(), pending }} />;
+    const renderView = (pending = false, selected = shared) => <DetailsDrafts><MultiImageMetadata images={selected} reconciledView={recomputeAll(selected, RECONCILE_FIELDS)} total={selected.length}
+      labelEditing={{ targetIds: selected.map(image => image.id), targets: new Map(), pending }} /></DetailsDrafts>;
     const { rerender } = render(renderView());
     fireEvent.click(screen.getByRole("button", { name: "Edit Description" }));
-    const input = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+    let input = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+    const unloadAllowed = () => window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+    expect(unloadAllowed()).toBe(true);
     expect(input.value).toBe("Shared description");
     expect(input.selectionStart).toBe(input.value.length);
     expect(input.selectionEnd).toBe(input.value.length);
     expect(screen.queryByRole("radio", { name: "Overwrite" })).toBeNull();
-    const commit = screen.getByRole("button", { name: "Commit Description" });
+    let commit = screen.getByRole("button", { name: "Commit Description" });
     expect(commit.hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Add before" }));
     expect(input.value).toBe("");
     expect(commit.hasAttribute("disabled")).toBe(true);
     fireEvent.change(input, { target: { value: "Prefix" } });
+    expect(unloadAllowed()).toBe(false);
+    rerender(<DetailsDrafts><ImageMetadata image={shared[1]} /></DetailsDrafts>);
+    expect((screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement).value).toBe("Prefix");
+    expect(screen.getByRole("button", { name: "Add before" }).getAttribute("aria-pressed")).toBe("true");
+    rerender(renderView(false, [shared[1], { ...shared[0], id: "third" }]));
+    expect((screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement).value).toBe("Prefix");
     rerender(renderView(true));
+    input = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+    commit = screen.getByRole("button", { name: "Commit Description" });
     expect((screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement).value).toBe("Prefix");
     expect(commit.hasAttribute("disabled")).toBe(true);
     rerender(renderView());
@@ -1231,6 +1258,7 @@ describe("metadata field preparation", () => {
     expect(shared.every(image => image.metadata.description === "Shared description")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Cancel Description" }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit Description" }));
+    expect(unloadAllowed()).toBe(true);
   });
 });
 

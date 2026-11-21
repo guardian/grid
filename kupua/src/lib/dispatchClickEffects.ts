@@ -1,3 +1,4 @@
+import { afterDetailsDeparture, hasChangedDetails } from "./details-departure";
 /**
  * dispatchClickEffects -- translate ClickEffect[] into store mutations
  * and navigation actions.
@@ -39,6 +40,17 @@ export function dispatchClickEffects(
   effects: ClickEffect[],
   ctx: EffectDispatchContext,
 ): void {
+  if (hasChangedDetails()) {
+    const ids = useSelectionStore.getState().selectedIds;
+    if (ids.size === 1 && effects.some(effect => effect.op === "toggle" && ids.has(effect.id))) {
+      afterDetailsDeparture("Discard and deselect", () => applyEffects(effects, ctx));
+      return;
+    }
+  }
+  applyEffects(effects, ctx);
+}
+
+function applyEffects(effects: ClickEffect[], ctx: EffectDispatchContext) {
   for (const effect of effects) {
     switch (effect.op) {
       case "set-focus":

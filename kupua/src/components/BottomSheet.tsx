@@ -1,3 +1,4 @@
+import { hasChangedDetails } from "@/lib/details-departure";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from "react";
 import { useContentPullToDrag } from "@/hooks/useContentPullToDrag";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
@@ -172,7 +173,10 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
     }
     const wantExpanded = v < -0.4 ? true : v > 0.4 ? false : offset < (maxH - PEEK_PX) / 2;
     if (wantExpanded === expanded) el.style.translate = `0 ${restOffset}px`;
-    else onExpandedChange(wantExpanded);
+    else {
+      if (!wantExpanded && hasChangedDetails()) el.style.translate = `0 ${restOffset}px`;
+      onExpandedChange(wantExpanded);
+    }
   };
   const onTouchStart = (event: TouchEvent) => {
     if (event.touches.length !== 1) { suppressHeaderClick.current = true; cancelDrag(); return; }

@@ -1,3 +1,4 @@
+import { afterDetailsDeparture, hasChangedDetails } from "@/lib/details-departure";
 /**
  * useSwipeCarousel — horizontal swipe with visual slide-in animation.
  *
@@ -307,6 +308,11 @@ export function useSwipeCarousel({
         (absVelocity > SNAP_VELOCITY || absOffset > w * SNAP_DISTANCE_RATIO);
 
       if (commitLeft || commitRight) {
+        if (hasChangedDetails()) {
+          reset();
+          afterDetailsDeparture("Discard and open", commitLeft ? cbLeft.current! : cbRight.current!);
+          return;
+        }
         animating = true;
         const direction: "left" | "right" = commitLeft ? "left" : "right";
         const cb = commitLeft ? cbLeft.current! : cbRight.current!;

@@ -12,7 +12,8 @@ const SEGMENTS = [
   { key: "fraction", label: "Milliseconds", length: 3, hint: "SSS", separator: "" },
 ] as const;
 type Part = typeof SEGMENTS[number]["key"];
-type Parts = Record<Part, string>;
+export type DateParts = Record<Part, string>;
+type Parts = DateParts;
 const emptyParts = (): Parts => ({ day: "", month: "", year: "", hours: "", minutes: "", seconds: "", fraction: "" });
 
 function dateParts(value: string): Parts {
@@ -33,14 +34,15 @@ function dateValue(parts: Parts): string | null {
   return isValid(date) && format(date, DATE_FORMAT) === value ? value : null;
 }
 
-export function MetadataDateInput({ initialValue, mixed, validationId, onChange }: {
+export function MetadataDateInput({ initialValue, restoredParts, mixed, validationId, onChange }: {
   initialValue: string;
+  restoredParts?: Parts;
   mixed: boolean;
   validationId: string;
-  onChange: (value: string, valid: boolean) => void;
+  onChange: (value: string, valid: boolean, parts: Parts) => void;
 }) {
-  const [parts, setParts] = useState(() => dateParts(initialValue));
-  const [showMixed, setShowMixed] = useState(mixed && !initialValue);
+  const [parts, setParts] = useState(() => restoredParts ?? dateParts(initialValue));
+  const [showMixed, setShowMixed] = useState(!restoredParts && mixed && !initialValue);
   const [selectedAll, setSelectedAll] = useState(false);
   const [calendarUnavailable, setCalendarUnavailable] = useState(false);
   const mixedButton = useRef<HTMLButtonElement>(null);
@@ -62,7 +64,7 @@ export function MetadataDateInput({ initialValue, mixed, validationId, onChange 
     setSelectedAll(false);
     setCalendarUnavailable(false);
     const draft = dateValue(next);
-    onChange(draft ?? "", draft !== null && draft !== "");
+    onChange(draft ?? "", draft !== null && draft !== "", next);
   };
   const focusPart = (index: number) => {
     const input = inputs.current[index];

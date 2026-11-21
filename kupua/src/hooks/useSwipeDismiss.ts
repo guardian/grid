@@ -1,3 +1,4 @@
+import { afterDetailsDeparture, hasChangedDetails } from "@/lib/details-departure";
 /**
  * useSwipeDismiss — pull down to dismiss image detail.
  *
@@ -224,6 +225,11 @@ export function useSwipeDismiss({
       const transition = `transform ${ANIMATION_MS}ms ease-out, opacity ${ANIMATION_MS}ms ease-out`;
 
       if (commit) {
+        if (hasChangedDetails()) {
+          cancelDrag();
+          afterDetailsDeparture("Discard edit", cbDismiss.current);
+          return;
+        }
         animating = true;
 
         // ── Hero dismiss: phantom image flies back to grid/table thumbnail ──

@@ -7,6 +7,15 @@ not all future operations below. Shared deployment remains a separate decision. 
 is a review question, not a new guarantee or a policy change. See the
 [performance summary](editing-performance-evidence.md#executive-summary-20-november).
 
+**Unsent Details edits:** a changed field belongs to the open editor, not to a saved
+selection. Selecting B before removing A keeps the text and Description action;
+Commit uses the current targets and freezes them on admission. Escape or Cancel
+discards the field. Leaving the editor or deselecting the last image asks before
+discarding changed work. Double-clicking into full Detail is a departure, not a
+transfer of the draft to that image. Reload or tab close requests the browser's
+native warning; no Details draft is restored after reload. Upload Form retains
+its separate per-image autosave behavior.
+
 **Final selection workflow:** committing closes the field on admission. An exact-set
 scalar overwrite can show the submitted value while locked; canonical state and
 edit authority still come from reads. Panel and label saves share one transient

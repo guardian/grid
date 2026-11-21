@@ -24,6 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Keep unsent Details edits with the open editor
+
+Changing a nonempty selection preserves typed metadata, explicit clears and the
+chosen Description action. Commit captures the current selection. Deselecting
+the last image, closing Details or leaving through history can discard changed
+work only after confirmation. A last-image double-click asks about opening the
+image before changing the selection. Escape cancels the field; reload warns
+without storing a draft. Upload Form autosave and Crop recovery are unchanged.
+
+The desktop full-image Details panel now matches Kahuna's 300px width, keeping
+empty-field hints on one line without shortening them. Search panel sizing and
+mobile sheets are unchanged.
+
 ### 21 November 2026 - Discover matching field values beyond the popularity shortlist
 
 The existing U6c aggregation read accepts bounded literal bucket-name matching. API-backed

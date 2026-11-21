@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import type { FieldDefinition } from "@/lib/field-registry";
 import { EditableSearchPill, PillActionButton } from "./SearchPill";
 import { FieldAddButton } from "./FieldAddButton";
@@ -27,8 +28,10 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const commit = useMetadataCommit(form);
   const available = dataAvailable && editable;
   const canAdd = available || allowQueuedAdd;
-  const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState("");
+  const { restored, update } = useDetailsDraft<string>(field.id);
+  const [adding, setAdding] = useState(Boolean(restored));
+  const [draft, setDraft] = useState(restored ?? "");
+  useLayoutEffect(() => { if (!form) update(field.label, adding && draft.trim() ? draft : undefined); });
   const [notice, setNotice] = useState("");
   const [expanded, setExpanded] = useState(false);
   const id = useId();
@@ -75,6 +78,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     }}>
       <MetadataSuggestionInput label={`New ${noun}`} fieldKey={field.cqlKey!} value={draft} onChange={value => { setDraft(value); setNotice(""); }} />
       <div className="metadata-edit-footer justify-end">
+        {draft.trim() && <DetailsTargetCount count={targetIds.length} />}
         <PillActionButton action="cancel" label={`Cancel new ${noun}`} onClick={() => { setAdding(false); setNotice(""); }} />
         <PillActionButton action="confirm" label={`Commit new ${noun}`} disabled={!canAdd || !draft.trim() || hasAll(draft)} onClick={() => prepare("add", draft)} />
       </div>

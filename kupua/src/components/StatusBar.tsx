@@ -1,3 +1,4 @@
+import { afterDetailsDeparture } from "@/lib/details-departure";
 /**
  * Results bar — thin strip between the search toolbar and the table/grid.
  *
@@ -341,7 +342,7 @@ export const StatusBar = memo(function StatusBar() {
           <button
             type="button"
             className="flex items-center gap-1 px-2 h-full hover:bg-grid-hover transition-colors cursor-pointer text-grid-text-muted hover:text-grid-text shrink-0 text-sm"
-            onClick={clearSelection}
+            onClick={() => afterDetailsDeparture("Discard and deselect", clearSelection)}
             title="Deselect"
             aria-label="Deselect"
           >

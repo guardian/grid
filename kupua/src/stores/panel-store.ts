@@ -12,6 +12,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { afterDetailsDeparture } from "@/lib/details-departure";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -83,8 +84,8 @@ export const usePanelStore = create<PanelStore>()(
     (set, get) => ({
       config: DEFAULT_CONFIG,
 
-      togglePanel: (side) =>
-        set((state) => ({
+      togglePanel: (side) => {
+        const toggle = () => set((state) => ({
           config: {
             ...state.config,
             [side]: {
@@ -92,7 +93,10 @@ export const usePanelStore = create<PanelStore>()(
               visible: !state.config[side].visible,
             },
           },
-        })),
+        }));
+        if (side === "right" && get().config.right.visible) afterDetailsDeparture("Discard edit", toggle);
+        else toggle();
+      },
 
       setWidth: (side, width) =>
         set((state) => ({
@@ -105,8 +109,8 @@ export const usePanelStore = create<PanelStore>()(
           },
         })),
 
-      toggleSection: (sectionId) =>
-        set((state) => {
+      toggleSection: (sectionId) => {
+        const toggle = () => set((state) => {
           const current = get().isSectionOpen(sectionId);
           return {
             config: {
@@ -117,7 +121,10 @@ export const usePanelStore = create<PanelStore>()(
               },
             },
           };
-        }),
+        });
+        if (["right-metadata", "detail-metadata"].includes(sectionId) && get().isSectionOpen(sectionId)) afterDetailsDeparture("Discard edit", toggle);
+        else toggle();
+      },
 
       isSectionOpen: (sectionId) => {
         const explicit = get().config.sections[sectionId];

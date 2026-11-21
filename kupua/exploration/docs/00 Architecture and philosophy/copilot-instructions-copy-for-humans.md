@@ -69,6 +69,13 @@ If you think a commit is warranted but the user hasn't asked, suggest it and wai
 confirmation. When the user approves, batch changes into sensible chunks grouped by the
 problem they solve — not by individual file edits. Never push to remote.
 
+**Directive: Rebuild hosted Kupua after each authorized local Kupua commit.** From
+the repository root run `set -o pipefail; npm --prefix kupua run build:hosted 2>&1 | tee "$TMPDIR/kupua-test-output.txt"`.
+The operator grants standing permission for this command to refresh the generated
+local bundle under `kahuna/public/kupua/`; do not ask again for that build. Report
+any build failure. This does not authorize a commit, push, deployment or other
+writes outside `kupua/`.
+
 **Directive: REAL SYSTEMS ARE DANGEROUS.** Kupua can be configured to connect to real
 Elasticsearch clusters (TEST/CODE/PROD) via SSH tunnels. These clusters serve the entire
 Guardian editorial team. **Never** write code that issues write operations (index, delete,
@@ -96,6 +103,12 @@ write the message to a temp file (e.g. via a heredoc or the file-creation tool),
 run `git commit -F <file>`, then delete the temp file and `git commit --amend --no-edit`.
 **Staging:** Always `git add kupua/` from the repo root. Never `git add -A` or
 `git add .` — git operates on the whole repo regardless of your cwd.
+
+Keep these operator-owned local changes out of commits. Leave their working copies untouched:
+`e2e-tests/images/Dockerfile.dockerignore`, `e2e-tests/images/Dockerfile`,
+`.devcontainer/shared/devcontainer.json`, `.devcontainer/README.md`,
+`.devcontainer/prepare-host-ca.sh`, `.devcontainer/escapehatch.json`,
+`.devcontainer/Dockerfile`, `.devcontainer/devenv.yaml`, `.devcontainer/.gitignore`.
 
 **Directive: Directive sync rule.** The directives exist in two places that must stay
 identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and

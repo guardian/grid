@@ -1,3 +1,4 @@
+import { useDetailsBodyClick } from "@/hooks/useDetailsBodyClick";
 import {
   memo,
   useCallback,
@@ -579,6 +580,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     },
     [setFocusedImageId, handleRowDoubleClick, buildClickContext, handleRange, focusedImageId, selectionEnabled],
   );
+  const detailsClicks = useDetailsBodyClick(handleRowClick, handleRowDoubleClick);
 
   /**
    * Handle tick-column clicks — goes through interpretClick like cell clicks.
@@ -1442,8 +1444,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
           virtualItems={cachedVirtualItemsRef.current}
           rows={cachedRowsRef.current}
           handleCellClick={handleCellClick}
-          handleRowDoubleClick={handleRowDoubleClick}
-          handleRowClick={handleRowClick}
+          handleRowDoubleClick={detailsClicks.open}
+          handleRowClick={detailsClicks.click}
           handleTickClick={handleTickClick}
           focusedImageId={focusedImageId}
           inSelectionMode={inSelectionMode}

@@ -45,6 +45,9 @@ supports Subjects overrides through metadata-editor, Dynamo and indexed metadata
 The 14 November update adds GRID-024's locally reproduced signed-upload queued-status
 rejection and production-codec explanation. Its backend repair is deferred; U3's
 Kupua-only presentation mitigation is described in the entry below.
+On 21 November a disposable local DynamoDB test reproduced GRID-024 through
+the unchanged loader with no competing writer. The upstream fix was submitted in
+[Grid PR #5259](https://github.com/guardian/grid/pull/5259).
 Other dispositions have not been revalidated.
 The 15 November update closes KUP-053 as a corrected mobile test: the original
 journey did not target the unfinished chip's value; the corrected touch journey passes.
@@ -130,7 +133,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
 | [GRID-022](#grid-022) | Repeated crop saves regenerate shared assets and append duplicate export identities | Operator-reported UI repeat; source and read-only record inspection confirmed | Independent crop refresh/idempotency decision; local UI filtering is not a backend repair |
 | [GRID-023](#grid-023) | Distinguish unavailable saved crops from an empty crop list | Potential UX improvement; source-backed current behaviour | Preserve existing access policy; explanatory presentation not selected |
-| [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Local fresh/duplicate rejection and current production-codec mismatch confirmed; backend repair deferred | Kupua reconciles availability independently; settled receipt presentation mitigated in U3, not a backend repair |
+| [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Reproduced locally; [upstream fix #5259](https://github.com/guardian/grid/pull/5259) opened 21 November | Kupua reconciles availability independently; upstream deployment not verified |
 | [GRID-025](#grid-025) | Date overrides cannot explicitly clear an embedded Taken on value | Source-confirmed contract limitation; no live write trial | Date clearing temporarily disabled in Kupua; setting/replacement and other U5 metadata work can proceed |
 | [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
 
@@ -1111,8 +1114,21 @@ and browse-only repair direction; they do not approve wider API implementation o
   loader classes, Scala 2.13.18 and production codec confirmed the mismatch.
   Uppercase `Prepared.name` and singleton `Prepared.type` encoding also differ;
   explicitly widening `(Prepared: StatusType)` matches the record representation.
-  This is codec evidence, not a successful read of a live DynamoDB row or a
-  failing-first regression through the actual production condition.
+  That probe tested the codec, not the transition itself.
+- **Controlled reproduction (21 November 2026):** the compiled `UploadStatusTable`
+  wrote one synthetic PREPARED record to a disposable LocalStack table. `getStatus`
+  read PREPARED and a consistent DynamoDB read confirmed a Map keyed `Prepared`.
+  `updateStatus(Queued)` returned `ConditionNotMet`; the row still read PREPARED.
+  As a positive control, `updateStatus(Completed)` succeeded on that same row and
+  read back COMPLETED. No file transfer or processing worker was involved: this
+  reproduces rejection of a valid transition without a duplicate or timing race.
+  The table was deleted. The relevant loader sources matched the local `origin/main`
+  reference; this was a one-off local test, not a deployment check or a backend fix.
+- **Batch witness (21 November):** local hosted Kupua reported all 500 files
+  completed, while the proxy recorded one queued-status POST returning HTTP 400
+  for each of 500 distinct images. LocalStack logged 500 conditional-check failures
+  in that window. The missing intermediate status did not prevent availability in
+  this batch; the batch logs alone do not establish each row's state at POST time.
 - **Observed impact:** approved local Vite and locally hosted Kupua trials,
   including fresh files and an intentional duplicate, received prepare/PUT 200
   followed by queued-update 400. Subsequent status reads could still report
@@ -1137,10 +1153,13 @@ and browse-only repair direction; they do not approve wider API implementation o
   `.toString`; `f5d75c6455` (8 October 2024) migrated Scanamo condition syntax.
   Older codecs were not tested, so these commits do not establish when a deployed
   installation first became affected.
-- **Deferred backend correction and Kahuna consequences:** compare against
+- **Upstream correction and Kahuna consequences:** [PR #5259](https://github.com/guardian/grid/pull/5259) compares against
   `(Prepared: StatusType)` while preserving row existence and the PREPARED-only
-  transition. This has not been applied. A successful repair can expose Kahuna's
-  brief queued label, remove the console rejection and turn an already-issued
+  transition. In separate local 50-file Kahuna batches all 50 queue POSTs returned
+  400 before the fix and 200 after it. Both batches completed. The operator saw
+  indexing/queued/indexing; 50 rendered row instances entered queued, none twice.
+  A poll can miss that intermediate state. The fix removes the spurious
+  rejection for a still-prepared row and turn an already-issued
   conditional request into a real status write. It is not literally behavior-
   or capacity-neutral, despite no intended change to file bytes, final images,
   permissions, TTL or stored format. Genuine completion-before-queued races can
@@ -1158,9 +1177,8 @@ and browse-only repair direction; they do not approve wider API implementation o
   No request is skipped, rejection relabeled as acknowledgement, extra poll/retry
   added or backend state rewritten. Implementation/validation status belongs to
   the U3 workplan; this entry does not certify an unrun check.
-- **Disposition:** OPEN backend defect, explicitly deferred by the operator on
-  14 November. It may be raised separately; no image-loader repair or shared
-  Kahuna UX change is commissioned for U3. Local successful availability is not
+- **Disposition:** upstream PR opened 21 November, separate from Kupua U3;
+  merge and deployment not verified. Local successful availability is not
   an all-stages-200 claim or proof of universal ingestion reliability.
 
 #### GRID-020

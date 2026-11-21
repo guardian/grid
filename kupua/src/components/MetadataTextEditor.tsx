@@ -3,6 +3,7 @@ import type { FieldDefinition } from "@/lib/field-registry";
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { PillActionButton } from "./SearchPill";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
+import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import { MetadataDateInput } from "./MetadataDateInput";
 import { gridConfig } from "@/lib/grid-config";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
@@ -154,17 +155,34 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
   const commit = useMetadataCommit();
   const pending = usePendingPanelIntent(selectionKey ?? labelTargetKey(targetIds), field.id, reconciling);
   const available = dataAvailable && editable && !pending;
-  const [editing, setEditing] = useState(false);
-  const [initial, setInitial] = useState("");
-  const [initialMixed, setInitialMixed] = useState(mixed);
-  const [drafts, setDrafts] = useState({ overwrite: "", prepend: "", append: "" });
-  const [mode, setMode] = useState<"overwrite" | "prepend" | "append">("overwrite");
+  type Mode = "overwrite" | "prepend" | "append";
+  const { restored, update } = useDetailsDraft<{ initial: string; initialMixed: boolean; drafts: Record<Mode, string>;
+    mode: Mode; overwriteEdited: boolean; inputValid: boolean; dateParts?: import("./MetadataDateInput").DateParts; typeTouched: boolean; originalOffset: number | null }>(field.id);
+  const [editing, setEditing] = useState(Boolean(restored));
+  const [initial, setInitial] = useState(restored?.initial ?? "");
+  const [initialMixed, setInitialMixed] = useState(restored?.initialMixed ?? mixed);
+  const [drafts, setDrafts] = useState(restored?.drafts ?? { overwrite: "", prepend: "", append: "" });
+  const [mode, setMode] = useState<Mode>(restored?.mode ?? "overwrite");
   const editRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-  const [inputValid, setInputValid] = useState(true);
-  const [typeTouched, setTypeTouched] = useState(false);
-  const [originalOffset, setOriginalOffset] = useState<number | null>(null);
+  const [inputValid, setInputValid] = useState(restored?.inputValid ?? true);
+  const [typeTouched, setTypeTouched] = useState(restored?.typeTouched ?? false);
+  const [originalOffset, setOriginalOffset] = useState<number | null>(restored?.originalOffset ?? null);
+  const [dateParts, setDateParts] = useState(restored?.dateParts);
+  const [overwriteEdited, setOverwriteEdited] = useState(restored?.overwriteEdited ?? false);
+  const [needsBaseline, setNeedsBaseline] = useState(Boolean(restored));
+  if (needsBaseline && available) {
+    const next = mixed ? "" : field.id === "metadata_dateTaken" ? dateTimeDraft(value) : value;
+    if (!overwriteEdited && !dateParts) setDrafts({ ...drafts, overwrite: next });
+    setInitial(next);
+    setInitialMixed(mixed);
+    setNeedsBaseline(false);
+  }
+  useLayoutEffect(() => {
+    update(field.label, editing && (overwriteEdited || drafts.prepend.trim() !== "" || drafts.append.trim() !== "" || !inputValid)
+      ? { initial, initialMixed, drafts, mode, overwriteEdited, inputValid, dateParts, typeTouched, originalOffset } : undefined);
+  });
   const validationId = useId();
   useEffect(() => { if (editing) return () => { editRef.current?.focus(); }; }, [editing]);
   useLayoutEffect(() => {
@@ -173,7 +191,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
   }, [editing]);
   const control = METADATA_EDIT_CONTROLS.get(field.id) ?? "text";
   const multiline = control === "textarea";
-  const description = field.id === "metadata_description" && targetIds.length > 1;
+  const description = field.id === "metadata_description" && (targetIds.length > 1 || mode !== "overwrite" || drafts.prepend !== "" || drafts.append !== "");
   const draft = drafts[mode];
   const editingMixed = editing ? initialMixed : mixed;
   const mixedPlaceholder = editingMixed && mode === "overwrite" ? `Multiple ${MIXED_VALUE_NAMES.get(field.id) ?? field.label.toLowerCase()}` : undefined;
@@ -192,6 +210,8 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
     const baseline = mixed ? "" : control === "datetime-local" ? dateTimeDraft(value) : value;
     const offset = control === "datetime-local" && value ? new Date(value).getTimezoneOffset() : NaN;
     setOriginalOffset(Number.isFinite(offset) ? offset : null);
+    setDateParts(undefined);
+    setOverwriteEdited(false);
     setInitial(baseline);
     setInitialMixed(mixed);
     setDrafts({ overwrite: baseline, prepend: "", append: "" });
@@ -204,6 +224,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
     setEditing(false);
   };
   const updateDraft = (value: string) => {
+    if (mode === "overwrite") setOverwriteEdited(editingMixed || (field.id === "photoshoot" ? value.trim() : value) !== normalizedInitial);
     setDrafts(current => ({ ...current, [mode]: value }));
   };
   const changeMode = (nextMode: typeof mode) => {
@@ -233,8 +254,8 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
       else if (event.key === "Enter") event.stopPropagation();
     }}>
       {multiline ? <MetadataTextInput field={field} textareaRef={textareaRef} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />
-        : control === "datetime-local" ? <MetadataDateInput initialValue={initial} mixed={editingMixed} validationId={validationId}
-          onChange={(value, valid) => { updateDraft(value); setInputValid(valid); }} />
+        : control === "datetime-local" ? <MetadataDateInput initialValue={initial} restoredParts={dateParts} mixed={editingMixed} validationId={validationId}
+          onChange={(value, valid, parts) => { updateDraft(value); setInputValid(valid); setDateParts(parts); }} />
         : control === "image-type" ? <select autoFocus aria-label={field.label} data-mixed={editingMixed && !typeTouched || undefined}
           value={editingMixed && !typeTouched ? "mixed" : draft === "" ? "clear" : String(gridConfig.imageTypes.indexOf(draft))}
           onChange={event => {
@@ -263,6 +284,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
             </label>)}
         </fieldset>}
         <div className="ml-auto flex shrink-0 gap-1">
+          {(overwriteEdited || drafts.prepend || drafts.append) && <DetailsTargetCount count={targetIds.length} />}
           <PillActionButton action="cancel" label={`Cancel ${field.label}`} onClick={cancelEditing} />
           <PillActionButton action="confirm" label={`Commit ${field.label}`} disabled={!available || !changed || !targetIds.length || !validDraft} onClick={() => prepare()} />
         </div>

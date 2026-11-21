@@ -95,7 +95,7 @@ export const labelEditorFixture = {
     const density = new URLSearchParams(location.search).get("density");
     if (density === "grid" || density === "table" || density === "justified") useUiPrefsStore.getState().setDensity(density);
     useUiPrefsStore.setState({ blurGraphicImages: false, focusMode: "explicit" });
-    if (location.pathname !== "/upload") history.replaceState(null, "", continuation
+    if (location.pathname !== "/upload") history.replaceState(history.state, "", continuation
       ? new URLSearchParams(location.search).has("tail") ? "/search?nonFree=true&query=label%3Areviewed" : "/search?nonFree=true&query=-label%3Areviewed"
       : "/search?nonFree=true");
     useSelectionStore.getState().clear();

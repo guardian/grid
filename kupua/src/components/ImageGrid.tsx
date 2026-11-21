@@ -1,3 +1,4 @@
+import { useDetailsBodyClick } from "@/hooks/useDetailsBodyClick";
 /**
  * ImageGrid — thumbnail grid density.
  *
@@ -1174,7 +1175,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     [setFocusedImageId],
   );
 
-  const handleCellDoubleClick = enterDetail;
+  const { click: selectionBodyClick, open: handleCellDoubleClick } = useDetailsBodyClick(handleCellClick, enterDetail);
 
   // Middle-click on a cell → focus that image + enter fullscreen preview.
   // Uses mouseup (not auxclick) because auxclick doesn't carry transient
@@ -1361,7 +1362,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                       cellHeight={rowHeight - CELL_GAP}
                       dateOrderBy={variableLayout ? undefined : searchParams.orderBy}
                       animationClass={animClass}
-                      onCellClick={measuredCells ? enterDetail : handleCellClick}
+                      onCellClick={measuredCells ? enterDetail : selectionBodyClick}
                       onCellDoubleClick={handleCellDoubleClick}
                       onTickClick={handleTickClick}
                       onLabelSearch={handleLabelSearch}

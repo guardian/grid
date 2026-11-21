@@ -1,3 +1,4 @@
+import { afterDetailsDeparture } from "@/lib/details-departure";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useIsCompact } from "@/hooks/useShell";
@@ -173,7 +174,7 @@ function ActionFab({ docked = false, context, selectedIds, clearSelection, detai
           <span className="w-px my-2 bg-white/40" aria-hidden="true" />
           <button
             type="button"
-            onClick={clearSelection}
+            onClick={() => { if (clearSelection) afterDetailsDeparture("Discard and deselect", clearSelection); }}
             aria-label={`Clear selection (${selectedCount.toLocaleString()} selected)`}
             style={{ width: deselectWidth }}
             className="flex gap-1 px-1.5 shrink-0 items-center justify-center active:bg-white/15 touch-none"

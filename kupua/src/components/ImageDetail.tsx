@@ -64,6 +64,8 @@ import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-k
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { DetailsDrafts } from "./DetailsDrafts";
+import { afterDetailsDeparture, hasChangedDetails } from "@/lib/details-departure";
 import { SelectedEditStatus } from "./LabelEditor";
 import { ImageCrops, MobileImageCrops, cropAsset, latestCrops } from "@/components/ImageCrops";
 import { useCropSettings } from "@/hooks/useCropSettings";
@@ -189,10 +191,11 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     // Step 1: replace current entry with bare-list. Mint a fresh kupuaKey
     // so this synthesised entry can participate in the snapshot system.
     const originKey = mintKupuaKey();
-    history.replaceState({ kupuaKey: originKey, ...(path === "/upload" ? { _uploadAddressed: true } : {}) }, "", bareListUrl);
+    const listIndex = Number.isFinite(detailState.__TSR_index) ? detailState.__TSR_index : 0;
+    history.replaceState({ kupuaKey: originKey, __TSR_index: listIndex, ...(path === "/upload" ? { _uploadAddressed: true } : {}) }, "", bareListUrl);
     // Step 2: push the detail URL back with the original TSR state intact
     // (including its kupuaKey, if any). Stamp it so re-mounts skip.
-    history.pushState({ ...detailState, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
+    history.pushState({ ...detailState, __TSR_index: listIndex + 1, _bareListSynthesized: true, _detailOriginKupuaKey: originKey }, "", detailUrl);
   }, []);
 
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.
@@ -223,7 +226,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const [actionsCloseSignal, setActionsCloseSignal] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
+  const { isFullscreen, toggleFullscreen: toggleNativeFullscreen } = useFullscreen(containerRef);
+  const toggleFullscreen = useCallback(() => afterDetailsDeparture("Discard edit", toggleNativeFullscreen), [toggleNativeFullscreen]);
+  const changeCardExpanded = (next: boolean) => {
+    if (!next && hasChangedDetails()) afterDetailsDeparture("Discard edit", () => setCardExpanded(false));
+    else setCardExpanded(next);
+  };
   const { cursorHidden, navMouseEnter, navMouseLeave, touchControlsVisible } = useCursorAutoHide(isFullscreen, isCompact ? undefined : containerRef);
 
   // Find the current image in search results (handles sparse array).
@@ -573,7 +581,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       if (zoomed && isCompact) {
         setChromeVisible(false);
         setDrawerVisible(false);
-        setCardExpanded(false);
+        changeCardExpanded(false);
       }
     },
     onDoubleClick: toggleFullscreen,
@@ -823,7 +831,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
       <div className="p-3">
         <SelectedEditStatus detailImageId={imageId} compact={isCompact} />
-        <ImageMetadata image={detailImage} overlay={overlay} editingPending={detailImage.id !== imageId} />
+        <DetailsDrafts key={detailImage.id} routed><ImageMetadata image={detailImage} overlay={overlay} editingPending={detailImage.id !== imageId} /></DetailsDrafts>
       </div>
     </AccordionSection>
     <AccordionSection
@@ -841,7 +849,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     dragSurfaceRef={current ? imageSurfaceRef : undefined}
     header={detailImage.metadata?.title ?? detailImage.metadata?.description ?? detailImage.metadata?.credit ?? "Details"}
     expanded={cardExpanded}
-    onExpandedChange={setCardExpanded}
+    onExpandedChange={changeCardExpanded}
     visible={chromeVisible || drawerVisible || cardExpanded}
     gestureEnabledRef={drawerGestureEnabledRef}
     onRevealDrag={() => setDrawerVisible(true)}
@@ -982,7 +990,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                 ref={imageSurfaceRef}
                 data-testid="detail-image-container"
                 className={imageSurfaceClass}
-                onClickCapture={isCompact && cardExpanded ? (event) => { event.stopPropagation(); setCardExpanded(false); } : undefined}
+                onClickCapture={isCompact && cardExpanded ? (event) => { event.stopPropagation(); changeCardExpanded(false); } : undefined}
               >
               {!displayImage ? (
                 <div className="text-grid-text-muted text-center">
@@ -1068,7 +1076,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
         {/* Desktop metadata stays outside the horizontal track; compact cards
           belong to their pages and are absent in fullscreen. */}
         {!isFullscreen && displayImage && !isCompact && (
-            <aside className="w-72 shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
+            <aside className="w-[300px] shrink-0 border-l border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
               {renderMetadata(displayImage, imageFromResults ? undefined : standaloneEnrichment)}
             </aside>
         )}

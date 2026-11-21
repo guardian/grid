@@ -27,6 +27,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { defaultDensity, useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useZoomStore } from "@/stores/zoom-store";
 import type { RouterHistory } from "@tanstack/react-router";
+import { allowDetailsDeparture, hasChangedDetails } from "./details-departure";
 
 let cancelHome: (() => void) | null = null;
 
@@ -48,6 +49,7 @@ let cancelHome: (() => void) | null = null;
  *   degradation — the user gets to the home state, possibly with an error).
  */
 export async function resetToHome(navigate: () => void | string, traceInteractionId?: string, history?: RouterHistory) {
+  if (hasChangedDetails() && !await allowDetailsDeparture("Discard edit")) return;
   cancelHome?.();
   const densityIntent = useUiPrefsStore.getState()._densityIntent;
   let active = true;

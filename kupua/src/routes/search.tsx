@@ -32,6 +32,7 @@ import { MeasuredGrid } from "@/components/MeasuredGrid";
 import { RESIDENT_PREVIEW_ENABLED, SAMPLED_PREVIEW_ENABLED, RESIDENT_PREVIEW_LIMIT } from "@/lib/resident-preview";
 import { ImageDetail } from "@/components/ImageDetail";
 import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
+import { DetailsDrafts } from "@/components/DetailsDrafts";
 import { Scrubber } from "@/components/Scrubber";
 import { UPLOAD_SECTION_LABELS } from "@/lib/upload-section-layout";
 import { FacetFilters, AggCircuitBreaker } from "@/components/FacetFilters";
@@ -388,7 +389,7 @@ function SearchPage() {
           rightPanel={!upload &&
             <>
               <AccordionSection sectionId="right-metadata" title="Details">
-                <FocusedImageMetadata />
+                <DetailsDrafts routed selection><FocusedImageMetadata /></DetailsDrafts>
               </AccordionSection>
               <AccordionSection sectionId="right-usages" title="Usages">
                 <FocusedUsages />
