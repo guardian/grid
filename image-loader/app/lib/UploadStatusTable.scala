@@ -4,11 +4,15 @@ import org.scanamo._
 import org.scanamo.syntax._
 import org.scanamo.generic.auto._
 import model.StatusType.{Prepared, Queued}
-import model.{UploadStatus, UploadStatusRecord}
+import model.{StatusType, UploadStatus, UploadStatusRecord}
 import software.amazon.awssdk.services.dynamodb.{DynamoDbAsyncClient, DynamoDbAsyncClientBuilder}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+
+object UploadStatusTable {
+  private[lib] val isPrepared = "status" === (Prepared: StatusType)
+}
 
 class UploadStatusTable(config: ImageLoaderConfig) {
 
@@ -31,7 +35,7 @@ class UploadStatusTable(config: ImageLoaderConfig) {
     }
     val uploadStatusTableWithCondition =
       if(updateRequest.status == Queued) // can only transition to Queued status from Prepared status
-        uploadStatusTable.when(attributeExists("id") and ("status" === Prepared.toString))
+        uploadStatusTable.when(attributeExists("id") and UploadStatusTable.isPrepared)
       else
         uploadStatusTable.when(attributeExists("id"))
 
