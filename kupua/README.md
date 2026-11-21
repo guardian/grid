@@ -47,10 +47,20 @@ TEST mode automatically:
 5. Enables **write protection** – only read operations (`_search`, `_count`, `_cat/aliases`) are allowed against the real cluster
 6. Starts the Vite dev server on port 3000
 
-The TEST tunnel still shares host port 9200 with Grid's local Docker ES. Do not run
-both listeners: discovery can select the wrong cluster and buckets. Stopping Grid's
-Play apps does not necessarily stop its Docker ES. This is separate from the
-synthetic E2E fixture on 9220, which TEST startup leaves alone.
+Kupua needs **9200 free before TEST startup**. It does not adopt an existing tunnel
+or stop Grid. If the launcher identifies `grid-elasticsearch-1`, stop the local
+Grid Play apps first, then run:
+
+```sh
+docker stop grid-elasticsearch-1
+lsof -nP -iTCP:9200 -sTCP:LISTEN
+```
+
+`docker stop` leaves the container and its index in place. When `lsof` shows no
+listener, rerun the original Kupua command. For a different owner, inspect the
+listener and stop it from its own terminal only when safe. No `setup.sh --clean`,
+Compose teardown or credential refresh is needed for a port collision. The
+synthetic E2E fixture on 9220 is unrelated.
 
 All image access is read-only and uses your existing developer AWS credentials. See `exploration/docs/infra-safeguards.md` for the full safety framework.
 

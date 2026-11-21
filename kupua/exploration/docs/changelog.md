@@ -24,6 +24,13 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Refuse an ambiguous TEST Elasticsearch endpoint
+
+Kupua's TEST setup no longer adopts an existing listener on 9200. It checks
+ownership of the new tunnel's IPv4 listener before probing ES and uses the same
+IPv4 endpoint for discovery and reads. If local Grid's Docker ES publishes 9200,
+startup explains how to stop that container without deleting its index.
+
 ### 21 November 2026 - Keep interactive Kupua running during synthetic E2E
 
 Playwright owns strict test ports and separate Vite dependency caches. The full

@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 const temporary: string[] = [];
 afterEach(() => { for (const directory of temporary.splice(0)) rmSync(directory, { recursive: true, force: true }); });
 
-function launch(flags: string[]) {
+function launch(flags: string[], overrides: Record<string, string> = {}) {
   const cache = resolve("node_modules/.cache");
   mkdirSync(cache, { recursive: true });
   const directory = mkdtempSync(join(cache, "start-script-"));
@@ -22,6 +22,7 @@ function launch(flags: string[]) {
   for (const command of ["docker", "docker-compose", "aws", "curl", "ssh", "ssm", "ps", "touch"]) {
     stub(command, `printf '${command} %s\\n' "$*" >> "$CALLS"\nexit 80`);
   }
+  for (const [command, body] of Object.entries(overrides)) stub(command, body);
   const result = spawnSync("/bin/bash", [resolve("scripts/start.sh"), ...flags, "--skip-install"], {
     encoding: "utf8", timeout: 5_000,
     env: { PATH: `${directory}:/usr/bin:/bin`, HOME: directory, CALLS: calls, BASH_ENV: shellEnvironment,
@@ -31,6 +32,40 @@ function launch(flags: string[]) {
 }
 
 describe("Kupua launcher data modes", () => {
+  it.each([true, false])("refuses occupied TEST port before discovery (Grid Docker: %s)", grid => {
+    const result = launch(["--use-TEST"], {
+      docker: `case "$1" in info|compose) exit 0;; ps) ${grid ? "echo 'grid-elasticsearch-1 0.0.0.0:9200->9200/tcp'" : ":"};; *) exit 80;; esac`,
+      lsof: 'case "$*" in *9200*) echo 12345;; *) exit 1;; esac',
+    });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("lsof -nP -iTCP:9200 -sTCP:LISTEN");
+    expect(result.stdout.includes("docker stop grid-elasticsearch-1")).toBe(grid);
+    expect(result.calls).not.toContainEqual(expect.stringMatching(/^(aws|curl|ssh|ssm) /));
+  });
+
+  it.each(["ssh", "ssm", "foreign"])("requires the new TEST listener before probing ES: %s", transport => {
+    const session = 'echo $$ > "$HOME/session-pid"; exec /bin/sleep 3';
+    const result = launch(["--use-TEST"], {
+      docker: "exit 0", touch: "exit 0", "session-manager-plugin": "exit 0",
+      ssm: transport === "ssh" ? 'echo ssh' : 'exit 1', ssh: session,
+      aws: `case "$1" in ec2) echo test-instance;; ssm) ${session};; esac`,
+      lsof: `case "$*" in *-i4TCP:9200*) if test -s "$HOME/session-pid"; then ${transport === "ssh" ? 'cat "$HOME/session-pid"' : 'echo 12345'}; else /bin/sleep 0.02; exit 1; fi;; *) exit 1;; esac`,
+      ps: transport === "ssm" ? 'cat "$HOME/session-pid"' : 'echo 1',
+      curl: 'echo "curl $*" >> "$CALLS"; case "$*" in *_cat/aliases*) echo "[]";; esac',
+    });
+    expect(result.status, result.stdout + result.stderr).toBe(1);
+    const requests = result.calls.filter(call => call.startsWith("curl "));
+    if (transport === "foreign") {
+      expect(result.stdout).toContain("Could not verify the listener");
+      expect(requests).toEqual([]);
+    } else {
+      expect(result.stdout).toContain("Could not discover an images index");
+      expect(requests).toEqual([
+        expect.stringContaining("http://127.0.0.1:9200/_cluster/health"),
+        expect.stringContaining("http://127.0.0.1:9200/_cat/aliases"),
+      ]);
+    }
+  });
   it.each([
     { selector: "--use-media-api", base: "/api", label: "local media-api" },
     { selector: "--use-deployed-media-api", base: "https://api.media.test.dev-gutools.co.uk", label: "deployed TEST API" },

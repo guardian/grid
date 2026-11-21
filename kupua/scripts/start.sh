@@ -302,6 +302,28 @@ else
   exit 1
 fi
 
+if [ "$USE_TEST" = true ]; then
+  if ! command -v lsof >/dev/null || ! docker_ports=$(docker ps --format '{{.Names}} {{.Ports}}'); then
+    echo "ERROR: Cannot inspect local listeners and Docker port mappings. Check lsof and Docker Desktop, then retry."
+    exit 1
+  fi
+  grid_publishes_9200=false
+  if grep -Eq '^grid-elasticsearch-1 .*:9200->' <<< "$docker_ports"; then grid_publishes_9200=true; fi
+  if [ "$grid_publishes_9200" = true ] || lsof -nP -iTCP:9200 -sTCP:LISTEN -t >/dev/null 2>&1 || grep -q ':9200->' <<< "$docker_ports"; then
+    echo "ERROR: Port 9200 is occupied. Kupua cannot verify an existing listener as its TEST tunnel."
+    if [ "$grid_publishes_9200" = true ]; then
+      echo "  Stop the local Grid apps first. Their Elasticsearch container can keep running."
+      echo "  Stop just that container (without removing its index): docker stop grid-elasticsearch-1"
+    else
+      echo "  Identify the owner; stop it from its own terminal only if it is safe to do so."
+      echo "  For a Docker listener, inspect published ports with: docker ps"
+    fi
+    echo "  Check: lsof -nP -iTCP:9200 -sTCP:LISTEN"
+    echo "  Once there is no listener, rerun the same Kupua startup command. No credential refresh or setup is needed for this conflict."
+    exit 1
+  fi
+fi
+
 # Ensure the imgproxy env file exists (even empty) — docker-compose v1 fails
 # if an env_file entry is missing, even for services that aren't being started.
 touch "${HOME}/.kupua-imgproxy.env"
@@ -395,33 +417,37 @@ if [ "$USE_TEST" = true ]; then
     HAS_SSM=true
   fi
 
-  # --- 1. Establish SSH tunnel if not already running ---
-  EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
-
   echo -e "${yellow}      TEST tunnel: localhost:9200 (also used by local Grid ES); synthetic E2E fixture: localhost:9220 (left running).${plain}"
-
-  NEED_NEW_TUNNEL=true
-
-  if [ -n "$EXISTING_TUNNELS" ]; then
-    # Tunnel process exists — but it may be stale (e.g. remote end died,
-    # credentials expired). Probe ES to check it actually works.
-    if curl -sf --connect-timeout 3 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; then
-      echo -e "${green}[1/6] Re-using existing SSH tunnel to TEST ES (port 9200) ✓${plain}"
-      NEED_NEW_TUNNEL=false
-    else
-      echo -e "${yellow}[1/6] Existing SSH tunnel is stale — killing and re-establishing...${plain}"
-      # shellcheck disable=SC2046
-      kill $(echo "$EXISTING_TUNNELS" | awk '{print $2}') 2>/dev/null || true
-      # Wait for port 9200 to be fully released (TIME_WAIT can linger)
-      port_wait=0
-      while lsof -i:9200 -sTCP:LISTEN -t > /dev/null 2>&1 && [ $port_wait -lt 10 ]; do
-        sleep 1
-        port_wait=$((port_wait + 1))
+  TEST_ES_URL=http://127.0.0.1:9200
+  tunnel_pid=
+  S3_PROXY_PID=
+  cleanup_test_children() {
+    if [ -n "$S3_PROXY_PID" ]; then kill "$S3_PROXY_PID" 2>/dev/null || true; fi
+    if [ -n "$tunnel_pid" ]; then kill "$tunnel_pid" 2>/dev/null || true; fi
+  }
+  trap cleanup_test_children EXIT
+  tunnel_owns_listener() {
+    local holders holder parent
+    holders=$(lsof -nP -i4TCP:9200 -sTCP:LISTEN -t 2>/dev/null) || return 1
+    [ -n "$holders" ] && kill -0 "$tunnel_pid" 2>/dev/null || return 1
+    for holder in $holders; do
+      while [ "$holder" != "$tunnel_pid" ]; do
+        parent=$(ps -p "$holder" -o ppid= | tr -d ' ') || return 1
+        [[ "$parent" =~ ^[0-9]+$ ]] && [ "$parent" -gt 1 ] || return 1
+        holder=$parent
       done
-    fi
-  fi
-
-  if [ "$NEED_NEW_TUNNEL" = true ]; then
+    done
+  }
+  wait_for_test_tunnel() {
+    local attempt
+    for ((attempt=0; attempt<20; attempt++)); do
+      kill -0 "$tunnel_pid" 2>/dev/null || return 1
+      if tunnel_owns_listener && curl --noproxy '*' -fsS --max-time 2 "$TEST_ES_URL/_cluster/health" >/dev/null 2>&1; then return 0; fi
+      sleep 1
+    done
+    return 1
+  }
+  start_test_tunnel() {
     echo -e "${yellow}[1/6] Establishing SSH tunnel to TEST ES (port 9200)...${plain}"
 
     # Check AWS credentials (same pattern as Grid's hasCredentials())
@@ -444,7 +470,15 @@ if [ "$USE_TEST" = true ]; then
       echo -e "${yellow}      Using ssm-scala for tunnel...${plain}"
       SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw 2>&1) || true
       if [ -n "$SSH_COMMAND" ] && [[ ! "$SSH_COMMAND" =~ "Error" ]]; then
-        eval $SSH_COMMAND -f -N $TUNNEL_OPTS -L 9200:localhost:9200 2>/dev/null && TUNNEL_OK=true
+        (eval "exec $SSH_COMMAND -N $TUNNEL_OPTS -L 127.0.0.1:9200:localhost:9200") 2>/dev/null &
+        tunnel_pid=$!
+        if wait_for_test_tunnel; then
+          TUNNEL_OK=true
+        else
+          kill "$tunnel_pid" 2>/dev/null || true
+          wait "$tunnel_pid" 2>/dev/null || true
+          tunnel_pid=
+        fi
       fi
       if [ "$TUNNEL_OK" = false ]; then
         echo -e "${yellow}      ssm-scala failed (Java issue?). Falling back to AWS CLI...${plain}"
@@ -480,76 +514,35 @@ if [ "$USE_TEST" = true ]; then
 
       # Use SSM port-forwarding to tunnel port 9200
       # This runs in the background (-f equivalent via &)
-      SSM_SESSION_LOG=$(mktemp "${TMPDIR:-/tmp}/kupua-ssm-session.XXXXXX")
       aws ssm start-session \
         --profile media-service \
         --region eu-west-1 \
         --target "$INSTANCE_ID" \
         --document-name AWS-StartPortForwardingSessionToRemoteHost \
         --parameters "{\"host\":[\"localhost\"],\"portNumber\":[\"9200\"],\"localPortNumber\":[\"9200\"]}" \
-        > "$SSM_SESSION_LOG" 2>&1 &
-      SSM_SESSION_PID=$!
-
-      # Wait for the tunnel to be ready
-      tunnel_wait=0
-      until curl -sf --connect-timeout 2 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; do
-        tunnel_wait=$((tunnel_wait + 1))
-        # Check the process is still alive
-        if ! kill -0 $SSM_SESSION_PID 2>/dev/null; then
-          wait "$SSM_SESSION_PID" 2>/dev/null || true
-          echo -e "${red}ERROR: AWS SSM port-forwarding session exited before the tunnel was ready.${plain}"
-          echo "  SSM output:"
-          cat "$SSM_SESSION_LOG"
-          rm -f "$SSM_SESSION_LOG"
-          exit 1
-        fi
-        if [ $tunnel_wait -ge 20 ]; then
-          echo -e "${red}ERROR: SSM tunnel did not become ready after 20s.${plain}"
-          echo "  SSM output:"
-          cat "$SSM_SESSION_LOG"
-          kill "$SSM_SESSION_PID" 2>/dev/null || true
-          wait "$SSM_SESSION_PID" 2>/dev/null || true
-          rm -f "$SSM_SESSION_LOG"
-          exit 1
-        fi
-        printf "      Waiting for tunnel... (%d/20)\r" "$tunnel_wait"
-        sleep 1
-      done
-
+        > /dev/null 2>&1 &
+      tunnel_pid=$!
+      if ! wait_for_test_tunnel; then
+        echo "ERROR: Could not verify the listener on 127.0.0.1:9200 belongs to the new TEST session and reaches Elasticsearch."
+        echo "  Inspect the port: lsof -nP -iTCP:9200 -sTCP:LISTEN"
+        echo "  Resolve any conflicting listener and check the TEST session before retrying. No index or bucket discovery performed."
+        exit 1
+      fi
       TUNNEL_OK=true
-      rm -f "$SSM_SESSION_LOG"
-      # Clean up the SSM session when this script exits
-      KUPUA_SSM_PID=$SSM_SESSION_PID
     fi
 
     if [ "$TUNNEL_OK" = true ]; then
       echo -e "${green}      SSH tunnel established ✓${plain}"
     fi
-  fi
+  }
+  start_test_tunnel
   echo
 
   # --- 2. Discover the index alias ---
   echo -e "${yellow}[2/6] Discovering TEST ES index...${plain}"
-  # SSM tunnels route through AWS Session Manager — the SSH process
-  # backgrounds immediately (-f) but the SSM proxy can take 3-10s to
-  # fully negotiate. Retry with back-off instead of a single check.
-  max_tunnel_wait=15
-  tunnel_wait=0
-  until curl -sf --connect-timeout 2 "http://localhost:9200/_cluster/health" > /dev/null 2>&1; do
-    tunnel_wait=$((tunnel_wait + 1))
-    if [ $tunnel_wait -ge $max_tunnel_wait ]; then
-      echo -e "${red}ERROR: Cannot reach ES at localhost:9200 after ${max_tunnel_wait}s.${plain}"
-      echo "  The SSH tunnel may have failed. Check your credentials and try again."
-      echo "  Debug: curl -v http://localhost:9200/_cluster/health"
-      exit 1
-    fi
-    printf "      Waiting for tunnel... (%d/%d)\r" "$tunnel_wait" "$max_tunnel_wait"
-    sleep 1
-  done
-  echo -e "${green}      ES reachable via tunnel ✓${plain}"
 
   # Find the alias that looks like "images_current" or similar
-  INDEX_ALIAS=$(curl -sf "http://localhost:9200/_cat/aliases?format=json" \
+  INDEX_ALIAS=$(curl --noproxy '*' -sf "$TEST_ES_URL/_cat/aliases?format=json" \
     | python3 -c "
 import json, sys
 aliases = json.load(sys.stdin)
@@ -566,7 +559,7 @@ print('')
 
   if [ -z "$INDEX_ALIAS" ]; then
     echo -e "${red}ERROR: Could not discover an images index on TEST ES.${plain}"
-    echo "  Check manually: curl 'http://localhost:9200/_cat/aliases?v' | grep -i images"
+    echo "  Check the TEST index configuration before retrying."
     echo "  Then set VITE_ES_INDEX=<alias> manually in kupua/.env.local"
     exit 1
   fi
@@ -575,7 +568,7 @@ print('')
   echo
 
   # Export env vars for Vite
-  export KUPUA_ES_URL="http://localhost:9200"
+  export KUPUA_ES_URL="$TEST_ES_URL"
   export VITE_ES_INDEX="$INDEX_ALIAS"
   export VITE_ES_IS_LOCAL="false"
   # Real cluster has a much higher max_result_window than local docker ES.
@@ -587,7 +580,7 @@ print('')
   echo -e "${yellow}[3/6] Discovering S3 bucket names...${plain}"
 
   # Query ES for one document to extract bucket names from URLs
-  SAMPLE_DOC=$(curl -sf "http://localhost:9200/${INDEX_ALIAS}/_search?size=1&_source=thumbnail.file,source.file" 2>/dev/null || echo "")
+  SAMPLE_DOC=$(curl --noproxy '*' -sf "$TEST_ES_URL/${INDEX_ALIAS}/_search?size=1&_source=thumbnail.file,source.file" 2>/dev/null || echo "")
 
   THUMB_BUCKET=""
   IMAGE_BUCKET=""
@@ -662,8 +655,6 @@ print('')
       export VITE_S3_PROXY_ENABLED="false"
     fi
 
-    # Ensure the proxy (and SSM session if active) are killed when this script exits
-    trap "kill $S3_PROXY_PID 2>/dev/null; kill ${KUPUA_SSM_PID:-999999} 2>/dev/null" EXIT
   else
     echo -e "${yellow}      Could not discover bucket names. Thumbnails disabled.${plain}"
     export VITE_S3_PROXY_ENABLED="false"
@@ -786,8 +777,8 @@ print('')
   else
     unset KUPUA_LOAD_SITE_SETTINGS
   fi
-  exec npm run dev
-
+  npm run dev
+  exit $?
 fi
 
 # ---------------------------------------------------------------------------

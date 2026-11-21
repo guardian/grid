@@ -376,23 +376,14 @@ explicit Kupua `--use-TEST`, and deployed-API startup retain their previous setu
 ### Connecting to TEST ES
 
 ```bash
-# 1. Establish SSH tunnel (requires media-service AWS profile)
-SSH_COMMAND=$(ssm ssh --profile media-service -t elasticsearch-data,media-service,TEST --newest --raw)
-eval $SSH_COMMAND -f -N -o ExitOnForwardFailure=yes -L 9200:localhost:9200
-
-# 2. Find the index alias
-curl -s 'http://localhost:9200/_cat/aliases?v' | grep images
-
-# 3. Create .env (or .env.local) in kupua/
-cat > .env.local << 'EOF'
-KUPUA_ES_URL=http://localhost:9200
-VITE_ES_INDEX=images_current
-VITE_ES_IS_LOCAL=false
-EOF
-
-# 4. Start kupua
-npm run dev
+./kupua/scripts/start.sh --use-TEST
 ```
+
+Start with port 9200 free. Kupua requires the IPv4 listener to belong to its
+new TEST tunnel process (or a child) before its health check. An ES response
+alone cannot identify a cluster. Follow the [port recovery steps](../../README.md#test-mode-real-data)
+if Grid's Docker ES or another listener is present. This is a startup check,
+not continuous monitoring; do not switch the backing listener while Kupua runs.
 
 ### Switching back to local ES
 
