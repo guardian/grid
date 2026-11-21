@@ -1202,11 +1202,21 @@ class ElasticSearch(
       throw InvalidUriParams(s"at most $MaxFields fields can be aggregated, got ${params.fields.size}")
     if (params.isFilters.size > MaxIsFilters)
       throw InvalidUriParams(s"at most $MaxIsFilters is: filters can be counted, got ${params.isFilters.size}")
-    params.fields.foreach { case FieldAggregation(field, size) =>
+    if (params.fields.count(_.nameMatch.isDefined) > 1)
+      throw InvalidUriParams("at most one field may request name matching")
+    params.fields.foreach { case FieldAggregation(field, size, nameMatch) =>
       if (field.isEmpty)
         throw InvalidUriParams("aggregated fields must be non-empty paths")
       if (size < 1 || size > MaxSize)
         throw InvalidUriParams(s"aggregation size must be between 1 and $MaxSize, got $size for $field")
+      nameMatch.foreach { matcher =>
+        if (size > MaxMatchedSize)
+          throw InvalidUriParams(s"matched aggregations support at most $MaxMatchedSize buckets")
+        if (matcher.text.isEmpty || matcher.text.length > MaxMatchTextLength)
+          throw InvalidUriParams(s"match text must be between 1 and $MaxMatchTextLength UTF-16 units")
+        if (matcher.mode != "prefix" && matcher.mode != "contains")
+          throw InvalidUriParams("match mode must be prefix or contains")
+      }
       MappedNestedPaths.find(path => field.startsWith(s"$path.")).foreach { path =>
         throw InvalidUriParams(s"$field is inside the nested path $path; a root aggregation would count none of its values")
       }
@@ -1222,8 +1232,9 @@ class ElasticSearch(
   // Positional names, because field paths may contain characters aggregation names cannot.
   private[elasticsearch] def imageAggregationsRequest(params: ImageAggregationsParams): SearchRequest = {
     admitAggregations(params)
-    val fieldAggregations = params.fields.zipWithIndex.map { case (FieldAggregation(field, size), position) =>
-      termsAgg(fieldAggregationName(position), field).size(size)
+    val fieldAggregations = params.fields.zipWithIndex.map { case (field, position) =>
+      val terms = termsAgg(fieldAggregationName(position), field.field).size(field.size)
+      field.nameMatch.fold(terms)(matcher => terms.includeRegex(matcher.includePattern))
     }
     val isFilterAggregations = params.isFilters.zipWithIndex.map { case (name, position) =>
       filterAgg(isFilterAggregationName(position), queryBuilder.makeQuery(List(Match(IsField, IsValue(name)))))
@@ -1239,8 +1250,8 @@ class ElasticSearch(
     requireCompleteExecution(result, ImageAggregationsIncomplete, "aggregations")
     val aggregations = result.aggregations
     ImageAggregationsResult(
-      fields = params.fields.zipWithIndex.map { case (FieldAggregation(field, _), position) =>
-        field -> aggregations.result[Terms](fieldAggregationName(position)).buckets.map(b => BucketResult(b.key, b.docCount))
+      fields = params.fields.zipWithIndex.map { case (field, position) =>
+        field.field -> aggregations.result[Terms](fieldAggregationName(position)).buckets.map(b => BucketResult(b.key, b.docCount))
       },
       isFilterCounts = params.isFilters.zipWithIndex.map { case (name, position) =>
         name -> aggregations.filter(isFilterAggregationName(position)).docCount

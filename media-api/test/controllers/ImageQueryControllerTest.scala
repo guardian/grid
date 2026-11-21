@@ -871,6 +871,7 @@ class ImageQueryControllerTest extends AnyFunSpec with Matchers with ScalaFuture
       "a non-string field" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> 42))),
       "a fractional size" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "size" -> 1.5))),
       "a string size" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "size" -> "10"))),
+      "a malformed name matcher" -> Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "match" -> "raw-pattern"))),
       "isFilters that are not an array" -> Json.obj("isFilters" -> "deleted"),
       "a non-string is: filter" -> Json.obj("isFilters" -> Json.arr("deleted", 7)),
     ).foreach { case (shape, invalid) =>

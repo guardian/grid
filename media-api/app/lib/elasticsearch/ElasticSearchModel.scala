@@ -7,7 +7,7 @@ import com.gu.mediaservice.model.usage.UsageStatus
 import com.gu.mediaservice.model.{Image, PrintUsageFilters, SyndicationStatus}
 import lib.querysyntax.{AnyField, Condition, IsField, IsValue, Match, Negation, NegationNested, Parser, Phrase, SimilarField, SimilarValue, Words}
 import org.joda.time.DateTime
-import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites}
+import play.api.libs.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, Json, OWrites, Reads}
 import play.api.mvc.{AnyContent, Request}
 import scalaz.syntax.std.list._
 
@@ -310,7 +310,25 @@ object ImageCountParamsBody {
 }
 
 // Params for POST /images/aggregations: per-field value counts and named is: filter counts over the admitted images.
-case class FieldAggregation(field: String, size: Int)
+case class BucketNameMatch(text: String, mode: String) {
+  def includePattern: String = {
+    val literal = text.codePoints().toArray.map { point =>
+      BucketNameMatch.caseClass(point).getOrElse {
+        if (Character.isLetterOrDigit(point)) Character.toString(point) else "\\" + Character.toString(point)
+      }
+    }.mkString
+    (if (mode == "contains") ".*" else "") + literal + ".*"
+  }
+}
+object BucketNameMatch {
+  implicit val reads: Reads[BucketNameMatch] = Json.reads[BucketNameMatch]
+
+  private def fold(point: Int): Int = Character.toLowerCase(Character.toUpperCase(point))
+  private lazy val caseClasses = (0 to Character.MAX_CODE_POINT).iterator.filter(point => fold(point) != point)
+    .toVector.groupBy(fold).map { case (key, variants) => key -> (key +: variants).map(Character.toString).mkString("[", "", "]") }
+  private def caseClass(point: Int): Option[String] = caseClasses.get(fold(point))
+}
+case class FieldAggregation(field: String, size: Int, nameMatch: Option[BucketNameMatch] = None)
 
 case class ImageAggregationsParams(
   searchParams: SearchParams,
@@ -324,6 +342,8 @@ object ImageAggregationsParams {
   val MaxSize      = 10000
   val DefaultSize  = 10
   val MaxIsFilters = 20
+  val MaxMatchedSize = 50
+  val MaxMatchTextLength = 128
 }
 
 // Each bucket counts the admitted images holding that value; fields keep the requested order.
@@ -351,7 +371,8 @@ object ImageAggregationsParamsBody {
         case Some(JsNumber(number)) if number.isValidInt => Some(number.toInt)
         case Some(_)                                     => None
       }
-    } yield FieldAggregation(field, size)
+      nameMatch <- (entry \ "match").validateOpt[BucketNameMatch].asOpt
+    } yield FieldAggregation(field, size, nameMatch)
 
   private def fieldsFrom(body: JsValue): Either[String, Seq[FieldAggregation]] =
     (body \ "fields").toOption.filter(_ != JsNull) match {
@@ -361,7 +382,7 @@ object ImageAggregationsParamsBody {
           .flatMap(entries => entries.foldRight(Option(List.empty[FieldAggregation])) { (entry, acc) =>
             for { rest <- acc; aggregation <- fieldAggregation(entry) } yield aggregation :: rest
           })
-          .toRight("fields must be an array of {field, size} objects with a string field and an optional integer size")
+          .toRight("fields must contain a string field, optional integer size and optional match object with string text and mode")
     }
 
   private def isFiltersFrom(body: JsValue): Either[String, Seq[String]] =

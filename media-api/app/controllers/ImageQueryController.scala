@@ -201,10 +201,11 @@ class ImageQueryController(
         err => Future.successful(InvalidParamsResponse(err)),
         params => elasticSearch.imageAggregations(params).map { raw =>
           val pit = raw.pitId.fold(Json.obj())(pitId => Json.obj("pitId" -> pitId))
+          val matched = params.fields.find(_.nameMatch.isDefined).fold(Json.obj())(spec => Json.obj("matchedField" -> spec.field))
           Ok(Json.obj(
             "fields"         -> JsObject(raw.result.fields.map { case (field, buckets) => field -> Json.obj("buckets" -> buckets) }),
             "isFilterCounts" -> JsObject(raw.result.isFilterCounts.map { case (name, count) => name -> JsNumber(count) }),
-          ) ++ pit).as(ArgoMediaType)
+          ) ++ pit ++ matched).as(ArgoMediaType)
         }.recover(readFailureResponses.orElse { case ImageAggregationsIncomplete => AggregationsIncompleteResponse })
       )
     }

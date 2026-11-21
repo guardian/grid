@@ -2458,6 +2458,27 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         }
       }
 
+      it("matches literal credit values before limiting by popularity") {
+        val rare = "Élan [Photo]"
+        val image = aggFixture("agg-rare-credit", Some(rare), Handout())
+        withImages(aggFixtures :+ image.copy(metadata = image.metadata.copy(keywords = Some(Set("Τελικός", "unrelated"))))) { base =>
+          def lookup(text: String, mode: String) = {
+            val spec = Json.obj("field" -> "metadata.credit", "size" -> 1, "match" -> Json.obj("text" -> text, "mode" -> mode))
+            val (status, json) = aggregate(base ++ Json.obj("fields" -> Json.arr(spec)))
+            status shouldBe 200
+            (json \ "matchedField").as[String] shouldBe "metadata.credit"
+            buckets(json, "metadata.credit")
+          }
+          lookup("élan [", "prefix") shouldBe Seq(rare -> 1L)
+          lookup("[photo]", "contains") shouldBe Seq(rare -> 1L)
+          lookup("[photo]", "prefix") shouldBe empty
+          val keywords = Json.obj("field" -> "metadata.keywords", "match" -> Json.obj("text" -> "όσ", "mode" -> "contains"))
+          val (_, result) = aggregate(base ++ Json.obj("fields" -> Json.arr(keywords, Json.obj("field" -> "metadata.credit"))))
+          buckets(result, "metadata.keywords") shouldBe Seq("Τελικός" -> 1L)
+          buckets(result, "metadata.credit").head shouldBe ("AAP" -> 3L)
+        }
+      }
+
       it("aggregates field paths verbatim and keeps at most size values, 10 when size is omitted") {
         val uploaders = (1 to 12).map(n => createImage(f"agg-uploader-$n%02d", Handout(), uploadedBy = f"uploader-$n%02d@example.test"))
         withImages(uploaders) { base =>
@@ -2567,6 +2588,8 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
           "more than 50 fields" -> (fields((1 to 51).map(n => s"fileMetadata.xmp.field$n" -> 10): _*), "at most 50"),
           "a size of 0" -> (fields("metadata.credit" -> 0), "between 1 and 10000"),
           "a size above 10000" -> (fields("metadata.credit" -> 10001), "between 1 and 10000"),
+          "a matched size above 50" -> (Json.obj("fields" -> Json.arr(Json.obj("field" -> "metadata.credit", "size" -> 51,
+            "match" -> Json.obj("text" -> "aa", "mode" -> "prefix")))), "at most 50 buckets"),
           "an empty field" -> (fields("" -> 10), "non-empty"),
           "a duplicate field" -> (fields("metadata.credit" -> 10, "metadata.credit" -> 20), "duplicate"),
           "more than 20 is: filters" -> (Json.obj("isFilters" -> (1 to 21).map(n => s"filter-$n")), "at most 20"),
