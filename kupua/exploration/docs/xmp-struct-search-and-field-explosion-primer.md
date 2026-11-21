@@ -400,6 +400,12 @@ documentation, this doesn't require promotion (option (c+)) at all;
 promotion only adds numeric-aware bucketing and sorting on top of that,
 not basic aggregatability.
 
+For a known string path such as `fileMetadata.xmp.dc:creator`, Kupua's
+[enhanced value suggestions](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md)
+can find a less-popular creator by prefix. They match the value **as indexed**:
+they neither discover the path name nor turn a fragment inside a stringified
+struct into a separately searchable property.
+
 One ES mapping mechanic worth knowing in general terms (not a migration
 plan): Elasticsearch commits to a field's type the first time it sees that
 field and won't change it later. So the mapping-template fix and a reindex

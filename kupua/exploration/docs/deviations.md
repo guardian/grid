@@ -190,11 +190,10 @@ replay; a new explicit intent may follow rejection, pre-dispatch refusal or ackn
 observed success. Receipts remain in session history. Shared activation remains separately scoped.
 
 Entry suggestions reuse Kupua's shared label provider rather than Kahuna's legacy
-label-search endpoint. They use an explicitly library-wide DAL aggregation and
-case-insensitive prefix filtering within the existing popularity shortlist. Missing
-less-popular matches is an accepted prototype limitation, not a backend-change gate.
-Query-chip suggestions keep their existing search scope; both consumers share the
-provider so a later improvement can replace the shortlist implementation together.
+label-search endpoint. They use an explicitly library-wide DAL aggregation; query chips
+retain the current search scope. The [U6c enhancement](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md)
+matches typed prefixes before popularity limiting in API mode. Temporary direct ES
+retains local shortlist filtering rather than duplicating the backend matcher.
 
 The joined editing controls follow Kahuna's tooltip vocabulary and full/partial
 colours. Full labels invert the hovered segment to white with dark blue text/icons;

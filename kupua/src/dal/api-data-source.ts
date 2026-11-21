@@ -44,6 +44,7 @@ type DateStats = { valueCount: number; min: number | null; max: number | null; c
 type DateBuckets = { buckets: SortDistBucket[]; positionKind: "exact-rank" | "approximate-evidence"; evidenceCount: number };
 type CountResponse = { total: number; tickerCounts: unknown };
 type AggregationsResponse = {
+  matchedField?: string;
   fields: Record<string, { buckets: Array<{ key: string; count: number }> }>;
   isFilterCounts: Record<string, number>;
 };
@@ -73,6 +74,7 @@ function yieldToMain(): Promise<void> {
 }
 
 export class ApiDataSource implements ImageDataSource {
+  readonly supportsBucketNameMatching = true;
   readonly offsetReadLimit = API_WINDOW_OFFSET_LIMIT;
   readonly uploadPage = new UploadPageReader(this);
 
@@ -92,7 +94,8 @@ export class ApiDataSource implements ImageDataSource {
     const t0 = Date.now();
     const sizes = new Map<string, number>();
     const request = (field: string, size: number) => sizes.set(field, Math.max(sizes.get(field) ?? 0, size));
-    for (const { field, size } of fields) request(field, size ?? DEFAULT_AGGREGATION_SIZE);
+    const matched = fields.filter(spec => spec.match);
+    for (const { field, size, match } of fields) if (!match) request(field, size ?? DEFAULT_AGGREGATION_SIZE);
     for (const { subField } of usageFilters ?? []) request(USAGE_ROLLUP_FIELDS[subField], USAGE_ROLLUP_SIZE);
     const isValues = [...new Set((isFilters ?? []).map((f) => f.isFilter))];
 
@@ -100,13 +103,19 @@ export class ApiDataSource implements ImageDataSource {
     delete body.sort;
     const json = await postImageRead("/images/aggregations", {
       ...body,
-      fields: [...sizes].map(([field, size]) => ({ field, size })),
+      fields: Array.from(sizes, ([field, size]): AggregationRequest => ({ field, size })).concat(matched),
       ...(isValues.length > 0 ? { isFilters: isValues } : {}),
     }, signal) as AggregationsResponse;
 
     const bucketsOf = (field: string) => json.fields[field]?.buckets ?? [];
     return {
-      fields: Object.fromEntries(fields.map(({ field }) => [field, { buckets: bucketsOf(field) }])),
+      fields: Object.fromEntries(fields.map(({ field, match }) => {
+        const buckets = bucketsOf(field);
+        if (!match || json.matchedField === field) return [field, { buckets }];
+        const fragment = match.text.toLowerCase();
+        return [field, { buckets: buckets.filter(({ key }) => match.mode === "prefix"
+          ? key.toLowerCase().startsWith(fragment) : key.toLowerCase().includes(fragment)) }];
+      })),
       ...(isFilters?.length
         ? { filters: Object.fromEntries(isFilters
             .filter(({ isFilter }) => typeof json.isFilterCounts?.[isFilter] === "number")

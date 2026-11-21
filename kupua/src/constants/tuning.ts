@@ -206,6 +206,8 @@ export const NEW_IMAGES_POLL_INTERVAL_BG = 30_000;
 /** Debounce delay for aggregation fetches (ms). Longer than search (~300ms). */
 export const AGG_DEBOUNCE_MS = 500;
 
+export const SUGGESTION_DEBOUNCE_MS = 150;
+
 /** Circuit breaker threshold — if agg response exceeds this, disable auto-fetch. */
 export const AGG_CIRCUIT_BREAKER_MS = 2000;
 

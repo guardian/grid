@@ -331,10 +331,9 @@ backend changes. The editor and CQL search reuse one extracted label provider:
 case-insensitive prefix matching preserves popularity within the bounded shortlist.
 Editor scope is explicitly the accessible library, not selected IDs or browsing
 filters. Selection replaces only the active comma token without submitting other
-labels; unavailable suggestions leave free entry usable. Shortlist omissions are
-accepted. The longer-term matching plan is in
-[Better suggestions](better-suggestions-aggregation-endpoint-enhancement.md), not a
-backend-change prerequisite for this version.
+labels; unavailable suggestions leave free entry usable. Shortlist omissions were
+accepted for this step. The later [U6c enhancement](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md)
+adds discovery beyond the shortlist in API mode without changing the editing workflow.
 The route supplies current selection ownership separately from its retained panel;
 cold detail supplies its requested-ID-owned overlay. No permission reads are added.
 `label-editor-store` retains target-bound input and receipts in memory across SPA
@@ -376,7 +375,7 @@ been implemented at their recorded scopes; retain this schedule as the original 
 | Work | When it is tackled | Boundary |
 | --- | --- | --- |
 | Mobile metadata-editing UX and phone preview access | Subsequently implemented at the selected app-UI scope under Step 7 | Standalone studies are retired; physical-phone input acceptance and new save hookups are not implied. Direct-ES remains read-only. |
-| Improved suggestion discovery beyond the popularity shortlist | Separate proposal | Current entry reuses search suggestions; [Better suggestions](better-suggestions-aggregation-endpoint-enhancement.md) owns the longer-term plan. No backend or mapping change is required for this step. |
+| Improved suggestion discovery beyond the popularity shortlist | Completed separately on 21 November | API-backed search and entry share the [enhanced U6c lookup](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md); the original editor step required no backend change. |
 | Removal command support and fake-executor lifecycle coverage | At the start of step 5, before connecting any live editing | Explicitly authorize the bounded transport extension; keep it default-off and verify the same editor/receipt path with fixtures first. The step-3 removal UI currently prepares intent only. |
 | Post-write publication and visibility | Step 4, after step-3 validation closes | Initially use simulated addition. Removal transport is not a new gate for beginning this work. |
 | Real single-image addition and removal | Step 5, after its preparation and steps 1-4 pass | Separate target/session/action authorization and live-activation safeguards still apply. |

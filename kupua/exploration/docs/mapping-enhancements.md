@@ -46,22 +46,22 @@ These gaps block or degrade the following Kupua features:
 
 ### Existing label suggestions do not require new mappings
 
-`userMetadata.labels` is already a keyword field. Kupua's search-box label
-resolver filters existing buckets by case-insensitive prefix: normally up to 50
+`userMetadata.labels` is already a keyword field. Before the U6c enhancement (and
+still in direct ES mode), the resolver filtered buckets by case-insensitive prefix: normally up to 50
 from its own request, or the cached facet buckets (normally 10). This is useful
 suggestion behaviour, not a search of every label name. An empty suggestion
 list does not prove that a label is absent. See [the resolver](../../src/lib/typeahead-fields.ts),
 [facet sizes](../../src/constants/tuning.ts) and [the API datasource](../../src/dal/api-data-source.ts).
 
 Mapping support, API query support and frontend suggestion wiring are separate.
-The existing media-api aggregation endpoint accepts field/size and image-search
-scope, but no bucket-name predicate. Its `keyword-page` sort-profile operation
+The enhanced media-api aggregation endpoint accepts field/size and image-search
+scope plus optional bucket-name matching. The separate `keyword-page` sort-profile operation
 also supplies bounded key-ordered value/count pages. Neither these reads nor
 reusing the label resolver requires the text-field enhancements proposed here.
 See [aggregation and profile execution](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala).
-The [suggestion endpoint proposal](better-suggestions-aggregation-endpoint-enhancement.md)
-separately describes matching before popularity limiting, reuse across keyword
-fields, and the unresolved case/accent and performance decisions.
+The [implemented U6c enhancement](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md)
+describes matching before popularity limiting, original spellings and counts,
+and why accent equivalence and mapping changes remain separate.
 
 ### Future features — mapping and query dependencies
 

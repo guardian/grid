@@ -19,6 +19,7 @@ import {
 import { LazyTypeahead } from "@/lib/lazy-typeahead";
 import { useSearchStore } from "@/stores/search-store";
 import { buildTypeaheadFields, buildDynamicFieldFallback } from "@/lib/typeahead-fields";
+import { SUGGESTION_DEBOUNCE_MS } from "@/constants/tuning";
 import { isMobile } from "@/lib/is-mobile";
 import { useIsCompact } from "@/hooks/useShell";
 import { isCqlChipDeleteEvent } from "@/lib/cql-chip-delete";
@@ -184,7 +185,7 @@ export function CqlSearchInput({
     };
     const getTickerCounts = () => useSearchStore.getState().tickerCounts;
     const getIsFilterCounts = () => useSearchStore.getState().isFilterCounts;
-    const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams, getTickerCounts, getIsFilterCounts);
+    const fieldDefs = buildTypeaheadFields(dataSource, getAggs, getParams, getTickerCounts, getIsFilterCounts, SUGGESTION_DEBOUNCE_MS);
     const hiddenFieldIds = new Set(
       fieldDefs
         .filter((d) => d.showInKeySuggestions === false)
@@ -211,7 +212,7 @@ export function CqlSearchInput({
         cqlResolver,
       );
     });
-    const dynamicFieldFallback = buildDynamicFieldFallback(dataSource, getParams);
+    const dynamicFieldFallback = buildDynamicFieldFallback(dataSource, getParams, SUGGESTION_DEBOUNCE_MS);
     return new LazyTypeahead(fields, hiddenFieldIds, dynamicFieldFallback, liveQueryRef);
   }, [dataSource]);
 

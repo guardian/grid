@@ -25,7 +25,7 @@ import type {
 import { gridConfig } from "./grid-config";
 import { CATEGORY_AGG_SIZE } from "@/constants/tuning";
 import { displayTickers } from "./ticker-display";
-import { FIELDS_BY_CQL_KEY } from "./field-registry";
+import { FIELD_REGISTRY, FIELDS_BY_CQL_KEY } from "./field-registry";
 import { isolateAggregationFailure } from "./safe-aggregation";
 import { removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
@@ -183,7 +183,15 @@ function storeBuckets(
 // so it works against any ES — mock or real.
 // ---------------------------------------------------------------------------
 
-function createOptionReader(dataSource: ImageDataSource) {
+function waitForTypingPause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, ms);
+    signal.addEventListener("abort", abort, { once: true });
+  });
+}
+
+function createOptionReader(dataSource: ImageDataSource, matchDelayMs = 0) {
   const completed = new Map<string, AggregationsResult>();
   const pending = new Map<string, {
     controller: AbortController;
@@ -202,9 +210,15 @@ function createOptionReader(dataSource: ImageDataSource) {
     let request = pending.get(key);
     if (!request) {
       const controller = new AbortController();
+      const fetchBuckets = () => {
+        controller.signal.throwIfAborted();
+        return dataSource.getAggregations(params, fields, controller.signal, filters);
+      };
+      const resultPromise = matchDelayMs && fields.some(spec => spec.match)
+        ? waitForTypingPause(matchDelayMs, controller.signal).then(fetchBuckets) : fetchBuckets();
       const owned = {
         controller, users: 0,
-        promise: dataSource.getAggregations(params, fields, controller.signal, filters).then((result) => {
+        promise: resultPromise.then((result) => {
           if (!controller.signal.aborted) {
             completed.set(key, result);
             if (completed.size > 32) completed.delete(completed.keys().next().value!);
@@ -241,22 +255,31 @@ function createOptionReader(dataSource: ImageDataSource) {
   };
 }
 
-export function createLabelSuggestionProvider(
+function createBucketLookup(
   dataSource: ImageDataSource,
   getAggregations?: () => AggregationsResult | null,
   getParams?: () => SearchParams,
-): (value: string, signal?: AbortSignal) => Promise<TypeaheadSuggestion[]> {
-  const readOptions = createOptionReader(dataSource);
-  return async (value, signal) => {
+  matchDelayMs = 0,
+) {
+  const readOptions = createOptionReader(dataSource, matchDelayMs);
+  return async (field: string, key: string, value: string, signal?: AbortSignal, textual = true): Promise<TypeaheadSuggestion[]> => {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     const params = getParams?.() ?? {};
-    if (!queryContainsField("label", params.query)) {
-      const cached = storeBuckets("label", getAggregations);
+    const match = textual && value && value.length <= 128 && dataSource.supportsBucketNameMatching
+      ? { text: value, mode: "prefix" as const } : undefined;
+    if (!match && !queryContainsField(key, params.query)) {
+      const cached = storeBuckets(key, getAggregations);
       if (cached) return bucketFilter(value, cached);
     }
-    const result = await readOptions(aggregationScope(params, "label"), [{ field: "userMetadata.labels", size: 50 }], signal);
-    return bucketFilter(value, result.fields["userMetadata.labels"]?.buckets ?? []);
+    const result = await readOptions(aggregationScope(params, key), [{ field, size: 50, ...(match && { match }) }], signal);
+    return bucketFilter(match ? "" : value, result.fields[field]?.buckets ?? []);
   };
+}
+
+export function createLabelSuggestionProvider(dataSource: ImageDataSource, getAggregations?: () => AggregationsResult | null,
+  getParams?: () => SearchParams) {
+  const lookup = createBucketLookup(dataSource, getAggregations, getParams);
+  return (value: string, signal?: AbortSignal) => lookup("userMetadata.labels", "label", value, signal);
 }
 
 export function buildTypeaheadFields(
@@ -265,9 +288,13 @@ export function buildTypeaheadFields(
   getParams?: () => SearchParams,
   getTickerCounts?: () => Record<string, TickerCountResult> | null,
   getIsFilterCounts?: () => Record<string, number> | null,
+  matchDelayMs = 0,
 ): TypeaheadFieldDef[] {
   const readOptions = createOptionReader(dataSource);
-  const labelSuggestions = createLabelSuggestionProvider(dataSource, getAggregations, getParams);
+  const lookup = createBucketLookup(dataSource, getAggregations, getParams, matchDelayMs);
+  const bucketField = (fieldName: string, path: string): TypeaheadFieldDef => ({
+    fieldName, resolver: (value, signal) => isolateAggregationFailure(() => lookup(path, fieldName, value, signal), []),
+  });
 
   /** Fetch a single field's agg scoped to the current query, excluding the
    *  field's own filter to avoid self-referential results. When `cqlKey` is
@@ -313,9 +340,6 @@ export function buildTypeaheadFields(
 
   const fields: TypeaheadFieldDef[] = [
     // --- Dynamic resolvers ---
-    // Each checks the search store's aggregation cache first (query-scoped,
-    // shared with the Filters panel, no extra ES call). Falls back to an
-    // independent ES call when the store has no data for this field.
     {
       fieldName: "category",
       resolver: async (value: string, signal?: AbortSignal) => {
@@ -338,64 +362,14 @@ export function buildTypeaheadFields(
             };
           }).filter((s) => s.value.toLowerCase().startsWith(lower));
         }
-        const query = getParams?.()?.query;
-        let buckets = !queryContainsField("category", query) ? storeBuckets("category", getAggregations) : null;
-        buckets ??= (await scopedAgg("usageRights.category", 50, "category", signal)).buckets;
-        return bucketFilter(value, buckets);
+        return isolateAggregationFailure(() => lookup("usageRights.category", "category", value, signal), []);
       },
     },
-    {
-      fieldName: "credit",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("credit", query)) {
-          const cached = storeBuckets("credit", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("metadata.credit", 50, "credit", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
-    {
-      fieldName: "label",
-      resolver: (value, signal) => isolateAggregationFailure(() => labelSuggestions(value, signal), []),
-    },
-    {
-      fieldName: "photoshoot",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("photoshoot", query)) {
-          const cached = storeBuckets("photoshoot", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("userMetadata.photoshoot.title", 50, "photoshoot", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
-    {
-      fieldName: "source",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("source", query)) {
-          const cached = storeBuckets("source", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("metadata.source", 50, "source", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
-    {
-      fieldName: "supplier",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("supplier", query)) {
-          const cached = storeBuckets("supplier", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("usageRights.supplier", 50, "supplier", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
+    bucketField("credit", "metadata.credit"),
+    bucketField("label", "userMetadata.labels"),
+    bucketField("photoshoot", "userMetadata.photoshoot.title"),
+    bucketField("source", "metadata.source"),
+    bucketField("supplier", "usageRights.supplier"),
 
     // --- Static resolvers ---
     // Canonical value list, enriched with query-scoped counts from the
@@ -477,48 +451,15 @@ export function buildTypeaheadFields(
       resolver: USAGE_PLATFORMS,
     },
 
-    {
-      fieldName: "uploader",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("uploader", query)) {
-          const cached = storeBuckets("uploader", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("uploadedBy", 50, "uploader", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
+    bucketField("uploader", "uploadedBy"),
 
     // --- Keyword-field resolvers (terms aggregation) ---
-    {
-      fieldName: "croppedBy",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("croppedBy", query)) {
-          const cached = storeBuckets("croppedBy", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("exports.author", 50, "croppedBy", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
+    bucketField("croppedBy", "exports.author"),
     {
       fieldName: "filename",
       // No resolver — filenames are nearly always unique so aggregation is pointless
     },
-    {
-      fieldName: "keyword",
-      resolver: async (value: string, signal?: AbortSignal) => {
-        const query = getParams?.()?.query;
-        if (!queryContainsField("keyword", query)) {
-          const cached = storeBuckets("keyword", getAggregations);
-          if (cached) return bucketFilter(value, cached);
-        }
-        const { buckets } = await scopedAgg("metadata.keywords", 50, "keyword", signal);
-        return bucketFilter(value, buckets);
-      },
-    },
+    bucketField("keyword", "metadata.keywords"),
     {
       fieldName: "leasedBy",
       // No resolver for now — leasedBy is inside a nested object and the
@@ -613,8 +554,11 @@ function flattenCollectionPathIds(root: CollectionNode): string[] {
 export function buildDynamicFieldFallback(
   dataSource: ImageDataSource,
   getParams?: () => SearchParams,
+  matchDelayMs = 0,
 ): (fieldId: string, value: string, signal?: AbortSignal) => Promise<LabelledSuggestion[] | undefined> {
-  const readOptions = createOptionReader(dataSource);
+  const lookup = createBucketLookup(dataSource, undefined, getParams, matchDelayMs);
+  const keywordPaths = new Set(FIELD_REGISTRY.filter(field => field.aggregatable && (field.fieldType === "keyword" || field.fieldType === "list"))
+    .map(field => field.esSearchPath));
   return async (fieldId, value, signal) => {
     const params = getParams?.();
     if (!params) return undefined;
@@ -625,15 +569,11 @@ export function buildDynamicFieldFallback(
     // (confirmed live: typing "London" then editing it kept showing only
     // matches for the in-progress partial value). Uses the same parser-based
     // removal as registered fields, including quoted keys and empty values.
-    const scopedQuery = params.query ? removeAllFieldTerms(params.query, fieldId) : params.query;
-    const adjustedParams = scopedQuery !== params.query ? { ...params, query: scopedQuery || undefined } : params;
-    const buckets = await isolateAggregationFailure(
-      async () => (await readOptions(adjustedParams, [{ field: fieldId, size: 50 }], signal)).fields[fieldId]?.buckets,
-      undefined,
-    );
-    if (!buckets?.length) return undefined;
+    const textual = fieldId.startsWith("fileMetadata.xmp.") || keywordPaths.has(fieldId);
+    const suggestions = await isolateAggregationFailure(() => lookup(fieldId, fieldId, value, signal, textual), undefined);
+    if (!suggestions?.length) return undefined;
     // cql's TextSuggestionOption declares `label` present-but-nullable, so the key must exist.
-    return bucketFilter(value, buckets).map((s) => ({ ...s, label: s.label }));
+    return suggestions.map((s) => ({ ...s, label: s.label }));
   };
 }
 

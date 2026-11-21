@@ -309,6 +309,14 @@ request; value resolvers run once the field/value input calls for them. Supporte
 unregistered field paths can also request suggestions. Static lists stay local;
 text-only fields without suitable aggregation support do not gain value suggestions.
 
+**Updated 21 November:** type `zeb` in a label chip and Kupua can suggest
+`Zebra conservation` even when it is nowhere near the 50 most popular labels.
+It finds values that **start with what you typed**, ignoring case, then shows
+the most popular of those matches with their original spelling and image counts.
+The same discovery works in Refine and when entering labels or credits. Search
+suggestions respect the other active filters; metadata entry looks across the
+accessible library so an editor can reuse a spelling from outside the current search.
+
 When editing a field's value, suggestions exclude that field's own query constraint
 while retaining the other filters. Editing a credit therefore offers alternative
 credits, not just the one already selected. The `is:` choices also carry counts

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TypeaheadResolver, TypeaheadSuggestion } from "@/lib/typeahead-fields";
+import { SUGGESTION_DEBOUNCE_MS } from "@/constants/tuning";
 
 export function useTypeaheadSuggestions(resolver: TypeaheadResolver | undefined, value: string, enabled = true) {
   const [items, setItems] = useState<TypeaheadSuggestion[]>([]);
@@ -22,7 +23,7 @@ export function useTypeaheadSuggestions(resolver: TypeaheadResolver | undefined,
       resolver(value, controller.signal).then(items => {
         if (!controller.signal.aborted) setItems(items.slice(0, 50));
       }, () => {});
-    }, 150);
+    }, SUGGESTION_DEBOUNCE_MS);
 
     return () => {
       clearTimeout(timer);

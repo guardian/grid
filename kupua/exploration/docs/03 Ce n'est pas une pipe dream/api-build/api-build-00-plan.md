@@ -661,7 +661,10 @@ suite in API mode.
   Grid's own `is:` rules (`queryBuilder.makeQuery` of a single `is:` condition); positional
   aggregation names; optional `pitId` (410 on expiry).
   - **Body:** the shared query fields (no `sort` sent; one is ignored) + optional
-    `fields: [{field, size?}]` + optional `isFilters: [string]` + optional `pitId`.
+    `fields: [{field, size?, match?}]` + optional `isFilters: [string]` + optional `pitId`.
+    The [suggestion enhancement](../../zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md) extends this same U6c route:
+    one field may match literal text by prefix or contains before limiting (1–128 UTF-16 units, at most 50 buckets).
+    A successful matched read adds `matchedField`; requests without matching retain the original contract.
   - **Response:** `{fields: {<field>: {buckets: [{key, count}]}}, isFilterCounts: {<name>: count}, pitId?}`,
     fields in request order, keys as strings (Grid's existing `BucketResult`), counts the admitted
     images holding each value; names keyed exactly as sent.

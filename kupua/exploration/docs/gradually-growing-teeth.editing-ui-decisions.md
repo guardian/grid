@@ -271,6 +271,6 @@ ownership and Labels keeps target/comma-token ownership rather than adopting tha
 Refine supports arrow-key selection within the rendered shortlist and composition-safe
 Enter; metadata selection fills a draft, while Refine selection commits a search.
 Analyzed fields such as Description and Byline intentionally have no provider.
-The [backend suggestion proposal](better-suggestions-aggregation-endpoint-enhancement.md)
-owns improved discovery, not this UI guide. Source/local fixture checks do not certify
+The [completed U6c enhancement](zz%20Archive/better-suggestions-aggregation-endpoint-enhancement.md)
+selects matching values before the popularity limit. Source/local fixture checks do not certify
 deployed authentication, backend capacity or physical-phone input behavior.

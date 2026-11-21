@@ -22,7 +22,7 @@ function stubMediaApi(routes: Record<string, Route>) {
   return calls;
 }
 
-const everyMethod: Record<Exclude<keyof ImageDataSource, "offsetReadLimit">, true> = {
+const everyMethod: Record<Exclude<keyof ImageDataSource, "offsetReadLimit" | "supportsBucketNameMatching">, true> = {
   searchRange: true, count: true, countWithTickers: true, getById: true,
   getAggregations: true, openPit: true, searchByAi: true, closePit: true, searchAfter: true,
   countBefore: true, estimateSortValue: true, findKeywordSortValue: true, getKeywordDistribution: true,
@@ -211,6 +211,31 @@ describe("API query forwarding", () => {
 });
 
 describe("API suggestion bucket reuse", () => {
+  it("waits for a settled CQL prefix before dispatch, but not for an exact cached answer", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls = stubMediaApi({ "/images/aggregations": () => ({ matchedField: "metadata.credit", fields: {
+        "metadata.credit": { buckets: [{ key: "Reuters", count: 3 }] },
+      } }) });
+      const resolver = buildTypeaheadFields(new ApiDataSource(), undefined, undefined, undefined, undefined, 150)
+        .find(field => field.fieldName === "credit")!.resolver;
+      if (typeof resolver !== "function") throw new Error("Expected credit resolver");
+      const previous = new AbortController();
+      const obsolete = resolver("R", previous.signal).catch(error => error.name);
+      await vi.advanceTimersByTimeAsync(35);
+      const current = resolver("Re");
+      previous.abort();
+      await vi.advanceTimersByTimeAsync(149);
+      expect(calls).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await obsolete).toBe("AbortError");
+      expect(await current).toEqual([{ value: "Reuters", count: 3 }]);
+      expect(await resolver("Re")).toEqual(await current);
+      expect(calls).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("restores all-rights suggestions without substituting 50 buckets for a 100-bucket expansion", async () => {
     const calls = stubMediaApi({ "/images/aggregations": (body) => ({
       fields: Object.fromEntries((body.fields as Array<{ field: string; size: number }>).map(({ field, size }) => [field, {
@@ -227,21 +252,23 @@ describe("API suggestion bucket reuse", () => {
     expect(await resolver("A")).toEqual([{ value: "Alpha", count: 2 }]);
     scope = { query: "city:London credit:Al", nonFree: "true" };
     expect(await resolver("Al")).toEqual([{ value: "Alpha", count: 50 }]);
-    expect(calls).toHaveLength(2);
-    expect(calls.map(({ body }) => body.free)).toEqual([undefined, true]);
+    expect(calls).toHaveLength(3);
+    expect(calls.map(({ body }) => body.free)).toEqual([undefined, true, undefined]);
     expect(calls.map(({ body }) => body.q)).toEqual([
+      "city:London",
       "city:London",
       "city:London",
     ]);
     const expanded = await dataSource.getAggregations({ ...scope, query: "city:London" }, [{ field: "metadata.credit", size: 100 }]);
     expect(expanded.fields["metadata.credit"].buckets).toEqual([{ key: "Alpha", count: 100 }]);
     expect(calls.map(({ body }) => body.fields)).toEqual([
-      [{ field: "metadata.credit", size: 50 }],
-      [{ field: "metadata.credit", size: 50 }],
+      [{ field: "metadata.credit", size: 50, match: { text: "A", mode: "prefix" } }],
+      [{ field: "metadata.credit", size: 50, match: { text: "A", mode: "prefix" } }],
+      [{ field: "metadata.credit", size: 50, match: { text: "Al", mode: "prefix" } }],
       [{ field: "metadata.credit", size: 100 }],
     ]);
     expect(await resolver("A")).toEqual([{ value: "Alpha", count: 50 }]);
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
   });
 });
 

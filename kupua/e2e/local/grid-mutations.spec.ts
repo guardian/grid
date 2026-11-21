@@ -3099,10 +3099,12 @@ async function exerciseLabelEditor(page: Page) {
   const aggregationBodies: Record<string, unknown>[] = [];
   const suggestionsRoute = "**/images/aggregations";
   const suggestionsHandler: Parameters<Page["route"]>[1] = async route => {
-    if (route.request().method() === "POST") aggregationBodies.push(route.request().postDataJSON());
-    await route.fulfill({ json: { fields: { "userMetadata.labels": { buckets: [
-      { key: "News", count: 9 }, { key: "News agency", count: 4 }, { key: "Football", count: 2 },
-    ] } }, isFilterCounts: {} }, headers: {
+    const body = route.request().method() === "POST" ? route.request().postDataJSON() : undefined;
+    if (body) aggregationBodies.push(body);
+    const text = body?.fields?.[0]?.match?.text as string | undefined;
+    const popular = [{ key: "News", count: 9 }, { key: "News agency", count: 4 }];
+    const buckets = text ? [...popular, { key: "Football", count: 2 }].filter(bucket => bucket.key.toLowerCase().startsWith(text.toLowerCase())) : popular;
+    await route.fulfill({ json: { fields: { "userMetadata.labels": { buckets } }, isFilterCounts: {}, ...(text && { matchedField: "userMetadata.labels" }) }, headers: {
       "Access-Control-Allow-Origin": new URL(page.url()).origin,
       "Access-Control-Allow-Credentials": "true",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -3188,7 +3190,12 @@ async function exerciseLabelEditor(page: Page) {
   await input.press("Enter");
   await expect(input).toHaveValue("first, News, last, Football");
   expect(aggregationBodies.length).toBeGreaterThan(0);
-  for (const body of aggregationBodies) expect(body).toEqual({ q: "", fields: [{ field: "userMetadata.labels", size: 50 }] });
+  for (const body of aggregationBodies) {
+    const spec = (body.fields as Array<{ match?: { text: string } }>)[0];
+    expect(body).toEqual({ q: "", fields: [{ field: "userMetadata.labels", size: 50,
+      ...(spec.match && { match: { mode: "prefix", text: expect.any(String) } }) }] });
+  }
+  expect(aggregationBodies).toContainEqual({ q: "", fields: [{ field: "userMetadata.labels", size: 50, match: { mode: "prefix", text: "fO" } }] });
   await input.press("Escape");
   await expect(input).toHaveCount(0);
   await expect(plus).toBeFocused();

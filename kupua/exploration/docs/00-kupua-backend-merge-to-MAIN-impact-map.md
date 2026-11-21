@@ -70,6 +70,11 @@ tests before making any claim; old branch commits are not the review boundary.
   cancellation limitations; new routes still share service resources. Separate lean
   read handling in [ElasticSearch](../../../media-api/app/lib/elasticsearch/ElasticSearch.scala)
   from existing GET response handling.
+  U6c optionally matches literal prefix/contains on one field before popularity limiting,
+  and acknowledges only matched reads with `matchedField`. Describe the separate text/size
+  bounds, fragment-specific typing traffic and shared-cluster cost. Neither the limited
+  TEST probes nor the result cap establish concurrent capacity. No mappings or legacy
+  suggestion endpoints change; Kupua uses prefix only in media-api modes.
 
 ## Before describing a change as additive
 

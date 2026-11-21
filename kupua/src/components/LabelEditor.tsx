@@ -5,6 +5,7 @@ import { createLabelEditorStore, labelEditorStore, labelTargetKey } from "@/stor
 import { useSearchStore } from "@/stores/search-store";
 import { metadataEditTargetCounts, type MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { createLabelSuggestionProvider, type TypeaheadSuggestion } from "@/lib/typeahead-fields";
+import { SUGGESTION_DEBOUNCE_MS } from "@/constants/tuning";
 import { containPillActivation, EditableSearchPill, PillActionButton } from "./SearchPill";
 import { MetadataBlock } from "./metadata-primitives";
 import { FieldDisclosure } from "./FieldDisclosure";
@@ -105,7 +106,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
       }, () => {
         if (!controller.signal.aborted) setSuggestionState({ owner: suggestionOwner, status: "unavailable", items: [] });
       });
-    }, 150);
+    }, SUGGESTION_DEBOUNCE_MS);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [showSuggestions, suggestLabels, prefix, suggestionOwner]);
   const counts = metadataEditTargetCounts(context);

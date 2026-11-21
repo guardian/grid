@@ -212,6 +212,7 @@ export interface AggregationResult {
 
 /** Request for a single field aggregation within a batch. */
 export interface AggregationRequest {
+  match?: { text: string; mode: "prefix" | "contains" };
   /** ES field path (e.g. "metadata.credit", "usageRights.category"). */
   field: string;
   /** Max number of buckets to return. Default: 10. */
@@ -330,6 +331,8 @@ export interface ImageDataSource {
 
   /** Fetch a single image by ID. Returns undefined if not found. */
   getById(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined>;
+
+  readonly supportsBucketNameMatching?: true;
 
   /**
    * Batched aggregations — terms aggs per field and optional IS-filter aggs,

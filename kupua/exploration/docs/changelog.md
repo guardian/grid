@@ -24,6 +24,15 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Discover matching field values beyond the popularity shortlist
+
+The existing U6c aggregation read accepts bounded literal bucket-name matching. API-backed
+suggestion providers request prefix matches within their existing scopes, retaining original
+values and image counts. Contains is available to API callers but unused by the UI; direct ES
+retains its shortlist. Fresh CQL prefix lookups use the same typing pause as the editors,
+so rapid typing need not send a request for each letter. Cached answers remain immediate
+in CQL, and identical pending reads keep their original timer.
+
 ### 21 November 2026 - Refuse an ambiguous TEST Elasticsearch endpoint
 
 Kupua's TEST setup no longer adopts an existing listener on 9200. It checks
