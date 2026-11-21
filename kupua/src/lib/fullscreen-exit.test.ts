@@ -5,18 +5,17 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const preview = vi.hoisted(() => {
-  const results = [{ id: "image-first", metadata: {} }, { id: "image-next", metadata: {} }];
+  const results: Image[] = ["image-first", "image-next"].map(id => ({ id, metadata: {},
+    uploadTime: "2026-11-01T00:00:00Z", uploadedBy: "fixture",
+    source: { mimeType: "image/jpeg", dimensions: { width: 400, height: 300 } } }));
   const state = { focusedImageId: results[0].id as string | null, results, bufferOffset: 0,
     imagePositions: new Map(results.map((image, index) => [image.id, index])),
-    setFocusedImageId: vi.fn((imageId: string | null) => { state.focusedImageId = imageId; }) };
+    setFocusedImageId: vi.fn((focusedImageId: string | null) => { useSearchStore.setState({ focusedImageId }); }) };
   return { state, enter: null as null | (() => void), scroll: vi.fn() };
 });
 
 vi.mock("@tanstack/react-router", () => ({ useRouter: () => ({ history: {} }) }));
-vi.mock("@/stores/search-store", () => ({ useSearchStore: Object.assign(
-  (selector: (state: typeof preview.state) => unknown) => selector(preview.state),
-  { getState: () => preview.state, setState: vi.fn() },
-) }));
+vi.mock("@/stores/search-store", async () => ({ useSearchStore: (await import("zustand")).create(() => preview.state) }));
 vi.mock("@/stores/ui-prefs-store", () => ({ getEffectiveFocusMode: () => "explicit" }));
 vi.mock("@/hooks/useImageTraversal", () => ({
   useImageTraversal: (_imageId: string | null, navigate: (image: typeof preview.state.results[number]) => void) => ({
@@ -37,6 +36,8 @@ vi.mock("@/lib/perceived-trace", () => ({ beginTraceInteraction: () => "test-exi
 
 import { requestFullscreenExit, shouldRecoverFullscreenBack } from "./fullscreen-exit";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
+import { useSearchStore } from "@/stores/search-store";
+import type { Image } from "@/types/image";
 
 describe("requestFullscreenExit", () => {
   it("does not finalize when exitFullscreen rejects", async () => {
@@ -107,6 +108,7 @@ describe("KUP-027 mounted settlement with mocked native lifecycle", () => {
     nextFrame = 0;
     fullscreenElement = null;
     preview.state.focusedImageId = "image-first";
+    useSearchStore.setState(preview.state);
     preview.scroll.mockClear();
     history.replaceState({}, "");
     vi.spyOn(history, "back").mockImplementation(() => {});
@@ -157,7 +159,7 @@ describe("KUP-027 mounted settlement with mocked native lifecycle", () => {
     await act(async () => { preview.enter!(); });
     act(() => vi.advanceTimersByTime(500));
     act(() => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
-    expect(preview.state.focusedImageId).toBe("image-next");
+    expect(useSearchStore.getState().focusedImageId).toBe("image-next");
     await act(async () => document.body.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true })));
     expect(document.fullscreenElement).toBeNull();
     expect(history.back).toHaveBeenCalledOnce();
@@ -176,6 +178,21 @@ describe("KUP-027 mounted settlement with mocked native lifecycle", () => {
     frame();
     expect(preview.scroll).toHaveBeenCalledOnce();
     expect(history.back).toHaveBeenCalledOnce();
+  });
+
+  it("updates loaded fullscreen alt when the resident title changes", async () => {
+    const titlePage = (title: string) => preview.state.results.map((image, index) =>
+      index === 0 ? { ...image, metadata: { title } } : image);
+    useSearchStore.setState({ results: titlePage("Earlier title") });
+    const view = render(createElement(FullscreenPreview));
+    await act(async () => { preview.enter!(); });
+    const image = view.container.querySelector("img")!;
+    expect(image.alt).toBe("");
+    act(() => image.dispatchEvent(new Event("load")));
+    expect(image.alt).toBe("Earlier title");
+    act(() => useSearchStore.setState({ results: titlePage("Published title") }));
+    expect(view.container.querySelector("img")).toBe(image);
+    expect(image.alt).toBe("Published title");
   });
 
   it("retains the one-second safety cap during continuing resize", async () => {

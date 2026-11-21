@@ -11,11 +11,11 @@ import { containPillActivation } from "./SearchPill";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { formatRecentGridDate } from "@/lib/format-grid-date";
 
-function StatusIcon({ status }: { status: "complete" | "active" | "error" }) {
+export function StatusIcon({ status }: { status: "complete" | "active" | "error" }) {
   if (status === "active") return <svg className="upload-status-icon" viewBox="0 0 24 24" aria-hidden="true">
     <circle className="upload-progress-arc" r="9" pathLength="100" transform="translate(12 12) rotate(-95) scale(1 -1)" />
   </svg>;
-  return <svg className="upload-status-icon" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d={status === "complete"
+  return <svg className="upload-status-icon" data-upload-status={status} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d={status === "complete"
     ? "m424-296 282-282-56-56-226 226-114-114-56 56 170 170Zm56 216q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"
     : "M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q88 0 166.5 36T782-742L480-440v-360q-134 0-227 93t-93 227q0 134 93 227t227 93q69 0 132-28.5T720-270v110q-53 38-114 59T480-80Zm320-160v-320h80v320h-80Zm11.5 148.5Q800-103 800-120t11.5-28.5Q823-160 840-160t28.5 11.5Q880-137 880-120t-11.5 28.5Q857-80 840-80t-28.5-11.5Z"} /></svg>;
 }

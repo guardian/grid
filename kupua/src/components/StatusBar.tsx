@@ -32,6 +32,7 @@ import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { buildSearchKey } from "@/lib/image-offset-cache";
 import { useIsCompact } from "@/hooks/useShell";
 import { SelectionImageActions } from "./ImageActions";
+import { SelectedEditStatus } from "./LabelEditor";
 
 /**
  * Builds the native title tooltip for a ticker badge.
@@ -158,7 +159,8 @@ export const StatusBar = memo(function StatusBar() {
   const tickerCounts = useSearchStore((s) => s.tickerCounts);
   const tickersLastUpdated = useSearchStore((s) => s.tickersLastUpdated);
   const { path } = useBrowsingContext();
-  const selectedCount = useSelectionStore((s) => path === "/search" ? s.selectedIds.size : 0);
+  const selectedIds = useSelectionStore(s => s.selectedIds);
+  const selectedCount = path === "/search" ? selectedIds.size : 0;
   const clearSelection = useSelectionStore((s) => s.clear);
   const isCoarsePointer = useUiPrefsStore((s) => s._pointerCoarse);
   const isCompact = useIsCompact();
@@ -329,12 +331,12 @@ export const StatusBar = memo(function StatusBar() {
 
        {/* Selection count + clear -- desktop model only.
          In the compact shell the SelectionFab handles this. */}
+       {path === "/search" && !isCompact && <SelectedEditStatus renderSlot={status => status && <>
+         <div className="w-px bg-grid-separator shrink-0" />
+         {status}
+       </>} />}
        {selectedCount > 0 && !isCompact && (
         <>
-          <div className="w-px bg-grid-separator shrink-0" />
-          <span role="status" aria-label={`${selectedCount.toLocaleString()} selected`} aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
-            {selectedCount.toLocaleString()}<span className="status-control-label">&nbsp;selected</span>
-          </span>
           <div className="w-px bg-grid-separator shrink-0" />
           <button
             type="button"

@@ -227,17 +227,16 @@ that it was exercised. Legacy setup combinations are source-described, not newly
 ### Editing support by frontend
 
 This table describes implemented code support, **not enablement or live verification**.
-Supported label editing captures one label and up to 100 images per submission, requires
+Supported label editing captures one label and runs groups of up to 100 eligible images, requires
 the temporary startup preference and valid service discovery, and remains subject to image capabilities and server
 authorization. Thumbnail/full-image delivery does not change operation support.
 
 The actual API-mode single/multi metadata panels also expose the ordinary text/date,
 Location, People, Keywords, Photoshoot and collection-membership controls described in
 the [UI register](../gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage).
-These new controls prepare explicit **Not sent** intents only; enabling the startup
-preference does not connect their saves. Their preparation is independent of that
-preference and is not a grant of mutation authority. Only Labels currently uses the
-existing connected command path. Archive/unarchive, configured-domain editors and
+Supported ordinary metadata, Location, People, Keywords and Labels use the connected
+command path when editing is enabled and authority is current. Collections and
+Photoshoot preparation remains **Not sent**. Archive/unarchive, configured-domain editors and
 other workflow families retain their separately selected roadmap work.
 
 | Frontend path | Add label | Remove label | Enablement source |
@@ -368,9 +367,9 @@ backend config endpoint are front-loaded here.
 
 ### Common batch and observation policy
 
-[batch-execution.ts](../../../src/lib/batch-execution.ts) owns **100 target images,
-three concurrent image-edit executions, at least 250 ms between starts and one waiting
-operation**. Labels are its first consumer; intent, command resources and label presence/
+[batch-execution.ts](../../../src/lib/batch-execution.ts) owns **100 target images per group**
+and shared execution/confirmation capacity. See the [current limits](../../../src/dal/grid-api/README.md#step-6-bounded-label-execution).
+Labels are one consumer; intent, command resources and label presence/
 absence postconditions stay label-specific. Later edit families reuse common scheduling
 instead of introducing another rollout flag or scheduler.
 

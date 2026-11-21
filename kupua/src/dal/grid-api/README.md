@@ -404,7 +404,7 @@ owns startup preference, service discovery and retained bootstrap/site configura
 ## Step-6 bounded label execution
 
 `BATCH_POLICY` in [batch-execution.ts](../../lib/batch-execution.ts) owns the common limits: **100 actual
-target IDs for Labels, no fixed start spacing, and at most two retained queue slots**
+target IDs per execution group, no fixed start spacing, and at most two retained queue slots**
 across execution, waiting and confirmation. The default dispatch cap is three.
 The local tuning candidates use eight for connected Labels and five for one
 captured bulk ordinary-metadata action; grouped individual saves retain three.
@@ -413,8 +413,16 @@ Labels retain their slot through confirmation; guarded metadata can release its
 execution turn earlier without releasing its confirmation capacity. The store counts complete selected
 membership before consulting target metadata; it neither truncates targets nor hydrates
 an oversized edit. Ordinary selection display hydration remains independent and unchanged.
+For larger label selections the complete action reserves session freshness capacity
+before dispatch. Groups share one queue slot and its pacing, each settling readback
+before the next starts. Internal cancellation applies to unsent groups only; partial
+results stay in the same operation. Details/Labels expose progress and affected-image
+selection rather than a Stop control or developer receipt list. No per-group preflight
+search or automatic mutation replay is added.
 All targets must be eligible. IDs, label and command links are captured at submission;
-waiting work is rechecked before execution. A command execution includes prerequisite
+waiting work accepts a newer identical grant but refuses a changed, withdrawn or
+withheld grant. The check is repeated after asynchronous prerequisites, immediately
+before the write, without an additional read. A command execution includes prerequisite
 reads and its possible write, so this is not a fixed request-rate or server-capacity certificate.
 Waiting targets reserve space in the 10,000-ID session freshness map so permission
 withdrawal received while waiting cannot be missed. Unchanged reservations are released

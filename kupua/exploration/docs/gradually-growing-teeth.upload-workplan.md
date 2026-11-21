@@ -4,8 +4,11 @@
 editing, captured batch arrows, and upload follow-ups. Batch arrows use inset
 Sync Alt controls and show progress in place, including queued work. Batch
 details stay on demand; the upload counters remain unchanged. Routine automatic
-follow-ups are quiet in Activity, with problems expandable per file. Browser
-regression validation remains open. See the
+follow-ups are quiet in Activity, with problems expandable per file. A visible
+value does not acknowledge a lost write response: an uncertain arrow keeps its
+attention details and does not replay on inspection. An active arrow alone protects
+against accidental reload. Upload Activity remains separate from Search edit progress.
+See the
 [performance summary](editing-performance-evidence.md#executive-summary-20-november).
 
 **Research-backed workplan, 13 November 2026.** This document proposes separately
@@ -1824,9 +1827,8 @@ Form pause/blur saves, upper-batch arrows and filename fallback. Preset labels a
 captured per submission and share startup admission/pacing with these saves and Labels.
 Metadata actions reserve their complete captured set, then execute in groups of 100;
 the session freshness budget is 10,000 distinct images. Each group retains the existing
-dispatch/readback bounds; speed remains three executions and 250 ms minimum spacing.
+dispatch/readback bounds; the [current batch policy](../../src/dal/grid-api/README.md#step-6-bounded-label-execution) supersedes the initial tuning below.
 The budget is a session resource refusal before dispatch, not a batch-size promise.
-Local tuning remains separate and has not been performed.
 Two independent cold reviews and a repair verification resolved the draft-revision,
 reservation-ownership, receipt-identity and repeat-submission findings. Full validation:
 3,938 units across 117 files; normal and isolated hosted builds; E2E/performance
@@ -1877,7 +1879,7 @@ Use pause/blur-speed ordinary Form saves in both sections and preserve the expli
 single-image panel workflow. Batch arrows appear only in the upper Form section,
 including when an older retained batch is open. Capture its IDs and value at the
 click; no lower-query, combined-page, detail or Search-selection target inference.
-Show target counts and exclusions without hover and retain existing destructive-clear
+Keep the idle arrow compact; expose captured counts and exclusions on demand and retain existing destructive-clear
 confirmations. Reloaded membership permits new deliberate actions after fresh
 authority checks, not replay of a prior operation. Switching batches or sections
 cannot retarget an in-flight operation.
@@ -2224,7 +2226,7 @@ and [existing integration assertion](../../../media-api/test/lib/elasticsearch/E
 recorded `ids: ""` failing closed in Elasticsearch, not widening. UB8 replaced that
 failure expectation with intentional validation and retained an unscoped control
 and malformed-type witnesses. Actual mapper-recorded POST bodies, Scala replay and
-the [browser fixture](../../e2e/shared/label-editor-plugin.ts#L32) changed together,
+the [browser fixture](../../e2e/shared/grid-mutation-plugin.ts) changed together,
 preserving repaired known-empty AI membership handling. The
 [D3 validation disposition](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/d3-search-after-01-readiness-findings.md#L35)
 cautions against broad hardening. UB8 stayed scoped to ID representation; B9/B10's
@@ -2251,7 +2253,7 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | R1 | The shared Grid/Table/detail/scroll consumers previously knew `/search` directly, and URL-level `ids=""` was dropped as unrestricted. | **U1 implementation:** a narrow [browsing context](../../src/lib/browsing-context.tsx), typed internal membership scope, fail-closed empty admission and route-aware shared consumers remove the coupling needed here. Upload is API-only; the direct-ES adapter is unchanged. Library CSV share links remain supported; batch IDs never become CSV browser URLs. Wider router/store cleanup remains deferred; no universal workspace framework or direct-ES Upload parity work. |
 | R2 | [MetadataTextEditor](../../src/components/MetadataTextEditor.tsx) uses external image/field Form drafts, while panel editing begins from the canonical value. U5 connects both through shared commands/publication, but a retained unsent or failed Form draft is not handed to Details; returning to Form retains it. | **Assessed and deferred in U5:** explicit single-image draft handoff could let someone start a description in Form and finish it in Details without competing values. Benefit: continuity beyond shared commands. Cost/risk: autosave versus explicit Commit, cancel semantics, stale authority and separation from multi-image overwrite/prepend/append intent. Trigger: operator selects this interaction after using connected surfaces, or encounters confusing divergent drafts. Do not merge every editor store or publish drafts as canonical data. |
 | R3 | [Service discovery comments](../../src/dal/grid-api/service-discovery.ts) described obsolete hybrid/proxy/graceful-absence assumptions. | **Corrected in U3:** comments now describe explicit API routing, independently validated satellites, failure versus empty data and the actual site-settings owner. No working transport policy was changed to match obsolete commentary, and no broad cleanup was undertaken. |
-| R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | **U4:** extended the existing [API/label fixture](../../e2e/shared/label-editor-plugin.ts), including multiple canonical uploads and lifecycle qualification; compiled-hosted traffic reuses it rather than another API engine. Its initial Upload URL is preserved and production build environment isolated. Benefit: real mapper/control coverage without duplicate transport scaffolding. Wider unit stand-in extraction remains deferred until a contract change requires coordinated edits; it is not a new U4 gate or testing framework. |
+| R4 | Composed tests each build their own media-api stand-in that maps request bodies back to `SearchParams` ([search-store-api-mode](../../src/stores/search-store-api-mode.test.ts#L66), [ImageDetail](../../src/components/ImageDetail.test.tsx#L1712)); UB8's wire change had to be repeated in each. | **U4:** extended the existing [API/label fixture](../../e2e/shared/grid-mutation-plugin.ts), including multiple canonical uploads and lifecycle qualification; compiled-hosted traffic reuses it rather than another API engine. Its initial Upload URL is preserved and production build environment isolated. Benefit: real mapper/control coverage without duplicate transport scaffolding. Wider unit stand-in extraction remains deferred until a contract change requires coordinated edits; it is not a new U4 gate or testing framework. |
 | R5 | Recorded mapper bodies replayed in Scala caught UB8's shape change immediately. | Discipline, not code: every new or reshaped POST field gets a mapper-recorded body and Scala replay, never a hand-written body. |
 | R6 | Justified's total-row invalidation and [indexed estimated-block construction](../../src/lib/windowed-justified-layout.ts) scale with result extent. U2-proto's deterministic dependency probe established this, not measured frame-time harm. | **Resolved for measured forms** by [bounded spans](../../src/lib/windowed-measured-layout.ts) after operator approval. Reducing Justified's indexed relayout work could help, but changing its packing/navigation representation is higher-risk work. Pursue only if a profile attributes material cost to that construction; the unequal-throughput U2 comparison is not that evidence. No automatic Justified rewrite. |
 | R7 | [exerciseBulkEditor](../../e2e/local/grid-mutations.spec.ts#L1707) expected `[superseded, observed]` but received `[observed, observed]`, first locally and later compiled-hosted. The isolated tracked-source control failed earlier at [exerciseObservedEditor](../../e2e/local/grid-mutations.spec.ts#L1569), not the same assertion. The selected follow-up passed both command cases, both owning specs (75 cases) and a fresh full suite (596 cases), without retries or a product fix. | Retain as an unexplained intermittent, not a currently reproduced defect or claimed repair. A new assertion verifies observation is pending before releasing the held request; it does not weaken the expected receipt pair. If this recurs, distinguish an ineffective request hold from publication/read ordering using that invariant. No inheritance or U2 causality is established. |

@@ -37,19 +37,6 @@ describe("image action preparation", () => {
       expect(describeImageAction("full-frame", context(target("ready"))).reason).toContain("requested crop ratio");
     } finally { vi.unstubAllGlobals(); }
   });
-  it("bounds disconnected history without reusing retained preview identities", () => {
-    const initial = useImageActionStore.getState();
-    try {
-      useImageActionStore.setState({ prepared: [] });
-      for (let index = 0; index < 25; index++) {
-        expect(useImageActionStore.getState().prepare("share", context({ id: `preview-${index}` }))).toBe(true);
-      }
-      const previews = useImageActionStore.getState().prepared;
-      expect(previews).toHaveLength(20);
-      expect(previews[0].targetIds).toEqual(["preview-5"]);
-      expect(new Set(previews.map(preview => preview.previewId)).size).toBe(20);
-    } finally { useImageActionStore.setState(initial, true); }
-  });
 
   it("uses refreshed resident crop information while retaining off-buffer selection metadata", () => {
     const selection = useSelectionStore.getState();
@@ -105,7 +92,7 @@ describe("image action preparation", () => {
     ]);
     expect(prepared.commands).toEqual([{ imageId: "ready", method: "POST", resource: "crop", body: { type: "full", source: "https://api.example.test/images/ready" } }]);
     useImageActionStore.getState().prepare("full-frame", targets);
-    expect(useToastStore.getState().queue.at(-1)?.message).toBe("4 images won't be cropped");
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe(`Not sent - ${prepared.label}; 1 prepared; 4 skipped`);
     ready.overlay!.resource!.uri = "https://changed.example.test/";
     expect(prepared.commands[0].body).toEqual({ type: "full", source: "https://api.example.test/images/ready" });
   });

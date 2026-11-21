@@ -6,7 +6,7 @@ import type { Plugin } from "vite";
 export const virtualEntry = "virtual:kupua-commands";
 const root = resolve(import.meta.dirname, "../..");
 
-export function labelEditorPlugin(publication: boolean | "readback" | "continuation" | "upload" = false): Plugin {
+export function gridMutationPlugin(publication: boolean | "readback" | "continuation" | "upload" = false): Plugin {
   const upload = publication === "upload";
   const continuation = publication === "continuation" || upload;
   const readback = publication === "readback" || continuation;
@@ -128,6 +128,10 @@ export function labelEditorPlugin(publication: boolean | "readback" | "continuat
   };
   return {
     name: "isolated-command-fixture",
+    enforce: "pre",
+    transform(code, id) {
+      if (id === resolve(root, "src/main.tsx")) return code.replace('from "./stores/label-editor-store"', 'from "../e2e/shared/label-editor-fixture"');
+    },
     config() {
       return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test"),
         ...(upload ? { "import.meta.env.VITE_GRID_METADATA_ORIGIN": JSON.stringify("https://metadata.example.test") } : {}) } } : undefined;
@@ -422,7 +426,7 @@ if (process.argv.includes("--serve-readback")) {
   const upload = process.argv.includes("--upload");
   if (upload) Object.assign(process.env, { VITE_GRID_LOADER_ORIGIN: "https://loader.example.test", VITE_GRID_AUTH_ORIGIN: "https://auth.example.test" });
   const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),
-    cacheDir: resolve(root, "node_modules/.cache/a3-readback-vite"), plugins: [labelEditorPlugin(upload ? "upload" : continuation ? "continuation" : "readback")],
+    cacheDir: resolve(root, "node_modules/.cache/a3-readback-vite"), plugins: [gridMutationPlugin(upload ? "upload" : continuation ? "continuation" : "readback")],
     server: { host: "127.0.0.1", port: 3067, strictPort: true } });
   await server.listen();
   console.log(`Synthetic fixture: http://127.0.0.1:3067/${upload || continuation ? "__continuation" : "__readback"}`);

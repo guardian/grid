@@ -6,13 +6,11 @@
  * just provides the outer container.
  */
 
-import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastContainer } from "@/components/ToastContainer";
-import { LabelOperationReceipts } from "@/components/LabelEditor";
+import { EditLifecycle } from "@/components/LabelEditor";
 import { useAppCutout, useIsCompact } from "@/hooks/useShell";
-import { useSelectionStore } from "@/stores/selection-store";
-import { usePanelStore } from "@/stores/panel-store";
 import { applyLegacyCropParams } from "@/lib/crop/crop-options";
 import { UploadActivity, UploadDropzone, UploadNotices } from "@/components/UploadActivity";
 
@@ -25,10 +23,6 @@ export const rootRoute = createRootRoute({
 
 function RootLayout() {
   const compact = useIsCompact();
-  const selected = useSelectionStore(state => state.selectedIds.size > 0);
-  const expanded = usePanelStore(state => state.config.right.visible);
-  const inlineActivity = useRouterState({ select: state => state.location.pathname === "/search"
-    && !(state.location.search as { image?: string }).image });
   useAppCutout(compact);
   return (
     <UploadDropzone><div className="h-dvh w-screen overflow-clip flex flex-col bg-grid-bg text-grid-text overscroll-y-none">
@@ -38,7 +32,7 @@ function RootLayout() {
         <Outlet />
       </ErrorBoundary>
       <ToastContainer />
-      <LabelOperationReceipts hidden={compact && selected && expanded && inlineActivity} />
+      <EditLifecycle />
     </div></UploadDropzone>
   );
 }

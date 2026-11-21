@@ -3,10 +3,21 @@
 **Status, 20 November:** the agreed metadata editing implementation is done:
 individual Form and Details saves, bounded selected metadata and Labels, and
 Upload batch arrows and follow-ups. This closes implementation in that scope,
-not all future operations below. Pre-commit Upload messaging, the full browser
-gate and shared-deployment decisions remain open. Cross-user conflict behavior
+not all future operations below. Shared deployment remains a separate decision. Cross-user conflict behavior
 is a review question, not a new guarantee or a policy change. See the
 [performance summary](editing-performance-evidence.md#executive-summary-20-november).
+
+**Final selection workflow:** committing closes the field on admission. An exact-set
+scalar overwrite can show the submitted value while locked; canonical state and
+edit authority still come from reads. Panel and label saves share one transient
+selection slot, independent of the current selection. Its numerator counts observed
+acknowledged or unchanged edits; one image edited twice counts twice. Issues take
+priority. Opening the warning preserves the current selection and distinguishes
+not saved from not confirmed. Explicitly selecting the affected IDs narrows the
+selection, reveals its first result without replay, and restores remaining progress.
+Full Detail shows unresolved issues for its own image. Automatic stops include never-sent targets; a City edit cannot repair a
+Country issue. There is no user-facing Stop or receipt history for Details/Labels.
+Unload protection for outstanding work is independent of the presenter.
 
 **Proposed execution plan, 2 November 2026.** Requested scope: "Everything and then some",
 not only metadata fields. This document authorizes no implementation, shared-environment

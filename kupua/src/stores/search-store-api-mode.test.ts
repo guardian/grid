@@ -26,7 +26,7 @@ import { NEW_IMAGES_POLL_INTERVAL } from "@/constants/tuning";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { publishImage, publishImages, publishUnavailableImages } from "@/lib/image-publication";
 import { createLabelOperation } from "@/lib/label-operation";
-import { acceptImageRead, acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, getImageAvailability, isLabelAuthorityCurrent, protectsImageOmission, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
+import { acceptImageRead, acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, getImageAvailability, isLabelAuthorityCurrent, protectsImageOmission, recordLabelOutcome, releaseLabelObservation, resetImageFreshnessForTests, resolveImageOverlay, stampImageRead, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
 
 vi.mock("@/lib/image-prefetch", () => ({ prefetchNearbyImages: vi.fn() }));
 
@@ -851,6 +851,44 @@ it("metadata-only publication does not compact retained deletion after the viewp
   }
 });
 
+it("retains a selected slot between metadata preflight and grouped publication", async () => {
+  useApiMode(65_001);
+  const page = await corpus.searchAfter({ length: 20, nonFree: "true" }, null);
+  const results = page.hits.map(image => ({ ...image, userMetadata: undefined }));
+  const pending = results.slice(5, 7);
+  const ids = pending.map(image => image.id);
+  const offset = 1200;
+  const positions = new Map(results.map((image, index) => [image.id, offset + index]));
+  useSearchStore.setState({ results, imagePositions: positions, bufferOffset: offset, total: 65_001 });
+  const selectedIds = new Set(ids);
+  _resetMetadataCache();
+  useSelectionStore.setState({ selectedIds });
+  for (const image of pending) useSelectionStore.getState().metadataCache.set(image.id, image);
+  const release = watchQueuedLabelTargets(ids)!;
+  for (const image of pending) {
+    const preflight = { ...image };
+    stampImageRead(preflight, undefined, captureImageRead(), "lean");
+    expect(acceptImageRead(preflight)).toBe(preflight);
+  }
+  const operation = admitLabelObservation(ids);
+  if (typeof operation !== "number") throw new Error("Expected admitted observation");
+  try {
+    publishImage({ ...results[4] }, {});
+    expect(state().results.map(image => image?.id)).toEqual(results.map(image => image.id));
+    expect(resolveImageOverlay(state().results[5]!, { resource: { links: [{ rel: "edits", href: "/edits" }] } })?.resource?.links).toEqual([]);
+    const observed = pending.map(image => ({ ...image, metadata: { ...image.metadata, credit: "Updated" }, userMetadata: { lastModified: "2026-11-20T10:00:00Z" } }));
+    for (const image of observed) stampImageRead(image, undefined, captureImageRead(), "lean");
+    publishImages(acceptObservedImages(observed, operation).map(image => ({ image })));
+    expect(state().results.slice(5, 7)).toEqual(observed);
+    expect(state().imagePositions).toBe(positions);
+    expect(useSelectionStore.getState().selectedIds).toBe(selectedIds);
+  } finally {
+    releaseLabelObservation(operation);
+    release();
+    useSelectionStore.getState().clear();
+  }
+});
+
 it("buffer publication replaces resident content without changing its slot", async () => {
   try {
     useApiMode(20);
@@ -1022,6 +1060,20 @@ describe.each(["direct-ES", "media-api"] as const)("KUP-034 %s centred prefix", 
       expect(requests.filter(request => request.reverse)).toEqual([{ length: 100, reverse: true, lookup: false }]);
     },
   );
+
+  it("keeps a later manual focus when an off-buffer reveal is still looking up its rank", async () => {
+    const { target, initial, requests, transport } = await setup(5);
+    let release!: () => void;
+    transport.beforeRank = () => new Promise<void>(resolve => { release = resolve; });
+    state().setFocusedImageId(target.hits[0].id);
+    const pending = state().seekToFocused();
+    try {
+      await waitFor(() => requests.some(request => !request.lookup), "neighbour request");
+      state().setFocusedImageId(initial.hits[0].id);
+    } finally { release(); await pending; }
+    expect(state().focusedImageId).toBe(initial.hits[0].id);
+    expect(state().results).toBe(initial.hits);
+  });
 
   it("does not publish an aborted near-top restore or its enrichment", async () => {
     const { target, initial, requests, transport } = await setup(5);
@@ -1393,6 +1445,61 @@ describe("API mode: routing and counting", () => {
 });
 
 describe("API mode: extension duplicate exclusion", () => {
+  it("advances eager fill across overlap without republishing resident slots", async () => {
+    const scans: unknown[] = [];
+    let duplicatePageState: ReturnType<typeof state> | undefined;
+    let firstPageState: ReturnType<typeof state> | undefined;
+    useApiMode(203, { routes: { "/images/search-after": async body => {
+      const first = await corpus.searchAfter({ ...toParams(body), length: 200 }, null);
+      if (!body.sortValues) return { data: first.hits.map(data => ({ data })), total: 203, sortValues: first.sortValues };
+      scans.push(body.sortValues);
+      const duplicate = { data: { ...first.hits[0], valid: false } };
+      const tuple = [0, duplicate.data.id];
+      if (scans.length === 1) {
+        firstPageState = state();
+        return { data: [duplicate], total: 0, sortValues: [tuple] };
+      }
+      const fresh = await corpus.searchAfter({ ...toParams(body), length: 1 }, first.sortValues.at(-1)!);
+      if (scans.length === 2) return { data: [duplicate], total: 0, sortValues: [[-0.5, duplicate.data.id]] };
+      if (scans.length === 3) {
+        duplicatePageState = state();
+        return { data: [{ data: fresh.hits[0] }, duplicate], total: 0, sortValues: [fresh.sortValues[0], [-1, duplicate.data.id]] };
+      }
+      const tail = await corpus.searchAfter({ ...toParams(body), length: 2 }, fresh.sortValues[0]);
+      return { data: tail.hits.map(data => ({ data })), total: 0, sortValues: tail.sortValues };
+    } } });
+    await state().search();
+    await waitFor(() => !state()._extendForwardInFlight, "fill completed");
+    const original = firstPageState!.results[0]!;
+    expect(duplicatePageState!.results).toBe(firstPageState!.results);
+    expect(duplicatePageState!.imagePositions).toBe(firstPageState!.imagePositions);
+    expect(state().results).toHaveLength(203);
+    expect(scans).toEqual([firstPageState!.endCursor, [0, original.id], [-0.5, original.id], [-1, original.id]]);
+    const tail = await corpus.searchAfter({ ...state().params, offset: 201, length: 2 }, null);
+    expect(tail.hits.map(image => state().imagePositions.get(image.id))).toEqual([201, 202]);
+    expect(state().results[0]).toBe(original);
+    expect(state().imagePositions.get(original.id)).toBe(0);
+    expect(state().endCursor).toEqual(tail.sortValues.at(-1));
+    expect(getRetainedSortValues(original.id, buildSearchKey(state().params))).toEqual(firstPageState!.startCursor);
+  });
+
+  it.each(["cycle", "advancing"] as const)("bounds duplicate-only eager fill with %s cursors", async mode => {
+    let scans = 0;
+    useApiMode(203, { routes: { "/images/search-after": async body => {
+      const first = await corpus.searchAfter({ ...toParams(body), length: 200 }, null);
+      if (!body.sortValues) return { data: first.hits.map(data => ({ data })), total: 203, sortValues: first.sortValues };
+      if (++scans > 10) return { data: [], total: 0, sortValues: [] };
+      const cursor = mode === "cycle" && scans === 2 ? first.sortValues.at(-1)! : [-scans, first.hits[0].id];
+      return { data: [{ data: first.hits[0] }], total: 0, sortValues: [cursor] };
+    } } });
+    await state().search();
+    await waitFor(() => !state()._extendForwardInFlight, "fill stopped");
+    expect(scans).toBeGreaterThan(1);
+    expect(scans).toBeLessThanOrEqual(mode === "cycle" ? 2 : 10);
+    expect(state().results).toHaveLength(200);
+    expect(state().error).toBeNull();
+  });
+
   it.each(["forward", "backward"] as const)(
     "advances %s duplicate-only and short pages without republishing residents or disabling later demand",
     async (direction) => {

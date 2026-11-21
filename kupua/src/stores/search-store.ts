@@ -1290,22 +1290,28 @@ async function _fillBufferForScrollMode(
   const frozenP = frozenParams(params, get);
   let currentCursor = cursor;
   let currentPitId = pitId;
-  let fetched = loadedSoFar;
+  let remaining = total - loadedSoFar;
+  const duplicatePageLimit = 4;
+  let scanBudget = remaining + Math.max(duplicatePageLimit, remaining);
+  let consecutiveDuplicatePages = 0;
+  const requestedCursors = new Set<string>();
 
-  devLog(`[scroll-mode-fill] Fetching remaining ${total - fetched} results (total: ${total})`);
+  devLog(`[scroll-mode-fill] Fetching remaining ${remaining} results (total: ${total})`);
 
   // Suppress forward extends while filling — prevents the virtualizer's
   // reportVisibleRange from firing overlapping searchAfter requests.
   set({ _extendForwardInFlight: true });
 
-  while (fetched < total) {
+  while (remaining > 0 && scanBudget > 0 && consecutiveDuplicatePages < duplicatePageLimit) {
     if (signal.aborted) {
       set({ _extendForwardInFlight: false });
       return;
     }
 
-    const remaining = total - fetched;
-    const chunkSize = Math.min(PAGE_SIZE, remaining);
+    const cursorKey = JSON.stringify(currentCursor);
+    if (requestedCursors.has(cursorKey)) break;
+    requestedCursors.add(cursorKey);
+    const chunkSize = Math.min(PAGE_SIZE, remaining, scanBudget);
 
     try {
       const result = await dataSource.searchAfter(
@@ -1332,14 +1338,31 @@ async function _fillBufferForScrollMode(
       if (!newEndCursor) break;
       currentCursor = newEndCursor;
 
-      retainSortValues(buildSearchKey(params), result.hits, result.sortValues);
-      // Append to buffer — no eviction (we want the full set)
-      // Commit-to-view (fill loop): merge enrichment incrementally.
-      if (result.enrichment) useEnrichmentStore.getState().upsertEnrichment(result.enrichment);
+      const residentPositions = get().imagePositions;
+      const acceptedIds = new Set<string>();
+      const acceptedSortValues: SortValues[] = [];
+      const acceptedHits = result.hits.filter((image, index) => {
+        if (residentPositions.has(image.id) || acceptedIds.has(image.id)) return false;
+        acceptedIds.add(image.id);
+        acceptedSortValues.push(result.sortValues[index]);
+        return true;
+      });
+      remaining -= acceptedHits.length;
+      scanBudget -= result.hits.length;
+      consecutiveDuplicatePages = acceptedHits.length ? 0 : consecutiveDuplicatePages + 1;
+      if (result.enrichment && (acceptedHits.length || hasImageFences())) useEnrichmentStore.getState().upsertEnrichment(
+        acceptedHits.length === result.hits.length ? result.enrichment
+          : new Map([...result.enrichment].filter(([id]) => acceptedIds.has(id) || hasImageFence(id))),
+      );
+      if (!acceptedHits.length) {
+        set({ endCursor: newEndCursor });
+        continue;
+      }
+      retainSortValues(buildSearchKey(params), acceptedHits, acceptedSortValues);
       set((state) => {
-        const newBuffer = [...state.results, ...result.hits];
+        const newBuffer = [...state.results, ...acceptedHits];
         const newPositions = buildPositions(
-          result.hits,
+          acceptedHits,
           state.bufferOffset + state.results.length,
           state.imagePositions,
         );
@@ -1350,7 +1373,6 @@ async function _fillBufferForScrollMode(
         };
       });
 
-      fetched += result.hits.length;
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         set({ _extendForwardInFlight: false });
@@ -2188,6 +2210,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         const resident = position === undefined ? undefined : current.results[position - current.bufferOffset];
         const previous = resident && isImageMetadataCurrent(resident) ? resident : cached;
         let body = acceptEnrichedImage(image, previous);
+        if (!body && image === resident) continue;
         if (body && body !== image && body.__aiScore !== image.__aiScore) {
           const canonical = body;
           body = { ...canonical, __aiScore: image.__aiScore };
@@ -2329,6 +2352,14 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     const searchGeneration = _searchGeneration;
     const genBefore = get().sortAroundFocusGeneration;
     const hintOffset = get()._focusedImageKnownOffset;
+    const controller = _findFocusAbortController;
+    const focusIntent = get()._focusIntent;
+    const unsubscribe = useSearchStore.subscribe(state => {
+      if (state._focusIntent !== focusIntent && !signal.aborted) {
+        controller.abort();
+        if (_findFocusAbortController === controller && state.sortAroundFocusStatus) set({ sortAroundFocusStatus: null });
+      }
+    });
     // No fallbackFirstPage — buffer is current (same query/sort), so the
     // isInBuffer shortcut in _findAndFocusImage fires correctly.
     // No prevNeighbours — not a search context change.
@@ -2359,6 +2390,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       set({ error: error instanceof Error ? error.message : "Focus lookup failed", loading: false,
         sortAroundFocusStatus: null, _pendingFocusDelta: null });
     } finally {
+      unsubscribe();
       await finishAbandonedDiscovery(discovery ?? undefined, signal, focusedImageId, get, set);
     }
   },

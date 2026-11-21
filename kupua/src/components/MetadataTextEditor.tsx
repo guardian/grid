@@ -6,7 +6,8 @@ import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { MetadataDateInput } from "./MetadataDateInput";
 import { gridConfig } from "@/lib/grid-config";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
-import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, useMetadataCommit } from "./MetadataEditing";
+import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, usePendingPanelIntent } from "./MetadataEditing";
+import { labelTargetKey } from "@/stores/label-editor-store";
 
 export type MetadataLocationChange = Partial<Record<"subLocation" | "city" | "state" | "country", string>>;
 
@@ -21,10 +22,10 @@ function MetadataPencil() {
   return <svg width="16" height="16" className="inline-block align-text-bottom" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15z" /></svg>;
 }
 
-export function MetadataEditHint({ label, mixed = false, furtherInstructions = false, children, onClick }: {
-  label: string; mixed?: boolean; furtherInstructions?: boolean; children?: ReactNode; onClick: () => void;
+export function MetadataEditHint({ label, mixed = false, furtherInstructions = false, children, onClick, disabled }: {
+  label: string; mixed?: boolean; furtherInstructions?: boolean; children?: ReactNode; onClick: () => void; disabled?: boolean;
 }) {
-  return <button type="button" onClick={onClick} aria-label={`${mixed ? "Edit all" : "Add"} ${label}`}
+  return <button type="button" disabled={disabled} onClick={onClick} aria-label={`${mixed ? "Edit all" : "Add"} ${label}`}
     className={`text-left text-grid-text-dim cursor-pointer${mixed ? " italic" : ""}`}>
     {mixed ? <>{children} (click <MetadataPencil /> to edit <strong>all</strong>)</>
       : furtherInstructions ? <>Click <MetadataPencil /> to add further instructions</>
@@ -135,7 +136,10 @@ function dateTimeIntent(value: string, originalOffset: number | null): string {
   return dateTimeDraft(alternate.toISOString()) === dateTimeDraft(date.toISOString()) ? alternate.toISOString() : date.toISOString();
 }
 
-export function MetadataTextEditor({ field, targetIds, value, mixed = false, children, onPrepare, available: dataAvailable = true, furtherInstructions = false, editable = true, readOnly }: {
+export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint, reconciling, value, mixed = false, children, onPrepare, available: dataAvailable = true, furtherInstructions = false, editable = true, readOnly }: {
+  reconciling?: boolean;
+  selectionKey?: string;
+  retainHint?: boolean;
   field: FieldDefinition;
   targetIds: readonly string[];
   value: string;
@@ -148,14 +152,13 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
   readOnly?: ReactNode;
 }) {
   const commit = useMetadataCommit();
-  const available = dataAvailable && editable;
+  const pending = usePendingPanelIntent(selectionKey ?? labelTargetKey(targetIds), field.id, reconciling);
+  const available = dataAvailable && editable && !pending;
   const [editing, setEditing] = useState(false);
   const [initial, setInitial] = useState("");
   const [initialMixed, setInitialMixed] = useState(mixed);
   const [drafts, setDrafts] = useState({ overwrite: "", prepend: "", append: "" });
   const [mode, setMode] = useState<"overwrite" | "prepend" | "append">("overwrite");
-  const [notice, setNotice] = useState("");
-  const [submitted, setSubmitted] = useState(false);
   const editRef = useRef<HTMLButtonElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -193,42 +196,35 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
     setInitialMixed(mixed);
     setDrafts({ overwrite: baseline, prepend: "", append: "" });
     setMode("overwrite");
-    setNotice("");
     setInputValid(true);
-    setSubmitted(false);
     setTypeTouched(false);
     setEditing(true);
   };
   const cancelEditing = () => {
     setEditing(false);
-    setNotice("");
   };
   const updateDraft = (value: string) => {
     setDrafts(current => ({ ...current, [mode]: value }));
-    setNotice("");
-    setSubmitted(false);
   };
   const changeMode = (nextMode: typeof mode) => {
     setMode(nextMode);
-    setNotice("");
-    setSubmitted(false);
   };
   const prepare = () => {
-    if (!available || !targetIds.length || !changed || submitted) return;
+    if (!available || !targetIds.length || !changed) return;
     if (!validDraft || !formRef.current?.checkValidity()) return;
     const prepared = control === "datetime-local" && draft ? dateTimeIntent(draft, originalOffset) : normalizedDraft;
     const intent: MetadataEditIntent = { fieldId: field.id, targetIds: [...targetIds], action: mode, value: prepared };
-    const saveId = onPrepare ? (onPrepare(intent), undefined) : commit(intent);
-    setSubmitted(saveId !== undefined);
-    setNotice(saveId === undefined ? `Not sent - ${field.label} change prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.` : "");
+    const save = onPrepare ? (onPrepare(intent), undefined) : commit(intent, editRef.current);
+    if (panelSaveAdmitted(save, `Not sent - ${field.label} change prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`)) setEditing(false);
   };
   const stacked = field.detailLayout === "stacked" || editing && control === "datetime-local";
   const Layout = stacked ? MetadataBlock : MetadataRow;
-  if (!editable && !editing) return readOnly ?? null;
+  if (!editable && !editing && !pending) return readOnly ?? null;
   return <Layout label={field.label} {...(stacked ? {} : { fill: true })} action={
     <MetadataEditButton ref={editRef} label={field.label} editing={editing} disabled={!available} onClick={beginEditing} />
   }>
-    {!editing ? available && (mixed || !value) ? <MetadataEditHint label={field.label} mixed={mixed}
+    {!editing ? pending?.action === "overwrite" && typeof pending.value === "string" ? <span aria-busy="true" className="whitespace-pre-wrap">{pending.value || "Unknown"}</span>
+      : (available || retainHint) && (mixed || !value) ? <MetadataEditHint label={field.label} mixed={mixed} disabled={!available}
       furtherInstructions={furtherInstructions} onClick={beginEditing}>{children}</MetadataEditHint>
       : children : <form ref={formRef} className={`metadata-edit-form${multiline ? "" : " metadata-scalar-edit-form"}`} onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
@@ -268,11 +264,9 @@ export function MetadataTextEditor({ field, targetIds, value, mixed = false, chi
         </fieldset>}
         <div className="ml-auto flex shrink-0 gap-1">
           <PillActionButton action="cancel" label={`Cancel ${field.label}`} onClick={cancelEditing} />
-          <PillActionButton action="confirm" label={`Commit ${field.label}`} disabled={!available || !changed || !targetIds.length || !validDraft || submitted} onClick={() => prepare()} />
+          <PillActionButton action="confirm" label={`Commit ${field.label}`} disabled={!available || !changed || !targetIds.length || !validDraft} onClick={() => prepare()} />
         </div>
       </div>
-      {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}
-      <MetadataSaveFeedback fieldId={field.id} targetIds={targetIds} />
     </form>}
   </Layout>;
 }

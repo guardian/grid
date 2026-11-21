@@ -122,7 +122,7 @@ whole-repository audit.
 | Content publication and freshness | [publisher](../../src/lib/image-publication.ts), [freshness evidence](../../src/lib/image-read-freshness.ts), [label operation](../../src/lib/label-operation.ts) |
 | Consumers | [search store](../../src/stores/search-store.ts), [selection store](../../src/stores/selection-store.ts), [standalone detail](../../src/components/ImageDetail.tsx), [panel resolution](../../src/routes/search.tsx), [multi-image metadata](../../src/components/MultiImageMetadata.tsx) |
 | Commands and authority | [command boundary](../../src/lib/grid-commands.ts), [current API contract](../../src/dal/grid-api/README.md) |
-| Existing proof | [API store tests](../../src/stores/search-store-api-mode.test.ts), [enriched-image tests](../../src/hooks/useEnrichedImage.test.ts), [derivation tests](../../src/lib/derive-enriched-image.test.ts), [label-operation tests](../../src/lib/label-operation.test.ts), [detail tests](../../src/components/ImageDetail.test.tsx) |
+| Existing proof | [API store tests](../../src/stores/search-store-api-mode.test.ts), [enriched-image tests](../../src/hooks/useEnrichedImage.test.ts), [derivation tests](../../src/lib/derive-enriched-image.test.ts), [metadata edit execution tests](../../src/lib/metadata-edit-execution.test.ts), [detail tests](../../src/components/ImageDetail.test.tsx) |
 | Existing performance work | [findings](scroll-horizons-thumbs-and-blocking.md), [campaign guide](../../e2e-perf/README.md), [measurement reference](../../e2e-perf/measurement-reference.md) |
 
 Follow immediate call sites and relevant tests when needed. Do not copy full

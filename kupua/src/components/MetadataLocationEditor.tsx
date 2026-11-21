@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { MetadataEditButton, MetadataEditHint, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
 import { PillActionButton } from "./SearchPill";
-import { MetadataSaveFeedback, useMetadataCommit } from "./MetadataEditing";
+import { panelSaveAdmitted, useMetadataCommit } from "./MetadataEditing";
 
 export const LOCATION_COMPONENTS = [
   { key: "subLocation", fieldId: "location_subLocation", label: "Sublocation" },
@@ -17,13 +17,14 @@ const LOCATION_PLURALS: Record<LocationKey, string> = {
 };
 const emptyLocation = () => ({ subLocation: "", city: "", state: "", country: "" });
 
-export function MetadataLocationEditor({ fields, targetIds, available: dataAvailable, children, onPrepare, editable = true, readOnly }: {
+export function MetadataLocationEditor({ fields, targetIds, available: dataAvailable, children, onPrepare, editable = true, retainReading = false, readOnly }: {
   fields: readonly { key: LocationKey; label: string; value: string; mixed: boolean }[];
   targetIds: readonly string[];
   available: boolean;
   children: ReactNode;
   onPrepare?: (intent: MetadataEditIntent) => void;
   editable?: boolean;
+  retainReading?: boolean;
   readOnly?: ReactNode;
 }) {
   const commit = useMetadataCommit();
@@ -34,7 +35,6 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   const [mixed, setMixed] = useState<ReadonlySet<LocationKey>>(() => new Set());
   const [cleared, setCleared] = useState<ReadonlySet<LocationKey>>(() => new Set());
   const id = useId();
-  const [notice, setNotice] = useState("");
   const editRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (editing) return () => { editRef.current?.focus(); }; }, [editing]);
@@ -49,23 +49,23 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   const prepare = () => {
     if (!available || !targetIds.length || !Object.keys(changes).length) return;
     const intent: MetadataEditIntent = { fieldId: "location", action: "overwrite", value: changes, targetIds: [...targetIds] };
-    const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent);
-    setNotice(submitted === undefined ? `Not sent - Location change prepared for ${targetIds.length} ${targetIds.length === 1 ? "image" : "images"}.` : "");
+    const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent, editRef.current);
+    if (panelSaveAdmitted(submitted, `Not sent - Location change prepared for ${targetIds.length} ${targetIds.length === 1 ? "image" : "images"}.`)) setEditing(false);
   };
-  const cancel = () => { setEditing(false); setNotice(""); };
+  const cancel = () => setEditing(false);
   const beginEditing = () => {
     const baseline = emptyLocation();
     for (const field of fields) baseline[field.key] = field.mixed ? "" : field.value;
     setInitial(baseline); setDraft(baseline); setMixed(new Set(fields.filter(field => field.mixed).map(field => field.key)));
-    setCleared(new Set()); setNotice(""); setEditing(true);
+    setCleared(new Set()); setEditing(true);
   };
   const Layout = editing ? MetadataBlock : MetadataRow;
   if (!editable && !editing) return readOnly ?? null;
   return <Layout label="Location" {...(editing ? {} : { fill: true })} action={<MetadataEditButton ref={editRef} label="Location" editing={editing} disabled={!available} onClick={beginEditing} />}>
-    {!editing ? available && fields.some(field => field.mixed)
-      ? <>{children} <MetadataEditHint label="Location" mixed onClick={beginEditing} /></>
-      : available && fields.every(field => !field.value && !field.mixed)
-      ? <MetadataEditHint label="Location" onClick={beginEditing} /> : children
+    {!editing ? (available || retainReading) && fields.some(field => field.mixed)
+      ? <>{children} <MetadataEditHint label="Location" mixed onClick={beginEditing} disabled={!available} /></>
+      : (available || retainReading) && fields.every(field => !field.value && !field.mixed)
+      ? <MetadataEditHint label="Location" onClick={beginEditing} disabled={!available} /> : children
       : <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); }
@@ -83,11 +83,11 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
               placeholder={mixed.has(field.key) && !cleared.has(field.key) ? `Multiple ${LOCATION_PLURALS[field.key]}` : field.key === "subLocation" ? "or place" : field.key === "state" ? "or region" : undefined}
               onChange={event => {
                 setDraft(current => ({ ...current, [field.key]: event.target.value }));
-                setCleared(current => { const next = new Set(current); next.delete(field.key); return next; }); setNotice("");
+                setCleared(current => { const next = new Set(current); next.delete(field.key); return next; });
               }} />
             {mixed.has(field.key) && <button type="button" className="metadata-edit-tool" disabled={!available}
               aria-label={`Clear ${field.label}`} title={`Clear ${field.label} for all ${targetIds.length} images`}
-              onClick={() => { setDraft(current => ({ ...current, [field.key]: "" })); setCleared(current => new Set([...current, field.key])); setNotice(""); }}>
+              onClick={() => { setDraft(current => ({ ...current, [field.key]: "" })); setCleared(current => new Set([...current, field.key])); }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" /></svg>
             </button>}
           </div>
@@ -97,8 +97,6 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
         <PillActionButton action="cancel" label="Cancel Location" onClick={cancel} />
         <PillActionButton action="confirm" label="Commit Location" disabled={!available || !Object.keys(changes).length} onClick={() => prepare()} />
       </div>
-      {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}
-      <MetadataSaveFeedback fieldId="location" targetIds={targetIds} />
     </form>}
   </Layout>;
 }

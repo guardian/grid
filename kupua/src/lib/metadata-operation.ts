@@ -1,18 +1,18 @@
-import { createImageEditOperation, type ImageEditReceipt, type LabelObservation } from "./label-operation";
+import { createMetadataEditExecution, type MetadataEditReceipt, type MetadataEditObservation } from "./metadata-edit-execution";
 import { metadataWriteFingerprint, type AddLabelsCommand, type GridCommandResult, type MetadataCommand } from "./grid-commands";
 import type { BatchPacing } from "./batch-execution";
 
 export type MetadataIntent = (Pick<MetadataCommand, "fieldId" | "action" | "value">
   | { fieldId: "labels"; action: "add"; value: string }) & { targetIds: readonly string[] };
-export type MetadataReceipt = ImageEditReceipt<MetadataIntent>;
+export type MetadataReceipt = MetadataEditReceipt<MetadataIntent>;
 
 export function createMetadataOperation(
   execute: (command: MetadataCommand | AddLabelsCommand) => Promise<GridCommandResult>,
-  observation: LabelObservation,
+  observation: MetadataEditObservation,
   execution?: { wait?: Promise<void>; pacing: BatchPacing; continueAfterLocalBlock?: boolean; dispatchConcurrency?: number },
   perImageIntents?: ReadonlyMap<string, MetadataIntent>,
 ) {
-  return createImageEditOperation<MetadataIntent, MetadataCommand | AddLabelsCommand>({
+  return createMetadataEditExecution<MetadataIntent, MetadataCommand | AddLabelsCommand>({
     dispatchConcurrency: execution?.dispatchConcurrency,
     valid: intent => intent.targetIds.length > 0 && intent.targetIds.every(id => /^[a-zA-Z0-9_-]+$/.test(id)),
     normalize: intent => intent.fieldId === "labels" ? { ...intent }

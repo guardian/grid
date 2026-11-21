@@ -72,6 +72,19 @@ function getImageUrl(image: Image): string | undefined {
   return getCarouselImageUrl(image);
 }
 
+function PreviewImage({ image, url, imageRef }: { image: Image; url: string; imageRef: React.RefObject<HTMLImageElement | null> }) {
+  const [loadedUrl, setLoadedUrl] = useState<string>();
+  const alt = useSearchStore(state => {
+    const position = state.imagePositions.get(image.id);
+    const resident = position === undefined ? undefined : state.results[position - state.bufferOffset];
+    const metadata = resident?.id === image.id ? resident.metadata : image.metadata;
+    return metadata?.title ?? metadata?.description ?? "";
+  });
+  return <img ref={imageRef} src={url} alt={loadedUrl === url ? alt : ""}
+    className="w-full h-full object-contain select-none" draggable={false} fetchPriority="high"
+    onLoad={() => setLoadedUrl(url)} />;
+}
+
 export function FullscreenPreview({ disabled = false }: { disabled?: boolean } = {}) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -468,11 +481,6 @@ export function FullscreenPreview({ disabled = false }: { disabled?: boolean } =
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isActive, exitPreview, goToPrev, goToNext]);
 
-  const alt =
-    currentImage?.metadata?.title ??
-    currentImage?.metadata?.description ??
-    "";
-
   // ── Hide cursor after 2s of inactivity (YouTube-style) ─────────
   const { cursorHidden, navMouseEnter, navMouseLeave, touchControlsVisible } = useCursorAutoHide(isActive, isActive ? containerRef : undefined);
 
@@ -494,16 +502,8 @@ export function FullscreenPreview({ disabled = false }: { disabled?: boolean } =
         <>
           {availability ? (
             <div role="status" className="text-white/60 text-sm">{availability === "deleted" ? "Image deleted" : "Image unavailable"}</div>
-          ) : imageUrl ? (
-            <img
-              ref={imageRef}
-              src={imageUrl}
-              alt=""
-              className="w-full h-full object-contain select-none"
-              draggable={false}
-              fetchPriority="high"
-              onLoad={(e) => { (e.target as HTMLImageElement).alt = alt; }}
-            />
+          ) : imageUrl && currentImage ? (
+            <PreviewImage image={currentImage} url={imageUrl} imageRef={imageRef} />
           ) : (
             <div className="text-white/60 text-sm">No preview available</div>
           )}

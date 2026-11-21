@@ -56,7 +56,7 @@ export function PillActionButton({ action, label, title = label, attached = fals
   </button>;
 }
 
-export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, onAdd, onRemove }: {
+export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, addDisabled = disabled, onAdd, onRemove }: {
   value: string;
   label?: ReactNode;
   cqlKey: string;
@@ -66,6 +66,7 @@ export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, cou
   total: number;
   coverageKnown?: boolean;
   disabled?: boolean;
+  addDisabled?: boolean;
   onAdd: () => void;
   onRemove: () => void;
 }) {
@@ -75,7 +76,7 @@ export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, cou
     : accent ? `${PILL_BASE} bg-grid-accent text-white` : PILL_DEFAULT;
   return <span data-editable-pill data-accent={accent || undefined} data-coverage={partial ? "partial" : "all"} className={`${pillClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-[var(--mobile-edit-control-size)]`} onKeyDown={containPillActivation}>
     {partial && <PillActionButton action="apply-all" attached title={`Apply ${cqlKey} to all ${total} ${total === 1 ? "image" : "images"}`}
-      label={`Apply ${value} to all selected images`} disabled={disabled} onClick={onAdd} />}
+      label={`Apply ${value} to all selected images`} disabled={addDisabled} onClick={onAdd} />}
     <span className="min-w-0 flex [&>button]:rounded-none [&>button]:border-0 [&>button]:ring-0 [&>button]:bg-transparent [&>button]:text-inherit [&>button]:max-w-full [&>button]:text-left [&>button]:wrap-anywhere">
       {coverageKnown
         ? <MultiSearchPill value={value} label={label} cqlKey={cqlKey} count={count} total={total} partial={count < total} accent={accent} onSearch={onSearch} />

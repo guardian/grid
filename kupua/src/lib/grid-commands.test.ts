@@ -22,6 +22,46 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it.each(["withdrawn", "changed", "same"] as const)("checks %s edit authority after a held source GET", async authority => {
+    const { acceptImageOverlay, captureImageRead, stampImageRead, watchQueuedLabelTargets } = await import("./image-read-freshness");
+    const { executeGridCommand } = await import("./grid-commands");
+    const releaseTarget = watchQueuedLabelTargets([command.imageId])!;
+    const accept = (links: typeof command.resource.links) => {
+      const image = { id: command.imageId, metadata: {}, uploadTime: "", uploadedBy: "",
+        source: { mimeType: "image/jpeg", dimensions: { width: 1, height: 1 } } };
+      const overlay = { resource: { links } };
+      stampImageRead(image, overlay, captureImageRead(), "lean");
+      expect(acceptImageOverlay(image.id, overlay)).toBe(overlay);
+      return overlay.resource;
+    };
+    const resource = accept(command.resource.links);
+    const metadata = authority === "changed";
+    const source = "/grid-metadata/metadata/fixture";
+    let releaseSource!: (response: Response) => void;
+    const transport = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture", originalMetadata: {} }, links: resource.links });
+      if (url === source && !init?.method) return new Promise<Response>(resolve => { releaseSource = resolve; });
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", transport);
+    try {
+      const pending = executeGridCommand(metadata ? { operation: "edit-metadata", imageId: command.imageId, resource,
+        fieldId: "metadata_credit", action: "overwrite", value: "New credit" } : { ...command, resource });
+      await vi.waitFor(() => expect(releaseSource).toBeTypeOf("function"));
+      accept(authority === "withdrawn" ? [] : authority === "changed"
+        ? [{ rel: "edits", href: `${metadataOrigin}/metadata/replacement` }] : [...resource.links]);
+      releaseSource(metadata ? Response.json({ data: { metadata: { uri: `${metadataOrigin}/metadata/fixture/metadata`, data: {} } } }) : edits());
+      const result = await pending;
+      expect(transport.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`)).toEqual([
+        "GET /api", "GET /grid-auth/session", ...(metadata ? ["GET /api/images/fixture"] : []), `GET ${source}`,
+        ...(authority === "same" ? [`POST ${source}/labels`] : []),
+      ]);
+      expect(result).toEqual(authority === "same" ? { outcome: "acknowledged" } : { outcome: "blocked", reason: "unavailable" });
+    } finally { releaseTarget(); }
+  });
+
   it.each(["evidence", "missing-evidence", "dispose", "overwrite"] as const)("orders metadata writes while confirmation is held (%s)", async mode => {
     const withEvidence = mode !== "missing-evidence";
     const initial = { credit: "Initial credit", domainMetadata: { desk: { reference: "Keep" } } };

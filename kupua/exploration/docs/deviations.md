@@ -10,6 +10,14 @@
 
 ---
 
+## Local Vite Metadata Proxy
+
+Vite normally closes the upstream connection after each proxied request. Bulk edits
+exposed intermittent hostname lookup failures, so `/grid-local-metadata` reuses
+HTTPS connections and keeps at most five idle sockets. This trades a small idle
+pool for fewer lookups; it does not cap active requests or retry failed writes.
+Hosted Kupua does not use this route.
+
 ## From Grid / Kahuna
 
 ### Bounded Label Dispatch Trial
@@ -162,13 +170,15 @@ Kahuna's label controls write immediately. Kupua uses the familiar searchable va
 remove and partial-value apply-to-all controls, but default-off gestures only prepare
 immutable intent and explicitly say the data was not sent. Opt-in API-mode editing
 uses one saved startup preference, changed through Hi, Joshua > Apply and reload.
-The common Step-6 policy permits 100 label targets, three command executions without
-fixed start spacing, and two retained execution/waiting/confirmation slots, without
+The common policy permits 100 label targets per execution group, no fixed start
+spacing, and two retained execution/waiting/confirmation slots, without
 per-operation or bulk rollout flags. Guarded metadata's earlier execution release
 is described below; Labels still owns its slot through confirmation.
 Comma-separated execution remains refused. Current labels are
-never optimistically changed. Stop remaining cancels only never-started work, not dispatched
-commands; no undo or extra confirmation is introduced. Uncancelled input and receipts
+never optimistically changed. Unlike Kahuna, Kupua can select the affected images
+from partial or uncertain edits, including unsent members after an automatic stop.
+This is inspection, not retry. Overlapping edits share one progress slot; editors
+do not need a history panel or Stop button. Uncancelled input and pending work
 survive SPA navigation in memory, not reloads. Escape or Close explicitly cancels the
 unsent entry only; Enter prepares comma-separated additions. Direct-ES remains read-only.
 

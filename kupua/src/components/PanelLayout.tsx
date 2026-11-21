@@ -1,3 +1,4 @@
+import { SelectedEditStatus } from "./LabelEditor";
 /**
  * PanelLayout — flex row of [left-panel?] [main-content] [right-panel?].
  *
@@ -293,7 +294,6 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
   // scrim tap dismisses them.
   if (isCompact) {
     const showLeft = leftVisible && !!leftPanel;
-    const showCard = !!rightPanel && hasSelection;
     return (
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Placeholder keeps the main content at the same child index as the desktop
@@ -318,20 +318,20 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
             {leftPanel}
           </SideSheet>
         )}
-        {showCard && (
+        {!!rightPanel && path === "/search" && <SelectedEditStatus compact below={rightVisible} renderSlot={status => (hasSelection || status) && (
           <BottomSheet
             label="Details"
-            header={`${selectedCount.toLocaleString()} selected`}
+            header={hasSelection ? `${selectedCount.toLocaleString()} selected` : "Details"}
             scrim={false}
             expanded={rightVisible}
-            headerActions={<SelectionFab docked detailsExpanded={rightVisible} closeSignal={actionsCloseSignal} />}
+            headerActions={<>{status}{hasSelection && <SelectionFab docked detailsExpanded={rightVisible} closeSignal={actionsCloseSignal} />}</>}
             onDragStart={() => setActionsCloseSignal(value => value + 1)}
             onExpandedChange={(next) => { if (next !== rightVisible) togglePanel("right"); }}
           >
             {rightPanel}
           </BottomSheet>
-        )}
-        {!showCard && hasSelection && <SelectionFab />}
+        )} />}
+        {!rightPanel && hasSelection && <SelectionFab />}
       </div>
     );
   }

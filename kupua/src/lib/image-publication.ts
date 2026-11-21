@@ -5,10 +5,10 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { imageRatio, retainResultsGeometry } from "@/lib/result-geometry";
 import type { ImageByIdResult, ImageDataSource } from "@/dal/types";
 import { copyImageRead, getImageAvailability, getOrderingRevision, recordImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
-import type { LabelObservation, LabelStandaloneOwner } from "@/lib/label-operation";
+import type { MetadataEditObservation, MetadataEditStandaloneOwner } from "@/lib/metadata-edit-execution";
 import { mountedResultsFitViewport } from "@/lib/scroll-container-ref";
 
-interface StandalonePublicationOwner extends LabelStandaloneOwner {
+interface StandalonePublicationOwner extends MetadataEditStandaloneOwner {
   publish: (image: Image) => void;
   publishUnavailable?: (state: NonNullable<Image["__availability"]>) => void;
   token: object;
@@ -23,7 +23,7 @@ export function ownStandalonePublication(owner: Omit<StandalonePublicationOwner,
   return () => { if (standaloneOwner === registration) standaloneOwner = undefined; };
 }
 
-export function createLabelReadback(source: Pick<ImageDataSource, "getByIds">): LabelObservation {
+export function createLabelReadback(source: Pick<ImageDataSource, "getByIds">): MetadataEditObservation {
   return {
     readImages: (ids, signal) => source.getByIds(ids, signal),
     standalone: () => {

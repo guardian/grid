@@ -58,9 +58,7 @@ import { getGridSessionIdentity, initGridApi, subscribeGridSessionInvalidation }
 import type { Image } from "@/types/image";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
-import type { LabelEditContext } from "@/lib/label-operation";
-import { LabelOperationReceipts } from "@/components/LabelEditor";
-import { useIsCompact } from "@/hooks/useShell";
+import type { MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { UploadActivity, UploadEntry, useUploadAccess, useToolbarUploadFit } from "@/components/UploadActivity";
 import { SettingsMenu } from "@/components/SettingsMenu";
 import { DetailNavigation } from "@/components/DetailNavigation";
@@ -395,7 +393,6 @@ function SearchPage() {
               <AccordionSection sectionId="right-usages" title="Usages">
                 <FocusedUsages />
               </AccordionSection>
-              {!showImageDetail && <CompactLabelActivity />}
             </>
           }
           scrubber={uploadStatus ? undefined : scrubberElement}
@@ -488,13 +485,8 @@ function useFocusedOrSelectedImage() {
   return { ...(isPending && completed ? completed : presentation), isPending };
 }
 
-function CompactLabelActivity() {
-  const compact = useIsCompact();
-  const expanded = usePanelStore(state => state.config.right.visible);
-  return compact && expanded ? <LabelOperationReceipts inline /> : null;
-}
 
-function currentPanelLabelEditing(): LabelEditContext {
+function currentPanelLabelEditing(): MetadataEditContext {
   const selection = useSelectionStore.getState();
   const search = useSearchStore.getState();
   const overlays = useEnrichmentStore.getState().data;

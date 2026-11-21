@@ -5,9 +5,9 @@ import { usePanelStore } from "../../src/stores/panel-store";
 import { getWindowMaintenanceDelay, useSearchStore } from "../../src/stores/search-store";
 import { buildSearchKey, retainSortValues } from "../../src/lib/image-offset-cache";
 import { useUiPrefsStore } from "../../src/stores/ui-prefs-store";
-import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "../../src/components/LabelEditor";
-import { createLabelEditorStore } from "../../src/stores/label-editor-store";
-import type { LabelEditContext } from "../../src/lib/label-operation";
+import { EditLifecycle, LabelEditor, LabelEditorContext } from "../../src/components/LabelEditor";
+import { createLabelEditorStore as makeStore, labelEditorStore } from "../../src/stores/label-editor-store";
+import type { MetadataEditContext } from "../../src/lib/metadata-edit-execution";
 import type { LabelCommand, GridCommandResult } from "../../src/lib/grid-commands";
 import { MockDataSource } from "../../src/dal/mock-data-source";
 import { attachedEnrichment, attachEnrichment, useEnrichmentStore } from "../../src/stores/enrichment-store";
@@ -18,8 +18,13 @@ import { scrollFocusedIntoView } from "../../src/lib/orchestration/search";
 import "../../src/index.css";
 
 let root: Root;
-let store = createLabelEditorStore();
-let context: LabelEditContext;
+let store = makeStore();
+let appStore = labelEditorStore;
+export { labelEditorStore };
+export function createLabelEditorStore(...args: Parameters<typeof makeStore>) {
+  return appStore = makeStore(...args);
+}
+let context: MetadataEditContext;
 let release: ((result: GridCommandResult) => void) | undefined;
 let calls = 0;
 let commands: LabelCommand[] = [];
@@ -52,7 +57,7 @@ function render(show = true) {
     <section aria-label="Label editor fixture" className="fixed top-16 left-4 z-[110] w-80 max-w-[calc(100vw-2rem)] bg-grid-bg text-grid-text p-3">
       {show && <dl><LabelEditor context={context} values={[{ value: "news", count: 1 }]} onSearch={() => {}} /></dl>}
     </section>
-    <LabelOperationReceipts />
+    <EditLifecycle />
   </LabelEditorContext>);
 }
 
@@ -82,6 +87,8 @@ function renderReadbackControls() {
 }
 
 export const labelEditorFixture = {
+  appReceipts: () => appStore.getState().receipts,
+  stopQueued(index: number) { appStore.getState().stopRemaining(index); },
   async prepareReadback() {
     continuation = location.pathname === "/__continuation";
     dispatchHadLookahead = false;
@@ -92,7 +99,7 @@ export const labelEditorFixture = {
       ? new URLSearchParams(location.search).has("tail") ? "/search?nonFree=true&query=label%3Areviewed" : "/search?nonFree=true&query=-label%3Areviewed"
       : "/search?nonFree=true");
     useSelectionStore.getState().clear();
-    store = createLabelEditorStore(async command => {
+    store = makeStore(async command => {
       if (command.operation !== "add-labels") throw new Error("Continuation fixture supports addition only");
       if (continuation) dispatchHadLookahead = useSearchStore.getState()._extendForwardInFlight;
       await readbackControl({ action: "project", imageId: command.imageId, label: command.labels[0] });
@@ -245,7 +252,7 @@ export const labelEditorFixture = {
     commands = [];
     release = undefined;
     store.getState().dispose();
-    store = createLabelEditorStore(simulated ? async command => {
+    store = makeStore(simulated ? async command => {
       calls++;
       commands.push(command);
       if (observed && !held) return { outcome: calls === 1 ? "acknowledged" : "unknown" };

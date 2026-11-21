@@ -306,7 +306,7 @@ export function BottomSheet({ header, children, expanded, onExpandedChange, onDi
         <div className="flex h-[11px] items-center justify-center touch-none">
           <span className="block w-10 h-1 rounded-full bg-grid-text-dim" />
         </div>
-        <div className="flex h-11 items-center gap-2 px-3">
+        <div className="sheet-title-row flex h-11 items-center gap-2 px-3">
         <button
           ref={toggleRef}
           type="button"

@@ -64,6 +64,7 @@ import { withCurrentKupuaKey, mintKupuaKey } from "@/lib/orchestration/history-k
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { storeImageOffset, getImageOffset, buildSearchKey, extractSortValues } from "@/lib/image-offset-cache";
 import { ImageMetadata } from "@/components/ImageMetadata";
+import { SelectedEditStatus } from "./LabelEditor";
 import { ImageCrops, MobileImageCrops, cropAsset, latestCrops } from "@/components/ImageCrops";
 import { useCropSettings } from "@/hooks/useCropSettings";
 import { allowsCropRatio } from "@/lib/crop/crop-options";
@@ -821,6 +822,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
       <div className="p-3">
+        <SelectedEditStatus detailImageId={imageId} compact={isCompact} />
         <ImageMetadata image={detailImage} overlay={overlay} editingPending={detailImage.id !== imageId} />
       </div>
     </AccordionSection>

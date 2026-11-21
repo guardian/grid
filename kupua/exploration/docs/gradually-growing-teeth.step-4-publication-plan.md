@@ -99,7 +99,14 @@ workflow direction; that direction is not permission to implement the later Dele
 | Initial resource budget | One active single-label simulated observation group, at most 200 captured IDs; three mget attempts, at least one second apart, ten-second deadline starting immediately before first fake dispatch | Prototype proof bounds, not a write-capacity certificate or a production batch scheduler; disconnected comma-separated preparation is unchanged |
 | Freshness-fact lifetime | Document-lifetime metadata floors for at most 1,000 distinct touched IDs; refuse new simulation admission at capacity | No silent eviction of freshness protection; browsing stays usable, no compulsory reload |
 
-**Step-6 composition:** connected labels use at most 100 targets with one group,
+**Current publication contract:** a verified but freshness-rejected candidate is
+reread within the observation budget; a stale standalone observer cannot withdraw a
+newer operation's authority. Eager fill advances the server cursor through overlaps,
+counts unique residents and retains their positions. Repeated cursors and bounded
+duplicate scans terminate rather than requesting indefinitely; extreme churn can
+leave a partial window. Same-image fullscreen descriptions follow resident updates.
+
+**Historical Step-6 composition:** connected labels used at most 100 targets with one group,
 the existing 200-ID admission cap, three grouped attempts and 1,000 touched IDs.
 Unlike the simulated ten-second proof above, paced connected execution has a 120-second
 dispatch bound and up to ten seconds of final observation, capped at 130 seconds from
@@ -872,7 +879,7 @@ The following is historical evidence, not the current implementation or gate sta
 **Initial 6 November checkpoint: both prototypes were retained for the operator's choice. Neither was
 selected or performance-qualified.** Normal application components do not import
 the prototype. The existing [label-editor fixture](../../e2e/shared/label-editor-fixture.tsx)
-activates it explicitly; its [Vite plugin](../../e2e/shared/label-editor-plugin.ts)
+activates it explicitly; its [Vite plugin](../../e2e/shared/grid-mutation-plugin.ts)
 inserts exact-match consumer hooks and counters only for the comparison server.
 The [prototype](../../src/lib/image-publication.ts) has no editor, observer,
 readback, freshness-fence or live-transport caller.
@@ -1678,7 +1685,7 @@ No later execution or live-edit activation follows from this acceptance.
 | Pre-operation and later below-floor reads | [API-mode store tests](../../src/stores/search-store-api-mode.test.ts), [enrichment hook tests](../../src/hooks/useEnrichedImage.test.ts) | Actually release stale data after publication; unrelated IDs still update; absence of capabilities is not merged away |
 | Selected metadata and authority | [selection-store tests](../../src/stores/selection-store.test.ts), [multi metadata tests](../../src/components/MultiImageMetadata.test.tsx) | Off-screen accepted update, old hydration body and omission completions, same captured IDs, one revision/reconciliation |
 | Full/lean standalone ownership | [detail tests](../../src/components/ImageDetail.test.tsx) | Populated original metadata survives; stale same-ID and departed-owner reads cannot publish |
-| Receipt truth and bounds | [operation tests](../../src/lib/label-operation.test.ts), [editor browser tests](../../e2e/local/grid-mutations.spec.ts) | Ack is not observation; unknown plus observed state is not invented acknowledgement; deadline stops reads; no replay |
+| Receipt truth and bounds | [operation tests](../../src/lib/metadata-edit-execution.test.ts), [editor browser tests](../../e2e/local/grid-mutations.spec.ts) | Ack is not observation; unknown plus observed state is not invented acknowledgement; deadline stops reads; no replay |
 | Local continuity and exact targeting | [API-mode store tests](../../src/stores/search-store-api-mode.test.ts), [eviction cursors](../../src/stores/search-store-eviction-cursor.test.ts), [position maps](../../src/stores/search-store-position-map.test.ts) | Distant rank drift with normal cursor budget; edited boundary tuple, overlap/all-duplicate page, held null crossing and both coordinate thresholds |
 | Pending navigation and ranges | [range tests](../../src/hooks/useRangeSelection.test.ts), [browse density](../../e2e/local/browse-density.spec.ts), [forced seek](../../e2e/local/forced-seek.spec.ts) | Current seek/direction survives publication and density; newer intent wins; exact remote range rejects stale authority and exited endpoint |
 | Boxes and existing refresh | [density controls](../../e2e/local/density-controls.spec.ts), [Justified windowed](../../e2e/local/justified-windowed.spec.ts), [buffer integrity](../../e2e/local/buffer-corruption.spec.ts) | Metadata-only boxes stay still; rebase placement is coherent; B16 ticker success still goes to top and failure retains view |

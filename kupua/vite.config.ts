@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import { loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { Agent as HttpsAgent } from "node:https";
 import path from "path";
 import type { Plugin } from "vite";
 import { loadTestSiteSettings, siteSettingsPlugin } from "./scripts/test-site-settings.ts";
@@ -180,7 +181,9 @@ return {
       ...Object.fromEntries(satelliteRoutes.map(({ prefix, origin }) => [`^${prefix}/`, {
           target: origin, changeOrigin: true, followRedirects: false,
           rewrite: (requestPath: string) => requestPath.slice(prefix.length),
-          headers: { Origin: "https://media.local.dev-gutools.co.uk" },
+          ...(prefix === "/grid-local-metadata" && { agent: new HttpsAgent({ keepAlive: true, maxFreeSockets: 5 }) }),
+          headers: { Origin: "https://media.local.dev-gutools.co.uk",
+            ...(prefix === "/grid-local-metadata" && { Connection: "keep-alive" }) },
       }])),
       // Proxy ES requests to Elasticsearch.
       // Default: kupua's local docker ES on port 9220

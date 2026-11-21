@@ -12,7 +12,8 @@
  * ImageMetadata verbatim). This component only renders when selectionCount >= 2.
  */
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useContext, useId, useMemo, useRef, useState } from "react";
+import { useStore } from "zustand";
 import { FieldDisclosure } from "./FieldDisclosure";
 import type { Image } from "@/types/image";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
@@ -28,8 +29,8 @@ import {
   Dash,
 } from "./metadata-primitives";
 import { MultiSearchPill } from "./SearchPill";
-import { LabelEditor } from "./LabelEditor";
-import type { LabelEditContext } from "@/lib/label-operation";
+import { LabelEditor, LabelEditorContext } from "./LabelEditor";
+import type { MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { MultiValue } from "./MultiValue";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
@@ -40,6 +41,7 @@ import type { Cost } from "@/dal/grid-api/types";
 import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
 import { labelTargetKey } from "@/stores/label-editor-store";
+import { usePendingPanelIntent } from "./MetadataEditing";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
 import { findLink } from "@/dal/grid-api/argo";
 
@@ -85,7 +87,7 @@ function renderLocationGroup(
   reconciledView: ReconciledView | null,
   onSearch: (cqlKey: string, v: string, e: React.MouseEvent) => void,
   total: number,
-  editing?: { targetIds: readonly string[]; available: boolean; editable: boolean },
+  editing?: { targetIds: readonly string[]; available: boolean; editable: boolean; retainReading?: boolean },
 ): React.ReactNode {
   if (!reconciledView && !(editing && import.meta.env.VITE_USE_MEDIA_API === "true")) return null;
 
@@ -137,13 +139,13 @@ function renderLocationGroup(
       const rec = reconciledView?.get(component.fieldId);
       return { ...component, value: rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : "", mixed: rec?.kind === "mixed" };
     });
-    const ready = editing.available && LOCATION_COMPONENTS.every(component => {
+    const settled = LOCATION_COMPONENTS.every(component => {
       const kind = reconciledView?.get(component.fieldId)?.kind;
       return kind === "all-same" || kind === "mixed" || kind === "all-empty";
     });
     return <MetadataLocationEditor key={`location:${labelTargetKey(editing.targetIds)}`} fields={fields} targetIds={editing.targetIds}
-      available={ready} editable={editing.editable} readOnly={readOnly}>
-      {ready && parts.length ? content : <Dash />}
+      available={editing.available && settled} retainReading={editing.retainReading && settled} editable={editing.editable} readOnly={readOnly}>
+      {((editing.available && settled) || editing.retainReading) && parts.length ? content : <Dash />}
     </MetadataLocationEditor>;
   }
   return readOnly;
@@ -351,8 +353,8 @@ const COST_COLOR: Record<Cost | "no-rights", string> = {
 const LEASE_GRADIENT_BUCKETS = new Set<Cost | "no-rights">(["pay", "overquota", "conditional"]);
 
 interface MultiImageMetadataProps {
-  labelEditing?: LabelEditContext;
-  resolveLabelEditing?: () => LabelEditContext;
+  labelEditing?: MetadataEditContext;
+  resolveLabelEditing?: () => MetadataEditContext;
   images: readonly Image[];
   reconciledView: ReconciledView | null;
   total: number;
@@ -558,8 +560,13 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
   const onSearch = useMetadataSearch();
   const ids = labelEditing?.targetIds ?? images.map(image => image.id);
   const targetKey = labelTargetKey(ids);
+  const savingSelection = Boolean(usePendingPanelIntent(targetKey, undefined, labelEditing?.pending));
+  const savingLabels = useStore(useContext(LabelEditorContext), state => state.receipts.some(receipt => receipt.mode === "connected" && !receipt.blocked
+    && receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending")
+    && labelTargetKey(receipt.intent.targetIds) === targetKey));
   const loadedIds = new Set(images.map(image => image.id));
-  const complete = ids.length === total && ids.every(id => loadedIds.has(id)) && !labelEditing?.pending;
+  const sameImages = ids.length === total && ids.every(id => loadedIds.has(id));
+  const complete = sameImages && !labelEditing?.pending;
   const enrichment = useEnrichmentStore(state => state.data);
   const canEditMetadata = images.length > 0 && images.every(image => {
     const resource = labelEditing?.targets.get(image.id)?.resource
@@ -567,6 +574,14 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
     return Boolean(resource && findLink(resource, "edits"));
   });
   const collectionPaths = new Map(images.flatMap(image => image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : []) ?? []));
+  const [editableKey, setEditableKey] = useState<string>();
+  const holdingSelection = sameImages && (savingSelection || savingLabels) && editableKey === targetKey
+    && !images.some(image => {
+      const resource = labelEditing?.targets.get(image.id)?.resource;
+      return image.__availability || (resource && !findLink(resource, "edits"));
+    });
+  const nextEditableKey = (complete && canEditMetadata) || holdingSelection ? targetKey : undefined;
+  if (editableKey !== nextEditableKey) setEditableKey(nextEditableKey);
   const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
   const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
     const next = new Set(current);
@@ -587,7 +602,9 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
             const rec = reconciledView?.get(field.id);
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} onSearch={onSearch}
-                editable={canEditMetadata}
+                editable={canEditMetadata || savingSelection || holdingSelection}
+                retainReading={(savingSelection || holdingSelection) && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                allowQueuedAdd={holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 readOnly={renderChipField(field, rec, onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))}
                 available={canEditMetadata && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 values={rec?.kind === "chip-array" ? rec.chips : []}
@@ -596,12 +613,12 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
             const hideExtraInstructions = field.id === "metadata_specialInstructions" && rec?.kind === "all-empty"
               && images.some(image => Boolean(image.metadata?.usageInstructions));
             if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
-              return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids}
-                editable={canEditMetadata} readOnly={hideExtraInstructions ? null : renderField(field, rec, onSearch, total)}
+              return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} selectionKey={targetKey} retainHint={savingSelection} reconciling={labelEditing?.pending}
+                editable={canEditMetadata || savingSelection} readOnly={hideExtraInstructions ? null : renderField(field, rec, onSearch, total)}
                 furtherInstructions={field.id === "metadata_specialInstructions" && images.some(image => Boolean(image.metadata?.usageInstructions))}
                 available={canEditMetadata && complete && (rec?.kind === "all-same" || rec?.kind === "mixed" || rec?.kind === "all-empty")}
                 value={rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : ""} mixed={rec?.kind === "mixed"}>
-                {!complete ? <Dash /> : rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
+                {!complete && !savingSelection ? <Dash /> : rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
                   : rec?.kind === "all-same" ? renderScalarAllSame(field, rec.value, onSearch) : <Dash />}
               </MetadataTextEditor>;
             }
@@ -609,10 +626,11 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
             return (
             field.id === "labels" && labelEditing && import.meta.env.VITE_USE_MEDIA_API === "true"
               ? <LabelEditor key={field.id} context={labelEditing} resolveContext={resolveLabelEditing} onSearch={onSearch}
+                  allowQueuedAdd={holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                   values={reconciledView?.get(field.id)?.kind === "chip-array"
                     ? (reconciledView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
               : field.id === "__location__"
-              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete, editable: canEditMetadata })
+              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete && canEditMetadata, editable: canEditMetadata || savingSelection, retainReading: savingSelection })
               : field.multiSelectBehaviour === "chip-array"
                 ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))
                 : renderField(field, reconciledView?.get(field.id), onSearch, total));

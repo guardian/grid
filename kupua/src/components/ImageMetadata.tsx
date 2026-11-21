@@ -53,7 +53,7 @@ import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { LabelEditor } from "./LabelEditor";
-import type { LabelEditContext } from "@/lib/label-operation";
+import type { MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { MetadataFormField, MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
@@ -211,8 +211,8 @@ function formatDeletedTime(iso: string): { relative: string; absolute: string } 
 interface ImageMetadataProps {
   image: Image;
   formFields?: ReadonlySet<string>;
-  labelEditing?: LabelEditContext;
-  resolveLabelEditing?: () => LabelEditContext;
+  labelEditing?: MetadataEditContext;
+  resolveLabelEditing?: () => MetadataEditContext;
   editingPending?: boolean;
   /** Server enrichment the caller fetched with this image itself; wins over the shared store. */
   overlay?: EnrichmentFields;
@@ -454,7 +454,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                 </div>
               </div>;
               if (field.isList) return <div key={field.id} data-measured-field={field.id}>
-                <MetadataPillEditor field={field} targetIds={[image.id]} onSearch={onSearch}
+                <MetadataPillEditor form field={field} targetIds={[image.id]} onSearch={onSearch}
                   editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} readOnly={readOnly}
                   values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                   collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />

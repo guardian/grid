@@ -233,7 +233,6 @@ describe("KUP-004 standalone detail identity", () => {
 
   afterEach(() => {
     cleanup();
-    useImageActionStore.setState({ prepared: [] });
     useSearchStore.setState(initialState, true);
     useUiPrefsStore.setState(initialPrefs, true);
     fixture.compact = false;
@@ -260,16 +259,18 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("prepares detail actions for the open image rather than the search selection", () => {
+    const prepare = vi.spyOn(useImageActionStore.getState(), "prepare");
     fixture.resident = [makeImage("A")];
     useSelectionStore.setState({ selectedIds: new Set(["unrelated-selection"]) });
     render(<Detail imageId="A" />);
     fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
-    expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["A"]);
+    expect(prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["A"] }));
     expect(screen.getByRole("group", { name: "Image actions" }).getAttribute("data-surface")).toBe("detail");
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
   });
 
   it("shows Original, full frame and crops in a left rail and selects their previews without sending actions", () => {
+    const prepare = vi.spyOn(useImageActionStore.getState(), "prepare");
     fixture.relativeMedia = true;
     const image = makeImage("A");
     image.source = { mimeType: "image/jpeg", dimensions: { width: 6000, height: 4000 }, size: 1048576 };
@@ -300,7 +301,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.search = fixture.navigate.mock.calls.at(-1)![0].search(fixture.search);
     view.rerender(<Detail imageId="A" />);
     expect(screen.getByAltText("Title A").getAttribute("src")).not.toBe(cropAsset.secureUrl);
-    expect(useImageActionStore.getState().prepared).toEqual([]);
+    expect(prepare).not.toHaveBeenCalled();
   });
 
   it("shows the newest repeated crop once without retaining another image's rows", () => {

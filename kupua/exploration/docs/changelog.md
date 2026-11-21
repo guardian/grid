@@ -31,6 +31,24 @@ not a separate search lifecycle. The Justified publication test controls elapsed
 time between wheel samples so test-runner delays do not change the scroll speed
 being tested. It still requires an early read only when geometry is preserved.
 
+### 21 November 2026 - Inspect edit issues before selecting affected images
+
+The warning shows the live selection count alongside per-field outcomes. Only the
+explicit select action changes the selection and reveals a result. A later focus
+choice cancels a pending reveal. Detail shows failures for the open image;
+independent Description additions and label edits from either queue retain their
+own outcomes. The compact installed toolbar uses an icon for My recent uploads.
+
+During an active selection edit, Details retains settled field readings and accepts
+follow-up pill additions for the same selection subject to write-time validation.
+Download stays unavailable until that selection's save ends. Shared metadata edit
+execution and the synthetic grid mutation fixture now have field-neutral names.
+
+### 21 November 2026 - Reuse local metadata proxy connections
+
+Vite reuses upstream HTTPS connections on `/grid-local-metadata` to reduce hostname
+lookups during bulk edits. Hosted routing, write retries and readback deadlines are unchanged.
+
 ### 20 November 2026 - Stabilise browser journeys and mobile Crop return
 
 Back to image releases compact Detail's fullscreen session before traversing
@@ -42,6 +60,27 @@ Browser tests wait for the rendered destination, stable image identity or restor
 draft instead of incidental page loads and fixed sleeps. Scroll checks compare
 visible image placement across legitimate virtual-window compensation; settling
 samples run in the browser. Mobile gesture fixtures supply their own image URLs.
+
+### 20 November 2026 - Track selection edits and select images needing attention
+
+After a metadata or label edit, editors can select just the images that need
+attention, even after changing or clearing the selection. Inspection does not
+retry a write. Concurrent saves share the existing desktop selection slot or
+compact Details header: one meter counts confirmed edits over captured edits,
+not distinct images. Issues take priority; selecting them reveals any remaining
+progress. Successful completion restores the ordinary selection UI. No separate
+activity overlay, command dump, cross-selection history or operator Stop is shown.
+
+An admitted Details edit closes the input. A scalar overwrite shows the submitted
+value for that exact selection while the field is locked; it is not yet a confirmed
+value. Rows and known reading values stay in place until refreshed data takes over.
+Neighbouring Search images keep their slots during grouped readback without treating
+an older body as fresh or granting edit authority. Larger label selections run
+in bounded groups. Queued work respects observed capability changes up to the
+write itself; rejected stale readbacks can be reread without replaying a write.
+Immediate refusals and disconnected previews use notifications.
+Upload Form keeps its own feedback. Upload's attention icon is orange on dark
+surfaces and stays white on the blue Upload button.
 
 ### 20 November 2026 - Connect metadata editing and streamline Upload
 

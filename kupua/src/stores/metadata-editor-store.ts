@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { createMetadataOperation, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
-import { labelTargetCounts, type LabelObservation, type LabelTarget } from "@/lib/label-operation";
+import { metadataEditTargetCounts, nextEditSequence, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
 import type { AddLabelsCommand, GridCommandResult, MetadataCommand } from "@/lib/grid-commands";
 import { attachedEnrichment } from "./enrichment-store";
 import { acceptImageRead, captureImageRead, ensureImageRead, getMetadataWriteWitness, hasImageCommandConflict, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
@@ -9,6 +9,7 @@ import { useMetadataDrafts } from "./metadata-drafts-store";
 
 export interface MetadataSave {
   id: number;
+  sequence?: number;
   intent: MetadataIntent;
   state: "queued" | "saving" | "finished";
   items: MetadataReceipt["items"];
@@ -17,6 +18,7 @@ export interface MetadataSave {
 }
 
 export function metadataIntent(fieldId: string, action: string, value: string | Record<string, string | undefined>, targetIds: readonly string[]): MetadataIntent | undefined {
+  if (fieldId === "labels" && action === "add" && typeof value === "string" && value.trim()) return { fieldId, action, value: value.trim(), targetIds };
   const field = fieldId === "keywords" ? "metadata_keywords" : fieldId === "people" ? "metadata_peopleInImage" : fieldId;
   if (field.startsWith("location_")) return { fieldId: "location", action: "overwrite", value: { [field.slice(9)]: value as string }, targetIds };
   if (!["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline", "metadata_credit",
@@ -42,12 +44,13 @@ export function metadataSaveStatus(save: MetadataSave): string {
 
 export function createMetadataEditorStore(
   execute?: (command: MetadataCommand | AddLabelsCommand) => Promise<GridCommandResult>,
-  observation?: LabelObservation,
+  observation?: MetadataEditObservation,
   sharedQueue?: ReturnType<typeof createBatchQueue>,
 ) {
   const queue = sharedQueue ?? createBatchQueue();
   let disposed = false;
   let pumping = false;
+  let waiting: { id: number; complete: () => void } | undefined;
   let nextId = 0;
   const pending: number[] = [];
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -60,6 +63,7 @@ export function createMetadataEditorStore(
   const store = createStore<{
     connected: boolean;
     saves: ReadonlyMap<number, MetadataSave>;
+    panelSaves: readonly { id: number; targetKey: string; returnFocus?: WeakRef<HTMLElement> }[];
     arrowSaves: ReadonlyMap<string, number>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
     submit: (intent: MetadataIntent, newRevision?: boolean) => number | undefined;
@@ -69,7 +73,7 @@ export function createMetadataEditorStore(
     stop: (id: number) => void;
     dispose: () => void;
   }>((set, get) => ({
-    connected: Boolean(execute && observation), saves: new Map(), arrowSaves: new Map(),
+    connected: Boolean(execute && observation), saves: new Map(), panelSaves: [], arrowSaves: new Map(),
     submitArrow(intent, key) {
       const id = get().submit(intent);
       if (id !== undefined) set({ arrowSaves: new Map(get().arrowSaves).set(key, id) });
@@ -86,14 +90,15 @@ export function createMetadataEditorStore(
         if (latest && latest.state !== "finished" && JSON.stringify(latest.intent) === JSON.stringify(intent)) return latest.id;
       }
       const id = ++nextId;
+      const sequence = nextEditSequence();
       const release = watchQueuedLabelTargets(intent.targetIds);
       if (!release) {
-        set({ saves: new Map(get().saves).set(id, { id, intent, state: "finished", items: [], excluded: 0,
+        set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "finished", items: [], excluded: 0,
           message: "Not sent: session editing capacity reached. Reload before starting this action." }) });
         return id;
       }
       reservations.set(id, release);
-      set({ saves: new Map(get().saves).set(id, { id, intent, state: "queued", items: [], excluded: 0 }) });
+      set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "queued", items: [], excluded: 0 }) });
       pending.push(id);
       queueMicrotask(() => void pump());
       return id;
@@ -130,13 +135,16 @@ export function createMetadataEditorStore(
       stopped.add(id);
       running.get(id)?.stopTargets(get().saves.get(id)!.intent.targetIds);
       if (get().saves.get(id)?.state === "queued") {
+        if (waiting?.id === id) waiting.complete();
         reservations.get(id)?.(); reservations.delete(id);
+        capturedDrafts.delete(id);
         update(id, { state: "finished", message: "Stopped; changes not sent" });
       }
     },
     dispose() {
       disposed = true;
       unsubscribe();
+      waiting?.complete();
       for (const timer of timers.values()) clearTimeout(timer);
       for (const operation of new Set(running.values())) { operation.stopRemaining(); operation.cancelObservation(); }
       for (const release of reservations.values()) release();
@@ -171,7 +179,9 @@ export function createMetadataEditorStore(
       queueMicrotask(() => void pump());
     };
     try {
+      waiting = { id, complete: slot.complete };
       await slot.wait;
+      waiting = undefined;
       if (disposed || stopped.has(id)) return;
       const unique = new Set(save.intent.targetIds);
       if (unique.size === 1 && !hasImageCommandConflict(save.intent.targetIds[0])) {
@@ -196,14 +206,14 @@ export function createMetadataEditorStore(
         const issued = captureImageRead();
         const images = await observation.readImages([...ids], AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs));
         if (disposed) break;
-        const targets = new Map<string, LabelTarget>();
+        const targets = new Map<string, MetadataEditTarget>();
         for (const image of images) {
           if (!ids.includes(image.id) || stopped.has(owners.get(image.id)!.id)) continue;
           const overlay = attachedEnrichment(image);
           ensureImageRead(image, issued, "lean", overlay);
           if (acceptImageRead(image) !== image) continue;
           const target = { resource: overlay?.resource };
-          if (labelTargetCounts({ targetIds: [image.id], targets: new Map([[image.id, target]]) }).eligible) targets.set(image.id, target);
+          if (metadataEditTargetCounts({ targetIds: [image.id], targets: new Map([[image.id, target]]) }).eligible) targets.set(image.id, target);
         }
         for (const imageId of ids) {
           const owner = owners.get(imageId)!;

@@ -7,7 +7,7 @@ import type * as Commands from "../../src/lib/grid-commands";
 import type { labelEditorFixture } from "../shared/label-editor-fixture";
 import { GRID_API_READ_VIA_POST } from "../../src/dal/grid-api/read-via-post";
 import { gridServiceProxyRoutes } from "../../src/lib/grid-mutation-policy";
-import { labelEditorPlugin, virtualEntry } from "../shared/label-editor-plugin";
+import { gridMutationPlugin, virtualEntry } from "../shared/grid-mutation-plugin";
 import { getDensityChangeButton } from "../shared/density-selection";
 import { KupuaHelpers, waitForFixtureSetup } from "../shared/helpers";
 import type { useSearchStore } from "../../src/stores/search-store";
@@ -15,7 +15,7 @@ import type { useSelectionStore } from "../../src/stores/selection-store";
 
 type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFixture: typeof labelEditorFixture;
   __kupua_store__: typeof useSearchStore; __kupua_selection_store__: typeof useSelectionStore };
-const fixturePlugin = labelEditorPlugin();
+const fixturePlugin = gridMutationPlugin();
 
 test.describe("U3 isolated uploads", () => {
   let vite: Awaited<ReturnType<typeof createServer>>;
@@ -32,7 +32,7 @@ test.describe("U3 isolated uploads", () => {
     previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
     vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
-      plugins: [labelEditorPlugin("upload")], server: { host: "127.0.0.1", port: 0 } });
+      plugins: [gridMutationPlugin("upload")], server: { host: "127.0.0.1", port: 0 } });
     await vite.listen();
     origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
   });
@@ -159,11 +159,27 @@ test.describe("U3 isolated uploads", () => {
     await page.getByRole("textbox", { name: "Description", exact: true }).fill("Details saved description");
     await page.getByRole("button", { name: "Commit Description", exact: true }).click();
     await expect.poll(async () => (await results()).metadata[ids[0]].description).toBe("Details saved description");
-    await expect(page.getByRole("button", { name: "Commit Description", exact: true })).toBeDisabled();
+    await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit Description", exact: true })).toBeEnabled();
+    await expect(page.getByRole("complementary", { name: "Image activity" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Edit Description", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Details saved description");
     await page.getByRole("textbox", { name: "Description", exact: true }).fill("");
     await page.getByRole("button", { name: "Commit Description", exact: true }).click();
     await expect.poll(async () => (await (await page.request.get(`${origin}/api/images/${ids[0]}`)).json()).data.metadata.description).toBe("");
     await expect(page.getByRole("button", { name: /Apply .* batch images/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Edit Description", exact: true })).toBeEnabled();
+    const rejectWrite = `**/metadata/${ids[0]}/metadata`;
+    await page.route(rejectWrite, route => route.request().method() === "PUT" ? route.fulfill({ status: 422, json: {} }) : route.fallback());
+    try {
+      await page.getByRole("button", { name: "Edit Description", exact: true }).click();
+      await page.getByRole("textbox", { name: "Description", exact: true }).fill("Rejected description");
+      await page.getByRole("button", { name: "Commit Description", exact: true }).click();
+      const detail = page.locator(`[data-detail-image-id="${ids[0]}"]`);
+      await detail.getByRole("button", { name: "1 issue", exact: true }).click();
+      await expect(detail.locator(":popover-open")).toHaveText("Description: 1 not saved");
+      await page.keyboard.press("Escape");
+    } finally { await page.unroute(rejectWrite); }
     await page.getByRole("button", { name: "Back to uploads", exact: true }).click();
     expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
   });
@@ -945,25 +961,22 @@ test.describe("U3 isolated uploads", () => {
     expect(await page.evaluate(() => (window as CommandWindow).commandFixture.gridLabelEditingEnabled())).toBe(false);
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await new KupuaHelpers(page).waitForResults();
-    const capturedTarget = await page.evaluate(async () => {
+    await page.evaluate(async () => {
       const actionsPath = "/src/stores/image-action-store.ts";
       const imageId = (window as CommandWindow).__kupua_store__.getState().results.find(Boolean)!.id;
-      (await import(actionsPath)).useImageActionStore.getState().prepare("share", { targets: [{ id: imageId }], api: true, archive: null });
+      const intent = (await import(actionsPath)).useImageActionStore.getState().prepare("share", { targets: [{ id: imageId }], api: true, archive: null });
+      if (intent.targetIds[0] !== imageId) throw new Error("Wrong prepared target");
       const routerPath = "/src/router.ts";
       await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
-      return imageId;
     });
     const existingActivity = page.getByRole("complementary", { name: "Image activity", exact: true });
-    await expect(existingActivity).toBeVisible();
+    await expect(existingActivity).toHaveCount(0);
     await page.locator('input[type="file"]').setInputFiles(resolve("../e2e-tests/fixtures/images/test.jpg"));
     await expect.poll(async () => (await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
     const batch = new URL(page.url()).searchParams.get("batch");
     expect(batch).toMatch(/^local-/);
     const uploadSummary = page.getByRole("button", { name: /^Upload activity:/ });
-    const uploadBox = (await uploadSummary.boundingBox())!;
-    const existingBox = (await existingActivity.boundingBox())!;
-    expect(uploadBox.x < existingBox.x + existingBox.width && uploadBox.x + uploadBox.width > existingBox.x
-      && uploadBox.y < existingBox.y + existingBox.height && uploadBox.y + uploadBox.height > existingBox.y).toBe(false);
+    await expect(uploadSummary).toBeVisible();
     await uploadSummary.click();
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await expect(page).toHaveURL(/\/search/);
@@ -1020,7 +1033,8 @@ test.describe("U3 isolated uploads", () => {
       await expect(page.locator("html")).toHaveAttribute("data-app-cutout", "true");
       const searchToolbar = page.getByRole("toolbar", { name: "Search and filter controls", exact: true });
       const recentEntry = searchToolbar.getByRole("button", { name: "My recent uploads", exact: true });
-      await expect(recentEntry.getByText("Uploads", { exact: true })).toBeVisible();
+      await expect(recentEntry.locator("svg")).toBeVisible();
+      await expect(recentEntry).toHaveText("");
       await expect(searchToolbar.getByRole("button", { name: "Upload files", exact: true })
         .locator('[data-toolbar-label="upload"]')).toBeHidden();
       const recentBounds = (await recentEntry.boundingBox())!;
@@ -1035,10 +1049,7 @@ test.describe("U3 isolated uploads", () => {
       await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
       await touch.detach();
     }
-    expect(await page.evaluate(async () => {
-      const actionsPath = "/src/stores/image-action-store.ts";
-      return (await import(actionsPath)).useImageActionStore.getState().prepared[0].targetIds;
-    })).toEqual([capturedTarget]);
+    await expect(existingActivity).toHaveCount(0);
     expect(escaped).toEqual([]);
     expect((await (await page.request.get(`${origin}/__upload-control`)).json()).writes).toBe(1);
   });
@@ -1071,7 +1082,7 @@ test.describe("Unit B isolated continuation", () => {
     previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
     vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
-      plugins: [labelEditorPlugin("continuation")], server: { host: "127.0.0.1", port: 0 } });
+      plugins: [gridMutationPlugin("continuation")], server: { host: "127.0.0.1", port: 0 } });
     await vite.listen();
     origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
   });
@@ -1633,7 +1644,8 @@ test.describe("Unit B isolated continuation", () => {
         return [image.id];
       });
       const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
-      await expect(activity).toBeVisible();
+      await expect(page.getByText("Not sent - Share with URL", { exact: true })).toBeVisible();
+      await expect(activity).toHaveCount(0);
       await page.evaluate(async () => {
         const routerPath = "/src/router.ts";
         const keyPath = "/src/lib/orchestration/history-key.ts";
@@ -1647,14 +1659,7 @@ test.describe("Unit B isolated continuation", () => {
       });
       await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
       expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-      await expect(activity).toBeVisible();
-      expect(await page.evaluate(async () => {
-        const actionPath = "/src/stores/image-action-store.ts";
-        return (await import(actionPath)).useImageActionStore.getState().prepared[0].targetIds;
-      })).toEqual(selected);
-      const activityDetails = activity.locator(":scope > details");
-      if (await activityDetails.getAttribute("open") === null) await activityDetails.locator(":scope > summary").click();
-      await activity.getByRole("button", { name: /Dismiss .* preview/ }).click();
+      await expect(activity).toHaveCount(0);
       await expect(page.locator("[data-tickbox]")).toHaveCount(0);
       const point = await kupua.waitForHitTestedImagePoint({ view: "grid" });
       const target = await page.locator(`[data-image-id="${point.imageId}"]`).elementHandle();
@@ -1823,16 +1828,19 @@ test.describe("Unit B isolated continuation", () => {
     const actions = page.getByRole("group", { name: "Image actions", exact: true });
     await expect(actions.getByRole("button", { name: "Add to Library", exact: true })).toBeEnabled();
     await actions.getByRole("button", { name: "Share with URL", exact: true }).click();
+    await expect(page.getByText("Not sent - Share with URL", { exact: true })).toBeVisible();
     await actions.getByRole("button", { name: "Crop full frame", exact: true }).click();
     const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
-    await expect(activity).toContainText("1 prepared; 1 skipped");
-    await expect(activity).toContainText("Already has a full frame");
+    await expect(activity).toHaveCount(0);
+    await expect(page.getByText("Not sent - Crop full frame; 1 prepared; 1 skipped (Already has a full frame)", { exact: true })).toBeVisible();
     await actions.getByRole("button", { name: "Download", exact: true }).click();
+    await expect(page.getByText("Not sent - Download", { exact: true })).toBeVisible();
     await actions.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(actions.getByRole("button", { name: "Confirm delete 2 images", exact: true })).toHaveClass(/bg-grid-error/);
     await actions.getByRole("button", { name: "Confirm delete 2 images", exact: true }).click();
+    await expect(page.getByText("Not sent - Delete", { exact: true })).toBeVisible();
     await actions.getByRole("button", { name: "Add to Library", exact: true }).click();
-    await expect(activity.getByText(/^Not sent -/)).toHaveCount(5);
+    await expect(page.getByText("Not sent - Add to Library", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds])).toEqual(["local-0", "local-1"]);
     await page.setViewportSize({ width: 320, height: 852 });
     await page.getByRole("button", { name: "More image actions", exact: true }).click();
@@ -2503,7 +2511,7 @@ test("A3 canonical readback survives a released stale API page across all densit
   const previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
   Object.assign(process.env, env);
   const vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"),
-    plugins: [labelEditorPlugin("readback")], server: { host: "127.0.0.1", port: 0 } });
+    plugins: [gridMutationPlugin("readback")], server: { host: "127.0.0.1", port: 0 } });
   const escaped: string[] = [];
   try {
     await vite.listen();
@@ -2705,7 +2713,7 @@ test.describe("buffer publication", () => {
   test.beforeAll(async ({}, testInfo) => {
     previous = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
-    vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"), plugins: [labelEditorPlugin(true)],
+    vite = await createServer({ configFile: resolve("vite.config.ts"), cacheDir: testInfo.outputPath("vite-cache"), plugins: [gridMutationPlugin(true)],
       server: { host: "127.0.0.1", port: 0 } });
     await vite.listen();
     origin = vite.resolvedUrls!.local[0].replace(/\/$/, "");
@@ -3173,7 +3181,7 @@ async function exerciseLabelEditor(page: Page) {
   expect((await fixture.boundingBox())!.height).toBe(closedSuggestionsHeight);
   await options.first().click();
   await expect(input).toHaveValue("first, News, last");
-  await expect(page.getByText("Not sent - dry run", { exact: true })).toHaveCount(0);
+  expect((await page.evaluate(() => (window as CommandWindow).editorFixture.snapshot())).receipts).toHaveLength(0);
   await input.fill("first, News, last, fO");
   await expect(options.locator("span:first-child")).toHaveText(["Football"]);
   await input.press("ArrowDown");
@@ -3193,10 +3201,12 @@ async function exerciseLabelEditor(page: Page) {
   await plus.click();
   await expect(input).toHaveValue("retained label");
   await input.press("Enter");
-  await expect(page.getByText("Not sent - dry run", { exact: true })).toHaveCount(1);
+  await expect(input).toHaveCount(0);
   await page.getByRole("button", { name: "Remove news from all selected images", exact: true }).click();
-  await expect(page.getByText("Not sent - dry run", { exact: true })).toHaveCount(2);
-  expect((await page.evaluate(() => (window as CommandWindow).editorFixture.snapshot())).receipts.map(receipt => receipt.intent.action)).toEqual(["add", "remove"]);
+  expect((await page.evaluate(() => (window as CommandWindow).editorFixture.snapshot())).receipts).toMatchObject([
+    { mode: "disconnected", intent: { action: "add", label: "retained label", targetIds: ["fixture", "other"] } },
+    { mode: "disconnected", intent: { action: "remove", label: "news", targetIds: ["fixture", "other"] } },
+  ]);
   await page.evaluate(() => (window as CommandWindow).editorFixture.mount(true));
   const apply = page.getByRole("button", { name: "Apply news to all selected images", exact: true });
   await apply.dblclick();
@@ -3326,6 +3336,11 @@ async function exerciseObservedRemoval(page: Page, outcome: "acknowledged" | "un
   }
 }
 
+function appLabelReceipts(page: Page, label: string, action = "add") {
+  return page.evaluate(({ label, action }) => (window as CommandWindow).editorFixture.appReceipts()
+    .filter(receipt => receipt.intent.action === action && receipt.intent.label === label), { label, action });
+}
+
 async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void) {
   await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
   await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().metadataCache.has("fixture"))).toBe(true);
@@ -3344,15 +3359,12 @@ async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void) {
   await input.fill("connected fixture label");
   beforeDispatch();
   await input.press("Enter");
-  const activity = page.getByRole("complementary", { name: "Label activity", exact: true });
-  await expect(activity.getByText("Label change", { exact: true })).toHaveCount(1);
-  await expect(activity.locator("pre")).toContainText('"observation": "observed"');
+  await expect.poll(() => appLabelReceipts(page, "connected fixture label")).toMatchObject([{ items: [{ observation: "observed" }] }]);
   await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels)).toEqual([...original!, "connected fixture label"]);
   const remove = page.getByRole("button", { name: "Remove connected fixture label", exact: true });
   await expect(remove).toBeEnabled();
   await remove.click();
-  await expect(activity.getByText("Label change", { exact: true })).toHaveCount(2);
-  await expect(activity.locator("pre").first()).toContainText('"observation": "observed"');
+  await expect.poll(() => appLabelReceipts(page, "connected fixture label", "remove")).toMatchObject([{ items: [{ observation: "observed" }] }]);
   await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels)).toEqual(original);
   await expect(remove).toHaveCount(0);
   expect(await cell.boundingBox()).toEqual(originalBox);
@@ -3374,60 +3386,55 @@ async function exerciseBulkEditor(page: Page, setReadbackHold: (hold: (() => Pro
     observedRequest = true;
     await held;
   });
-  const activity = page.getByRole("complementary", { name: "Label activity", exact: true });
   const add = async (label: string) => {
     await page.getByRole("button", { name: "Add label", exact: true }).click();
     const input = page.getByRole("combobox", { name: "Add label", exact: true });
     await input.fill(label);
     await input.press("Enter");
   };
-  const receipt = (label: string, action = "add") => activity.locator("pre")
-    .filter({ hasText: `"label": "${label}"` }).filter({ hasText: `"action": "${action}"` }).first();
+  const receipt = async (label: string, action = "add") => (await appLabelReceipts(page, label, action)).at(-1);
   try {
     await add("batch fixture label");
     await expect.poll(() => observedRequest).toBe(true);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["queued"]));
     await expect(page.getByRole("button", { name: "Add label", exact: true })).toBeEnabled();
     await add("queued fixture label");
-    await expect(receipt("queued fixture label")).toContainText('"state": "queued"');
-    await receipt("queued fixture label").locator("..").locator("..")
-      .getByRole("button", { name: "Stop remaining", exact: true }).click();
-    await expect(receipt("queued fixture label")).toContainText('"state": "stopped"');
+    await expect.poll(() => receipt("queued fixture label")).toMatchObject({ items: [{ state: "queued" }] });
+    await expect(page.getByRole("button", { name: "Stop remaining" })).toHaveCount(0);
+    await page.evaluate(() => {
+      const fixture = (window as CommandWindow).editorFixture;
+      fixture.stopQueued(fixture.appReceipts().findIndex(entry => entry.intent.label === "queued fixture label"));
+    });
+    await expect.poll(() => receipt("queued fixture label")).toMatchObject({ items: [{ state: "stopped" }] });
     await add("queued fixture label");
-    await expect(receipt("queued fixture label")).toContainText('"state": "queued"');
+    await expect.poll(() => receipt("queued fixture label")).toMatchObject({ items: [{ state: "queued" }] });
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate("fixture"));
     await expect(page.locator("[data-detail-image-id]")).toHaveAttribute("data-detail-image-id", "fixture");
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture
       .publicationSnapshot("fixture").residentLabels)).toContain("batch fixture label");
-    await expect(receipt("batch fixture label")).toContainText('"observation": "pending"');
+    expect((await receipt("batch fixture label"))?.items.some(item => item.observation === "pending")).toBe(true);
     release();
-    await expect.poll(async () => JSON.parse((await receipt("batch fixture label").textContent())!).items
-      .map((item: { observation: string }) => item.observation)).toEqual(["superseded", "observed"]);
-    expect(JSON.parse((await receipt("batch fixture label").textContent())!).targets).toEqual(ids);
-    await expect(receipt("queued fixture label")).toContainText('"observation": "observed"');
+    await expect.poll(() => receipt("batch fixture label")).toMatchObject({ intent: { targetIds: ids }, items: [{ observation: "observed" }, { observation: "observed" }] });
+    await expect.poll(() => receipt("queued fixture label")).toMatchObject({ items: [{ observation: "observed" }] });
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate());
     await page.evaluate(ids => (window as CommandWindow).editorFixture.select(ids), ids);
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected
       .map(image => image.labels?.includes("batch fixture label")))).toEqual([true, true]);
     await page.getByRole("button", { name: "Remove batch fixture label from all selected images", exact: true }).click();
-    await expect.poll(async () => JSON.parse((await receipt("batch fixture label", "remove").textContent())!).items
-      .map((item: { observation: string }) => item.observation)).toEqual(["observed", "observed"]);
+    await expect.poll(() => receipt("batch fixture label", "remove")).toMatchObject({ items: [{ observation: "observed" }, { observation: "observed" }] });
     expect(await page.evaluate(() => (window as CommandWindow).editorFixture.publicationSnapshot("fixture").selectedIds)).toEqual(ids);
     expect(await cell.boundingBox()).toEqual(box);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["other"]));
     await expect(page.getByRole("button", { name: "Add label", exact: true })).toBeEnabled();
     await add("partial fixture label");
-    await expect(receipt("partial fixture label")).toContainText('"observation": "observed"');
+    await expect.poll(() => receipt("partial fixture label")).toMatchObject({ items: [{ observation: "observed" }] });
     await page.evaluate(ids => (window as CommandWindow).editorFixture.select(ids), ids);
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected
       .map(image => image.labels?.includes("partial fixture label")))).toEqual([false, true]);
     await page.getByRole("button", { name: "Remove partial fixture label from all selected images", exact: true }).click();
-    const partial = receipt("partial fixture label", "remove");
-    await expect.poll(async () => JSON.parse((await partial.textContent())!).items
-      .map((item: { observation: string }) => item.observation)).toEqual(["observed", "observed"]);
-    expect(JSON.parse((await partial.textContent())!).items.map((item: { result: { outcome: string } }) => item.result.outcome))
-      .toEqual(["unchanged", "acknowledged"]);
-    await expect(partial.locator("..").locator("..")).toContainText("1 unchanged");
+    await expect.poll(() => receipt("partial fixture label", "remove")).toMatchObject({ items: [
+      { observation: "observed", result: { outcome: "unchanged" } }, { observation: "observed", result: { outcome: "acknowledged" } },
+    ] });
     await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected
       .map(image => image.labels?.includes("partial fixture label")))).toEqual([false, false]);
     expect(await page.evaluate(() => (window as CommandWindow).editorFixture.publicationSnapshot("fixture").selectedIds)).toEqual(ids);
@@ -3445,25 +3452,48 @@ async function exerciseRecoveryEditor(page: Page, holdProjection: (hold: boolean
     await input.fill(label);
     await input.press("Enter");
   };
-  const receipts = page.getByRole("complementary", { name: "Label activity", exact: true }).locator("pre")
-    .filter({ hasText: `"label": "${label}"` }).filter({ hasText: '"action": "add"' });
   holdProjection(true);
   try {
     await add();
-    await expect.poll(async () => JSON.parse((await receipts.first().textContent())!).items
-      .map((item: { observation: string }) => item.observation), { timeout: 12_000 }).toEqual(["deadline", "observed"]);
+    await expect.poll(async () => (await appLabelReceipts(page, label)).at(-1)?.items.map(item => item.observation),
+      { timeout: 12_000 }).toEqual(["deadline", "observed"]);
     await expect(page.getByRole("button", { name: "Add label", exact: true })).toBeDisabled();
     holdProjection(false);
     await page.getByRole("button", { name: "Deselect", exact: true }).click();
     const cell = page.getByRole("region", { name: "Image results grid", exact: true }).locator('[data-cell-id="fixture"]');
-    await cell.hover();
-    await cell.getByRole("button", { name: "Select image", exact: true }).click();
+    const issue = page.getByRole("button", { name: "1 issue", exact: true });
+    await issue.click();
+    await expect(page.locator(":popover-open")).toContainText("Labels: 1 not confirmed");
+    await expect(page.getByRole("status", { name: "0 selected" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    const viewport = page.viewportSize()!;
+    const touch = await page.context().newCDPSession(page);
+    try {
+      await page.setViewportSize({ width: 320, height: 700 });
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+      await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
+      await issue.click();
+      const pop = page.locator(":popover-open");
+      await expect(pop).toBeVisible();
+      const bounds = (await pop.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(320);
+      await pop.getByRole("button", { name: "Select only this image" }).click();
+      await expect(issue).toHaveCount(0);
+      expect(await page.evaluate(() => (window as CommandWindow).editorFixture.publicationSnapshot("fixture").selectedIds)).toEqual(["fixture"]);
+      await expect(cell).toBeInViewport();
+    } finally {
+      await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+      await touch.detach();
+      await page.setViewportSize(viewport);
+    }
     await expect(page.getByRole("button", { name: "Remove recovery fixture label", exact: true })).toBeEnabled();
     await page.evaluate(ids => (window as CommandWindow).editorFixture.select(ids), ids);
     await add();
-    await expect(receipts).toHaveCount(2);
-    await expect.poll(async () => JSON.parse((await receipts.first().textContent())!).items
-      .map((item: { observation: string }) => item.observation)).toEqual(["observed", "observed"]);
+    await expect.poll(() => appLabelReceipts(page, label)).toMatchObject([
+      { items: [{ observation: "deadline" }, { observation: "observed" }] },
+      { items: [{ observation: "observed" }, { observation: "observed" }] },
+    ]);
   } finally { holdProjection(false); }
 }
 
@@ -3848,7 +3878,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     expect((await page.getByRole("button", { name: "Add label to images", exact: true }).boundingBox())!.y).toBeGreaterThanOrEqual(entryBounds.y + entryBounds.height);
     await realInput.fill("cold-detail");
     await realInput.press("Enter");
-    await expect(page.getByText("Not sent - dry run", { exact: true })).toBeVisible();
+    await expect(page.getByText("Not sent - Add label: cold-detail", { exact: true })).toBeVisible();
     await realPlus.click();
     await realInput.fill("keep this input");
     await page.evaluate(() => (window as CommandWindow).editorFixture.navigate());
@@ -3865,13 +3895,13 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await realInput.fill("off-screen");
     await expect(page.getByRole("button", { name: "Add label to images", exact: true })).toBeEnabled();
     await realInput.press("Enter");
-    await expect(page.getByText("Not sent - dry run", { exact: true })).toHaveCount(2);
+    await expect(page.getByText("Not sent - Add label: off-screen", { exact: true })).toBeVisible();
     await page.evaluate(() => (window as CommandWindow).editorFixture.focus("fixture"));
     const keyboardRemove = page.getByRole("button", { name: "Remove news", exact: true });
     await keyboardRemove.focus();
     await keyboardRemove.press("Enter");
     await expect(page).not.toHaveURL(/image=/);
-    await expect(page.getByText("Not sent - dry run", { exact: true })).toHaveCount(3);
+    await expect(page.getByText("Not sent - Remove label: news", { exact: true })).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("label-editor-desktop.png") });
     assertEditorReads();
     const warning = page.waitForEvent("dialog");
@@ -3939,23 +3969,18 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: bounds!.x + bounds!.width / 2, y: bounds!.y + bounds!.height / 2 }] });
     await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     const activity = sheet.getByRole("complementary", { name: "Label activity" });
-    await expect(activity.getByText("Not sent - dry run", { exact: true })).toBeVisible();
-    await expect(activity).toContainText('"action": "remove"');
+    await expect(activity).toHaveCount(0);
+    await expect(page.getByText("Not sent - Remove label: news", { exact: true })).toBeVisible();
     await page.setViewportSize({ width: 844, height: 390 });
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
     await expect(sheet).toHaveCSS("width", "480px");
     await sheet.screenshot({ path: testInfo.outputPath("metadata-landscape.png") });
     await page.setViewportSize({ width: 390, height: 844 });
     await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
-    await expect(activity).toContainText('"label": "news"');
-    await expect(activity).toContainText('"fixture"');
-    await expect(activity).toContainText('"other"');
-    const activityToggle = activity.locator(":scope > details > summary");
+    expect(await page.evaluate(() => (window as CommandWindow).editorFixture.appReceipts().at(-1)?.intent))
+      .toMatchObject({ action: "remove", label: "news", targetIds: ["fixture", "other"] });
     await remove.focus();
-    for (let step = 0; step < 20 && !await activityToggle.evaluate(element => element === document.activeElement); step++) {
-      await page.keyboard.press("Tab");
-    }
-    await expect(activityToggle).toBeFocused();
+    await expect(remove).toBeFocused();
     await page.screenshot({ path: testInfo.outputPath("label-editor-mobile.png") });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     assertEditorReads();
@@ -4016,10 +4041,9 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     try {
       await compact.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
       await expect.poll(() => page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
-      const compactActivity = page.getByRole("region", { name: "Details", exact: true })
-        .getByRole("complementary", { name: "Label activity" });
-      await compactActivity.scrollIntoViewIfNeeded();
-      await expect(compactActivity).toBeInViewport();
+      const sheet = page.getByRole("region", { name: "Details", exact: true });
+      await expect(sheet).toBeInViewport();
+      await expect(sheet.getByRole("complementary", { name: "Label activity" })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath("bulk-labels-compact.png") });
     } finally { await compact.detach(); }

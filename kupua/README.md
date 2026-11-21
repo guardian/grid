@@ -250,8 +250,13 @@ remain routing settings, not editing switches. Direct-ES stays read-only.
 Hosted builds use the discovered addresses directly, without Kahuna editing configuration.
 Do not change actual running configuration or enable shared-system edits by implication.
 
-The common policy admits 100 images, three image-edit executions in flight, at least
-250 ms between starts and one waiting operation. One label is captured per submission.
+One label action captures its complete eligible selection, then processes groups of
+up to 100 within session capacity. Search shows confirmed edits in one progress
+slot across selection changes. Open the warning to see which fields were not saved
+or could not be confirmed. Opening it leaves the selection unchanged. **Select only**
+narrows the selection to the affected images and reveals the first result without
+resending any edits. Upload Form keeps its own per-field feedback. On installed
+phones, the photo-stack icon beside Upload opens My recent uploads.
 See the [batch contract](src/dal/grid-api/README.md#step-6-bounded-label-execution) for
 bounded dispatch/readback, truthful outcomes and activation limits. These are prototype
 bounds, not measured service capacity; the prior local trial does not authorize shared

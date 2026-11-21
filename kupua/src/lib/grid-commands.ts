@@ -5,7 +5,7 @@ import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession,
 import { isLabelRemovalRequest } from "./grid-mutation-policy";
 import { editingAllowedAtStartup } from "./editing-preference";
 import { BATCH_POLICY } from "./batch-execution";
-import { getMetadataWriteWitness } from "./image-read-freshness";
+import { copyImageRead, getMetadataWriteWitness, retainsEditGrant } from "./image-read-freshness";
 
 const addLabelsSchema = z.object({
   operation: z.literal("add-labels"),
@@ -122,6 +122,7 @@ export async function executeGridCommand(input: unknown): Promise<GridCommandRes
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { outcome: "blocked", reason: "invalid-command" };
   const command = parsed.data;
+  copyImageRead((input as { resource: object }).resource, command.resource);
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
   const path = `/metadata/${command.imageId}`;
@@ -168,6 +169,7 @@ export async function executeGridCommand(input: unknown): Promise<GridCommandRes
       if (source.success && metadataWriteFingerprint(source.data.data.metadata.data) === witness) break;
       if (attempt + 1 === BATCH_POLICY.sourceReadAttempts) return { outcome: "blocked", reason: "unavailable" };
     }
+    if (!retainsEditGrant(command.imageId, command.resource)) return { outcome: "blocked", reason: "unavailable" };
     if (command.operation === "edit-metadata") {
       const resource = metadataResourceSchema.safeParse(body);
       const target = resource.success ? gridServiceUrl("metadata", resource.data.data.metadata.uri, `${path}/metadata`, origin) : undefined;

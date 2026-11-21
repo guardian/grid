@@ -1,4 +1,7 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useStore } from "zustand";
+import { MetadataEditorContext } from "./MetadataEditing";
+import { labelTargetKey } from "@/stores/label-editor-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
@@ -77,13 +80,24 @@ interface ImageActionsProps {
 }
 
 export function SelectionImageActions(props: Omit<ImageActionsProps, "context" | "resolveContext">) {
-  useSelectionStore(state => state.selectedIds);
+  const selected = useSelectionStore(state => state.selectedIds);
+  const targetKey = useMemo(() => labelTargetKey([...selected]), [selected]);
+  const editor = useContext(MetadataEditorContext);
+  const saving = (state: ReturnType<typeof editor.getState>, key: string) => state.panelSaves.some(entry => {
+    if (entry.targetKey !== key) return false;
+    const phase = state.saves.get(entry.id)?.state;
+    return phase === "queued" || phase === "saving";
+  });
+  const metadataSaving = useStore(editor, state => saving(state, targetKey));
   useSelectionStore(state => state.metadataRevision);
   useSelectionStore(state => state.pendingFetchIds);
   useSelectionStore(state => state.isRangeWalking);
   useSearchStore(state => state.results);
   useEnrichmentStore(state => state.data);
-  return <ImageActions {...props} context={selectionImageActionContext(null)} resolveContext={() => selectionImageActionContext(null)} />;
+  return <ImageActions {...props} context={{ ...selectionImageActionContext(null), metadataSaving }} resolveContext={() => {
+    const context = selectionImageActionContext(null);
+    return { ...context, metadataSaving: saving(editor.getState(), labelTargetKey(context.targets.map(target => target.id))) };
+  }} />;
 }
 
 export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true }: ImageActionsProps) {

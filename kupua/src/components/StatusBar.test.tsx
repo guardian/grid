@@ -18,6 +18,9 @@ vi.mock("date-fns", async (importOriginal) => {
 
 import { formatDistanceToNow } from "date-fns";
 import { StatusBar } from "./StatusBar";
+import { MetadataEditorContext } from "./MetadataEditing";
+import { createMetadataEditorStore, type MetadataSave } from "@/stores/metadata-editor-store";
+import { labelTargetKey } from "@/stores/label-editor-store";
 import { useSearchStore } from "@/stores/search-store";
 import { gridConfig } from "@/lib/grid-config";
 import { snapshotStore } from "@/lib/history-snapshot";
@@ -29,7 +32,8 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { ImageActionFab, SelectionFab } from "./SelectionFab";
 import { PanelLayout } from "./PanelLayout";
 import { FullFrameOptions, ImageActions, SelectionImageActions } from "./ImageActions";
-import { LabelOperationReceipts } from "./LabelEditor";
+import { ToastContainer } from "./ToastContainer";
+import { useToastStore } from "@/stores/toast-store";
 import { useImageActionStore } from "@/stores/image-action-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import * as gridApi from "@/lib/grid-api-instance";
@@ -45,13 +49,15 @@ describe("StatusBar AI totals", () => {
   const initialSelection = useSelectionStore.getState();
 
   beforeEach(() => {
+    vi.spyOn(useImageActionStore.getState(), "prepare");
     shell.compact = false;
     sessionStorage.clear();
     useSearchStore.setState({ _isInitialLoad: false, total: 200, aiPoolTotal: null, tickerCounts: null, newCount: 0 });
   });
   afterEach(() => {
     cleanup();
-    useImageActionStore.setState({ prepared: [] });
+    useToastStore.setState({ queue: [] });
+    vi.mocked(useImageActionStore.getState().prepare).mockRestore();
     useSearchStore.setState(initial, true);
     useUiPrefsStore.setState(initialPrefs, true);
     useSelectionStore.setState(initialSelection, true);
@@ -95,6 +101,57 @@ describe("StatusBar AI totals", () => {
     view.unmount();
   });
 
+  it("replaces the desktop selection count only for visible edit progress and restores it on success", () => {
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore();
+    const ids = ["first", "second"];
+    useSelectionStore.setState({ selectedIds: new Set(ids) });
+    const items: MetadataSave["items"] = ids.map(imageId => ({ imageId, state: "unchanged", observation: "observed" }));
+    const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", targetIds: ids, action: "overwrite", value: "Desk" }, state: "saving", excluded: 0, items: items.slice(0, 1) };
+    try {
+      render(<MetadataEditorContext value={editor}><StatusBar /></MetadataEditorContext>);
+      const count = () => screen.queryByRole("status", { name: "2 selected" });
+      const deselect = screen.getByRole("button", { name: "Deselect" });
+      expect(count()?.nextElementSibling?.nextElementSibling).toBe(deselect);
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(ids) }], saves: new Map([[1, save]]) }));
+      expect(count()).toBeTruthy();
+      act(() => vi.advanceTimersByTime(1500));
+      expect(count()).toBeNull();
+      expect(screen.getByRole("progressbar").textContent).toContain("Updating Credit: 1/2");
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished", items }]]) }));
+      expect(count()?.nextElementSibling?.nextElementSibling).toBe(deselect);
+      expect(screen.queryByRole("progressbar")).toBeNull();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it.each([false, true])("shows focused-image save status without selection controls, compact=%s", compact => {
+    shell.compact = compact;
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore();
+    const ids = ["focused"];
+    const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", targetIds: ids, action: "overwrite", value: "Desk" }, state: "saving", excluded: 0, items: [] };
+    try {
+      render(<MetadataEditorContext value={editor}><PanelLayout rightPanel={<div>Metadata</div>}><StatusBar /></PanelLayout></MetadataEditorContext>);
+      const idle = () => {
+        expect(screen.queryByRole("status", { name: "0 selected" })).toBeNull();
+        expect(screen.queryByRole("region", { name: "Details" })).toBeNull();
+        expect(screen.queryByRole("progressbar")).toBeNull();
+      };
+      idle();
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(ids) }], saves: new Map([[1, save]]) }));
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuemax")).toBe("1");
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished", message: "Rejected" }]]) }));
+      expect(screen.getByRole("button", { name: "1 issue" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Deselect|Clear selection|selected .*actions/i })).toBeNull();
+      expect(screen.queryByRole("group", { name: "Image actions" })).toBeNull();
+      const repair: MetadataSave = { ...save, id: 2, state: "finished", items: [{ imageId: ids[0], state: "unchanged", observation: "observed" }] };
+      act(() => editor.setState(state => ({ panelSaves: [{ id: 2, targetKey: labelTargetKey(ids) }, ...state.panelSaves], saves: new Map(state.saves).set(2, repair) })));
+      expect(screen.queryByRole("button", { name: "1 issue" })).toBeNull();
+      idle();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
   it("keeps pending action styling steady while blocking preparation immediately", () => {
     const view = render(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: true }], api: true, archive: true }} />);
     const button = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
@@ -102,7 +159,7 @@ describe("StatusBar AI totals", () => {
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect(button.style.opacity).toBe("0.4");
     fireEvent.click(button);
-    expect(useImageActionStore.getState().prepared).toEqual([]);
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
     view.rerender(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: false }], api: true, archive: true }} />);
     expect(button.disabled).toBe(true);
     expect(button.getAttribute("aria-busy")).toBeNull();
@@ -123,59 +180,22 @@ describe("StatusBar AI totals", () => {
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect(button.style.opacity).toBe("0.4");
     fireEvent.click(button);
-    expect(useImageActionStore.getState().prepared).toEqual([]);
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
     view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("new", false)], api: true, archive: true }} />);
     expect(button.disabled).toBe(false);
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect(button.style.opacity).toBe("");
   });
 
-  it("captures a disconnected Share in the existing activity panel", () => {
+  it("reports a disconnected Share without exposing captured targets", () => {
     useSelectionStore.setState({ selectedIds: new Set(["share-first", "share-second"]) });
-    render(<><StatusBar /><LabelOperationReceipts /></>);
+    render(<><StatusBar /><ToastContainer /></>);
     fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
     expect(screen.getByText("Not sent - Share with URL")).toBeTruthy();
     act(() => useSelectionStore.setState({ selectedIds: new Set(["later-selection"]) }));
-    expect(screen.getByText(/"share-first"/)).toBeTruthy();
-    expect(screen.getByText(/"share-second"/)).toBeTruthy();
-    const dismiss = screen.getByRole("button", { name: "Dismiss Share with URL preview" });
-    dismiss.focus();
-    fireEvent.click(dismiss);
-    expect(screen.queryByText("Not sent - Share with URL")).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Share with URL" }));
-  });
-
-  it("falls back to the toolbar when a preview's return control is now disabled", () => {
-    const target = { id: "first", image: { id: "first", uploadTime: "", uploadedBy: "", metadata: {},
-      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
-      overlay: { actions: [{ name: "delete", href: "https://api.example.test/images/first", method: "DELETE" as const }] } };
-    const content = (pending: boolean) => <><header role="toolbar"><a href="/search">Grid</a></header>
-      <ImageActions actions={["delete"]} context={{ targets: [{ ...target, pending }], api: true, archive: true }} /><LabelOperationReceipts /></>;
-    const view = render(content(false));
-    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-    fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
-    view.rerender(content(true));
-    const fallback = screen.getByRole("link", { name: "Grid" });
-    const rects = vi.spyOn(fallback, "getClientRects").mockReturnValue([new DOMRect(0, 0, 44, 44)] as unknown as DOMRectList);
-    try {
-      const dismiss = screen.getByRole("button", { name: "Dismiss Delete preview" });
-      dismiss.focus();
-      fireEvent.click(dismiss);
-      expect(document.activeElement).toBe(fallback);
-    } finally { rects.mockRestore(); }
-  });
-
-  it("retains open activity details when another disconnected preview is prepared", () => {
-    useSelectionStore.setState({ selectedIds: new Set(["share-first"]) });
-    render(<><StatusBar /><LabelOperationReceipts /></>);
-    const share = screen.getByRole("button", { name: "Share with URL" });
-    fireEvent.click(share);
-    const activity = screen.getByRole("complementary", { name: "Image activity" });
-    const details = within(activity).getByText("Details").closest("details")!;
-    details.open = true;
-    fireEvent.click(share);
-    expect(details.isConnected).toBe(true);
-    expect(details.open).toBe(true);
+    expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["share-first", "share-second"] }));
+    expect(screen.queryByText(/"share-first"/)).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Image activity" })).toBeNull();
   });
 
   it("requires a second Delete activation and disarms when the detail target changes", () => {
@@ -190,7 +210,7 @@ describe("StatusBar AI totals", () => {
     expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
-    expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
+    expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["second"] }));
   });
 
   it.each([false, true])("keeps explicit action controls independent of unrelated stores, compact=%s", async compact => {
@@ -221,23 +241,24 @@ describe("StatusBar AI totals", () => {
       expect(commits).toHaveBeenCalledTimes(settled);
       expect(document.activeElement).toBe(confirm);
       fireEvent.click(confirm);
-      expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["detail"]);
+      expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["detail"] }));
     } finally { useEnrichmentStore.setState(enrichment, true); }
   });
 
   it("keeps selection actions live and rechecks membership at activation", () => {
+    const editor = createMetadataEditorStore();
     const enrichment = useEnrichmentStore.getState();
     const archive = vi.spyOn(gridApi, "serviceLink").mockResolvedValue(undefined);
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     try {
       useSelectionStore.setState({ selectedIds: new Set(["first"]), isRangeWalking: false });
-      render(<SelectionImageActions actions={["share", "delete"]} />);
+      render(<MetadataEditorContext value={editor}><SelectionImageActions actions={["share", "delete", "download"]} /></MetadataEditorContext>);
       const share = screen.getByRole("button", { name: "Share with URL" });
       act(() => {
         useSelectionStore.setState({ selectedIds: new Set(["second"]) });
         fireEvent.click(share);
       });
-      expect(useImageActionStore.getState().prepared.at(-1)?.targetIds).toEqual(["second"]);
+      expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["second"] }));
       act(() => useSelectionStore.setState({ isRangeWalking: true }));
       expect((share as HTMLButtonElement).disabled).toBe(true);
       act(() => useSelectionStore.setState({ isRangeWalking: false }));
@@ -249,12 +270,21 @@ describe("StatusBar AI totals", () => {
         imagePositions: new Map([["second", 0]]), bufferOffset: 0 }));
       act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [
         { name: "delete", href: "https://api.example.test/images/second", method: "DELETE" as const },
-      ] }]]) }));
+      ], resource: { links: [{ rel: "download", href: "/download/second" }] } }]]) }));
       expect(remove.disabled).toBe(false);
+      const download = screen.getByRole("button", { name: "Download" }) as HTMLButtonElement;
+      expect(download.disabled).toBe(false);
+      const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", action: "overwrite", value: "Desk", targetIds: ["second"] },
+        state: "saving", items: [], excluded: 0 };
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(["second"]) }], saves: new Map([[1, save]]) }));
+      expect(download.disabled).toBe(true);
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished" }]]) }));
+      expect(download.disabled).toBe(false);
       act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [] }]]) }));
       expect(remove.disabled).toBe(true);
     } finally {
       archive.mockRestore();
+      editor.getState().dispose();
       vi.unstubAllEnvs();
       useEnrichmentStore.setState(enrichment, true);
     }

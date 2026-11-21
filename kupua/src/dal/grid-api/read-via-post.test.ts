@@ -120,6 +120,9 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
         const hostname = service === "loader" ? "loader.media" : `media-${service}`;
         expect(proxy).toMatchObject({ target: `https://${hostname}.${environment}.dev-gutools.co.uk`, followRedirects: false,
           headers: { Origin: "https://media.local.dev-gutools.co.uk" } });
+        if (prefix === "/grid-local-metadata") {
+          expect(proxy).toMatchObject({ agent: { keepAlive: true }, headers: { Connection: "keep-alive" } });
+        } else expect(proxy).not.toHaveProperty("agent");
         const fixedGuard = server.middlewares.stack.find(entry => entry.route === prefix)?.handle as Connect.NextHandleFunction;
         expect(fixedGuard).toBeDefined();
         next.mockClear();

@@ -16,6 +16,7 @@ interface ImageFact {
   floor?: number;
   acceptedRead: number;
   authorityRead: number;
+  editsHref?: string;
   projection?: string;
   metadataWitness?: string | null;
   availability?: { state: NonNullable<Image["__availability"]>; issued: number };
@@ -39,6 +40,12 @@ export function getOrderingRevision(): number { return orderingRevision; }
 export function hasOrderingUncertainty(): boolean { return facts.size > 0; }
 
 export function getImageAvailability(id: string): Image["__availability"] { return facts.get(id)?.availability?.state; }
+
+export function retainsEditGrant(id: string, resource: NonNullable<EnrichmentFields["resource"]>): boolean {
+  const fact = facts.get(id);
+  const href = resource.links.find(link => link.rel === "edits")?.href;
+  return Boolean(href && (!fact || !fact.availability && (fact.authorityRead <= getImageReadSequence(resource) || fact.editsHref === href)));
+}
 
 export function recordImageAvailability(ids: readonly string[], state: NonNullable<Image["__availability"]>): void {
   const unique = new Set(ids);
@@ -71,11 +78,13 @@ export function stampImageRead(image: Image, overlay: EnrichmentFields | undefin
   if (overlay?.resource) evidence.set(overlay.resource, stamp);
 }
 
-export function isLabelAuthorityCurrent(id: string, resource: NonNullable<EnrichmentFields["resource"]>): boolean {
+export function isLabelAuthorityCurrent(id: string, resource: NonNullable<EnrichmentFields["resource"]>, captured = false): boolean {
   const fact = facts.get(id);
   if (!fact) return true;
   if (fact.availability) return false;
   if (!fact.operation && !fact.authorityRead && !fact.hasFloor) return true;
+  if (captured && fact.editsHref && fact.authorityRead >= Math.max(fact.operation, fact.acceptedRead)
+    && fact.editsHref === resource.links.find(link => link.rel === "edits")?.href) return true;
   const stamp = evidence.get(resource);
   return Boolean(stamp && stamp.issued >= Math.max(fact.operation, fact.authorityRead)
     && (!fact.hasFloor || stamp.issued === fact.acceptedRead
@@ -100,7 +109,7 @@ export function fullProjectionMatches(full: Image, lean: Image): boolean {
 
 export function withholdImageAuthority(id: string): void {
   const fact = facts.get(id);
-  if (fact) fact.authorityRead = ++sequence;
+  if (fact) { fact.authorityRead = ++sequence; fact.editsHref = undefined; }
 }
 
 export function watchQueuedLabelTargets(ids: readonly string[]): (() => void) | undefined {
@@ -257,11 +266,13 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
   const stamp = evidence.get(overlay);
   if (!stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead)) return current ?? unavailableAuthority;
   fact.authorityRead = stamp.issued;
+  fact.editsHref = undefined;
   if (fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)) {
     const withheld = { ...overlay, resource: { links: [] }, actions: [] };
     evidence.set(withheld, stamp);
     return withheld;
   }
+  fact.editsHref = overlay.resource?.links.find(link => link.rel === "edits")?.href;
   return overlay;
 }
 

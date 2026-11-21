@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createLabelOperation, type LabelTarget } from "./label-operation";
+import { createLabelOperation } from "./label-operation";
+import { type MetadataEditTarget } from "./metadata-edit-execution";
 import type { LabelCommand } from "./grid-commands";
 import type { GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
-import { acceptImageOverlay, admitLabelObservation, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
+import { acceptImageOverlay, acceptImageRead, admitLabelObservation, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
 import { attachEnrichment } from "@/stores/enrichment-store";
 import { createMetadataOperation } from "./metadata-operation";
 import { BATCH_POLICY } from "./batch-execution";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
-const targets = new Map<string, LabelTarget>([["first", { resource }]]);
+const targets = new Map<string, MetadataEditTarget>([["first", { resource }]]);
 const observedImage = (imageId = "first", label = "news"): Image => ({
   id: imageId, uploadTime: "2026-11-01T00:00:00Z", uploadedBy: "fixture",
   source: { mimeType: "image/jpeg", dimensions: { width: 400, height: 300 } },
@@ -20,7 +21,7 @@ const observedImage = (imageId = "first", label = "news"): Image => ({
 beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API", "true"); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
-describe("disconnected label operation", () => {
+describe("metadata edit execution", () => {
   it("retains shared capacity reservations until every queued owner releases them", () => {
     recordImageAvailability(Array.from({ length: BATCH_POLICY.maxTouchedImages - 1 }, (_, index) => `unavailable-${index}`), "unavailable");
     const first = watchQueuedLabelTargets(["shared"])!;
@@ -53,6 +54,89 @@ describe("disconnected label operation", () => {
     } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
   });
 
+  it.each(["deadline", "failed", "exhausted"])("preserves Byline authority when an older standalone Credit read ends (%s)", async end => {
+    vi.useFakeTimers();
+    const credit = { ...observedImage(), metadata: { credit: "A" } };
+    const byline = { ...observedImage(), metadata: { credit: "A", byline: "B" } };
+    const creditGrant = { resource: structuredClone(resource) };
+    const bylineGrant = { resource: structuredClone(resource) };
+    attachEnrichment(credit, creditGrant);
+    attachEnrichment(byline, bylineGrant);
+    let release!: (image: Image | undefined) => void;
+    const owner = { imageId: credit.id, isCurrent: () => true, unavailable: vi.fn(),
+      read: vi.fn(() => new Promise<Image | undefined>(resolve => { release = resolve; })) };
+    const earlier = createMetadataOperation(async () => ({ outcome: "acknowledged", expected: { credit: "A" } }),
+      { readImages: async () => [credit], publishImages: vi.fn(), standalone: () => owner });
+    const later = createMetadataOperation(async () => ({ outcome: "acknowledged", expected: { byline: "B" } }),
+      { readImages: async () => [byline], publishImages: vi.fn() });
+    try {
+      await earlier.confirm({ fieldId: "metadata_credit", action: "overwrite", value: "A", targetIds: [credit.id] }, targets);
+      expect(owner.read).toHaveBeenCalledOnce();
+      const heldFull = { ...credit };
+      stampImageRead(heldFull, undefined, captureImageRead(), "full");
+      await later.confirm({ fieldId: "metadata_byline", action: "overwrite", value: "B", targetIds: [credit.id] }, new Map([[credit.id, creditGrant]]));
+      expect(later.getSnapshot()?.items[0].observation).toBe("observed");
+      if (end === "failed") release(undefined);
+      if (end === "exhausted") release(heldFull);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationWindowMs);
+      expect(owner.unavailable).not.toHaveBeenCalled();
+      expect(earlier.getSnapshot()?.items[0].observation).toBe("superseded");
+      expect(owner.read).toHaveBeenCalledOnce();
+      expect(isLabelAuthorityCurrent(credit.id, bylineGrant.resource)).toBe(true);
+    } finally { release?.(undefined); earlier.cancelObservation(); later.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it("does not reactivate a captured label grant left unresolved by an intervening edit", async () => {
+    let activate!: () => void;
+    const execute = vi.fn().mockResolvedValue({ outcome: "unknown" });
+    const waiting = createLabelOperation(execute, undefined, "connected", {
+      wait: new Promise<void>(resolve => { activate = resolve; }), pacing: { nextStart: 0 },
+    });
+    const done = waiting.confirm(intent, targets);
+    const intervening = createLabelOperation(async () => ({ outcome: "acknowledged" }), {
+      readImages: async () => [observedImage()], publishImages: vi.fn(),
+    });
+    await intervening.confirm(intent, targets);
+    activate();
+    await done;
+    expect(waiting.getSnapshot()?.blocked).toBe("capabilities");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it("refuses a queued label when the standalone full result withdraws its lean grant", async () => {
+    const lean = observedImage();
+    const grant = { resource: structuredClone(resource) };
+    attachEnrichment(lean, grant);
+    const full = observedImage();
+    const denied = { resource: { links: [] } };
+    let finishFull!: () => void;
+    const owner = { imageId: lean.id, isCurrent: () => true, unavailable: vi.fn(),
+      read: () => new Promise<Image>(resolve => {
+        stampImageRead(full, denied, captureImageRead(), "full");
+        attachEnrichment(full, denied);
+        finishFull = () => resolve(full);
+      }) };
+    const first = createLabelOperation(async () => ({ outcome: "acknowledged" }), {
+      readImages: async () => [lean], publishImages: vi.fn(), standalone: () => owner,
+    }, "connected");
+    let activate!: () => void;
+    const execute = vi.fn().mockResolvedValue({ outcome: "rejected" });
+    const waiting = createLabelOperation(execute, undefined, "connected", {
+      wait: new Promise<void>(resolve => { activate = resolve; }), pacing: { nextStart: 0 },
+    });
+    try {
+      await first.confirm(intent, targets);
+      const done = waiting.confirm({ ...intent, label: "later" }, new Map([[lean.id, grant]]));
+      finishFull();
+      await Promise.resolve();
+      expect(first.getSnapshot()?.items[0].observation).toBe("observed");
+      activate();
+      await done;
+      expect(waiting.getSnapshot()?.blocked).toBe("capabilities");
+      expect(execute).not.toHaveBeenCalled();
+    } finally { finishFull?.(); activate(); first.cancelObservation(); }
+  });
+
   it("continues partial-coverage removal after an unchanged target and observes both images", async () => {
     vi.useFakeTimers();
     const ids = ["first", "second"];
@@ -71,6 +155,33 @@ describe("disconnected label operation", () => {
     } finally { operation.stopRemaining(); operation.cancelObservation(); await completion; vi.useRealTimers(); }
   });
 
+  it.each(["connected", "simulated"] as const)("keeps observing after a matching read is rejected as stale (%s)", async mode => {
+    vi.useFakeTimers();
+    const baseline = observedImage("first", "other");
+    const stale = observedImage();
+    stale.userMetadata!.lastModified = "2026-11-05T00:00:00Z";
+    const current = observedImage();
+    current.userMetadata!.lastModified = "2026-11-07T00:00:00Z";
+    const readImages = vi.fn().mockImplementationOnce(async () => {
+      stampImageRead(baseline, undefined, captureImageRead(), "lean");
+      expect(acceptImageRead(baseline)).toBe(baseline);
+      return [stale];
+    }).mockResolvedValue([current]);
+    const execute = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const publishImages = vi.fn();
+    const operation = createLabelOperation(execute, { readImages, publishImages }, mode);
+    try {
+      await operation.confirm(intent, targets);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(publishImages).not.toHaveBeenCalled();
+      expect(operation.getSnapshot()?.items[0].observation).toBe("pending");
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+      expect(operation.getSnapshot()?.items[0].observation).toBe("observed");
+      expect(execute).toHaveBeenCalledOnce();
+    } finally { operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
   it("observes 100 targets including visibility delayed after the last acknowledgement", async () => {
     vi.useFakeTimers();
     const ids = Array.from({ length: 100 }, (_, index) => `batch-${index}`);
@@ -86,6 +197,7 @@ describe("disconnected label operation", () => {
     const completion = operation.confirm({ ...intent, targetIds: ids }, new Map(ids.map(id => [id, { resource }])));
     try {
       await vi.advanceTimersByTimeAsync((ids.length - 1) * BATCH_POLICY.speed.startIntervalMs + 3_999);
+      expect(operation.getSnapshot()?.items.filter(item => item.observation === "observed")).toHaveLength(99);
       expect(operation.getSnapshot()?.items.at(-1)?.observation).toBe("pending");
       await vi.advanceTimersByTimeAsync(1);
       await completion;
@@ -149,8 +261,9 @@ describe("disconnected label operation", () => {
       return new Promise<GridCommandResult>(resolve => releases.push(resolve));
     });
     const operation = createLabelOperation(executor, undefined, "connected");
-    const ids = Array.from({ length: 9 }, (_, index) => `target-${index}`);
+    const ids = Array.from({ length: 10 }, (_, index) => `target-${index}`);
     const input = { ...intent, targetIds: [...ids] };
+    const releaseReservation = watchQueuedLabelTargets(ids)!;
     const completion = operation.confirm(input, new Map(input.targetIds.map(imageId => [imageId, { resource }])));
     try {
       input.targetIds.splice(0, ids.length, "changed");
@@ -162,21 +275,27 @@ describe("disconnected label operation", () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(executor).toHaveBeenCalledTimes(9);
       expect(starts[1] - starts[0]).toBe(0);
-      expect(executor.mock.calls.map(call => call[0].imageId)).toEqual(ids);
+      expect(executor.mock.calls.map(call => call[0].imageId)).toEqual(ids.slice(0, 9));
+      const denied = { resource: { links: [] } };
+      stampImageRead(observedImage(ids[9]), denied, captureImageRead(), "lean");
+      acceptImageOverlay(ids[9], denied);
       releases[1]({ outcome: "unknown" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(executor).toHaveBeenCalledTimes(9);
       releases[2]({ outcome: "acknowledged" });
       releases[3]({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
       for (const release of releases.slice(4)) release({ outcome: "acknowledged" });
       await completion;
       expect(operation.getSnapshot()?.items.map(item => item.state)).toEqual([
         "rejected", "unknown", "accepted-awaiting-visibility", "rejected",
-        ...ids.slice(4).map(() => "accepted-awaiting-visibility"),
+        ...ids.slice(4, 9).map(() => "accepted-awaiting-visibility"), "not-started",
       ]);
     } finally {
       operation.stopRemaining();
       for (const release of releases) release({ outcome: "unknown" });
       await vi.runAllTimersAsync();
       await completion;
+      releaseReservation();
       vi.useRealTimers();
     }
   });

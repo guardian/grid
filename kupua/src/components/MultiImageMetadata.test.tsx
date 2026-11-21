@@ -10,13 +10,16 @@ import { LOCATION_COMPONENTS, MetadataLocationEditor } from "./MetadataLocationE
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
 import { FORM_METADATA_FIELDS, ImageMetadata } from "./ImageMetadata";
-import { LabelEditor, LabelEditorContext, LabelOperationReceipts } from "./LabelEditor";
+import { EditLifecycle, LabelEditor, LabelEditorContext, SelectedEditStatus } from "./LabelEditor";
+import { useSelectionStore } from "@/stores/selection-store";
+import { useSearchStore } from "@/stores/search-store";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
-import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext } from "./MetadataEditing";
+import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext, SelectionSaveIndicator } from "./MetadataEditing";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
-import { createMetadataEditorStore } from "@/stores/metadata-editor-store";
+import { useToastStore } from "@/stores/toast-store";
+import { createMetadataEditorStore, type MetadataSave } from "@/stores/metadata-editor-store";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { CostBadge, CostBadgeFromCost } from "./CostBadge";
 import { useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
@@ -29,11 +32,11 @@ const fixture = vi.hoisted(() => {
   vi.stubGlobal("matchMedia", vi.fn(() => ({
     matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
   })));
-  return { updateSearch: vi.fn(), cancelDebounce: vi.fn() };
+  return { updateSearch: vi.fn(), cancelDebounce: vi.fn(), reveal: vi.fn() };
 });
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => ({ query: "credit:Reuters" }) }));
 vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => fixture.updateSearch }));
-vi.mock("@/lib/orchestration/search", () => ({ cancelSearchDebounce: fixture.cancelDebounce }));
+vi.mock("@/lib/orchestration/search", () => ({ cancelSearchDebounce: fixture.cancelDebounce, scrollFocusedIntoView: fixture.reveal }));
 
 const partialKeywords = Array.from({ length: 25 }, (_, i) => `partial-${i}`);
 const configuredImageTypes = [...gridConfig.imageTypes];
@@ -45,6 +48,7 @@ function fieldRow(label: string) {
 }
 
 beforeEach(async () => {
+  useToastStore.getState()._clearAll();
   useMetadataDrafts.setState({ drafts: new Map() });
   resetImageFreshnessForTests();
   vi.clearAllMocks();
@@ -97,9 +101,48 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
+  it("closes Details Credit on admission without an inline save receipt", () => {
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+    const targets = images.map(image => image.id);
+    try {
+      render(<MetadataEditorContext value={editor}><dl><MetadataTextEditor field={field} targetIds={targets} value="Old">Old</MetadataTextEditor></dl>
+        <SelectionSaveIndicator targetKey={labelTargetKey(targets)} /><EditLifecycle /></MetadataEditorContext>);
+      fireEvent.click(screen.getByRole("button", { name: "Edit Credit" }));
+      fireEvent.change(screen.getByLabelText("Credit", { selector: "input" }), { target: { value: "Desk" } });
+      fireEvent.click(screen.getByRole("button", { name: "Commit Credit" }));
+      expect([...editor.getState().saves.values()].map(save => save.intent.targetIds)).toEqual([targets]);
+      expect(screen.queryByLabelText("Credit", { selector: "input" })).toBeNull();
+      expect(within(fieldRow("Credit")).getByText("Desk")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Edit Credit" }).hasAttribute("disabled")).toBe(true);
+      expect(within(fieldRow("Credit")).queryByText(/Queued:|Saving:|Finished:/)).toBeNull();
+      expect(screen.queryByRole("complementary", { name: "Image activity" })).toBeNull();
+      expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
+      act(() => vi.advanceTimersByTime(1500));
+      const meter = screen.getByRole("progressbar", { name: "Updating selected images" });
+      expect(meter.textContent).toBe("Updating Credit: 0/2");
+      const save = [...editor.getState().saves.values()][0];
+      act(() => editor.setState({ saves: new Map([[save.id, { ...save, items: [
+        { imageId: targets[0], state: "unchanged", observation: "observed" },
+        { imageId: targets[1], state: "accepted-awaiting-visibility", observation: "pending" },
+      ] }]]) }));
+      expect(meter.textContent).toBe("Updating Credit: 1/2");
+      expect(meter.getAttribute("aria-valuetext")).toBe("1 of 2 confirmed");
+      expect(meter.querySelector("button")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Stop remaining/ })).toBeNull();
+      act(() => editor.getState().stop(save.id));
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
+      expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
+      expect(within(fieldRow("Credit")).getByText("Old")).toBeTruthy();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
   it("shows progress independently for both accepted batch arrows while they wait", () => {
     const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
     render(<MetadataEditorContext value={editor}>
+      <EditLifecycle />
       <FormBatchContext value={{ key: "batch", ids: ["source", "peer"], processing: 0 }}>
         <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
         <MetadataBatchArrow imageId="source" fieldId="metadata_byline" label="Byline" value="Author" disabled={false} />
@@ -108,6 +151,7 @@ describe("metadata field preparation", () => {
     try {
       fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch images" }));
       fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 batch images" }));
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
       for (const label of ["Credit", "Byline"]) {
         const progress = screen.getByRole("button", { name: `Applying ${label}...` });
         expect(progress.querySelector("circle")).not.toBeNull();
@@ -117,6 +161,34 @@ describe("metadata field preparation", () => {
       fireEvent.click(screen.getByRole("button", { name: "Applying Credit..." }));
       expect(screen.getByRole("button", { name: "Stop batch save" })).toBeTruthy();
     } finally { editor.getState().dispose(); }
+  });
+
+  it("opens uncertain batch arrow details without replay when the value was observed", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const execute = vi.fn().mockResolvedValue({ outcome: "unknown", expected: { credit: "Desk" } });
+    const editor = createMetadataEditorStore(execute, {
+      readImages: async () => {
+        const image = { ...images[0], metadata: { credit: "Desk" }, userMetadata: { lastModified: new Date(Date.now()).toISOString() } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${image.id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
+        return [image];
+      }, publishImages: vi.fn(),
+    });
+    try {
+      render(<MetadataEditorContext value={editor}>
+        <FormBatchContext value={{ key: "batch", ids: ["source", images[0].id], processing: 0 }}>
+          <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
+        </FormBatchContext>
+      </MetadataEditorContext>);
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch images" }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect([...editor.getState().saves.values()][0]).toMatchObject({ state: "finished", items: [{ state: "unknown", observation: "observed" }] });
+      fireEvent.click(screen.getByRole("button", { name: "Credit edit needs attention" }));
+      expect(screen.getByText(/1\/1 visible; 1 uncertain/)).toBeTruthy();
+      expect(editor.getState().saves.size).toBe(1);
+      expect(execute).toHaveBeenCalledOnce();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
   });
 
   it("bounds retained confirmations and disposes held reads without starting more work", async () => {
@@ -458,7 +530,6 @@ describe("metadata field preparation", () => {
     vi.useFakeTimers();
     const queue = createBatchQueue();
     const blocker = queue.admit()!;
-    const waiter = queue.admit()!;
     let credit = "Original";
     let release!: () => void;
     const execute = vi.fn(async (command: { imageId: string; value?: unknown }): Promise<GridCommandResult> => {
@@ -483,10 +554,13 @@ describe("metadata field preparation", () => {
     try {
       change("First draft");
       await vi.advanceTimersByTimeAsync(600);
+      expect(queue.admit()).toBeUndefined();
       change("Replacement draft");
-      await vi.advanceTimersByTimeAsync(600);
+      editor.getState().flush(images[0].id, "metadata_credit");
+      const waiter = queue.admit();
+      expect(waiter).toBeDefined();
       expect(execute).not.toHaveBeenCalled();
-      blocker.complete(); waiter.complete();
+      blocker.complete(); waiter!.complete();
       await vi.advanceTimersByTimeAsync(0);
       expect(execute).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ value: "Replacement draft" }));
       change("Original");
@@ -759,6 +833,44 @@ describe("metadata field preparation", () => {
     expect(screen.getByRole("button", { name: "Edit Title" }).hasAttribute("disabled")).toBe(true);
   });
 
+  it("keeps selected field rows and their reading content through a pending Credit publication", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const selected = images.map((image, index) => ({ ...image, metadata: { description: "A longer caption", credit: "Old", keywords: index ? [] : ["City"] } }));
+    const ids = selected.map(image => image.id);
+    const reconciled = recomputeAll(selected, RECONCILE_FIELDS);
+    reconciled.set("labels", { kind: "chip-array", total: ids.length, chips: [{ value: "News", count: 1 }] });
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    const view = (pending: boolean) => <MetadataEditorContext value={editor}><MultiImageMetadata images={selected} total={2}
+      labelEditing={{ targetIds: ids, targets: new Map(), pending }} reconciledView={reconciled} /></MetadataEditorContext>;
+    try {
+      const { container, rerender } = render(view(false));
+      const headings = () => [...container.querySelectorAll("dt")].map(node => node.textContent);
+      const before = headings();
+      const reading = () => ["People", "Collections", "Keywords", "Location"].map(label => fieldRow(label).textContent);
+      const initialReading = reading();
+      fireEvent.click(screen.getByRole("button", { name: "Edit Credit" }));
+      fireEvent.change(screen.getByLabelText("Credit", { selector: "input" }), { target: { value: "New" } });
+      fireEvent.click(screen.getByRole("button", { name: "Commit Credit" }));
+      act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
+      rerender(view(true));
+      expect(headings()).toEqual(before);
+      expect(reading()).toEqual(initialReading);
+      expect(fieldRow("Description").textContent).toContain("A longer caption");
+      expect(screen.getByRole("button", { name: "Edit Description" }).hasAttribute("disabled")).toBe(true);
+      expect(screen.getByRole("button", { name: "Add keyword" }).hasAttribute("disabled")).toBe(false);
+      expect(screen.getByRole("button", { name: "Remove City from all selected images" }).hasAttribute("disabled")).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Apply City to all selected images" }));
+      expect([...editor.getState().saves.values()].at(-1)?.intent).toMatchObject({ fieldId: "metadata_keywords", action: "add", value: "City", targetIds: ids });
+      expect(screen.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(false);
+      fireEvent.click(screen.getByRole("button", { name: "Apply News to all selected images" }));
+      expect([...editor.getState().saves.values()].at(-1)?.intent).toMatchObject({ fieldId: "labels", action: "add", value: "News", targetIds: ids });
+      const save = [...editor.getState().saves.values()][0];
+      act(() => editor.setState(state => ({ saves: new Map(state.saves).set(save.id, { ...save, state: "finished", items: ids.map(imageId => ({ imageId, state: "accepted-awaiting-visibility", observation: "observed" })) }) })));
+      expect(fieldRow("Credit").textContent).toContain("New");
+      expect(headings()).toEqual(before);
+    } finally { editor.getState().dispose(); }
+  });
+
   it("preserves the original offset when editing the repeated local hour", () => {
     vi.stubEnv("TZ", "Europe/London");
     expect(new Date("2026-10-25T01:31").getTimezoneOffset()).toBe(-60);
@@ -895,7 +1007,7 @@ describe("metadata field preparation", () => {
     fireEvent.change(screen.getByLabelText("City"), { target: { value: "London" } });
     fireEvent.keyDown(screen.getByLabelText("City"), { key: "Enter" });
     expect(prepare).toHaveBeenCalledWith({ fieldId: "location", action: "overwrite", value: { city: "London" }, targetIds: ["first", "second"] });
-    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Location change prepared for 2 images.");
     fireEvent.click(screen.getByRole("button", { name: "Cancel Location" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Location" }));
     expect(screen.queryByRole("button", { name: "Clear City" })).not.toBeNull();
@@ -1054,14 +1166,14 @@ describe("metadata field preparation", () => {
     }
     fireEvent.click(screen.getByRole("radio", { name: "Overwrite" }));
     fireEvent.click(commit);
-    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Description change prepared for 2 images.");
     fireEvent.click(screen.getByRole("button", { name: "Cancel Description" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Description" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Description" }), { target: { value: "New description" } });
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Description" }), { key: "Enter" });
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(useToastStore.getState().queue).toHaveLength(1);
     fireEvent.keyDown(screen.getByRole("textbox", { name: "Description" }), { key: "Enter", metaKey: true });
-    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(useToastStore.getState().queue).toHaveLength(2);
   });
 
   it("prepares collection removal without changing canonical memberships", () => {
@@ -1074,7 +1186,7 @@ describe("metadata field preparation", () => {
     expect(within(row).getByText("Editorial")).toBeTruthy();
     expect(within(row).getByText("News")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: "Remove editorial/news from all selected images" }));
-    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Remove collection prepared for 2 images.");
     expect(selected[0].collections).toHaveLength(1);
     expect(within(row).getByRole("button", { name: "Apply editorial/news to all selected images" }).title).toContain("all 2 images");
     fireEvent.click(screen.getByRole("button", { name: "Add keyword" }));
@@ -1115,7 +1227,7 @@ describe("metadata field preparation", () => {
     fireEvent.change(input, { target: { value: "" } });
     expect(commit.hasAttribute("disabled")).toBe(false);
     fireEvent.click(commit);
-    expect(screen.getByRole("status").textContent).toContain("Not sent");
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Description change prepared for 2 images.");
     expect(shared.every(image => image.metadata.description === "Shared description")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Cancel Description" }));
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit Description" }));
@@ -1158,9 +1270,10 @@ describe("disconnected label editing", () => {
       expect(store.getState().refusal).toBe("busy");
       expect(executor).toHaveBeenCalledTimes(1);
       expect(store.getState().receipts[1].items[0].state).toBe("queued");
-      render(<LabelEditorContext value={store}><LabelOperationReceipts /></LabelEditorContext>);
-      expect(screen.getAllByRole("progressbar", { name: "Label operation progress" })).toHaveLength(2);
-      fireEvent.click(screen.getByRole("button", { name: "Stop remaining" }));
+      render(<LabelEditorContext value={store}><EditLifecycle /></LabelEditorContext>);
+      expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
+      expect(screen.queryByRole("button", { name: "Stop remaining" })).toBeNull();
+      act(() => store.getState().stopRemaining(1));
       expect(store.getState().receipts[1].items[0].state).toBe("stopped");
       await act(async () => { release({ outcome: "unknown" }); });
       expect(executor).toHaveBeenCalledTimes(1);
@@ -1177,16 +1290,16 @@ describe("disconnected label editing", () => {
     const targets = new Map();
     const getTarget = vi.spyOn(targets, "get");
     expect(store.getState().prepare("add", "news", {
-      targetIds: Array.from({ length: 5_001 }, (_, index) => `image-${index}`), targets,
+      targetIds: Array.from({ length: BATCH_POLICY.maxTouchedImages + 1 }, (_, index) => `image-${index}`), targets,
     })).toBe(false);
-    expect(store.getState().refusal).toBe("target-limit");
+    expect(store.getState().refusal).toBe("freshness-capacity");
     expect(getTarget).not.toHaveBeenCalled();
     expect(executor).not.toHaveBeenCalled();
     render(<LabelEditorContext value={store}><MultiImageMetadata images={images} total={101}
       reconciledView={recomputeAll(images, RECONCILE_FIELDS)} labelEditing={{
         targetIds: Array.from({ length: 101 }, (_, index) => `image-${index}`), targets,
       }} /></LabelEditorContext>);
-    expect(screen.getByText("Select at most 100 images to edit labels.")).toBeTruthy();
+    expect(screen.queryByText(/at most 100 images/)).toBeNull();
     expect(screen.getByRole("button", { name: "Add label" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Edit Title" }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("button", { name: "Add keyword" }).hasAttribute("disabled")).toBe(true);
@@ -1194,7 +1307,7 @@ describe("disconnected label editing", () => {
     store.getState().dispose();
   });
 
-  it("shows every bounded connected target outcome, including failures beyond the old preview", async () => {
+  it("records the connected target failure beyond the first eight images", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.useFakeTimers();
     const executor = vi.fn(async (command: LabelCommand): Promise<GridCommandResult> => command.imageId === "image-8"
@@ -1206,9 +1319,7 @@ describe("disconnected label editing", () => {
         resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${imageId}` }] },
       }])) });
       await vi.advanceTimersByTimeAsync(2_000);
-      render(<LabelEditorContext value={store}><LabelOperationReceipts /></LabelEditorContext>);
-      fireEvent.click(screen.getByText("Details", { selector: "summary" }));
-      expect(screen.getByText(/ninth-rejection/).textContent).toContain('"imageId": "image-8"');
+      expect(store.getState().receipts[0].items[8]).toMatchObject({ imageId: "image-8", state: "rejected", result: { errorKey: "ninth-rejection" } });
     } finally { store.getState().dispose(); vi.useRealTimers(); }
   });
 
@@ -1280,7 +1391,7 @@ describe("disconnected label editing", () => {
     } finally { owner.getState().dispose(); sibling.getState().dispose(); queue.dispose(); for (const release of releases) release({ outcome: "unknown" }); vi.useRealTimers(); }
   });
 
-  it("refuses a waiting target whose capability was withdrawn by a newer browsing read", async () => {
+  it.each(["same", "changed", "withdrawn"])("rechecks a waiting target after a %s grant from browsing", async grant => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.useFakeTimers();
     let release!: (images: Image[]) => void;
@@ -1295,14 +1406,45 @@ describe("disconnected label editing", () => {
       store.getState().prepare("add", "news", context(images[0].id));
       store.getState().prepare("add", "news", context(images[1].id));
       await vi.advanceTimersByTimeAsync(100);
-      const denied = { resource: { links: [] } };
-      stampImageRead(images[1], denied, captureImageRead(), "lean");
-      acceptImageOverlay(images[1].id, denied);
+      const refreshed = { resource: { links: grant === "withdrawn" ? [] : [{ rel: "edits",
+        href: `https://metadata.example.test/metadata/${grant === "same" ? images[1].id : "replacement"}` }] } };
+      stampImageRead(images[1], refreshed, captureImageRead(), "lean");
+      acceptImageOverlay(images[1].id, refreshed);
       release([{ ...images[0], userMetadata: { labels: ["news"] } }]);
       await vi.advanceTimersByTimeAsync(150);
-      expect(executor).toHaveBeenCalledTimes(1);
-      expect(store.getState().receipts[1].blocked).toBe("capabilities");
+      expect(executor).toHaveBeenCalledTimes(grant === "same" ? 2 : 1);
+      expect(store.getState().receipts[1].blocked).toBe(grant === "same" ? undefined : "capabilities");
     } finally { store.getState().dispose(); release?.([]); vi.useRealTimers(); }
+  });
+
+  it.each([false, true])("rechecks the queued grant across label chunks (withdrawn=%s)", async withdrawn => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const queue = createBatchQueue();
+    const held = queue.admit()!;
+    const ids = Array.from({ length: 101 }, (_, index) => `queued-${index}`);
+    const last = ids[100];
+    const targets = new Map(ids.map(id => [id, { resource: { links: [{ rel: "edits", href: `/metadata/${id}` }] } }]));
+    const refresh = (links: { rel: string; href: string }[]) => {
+      const overlay = { resource: { links } };
+      stampImageRead({ ...images[0], id: last }, overlay, captureImageRead(), "lean");
+      acceptImageOverlay(last, overlay);
+    };
+    const execute = vi.fn(async (command: LabelCommand): Promise<GridCommandResult> => {
+      if (command.imageId === ids[0]) refresh(withdrawn ? [] : targets.get(last)!.resource.links);
+      return { outcome: "rejected", status: 403, errorKey: "permission-denied" };
+    });
+    const observation = { readImages: vi.fn(), publishImages: vi.fn() };
+    const store = createLabelEditorStore(execute, observation, "connected", queue);
+    try {
+      expect(store.getState().prepare("add", "queued", { targetIds: ids, targets })).toBe(true);
+      refresh(targets.get(last)!.resource.links);
+      held.complete();
+      await vi.runAllTimersAsync();
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(withdrawn ? ids.slice(0, 100) : ids);
+      expect(store.getState().receipts[0].items.at(-1)?.state).toBe(withdrawn ? "not-started" : "rejected");
+      expect(observation.readImages).not.toHaveBeenCalled();
+    } finally { held.complete(); store.getState().dispose(); queue.dispose(); vi.useRealTimers(); }
   });
 
   it("allows a new explicit connected add after observed add and removal without replaying pending or unknown commands", async () => {
@@ -1370,26 +1512,153 @@ describe("disconnected label editing", () => {
     } finally { store.getState().dispose(); vi.useRealTimers(); }
   });
 
-  it("labels connected receipts truthfully and refuses oversized execution", async () => {
+  it("labels connected receipts truthfully and refuses unresolved membership", async () => {
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const executor = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403, errorKey: "permission-denied" });
     const store = createLabelEditorStore(executor, undefined, "connected");
     const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] };
-    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={{ resource }} /><LabelOperationReceipts /></LabelEditorContext>);
+    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={{ resource }} /><EditLifecycle /></LabelEditorContext>);
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     const input = screen.getByRole("combobox", { name: "Add label" });
     fireEvent.change(input, { target: { value: "connected label" } });
     await act(async () => fireEvent.submit(input.closest("form")!));
     expect(executor).toHaveBeenCalledTimes(1);
     expect(store.getState().receipts[0]).toMatchObject({ mode: "connected", items: [{ state: "rejected" }] });
-    expect(screen.getByText("Label change", { exact: true })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Label activity" })).toBeNull();
     expect(screen.queryByText(/Simulated/)).toBeNull();
     act(() => { store.getState().prepare("add", "another label", {
       targetIds: Array.from({ length: 101 }, (_, index) => `image-${index}`), targets: new Map(),
     }); });
-    expect(store.getState().refusal).toBe("target-limit");
     expect(store.getState().receipts).toHaveLength(1);
     expect(executor).toHaveBeenCalledTimes(1);
+  });
+
+  it("observes all selected label targets across the group boundary", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = Array.from({ length: 101 }, (_, index) => `label-${index}`);
+    const targets = new Map(ids.map(id => [id, { resource: { links: [{ rel: "edits", href: `/metadata/${id}` }] } }]));
+    const execute = vi.fn(async (_command: LabelCommand): Promise<GridCommandResult> => ({ outcome: "acknowledged" }));
+    const readImages = vi.fn(async (requested: string[]) => requested.map(id => ({ ...images[0], id, userMetadata: { labels: [] } })));
+    const store = createLabelEditorStore(execute, { readImages, publishImages: vi.fn() }, "connected");
+    try {
+      expect(store.getState().prepare("remove", "news", { targetIds: ids, targets })).toBe(true);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids);
+      expect(readImages.mock.calls.every(([group]) => group.length <= 100)).toBe(true);
+      expect(store.getState().receipts[0].items.map(item => item.observation)).toEqual(ids.map(() => "observed"));
+    } finally { store.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("releases a stopped waiting large label edit for another queued action", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const queue = createBatchQueue();
+    const first = queue.admit()!;
+    const store = createLabelEditorStore(vi.fn(), undefined, "connected", queue);
+    const ids = Array.from({ length: 101 }, (_, index) => `wait-${index}`);
+    const targets = new Map(ids.map(id => [id, { resource: { links: [{ rel: "edits", href: `/metadata/${id}` }] } }]));
+    try {
+      expect(store.getState().prepare("add", "news", { targetIds: ids, targets })).toBe(true);
+      store.getState().stopRemaining(0);
+      expect(store.getState().prepare("add", "next", { targetIds: ids, targets })).toBe(true);
+    } finally { store.getState().dispose(); first.complete(); queue.dispose(); }
+  });
+
+  it("combines issues across fields and clears only the repaired field", () => {
+    const editor = createMetadataEditorStore();
+    const ids = ["issue-a", "issue-b"];
+    const key = labelTargetKey(ids);
+    const save = (id: number, fieldId: "metadata_credit" | "metadata_byline", failed: string) => ({ id, intent: { targetIds: ids, action: "overwrite" as const, value: "New", fieldId },
+      state: "finished" as const, excluded: 0, items: ids.map(imageId => imageId === failed ? { imageId, state: "rejected" as const } : { imageId, state: "unchanged" as const, observation: "observed" as const }) });
+    const byline: MetadataSave = { ...save(2, "metadata_byline", ids[1]), items: [
+      { imageId: ids[0], state: "accepted-awaiting-visibility", result: { outcome: "acknowledged" }, observation: "deadline" },
+      { imageId: ids[1], state: "rejected" },
+    ] };
+    const entries: MetadataSave[] = [save(1, "metadata_credit", ids[0]), byline];
+    const publish = () => editor.setState({ panelSaves: entries.map(entry => ({ id: entry.id, targetKey: key })).reverse(), saves: new Map(entries.map(entry => [entry.id, entry])) });
+    publish();
+    render(<MetadataEditorContext value={editor}><SelectionSaveIndicator compact targetKey={key} /></MetadataEditorContext>);
+    expect(screen.getByRole("button", { name: "2 issues" }).getAttribute("popovertarget")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "2 issues" }).title).toBe("Credit: 1 not saved\nByline: 1 not saved · 1 not confirmed");
+    entries.push(save(3, "metadata_credit", ""));
+    act(publish);
+    expect(screen.getByRole("button", { name: "2 issues" }).title).toBe("Byline: 1 not saved · 1 not confirmed");
+    entries.push(save(4, "metadata_byline", ids[1]));
+    act(publish);
+    expect(screen.getByRole("button", { name: "1 issue" }).textContent).toBe("1 issue");
+  });
+
+  it("repairs the same label across queues but not a different Description append", () => {
+    const editor = createMetadataEditorStore(), labels = createLabelEditorStore();
+    const targetIds = [images[0].id], imageId = targetIds[0], targetKey = labelTargetKey(targetIds);
+    const failed = [{ imageId, state: "rejected" as const }];
+    const confirmed = [{ imageId, state: "unchanged" as const, observation: "observed" as const }];
+    const append: MetadataSave = { id: 1, intent: { fieldId: "metadata_description", targetIds, action: "append", value: "A" }, state: "finished", excluded: 0, items: failed };
+    const other: MetadataSave = { ...append, id: 2, intent: { ...append.intent, value: "B" }, items: confirmed };
+    const fix: MetadataSave = { ...append, id: 3, intent: { fieldId: "labels", action: "add", value: "news", targetIds }, items: confirmed };
+    const receipt = { mode: "connected" as const, intent: { action: "add" as const, label: "news", targetIds }, counts: { selected: 1, eligible: 1, ineligible: 0, unresolved: 0, unavailable: 0 }, items: failed, sequence: 1 };
+    labels.setState({ receipts: [receipt] });
+    const saves = [append, other, { ...fix, sequence: 2 }];
+    editor.setState({ saves: new Map(saves.map(save => [save.id, save])), panelSaves: saves.map(save => ({ id: save.id, targetKey })).reverse() });
+    render(<MetadataEditorContext value={editor}><LabelEditorContext value={labels}><SelectedEditStatus /></LabelEditorContext></MetadataEditorContext>);
+    const warning = () => screen.getByRole("button", { name: "1 issue" }).title;
+    expect(warning()).toBe("Description: 1 not saved");
+    act(() => editor.setState(state => ({ saves: new Map(state.saves).set(fix.id, { ...fix, items: failed, sequence: 2 }) })));
+    expect(warning()).toContain("Labels: 1 not saved");
+    act(() => labels.setState({ receipts: [receipt, { ...receipt, sequence: 3, items: confirmed }] }));
+    expect(warning()).toBe("Description: 1 not saved");
+  });
+
+  it("uses one slot across selections and returns to the remaining save after selecting issues", () => {
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore();
+    const labels = createLabelEditorStore();
+    const imageId = images[0].id;
+    const targetIds = [imageId];
+    const intent = { targetIds, action: "overwrite" as const, value: { country: "UK" }, fieldId: "location" as const };
+    const first = { id: 1, intent, state: "saving" as const, excluded: 0, items: [] };
+    const search = useSearchStore.getState();
+    useSearchStore.setState({ results: images, bufferOffset: 0, imagePositions: new Map(images.map((image, index) => [image.id, index])) });
+    const key = labelTargetKey(targetIds);
+    const entries = [{ id: 1, targetKey: key }];
+    editor.setState({ panelSaves: entries, saves: new Map([[1, first]]) });
+    labels.setState({ receipts: [{ mode: "connected", intent: { targetIds: [images[1].id], action: "add", label: "news" },
+      counts: { selected: 1, eligible: 1, ineligible: 0, unresolved: 0, unavailable: 0 }, items: [{ imageId: images[1].id, state: "queued" }] }] });
+    useSelectionStore.setState({ selectedIds: new Set([images[1].id]) });
+    try {
+      render(<MetadataEditorContext value={editor}><LabelEditorContext value={labels}><SelectedEditStatus /></LabelEditorContext></MetadataEditorContext>);
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.getByRole("progressbar").textContent).toBe("2 saves: 0/2");
+      const failed = { ...first, state: "finished" as const, items: [{ imageId, state: "rejected" as const }] };
+      const city = { ...failed, id: 2, intent: { ...intent, value: { city: "London" } }, items: [{ imageId, state: "unchanged" as const, observation: "observed" as const }] };
+      act(() => editor.setState({ panelSaves: [{ id: 2, targetKey: key }, ...entries], saves: new Map<number, MetadataSave>([[1, failed], [2, city]]) }));
+      fireEvent.click(screen.getByRole("button", { name: "1 issue" }));
+      expect([...useSelectionStore.getState().selectedIds]).toEqual([images[1].id]);
+      expect(screen.getByRole("status", { name: "1 selected" })).toBeTruthy();
+      expect(screen.getByText("Location").parentElement?.textContent).toBe("Location: 1 not saved");
+      expect(fixture.reveal).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByText("Select only this image"));
+      expect([...useSelectionStore.getState().selectedIds]).toEqual(targetIds);
+      expect(useSearchStore.getState().focusedImageId).toBe(imageId);
+      expect(fixture.reveal).toHaveBeenCalledOnce();
+      expect(screen.getByRole("progressbar").textContent).toBe("Updating Labels: 0/1");
+    } finally { useSearchStore.setState(search, true); useSelectionStore.getState().clear(); labels.getState().dispose(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("selects the unsent remainder as well as the rejected image after label dispatch stops", () => {
+    const labels = createLabelEditorStore();
+    const ids = images.slice(0, 2).map(image => image.id);
+    labels.setState({ receipts: [{ mode: "connected", intent: { targetIds: ids, action: "add", label: "news" },
+      counts: { selected: 2, eligible: 2, ineligible: 0, unresolved: 0, unavailable: 0 }, items: [
+        { imageId: ids[0], state: "rejected", result: { outcome: "rejected", status: 401, errorKey: "permission-denied" } },
+        { imageId: ids[1], state: "stopped" },
+      ] }] });
+    render(<LabelEditorContext value={labels}><SelectedEditStatus /></LabelEditorContext>);
+    fireEvent.click(screen.getByRole("button", { name: "2 issues" }));
+    expect(screen.getByRole("button", { name: "2 issues" }).title).toBe("Labels: 2 not saved\nReload page");
+    fireEvent.click(screen.getByText("Select only these 2"));
+    expect([...useSelectionStore.getState().selectedIds]).toEqual(ids);
+    act(() => useSelectionStore.getState().clear());
   });
 
   it("rechecks captured standalone authority at submit without requiring a parent rerender", () => {
@@ -1434,7 +1703,7 @@ describe("disconnected label editing", () => {
     const executor = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
     const store = createLabelEditorStore(simulated ? executor : undefined);
     const overlay = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] } };
-    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /><LabelOperationReceipts /></LabelEditorContext>);
+    render(<LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /></LabelEditorContext>);
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     const input = screen.getByRole("combobox", { name: "Add label" });
     fireEvent.change(input, { target: { value: "first label, second label" } });
@@ -1456,7 +1725,7 @@ describe("disconnected label editing", () => {
     const store = createLabelEditorStore();
     const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${images[0].id}` }] } };
     useEnrichmentStore.getState().setEnrichment(new Map([[images[0].id, { resource: { links: [] } }]]));
-    const editor = () => <LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /><LabelOperationReceipts /></LabelEditorContext>;
+    const editor = () => <LabelEditorContext value={store}><ImageMetadata image={images[0]} overlay={overlay} /><EditLifecycle /></LabelEditorContext>;
     const first = render(editor());
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     let input = screen.getByRole("combobox", { name: "Add label" });
@@ -1474,8 +1743,10 @@ describe("disconnected label editing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     input = screen.getByRole("combobox", { name: "Add label" });
     expect((input as HTMLInputElement).value).toBe("new label");
+    expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
     fireEvent.submit(input.closest("form")!);
-    expect(screen.getByText("Not sent - dry run")).toBeTruthy();
+    expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Add label: new label");
     expect(store.getState().receipts[0].intent.targetIds).toEqual([images[0].id]);
     expect(store.getState().receipts[0].items[0].state).toBe("not-started");
     expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
@@ -1483,15 +1754,14 @@ describe("disconnected label editing", () => {
     input = screen.getByRole("combobox", { name: "Add label" });
     fireEvent.change(input, { target: { value: "second-label" } });
     fireEvent.submit(input.closest("form")!);
-    const activity = screen.getByRole("complementary", { name: "Label activity" }).textContent!;
-    expect(activity.indexOf("second-label")).toBeLessThan(activity.indexOf("new label"));
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Add label: second-label");
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     input = screen.getByRole("combobox", { name: "Add label" });
     fireEvent.change(input, { target: { value: "new label" } });
     fireEvent.submit(input.closest("form")!);
     expect(store.getState().receipts).toHaveLength(2);
     expect(screen.queryByRole("combobox", { name: "Add label" })).toBeNull();
-    expect(screen.getByText("Operation already recorded.")).toBeTruthy();
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Add label: new label");
     expect(transport).not.toHaveBeenCalled();
   });
 
@@ -1509,7 +1779,7 @@ describe("disconnected label editing", () => {
     const view = recomputeAll(images, RECONCILE_FIELDS);
     view.set("labels", { kind: "chip-array", total: 2, chips: [{ value: "partial", count: 1 }] });
     render(<LabelEditorContext value={store}><MultiImageMetadata images={images} total={2} reconciledView={view}
-      labelEditing={editing} resolveLabelEditing={() => current} /><LabelOperationReceipts /></LabelEditorContext>);
+      labelEditing={editing} resolveLabelEditing={() => current} /><EditLifecycle /></LabelEditorContext>);
     const add = screen.getByRole("button", { name: "Apply partial to all selected images" });
     current = { targetIds: ["changed"], targets: new Map([["changed", {
       resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/changed" }] },
@@ -1525,7 +1795,7 @@ describe("disconnected label editing", () => {
     await act(async () => { release({ outcome: "acknowledged" }); });
     expect(store.getState().receipts[0].intent.targetIds).toEqual(editing.targetIds);
     expect(store.getState().receipts[0].items.map(item => item.state)).toEqual(["accepted-awaiting-visibility", "unknown"]);
-    expect(screen.getByText("Simulated - no service calls")).toBeTruthy();
+    expect(useToastStore.getState().queue.at(-1)?.message).toBe("Not sent - Add label: partial");
   });
 
   it("offers separate search, apply-to-all and remove controls, blocking unresolved selected IDs", () => {

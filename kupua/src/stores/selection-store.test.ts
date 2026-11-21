@@ -26,7 +26,8 @@ import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuni
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
-import { createLabelOperation, labelTargetCounts } from "@/lib/label-operation";
+import { createLabelOperation } from "@/lib/label-operation";
+import { metadataEditTargetCounts } from "@/lib/metadata-edit-execution";
 import { attachEnrichment } from "@/stores/enrichment-store";
 import { captureImageRead, isLabelAuthorityCurrent, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 
@@ -533,7 +534,7 @@ describe("ensureMetadata", () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(reads).toHaveBeenCalledTimes(2);
       expect(useSelectionStore.getState().metadataCache.get(original.id)).toBe(current);
-      expect(labelTargetCounts({ targetIds: [original.id], targets: new Map([[original.id, { resource: currentResource }]]) }))
+      expect(metadataEditTargetCounts({ targetIds: [original.id], targets: new Map([[original.id, { resource: currentResource }]]) }))
         .toMatchObject({ eligible: revoked ? 0 : 1, ineligible: revoked ? 1 : 0, unresolved: 0 });
       expect(executor).toHaveBeenCalledTimes(1);
     } finally { operation.cancelObservation(); vi.useRealTimers(); vi.unstubAllEnvs(); }

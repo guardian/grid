@@ -443,7 +443,7 @@ export function SearchBar() {
       >●</span>
 
       {UPLOAD_BROWSING_ENABLED && uploadAccess === "available" && <>
-        {!compactBrowser && <RecentUploadsEntry shortLabel={isCompact && installed} />}
+        {!compactBrowser && <RecentUploadsEntry iconOnly={isCompact && installed} />}
         {!compactBrowser && <div className="results-upload"><UploadEntry withActivity /></div>}
       </>}
 

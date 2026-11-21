@@ -33,6 +33,7 @@ export interface ImageActionContext {
   api: boolean;
   archive: boolean | null;
   pending?: boolean;
+  metadataSaving?: boolean;
   cropSettings?: CropSettings;
 }
 
@@ -120,6 +121,7 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
   const blocked = (reason: string, pending = false): ImageActionDescription => ({ ...result, reason, ...(pending && { pending: true }), eligibleIds: [] });
   if (!targets.length) return blocked("No images selected");
   if (context.pending) return blocked("Selection is still changing", true);
+  if (action === "download" && context.metadataSaving) return blocked("Saving selected metadata");
   if (action === "share") return result;
   if (!context.api) return blocked("Available in media-api mode only");
   if (isGridSessionInvalidated()) return blocked("Reload after signing in again");
