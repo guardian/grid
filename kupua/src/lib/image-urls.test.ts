@@ -46,9 +46,18 @@ describe("thumbnail delivery", () => {
 
 const OPTIMISED = "https://imgops.example.test/a/b/abc123?X-Amz-Signature=sig%2Fx{&w,h,q}&r=90";
 const OPTIMISED_PNG = "https://imgops.example.test/png/abc123?X-Amz-Signature=png{&w,h,q}&r=0";
+const GRID_IMGPROXY = "https://imgproxy.example.test/insecure/rs:fit:{w}:{h}/q:{q}/ar:false/sm:true/source";
 
 describe("full-image delivery", () => {
   const linked = { ...apiImage, __mediaLinks: { optimised: OPTIMISED } } as Image;
+
+  it.each([
+    [GRID_IMGPROXY, "https://imgproxy.example.test/insecure/rs:fit:800:600/q:85/ar:false/sm:true/source"],
+    ["https://api.example.test/images/abc123/optimised/resized{?w,h,q}", "https://api.example.test/images/abc123/optimised/resized?w=800&h=600&q=85"],
+  ])("expands the canonical Grid link %s", async (optimised, expected) => {
+    const urls = await loadWith({ VITE_MEDIA_DELIVERY: "canonical" });
+    expect(urls.getFullImageUrl({ ...apiImage, __mediaLinks: { optimised } }, { width: 800, height: 600, dpr: 1 })).toBe(expected);
+  });
 
   it("expands the returned optimised link with size and quality, keeping server rotation", async () => {
     const urls = await loadWith({ VITE_MEDIA_DELIVERY: "canonical", VITE_IMGPROXY_ENABLED: "true", VITE_IMAGE_BUCKET: "bucket" });
@@ -85,6 +94,6 @@ describe("full-image delivery", () => {
 
   it("keeps imgproxy by default and ignores returned links", async () => {
     const urls = await loadWith({ VITE_IMGPROXY_ENABLED: "true", VITE_IMAGE_BUCKET: "bucket" });
-    expect(urls.getFullImageUrl(linked, { width: 100, height: 100, dpr: 1 })).toMatch(/^\/imgproxy\/insecure\//);
+    expect(urls.getFullImageUrl({ ...apiImage, __mediaLinks: { optimised: GRID_IMGPROXY } }, { width: 100, height: 100, dpr: 1 })).toMatch(/^\/imgproxy\/insecure\/.*@avif$/);
   });
 });

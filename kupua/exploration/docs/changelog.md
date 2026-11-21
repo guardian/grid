@@ -24,6 +24,25 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Canonical Grid imgproxy resize links
+
+Canonical full-image delivery now expands Grid's unsigned imgproxy path variables
+(`{w}`, `{h}`, `{q}`) as well as its imgops and signed redirect query templates.
+Previously the unsigned link was discarded and detail showed only a thumbnail.
+Laptop proxy delivery still requests AVIF.
+
+To run local Grid with unsigned imgproxy on a trusted development network, leave
+media-api's `images.imgproxy.key` and `images.imgproxy.salt` unset and run this
+from the Grid repository root:
+
+```sh
+IMGPROXY_KEY='' IMGPROXY_SALT='' ./dev/script/start.sh --use-imgproxy
+```
+
+The flag selects imgproxy in media-api; the empty environment overrides make the
+local Compose proxy accept unsigned URLs for this run. Without those overrides,
+the proxy expects media-api to sign URLs with matching key and salt settings.
+
 ### 21 November 2026 - Stabilise Detail reload and Justified early-read tests
 
 The traversal test waits for the reloaded Detail image and its placement on return,

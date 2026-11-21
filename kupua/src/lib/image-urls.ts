@@ -10,7 +10,7 @@
  *
  * Canonical delivery (VITE_MEDIA_DELIVERY=canonical, API modes only): thumbnails
  *   use the URL media-api returns (`thumbnail.secureUrl`: CloudFront or signed S3);
- *   full images expand the returned imgops `optimisedPng`/`optimised` link.
+ *   full images expand Grid's returned `optimisedPng`/`optimised` link.
  *
  * Default delivery:
  *   - In TEST mode (S3 proxy running): returns `/s3/thumb/<imageId>`
@@ -194,13 +194,13 @@ export interface FullImageOptions {
 }
 
 /**
- * Fill imgops' `{&w,h,q}` / `{?w,h,q}` expression in a returned link template.
- * Deliberately minimal (imgops is being replaced): any other template form
- * returns undefined, which callers treat as absent media.
+ * Expand Grid's resize query templates or its unsigned imgproxy path variables.
+ * Unsupported expressions leave the rendition unavailable.
  */
-function expandImgopsTemplate(template: string, values: Record<string, number>): string | undefined {
+function expandResizeTemplate(template: string, values: Record<string, number>): string | undefined {
   let unsupported = false;
   const expanded = template.replace(/\{([^}]*)\}/g, (_match, expression: string) => {
+    if (expression === "w" || expression === "h" || expression === "q") return String(values[expression]);
     const operator = expression[0];
     if (operator !== "&" && operator !== "?") { unsupported = true; return ""; }
     const pairs = expression.slice(1).split(",")
@@ -215,7 +215,7 @@ function expandImgopsTemplate(template: string, values: Record<string, number>):
 const CANONICAL_QUALITY = 85;
 
 /**
- * Canonical full image: media-api's returned imgops link, preferring the PNG
+ * Canonical full image: media-api's returned resize link, preferring the PNG
  * rendition as Kahuna does. The link already carries the server's rotation.
  * Both sides are capped at the longer native side, which never under-requests
  * a rotated image; imgops itself does not enlarge.
@@ -227,7 +227,7 @@ function getCanonicalFullImageUrl(image: Image, options?: FullImageOptions): str
   const nativeMax = Math.max(options?.nativeWidth ?? 0, options?.nativeHeight ?? 0) || Infinity;
   const w = Math.min(Math.round((options?.width ?? IMGPROXY_DEFAULTS.width) * dpr), nativeMax);
   const h = Math.min(Math.round((options?.height ?? IMGPROXY_DEFAULTS.height) * dpr), nativeMax);
-  return expandImgopsTemplate(template, { w, h, q: options?.quality ?? CANONICAL_QUALITY });
+  return expandResizeTemplate(template, { w, h, q: options?.quality ?? CANONICAL_QUALITY });
 }
 
 /**
@@ -237,8 +237,8 @@ function getCanonicalFullImageUrl(image: Image, options?: FullImageOptions): str
  * and converts to WebP (or another format). Follows eelpie fork's approach:
  * auto_rotate:false, strip_metadata:true, strip_color_profile:true.
  *
- * In canonical delivery, uses media-api's returned imgops link instead
- * (JPEG/PNG; `format` does not apply).
+ * In canonical delivery, uses media-api's returned resize link instead
+ * (`format` does not apply).
  *
  * Returns undefined when imgproxy isn't available (local mode).
  */
