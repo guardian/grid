@@ -46,12 +46,12 @@ async function assertNotRealEs() {
   if (_realEsCheckResult !== "unchecked") {
     // Previously found real ES — re-throw immediately without another fetch
     throw new Error(
-      `🛑 Refusing to run: real ES detected (${(_realEsCheckResult as { count: number }).count.toLocaleString()} docs). Stop --use-TEST and re-run.`,
+      `🛑 Refusing to run: real ES detected (${(_realEsCheckResult as { count: number }).count.toLocaleString()} docs). Check the test server's ES target.`,
     );
   }
 
   let count: number | undefined;
-  for (const path of ["http://localhost:3000/es/images/_count", "http://localhost:3000/es/_count"]) {
+  for (const path of ["http://localhost:3020/es/images/_count", "http://localhost:3020/es/_count"]) {
     try {
       const res = await fetch(path, { signal: AbortSignal.timeout(2000) });
       if (!res.ok) continue;
@@ -71,8 +71,7 @@ async function assertNotRealEs() {
       `  These tests are written for local sample data (~10k docs).\n` +
       `  Running them against a real cluster produces wrong assertions.\n` +
       `\n` +
-      `  You probably have 'start.sh --use-TEST' running on port 3000.\n` +
-      `  Stop it, then re-run tests — the runner will start local ES.\n` +
+      `  The test server on 3020 must target the local fixture on 9220.\n` +
       `═══════════════════════════════════════════════════════════════\n`,
     );
   }

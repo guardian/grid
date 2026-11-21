@@ -1213,7 +1213,7 @@ other users remains separate work.
 - **Scala:** `TZ=UTC sbt "media-api/test"` from the repository root (Docker-backed ES tests).
 - **Kupua:** `npm --prefix kupua test`, `npm --prefix kupua run build`, and
   `npm --prefix kupua run test:e2e` after store/hook/component/DAL changes. Use the repository's
-  runner rules (pipefail + tee, unsandboxed, ports 3000/3030 free, ask the operator first).
+  runner rules (pipefail + tee, unsandboxed, dedicated synthetic E2E ports; leave the interactive app running).
 - **Direct-ES mode stays green.** The normal E2E suite is direct-ES, so it does not prove API mode.
 - **API-mode smoke check (from U5 on):** the operator runs the existing e2e-perf media-api
   preflights: `P14d,P17,P18,P19 --use-media-api --dry-run --runs 2` and

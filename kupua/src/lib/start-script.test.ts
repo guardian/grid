@@ -46,7 +46,8 @@ describe("Kupua launcher data modes", () => {
     expect(result.stdout).toContain("[1/2] Skipping dependency check (--skip-install)");
     expect(result.stdout).toContain("[2/2] Starting Vite dev server");
     expect(result.stdout).toContain("Thumbnails: ON (URLs returned by media-api)");
-    expect(result.stdout).toContain("Full images: ON (imgops links returned by media-api)");
+    expect(result.stdout).toContain("Full images: ON (resize links returned by media-api)");
+    expect(result.stdout).toContain("synthetic E2E uses separate ports: 3020, 3030, 3040");
     expect(result.stdout).not.toMatch(/Connecting to real TEST Elasticsearch|Discovering S3|Starting Elasticsearch|Killing existing SSH/);
   });
 

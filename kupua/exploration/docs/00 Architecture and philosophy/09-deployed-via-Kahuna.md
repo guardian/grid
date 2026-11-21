@@ -172,6 +172,9 @@ Source: [Grid launcher](../../../../dev/script/start.sh) and
 [Kupua launcher](../../../scripts/start.sh). Starting Grid against shared backing
 services requires separate authorization; these examples do not grant it.
 
+Ordinary [synthetic E2E](../../../e2e/README.md#local-projects-and-ports) uses its own
+Vite servers and local sample ES, not the interactive Vite app, hosted bundle or TEST tunnel.
+
 #### Every recognized start flag
 
 The mode choices above compose with the modifiers below. These are the flags the

@@ -19,7 +19,15 @@ import { defineConfig, devices } from "@playwright/test";
  *     npx playwright test --debug        (step-through debugger)
  *     npx playwright test --ui           (Playwright UI mode)
  */
+const fixtureEnv = {
+  KUPUA_ES_URL: "http://127.0.0.1:9220", VITE_ES_IS_LOCAL: "true", VITE_ES_INDEX: "images",
+  VITE_ES_BASE: "/es", VITE_MEDIA_DELIVERY: "proxy", VITE_HOSTED: "false",
+  VITE_S3_PROXY_ENABLED: "false", VITE_IMGPROXY_ENABLED: "false", VITE_IMAGE_BUCKET: "",
+  VITE_USE_MEDIA_API: "false", KUPUA_LOAD_SITE_SETTINGS: "false",
+};
+
 export default defineConfig({
+  metadata: { syntheticLocalE2E: true },
   testDir: "./e2e/local",
   testMatch: "**/*.spec.ts",
 
@@ -46,7 +54,7 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3020",
     /* Headless by default; use --headed for debugging */
     headless: true,
     /* Per-action timeout (click, fill, etc.) — catches hung selectors */
@@ -79,7 +87,7 @@ export default defineConfig({
     {
       name: "justified-indexed",
       testMatch: "**/justified-windowed.spec.ts",
-      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3000" },
+      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3020" },
     },
     {
       name: "justified-seek",
@@ -91,19 +99,22 @@ export default defineConfig({
   /* Auto-start the normal app and one isolated forced-seek app. */
   webServer: [
     {
-      command: "npm run dev",
-      port: 3000,
-      reuseExistingServer: true,
+      command: "npm run dev -- --port 3020 --strictPort",
+      port: 3020,
+      env: { ...fixtureEnv, KUPUA_E2E_CACHE_DIR: "node_modules/.cache/vite-e2e-3020" },
+      reuseExistingServer: false,
       timeout: 60_000,
     },
     {
-      command: "VITE_POSITION_MAP_THRESHOLD=0 npm run dev -- --port 3030",
+      command: "VITE_POSITION_MAP_THRESHOLD=0 npm run dev -- --port 3030 --strictPort",
+      env: { ...fixtureEnv, KUPUA_E2E_CACHE_DIR: "node_modules/.cache/vite-e2e-3030" },
       port: 3030,
       reuseExistingServer: false,
       timeout: 60_000,
     },
     {
-      command: "npm run dev:justified",
+      command: "npm run dev:justified -- --strictPort",
+      env: { ...fixtureEnv, KUPUA_E2E_CACHE_DIR: "node_modules/.cache/vite-e2e-3040" },
       port: 3040,
       reuseExistingServer: false,
       timeout: 60_000,

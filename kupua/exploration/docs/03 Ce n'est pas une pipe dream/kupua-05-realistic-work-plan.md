@@ -63,7 +63,7 @@ indefinitely. They remain documented in 04 for the day a team picks up the work.
 
 - Docker running (for local ES)
 - `kupua/scripts/load-sample-data.sh` has been run at least once (sample data exists)
-- No dev server running on port 3000 (agent sessions start their own)
+- For ordinary E2E use the [runner-owned test ports](../../../e2e/README.md#local-projects-and-ports); leave interactive Kupua running.
 - Node.js ≥20.19.0 or ≥22.12.0
 
 ## Governing Constraints (all sessions)
@@ -218,8 +218,7 @@ You are adding tests only. You will NOT modify any file in `src/`. All new files
 - Do not install any new packages
 - Do not change any logic, algorithm, or component
 - After each new test file: run `npm test` to verify unit tests pass
-- After all tests are written: the user will stop any running dev server on port 3000,
-  then you run `npx playwright test` to verify ALL E2E tests pass (existing + new)
+- After all tests are written, run `npm --prefix kupua run test:e2e` from the repo root to verify existing and new tests.
 
 ### Deliverable 1: DAL contract tests
 
@@ -307,8 +306,7 @@ logo clicks.
 
 After all four deliverables:
 
-1. Ask the user to stop any dev server on port 3000 ("I need to run the test suite —
-   please stop any running dev server on port 3000 first.")
+1. Check the synthetic test ports; leave the interactive app running.
 2. `npm test` — all unit tests pass
 3. `npx playwright test` — all E2E tests pass
 4. `npm run build` — zero errors
@@ -627,7 +625,7 @@ Brief documentation (10–20 lines):
 
 #### Step 10: Full validation
 
-Ask the user to stop any dev server on port 3000, then run:
+With the synthetic fixture ready, run:
 1. `npm test` — all unit tests pass
 2. `npx playwright test` — all E2E tests pass (including Session 1's new tests)
 3. `npm run build` — zero errors
@@ -832,7 +830,7 @@ Run `npm test`.
 
 #### Step 5: Full validation
 
-Ask the user to stop any dev server on port 3000, then run:
+With the synthetic fixture ready, run:
 1. `npm test` — all unit tests pass
 2. `npx playwright test` — all E2E tests pass
 3. `npm run build` — zero errors
@@ -907,8 +905,7 @@ After completing these sessions, add this to the agent directives
 **Directive: Habitual testing.** After any code change to `src/`:
 - Run `npm test` (unit + integration, ~5 seconds). This is non-negotiable.
 - After changing component structure, hooks, store subscriptions, or anything
-  that affects rendering: run `npx playwright test` (E2E, ~70 seconds). Ask
-  the user to stop any running dev server on port 3000 first.
+  that affects rendering: run `npm --prefix kupua run test:e2e` from the repo root.
 - Historical note: perf and the now-retired smoke runner required explicit
   permission rather than incidental execution.
   habitually — those are manual, purpose-driven.

@@ -74,7 +74,7 @@ test("Upload requires media-api without reading resolved membership through dire
 
 for (const coordinates of ["indexed", "seek"] as const) {
   test.describe(`B19 ${coordinates} table tail`, () => {
-    test.use({ baseURL: coordinates === "seek" ? "http://localhost:3030" : "http://localhost:3000" });
+    test.use({ baseURL: coordinates === "seek" ? "http://localhost:3030" : "http://localhost:3020" });
 
     test("End reveals the last row and Back/reload preserve its viewport", async ({ kupua, page }) => {
       await kupua.ensureExplicitMode();

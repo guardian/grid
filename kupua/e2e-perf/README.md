@@ -5,7 +5,9 @@ validation, **not campaigns or dry runs**. Run commands from the repository root
 
 ## Run
 
-Start Kupua separately in the matching backend mode, then use four repetitions:
+Start Kupua separately in the matching backend mode, then use four repetitions.
+Leave that app running; do not run synthetic E2E during measurements, even though
+it uses [separate app ports](../e2e/README.md#local-projects-and-ports):
 
 ```sh
 npm --prefix kupua run test:perf -- --suite justified --use-media-api --runs 4 --label "density baseline"

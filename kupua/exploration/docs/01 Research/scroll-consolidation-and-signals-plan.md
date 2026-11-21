@@ -436,11 +436,8 @@ component code:
 
 ### Protocols
 
-**⚠️ Before running E2E tests:** Always warn the user: *"I'm about to
-run E2E tests. Please close any running kupua dev server or browser
-instance — Playwright needs port 3000 and will start its own Vite
-server."* Wait for confirmation before running `./scripts/run-e2e.sh` or
-`npx playwright test`.
+For ordinary synthetic E2E, leave interactive Kupua and its browser running.
+Follow the [runner guide](../../../e2e/README.md#local-projects-and-ports).
 
 **⚠️ Manual tests against TEST cluster:** The agent must NEVER run tests
 against the TEST cluster directly. When a step requires TEST validation

@@ -446,7 +446,7 @@ Per `../../zz Archive/media-api-work/media-api-worknotes.md` and standing constr
 - Scala integration: `TZ=UTC sbt "media-api/test"` — new `ElasticSearchTest` blocks for each gap.
 - TS unit: `npm --prefix kupua test` — new adapter + strangler tests for each gap.
 - Playwright e2e (default ES mode, regression): `npm --prefix kupua run test:e2e` — these endpoints
-  touch poll/selection/PIT paths; run the full suite. **Warn about port 3000 first.**
+  touch poll/selection/PIT paths; run the full synthetic suite without stopping interactive Kupua.
 - Manual `--use-media-api`: poll banner (D7), scroll/seek PIT session (D8), multi-select +
   reload + image-detail open (D9).
 

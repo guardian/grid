@@ -1189,7 +1189,7 @@ no_rights has no rescue mechanism.
 
 Run mandatory surfaces per AGENTS table:
 `npm --prefix kupua test` then `npm --prefix kupua run test:e2e`.
-Warn user about port :3000 before Playwright.
+Leave interactive Kupua on 3000; ordinary synthetic E2E owns separate test ports.
 
 #### Cluster1.13 — Anti-goals (do NOT build in this cluster)
 

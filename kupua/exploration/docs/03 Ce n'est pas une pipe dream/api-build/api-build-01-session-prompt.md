@@ -49,7 +49,7 @@ You are a fresh executing agent for **unit `<UNIT>`** of the Kupua API build.
    endpoint (so the later PR split is mechanical), Kupua separately, docs last. Each commit must
    build and pass on its own; check split commits whose tree was never tested in a temporary
    worktree (for the last commit, an empty `git diff HEAD` against the tested tree suffices).
-3. Run the gates in plan section 5. Before E2E, ask me whether ports 3000/3030 are free.
+3. Run the gates in plan section 5. Leave interactive Kupua running for synthetic E2E.
    Use `set -o pipefail; ... 2>&1 | tee "$TMPDIR/kupua-test-output.txt"` for Kupua npm scripts
    (unsandboxed), and don't run anything else while a suite runs. Scala runs the same way:
    `TZ=UTC sbt ... 2>&1 | tee "$TMPDIR/..."`, unsandboxed (Docker), then grep the summary.
@@ -75,8 +75,8 @@ language and ends with your recommendation. Record my answer in the unit note st
    the short `kupua/exploration/docs/embedded-browser-playbook.md` entry point, then only relevant
    reference sections. Update an owning topic only for a new reusable technique or correction;
    never add session descriptions or routine outcomes. No update is required otherwise. Prefer
-  page snapshots over screenshots. The browser and E2E both need port 3000, so ask me which mode
-  is running. TEST data needs my permission for the session. Never copy identities or cookies
+   page snapshots over screenshots. Confirm the interactive browser's data mode before using it;
+   TEST data needs my permission for the session. Never copy identities or cookies
   into files.
 
 **Stop and ask me** if: the unit needs a change to existing Grid behavior; authorization differs

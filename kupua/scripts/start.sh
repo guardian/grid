@@ -113,6 +113,7 @@ USE_TEST=false
 USE_MEDIA_API=false
 USE_DEPLOYED_MEDIA_API=false
 CANONICAL_MEDIA=false
+APP_PORT_NOTICE="Interactive app: http://localhost:3000 (synthetic E2E uses separate ports: 3020, 3030, 3040)"
 SKIP_ES=false
 SKIP_DATA=false
 SKIP_INSTALL=false
@@ -213,7 +214,7 @@ if [ "$CANONICAL_MEDIA" = true ]; then
   export VITE_MAX_RESULT_WINDOW="${VITE_MAX_RESULT_WINDOW:-100000}"
   export VITE_DEEP_SEEK_THRESHOLD="${VITE_DEEP_SEEK_THRESHOLD:-10000}"
   if lsof -i:3000 -sTCP:LISTEN -t > /dev/null 2>&1; then
-    echo -e "${red}ERROR: Port 3000 is already in use. Stop the existing Kupua server before starting another.${plain}"
+    echo -e "${red}ERROR: Interactive app port 3000 is already in use. Check the existing listener before starting another Kupua.${plain}"
     exit 1
   fi
   wopr_intro
@@ -244,7 +245,7 @@ if [ "$CANONICAL_MEDIA" = true ]; then
   fi
   echo
   echo -e "${yellow}[2/2] Starting Vite dev server...${plain}"
-  echo -e "${cyan}      → http://localhost:3000${plain}"
+  echo -e "${cyan}      → ${APP_PORT_NOTICE}${plain}"
   echo -e "${cyan}      → https://kupua.media.local.dev-gutools.co.uk${plain}"
   if [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
     echo -e "${cyan}      → media-api: DEPLOYED TEST (direct credentialed browser reads)${plain}"
@@ -253,7 +254,7 @@ if [ "$CANONICAL_MEDIA" = true ]; then
   fi
   echo -e "${cyan}      → Site settings: TEST S3 (loaded at startup)${plain}"
   echo -e "${cyan}      → Thumbnails: ON (URLs returned by media-api)${plain}"
-  echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
+  echo -e "${cyan}      → Full images: ON (resize links returned by media-api)${plain}"
   echo
   export KUPUA_LOAD_SITE_SETTINGS="true"
   exec npm run dev
@@ -263,7 +264,7 @@ fi
 # Check Docker is running — only when we actually need it
 # ---------------------------------------------------------------------------
 # Local mode needs Docker for ES (unless --skip-es).
-# TEST mode needs Docker for imgproxy and to stop local ES.
+# TEST mode needs Docker for imgproxy.
 NEEDS_DOCKER=false
 if [ "$USE_TEST" = true ]; then
   NEEDS_DOCKER=true
@@ -326,7 +327,7 @@ check_port() {
 
 # Vite dev server port
 PORT_OK=true
-if ! check_port 3000 "Vite dev server" "Kill the process or change kupua's port in vite.config.ts"; then
+if ! check_port 3000 "Interactive Vite server" "Check the existing listener before starting another interactive Kupua."; then
   PORT_OK=false
 fi
 
@@ -397,12 +398,7 @@ if [ "$USE_TEST" = true ]; then
   # --- 1. Establish SSH tunnel if not already running ---
   EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
 
-  # Stop kupua's local docker ES if running — port 9200 needed for tunnel
-  if (docker stats --no-stream &> /dev/null); then
-    echo -e "${yellow}[1/6] Stopping local docker ES (port 9220)...${plain}"
-    cd "$KUPUA_DIR"
-    dc down 2>/dev/null || true
-  fi
+  echo -e "${yellow}      TEST tunnel: localhost:9200 (also used by local Grid ES); synthetic E2E fixture: localhost:9220 (left running).${plain}"
 
   NEED_NEW_TUNNEL=true
 
@@ -752,7 +748,7 @@ print('')
   echo
 
   echo -e "${yellow}Starting Vite dev server...${plain}"
-  echo -e "${cyan}      → http://localhost:3000${plain}"
+  echo -e "${cyan}      → ${APP_PORT_NOTICE}${plain}"
   if [ "$USE_MEDIA_API" = true ] || [ "$USE_DEPLOYED_MEDIA_API" = true ]; then
     echo -e "${yellow}      → TEST ES: startup media discovery only (read-only)${plain}"
     echo -e "${cyan}      → Site settings: TEST S3 (loaded at startup)${plain}"
@@ -777,7 +773,7 @@ print('')
     echo -e "${yellow}      → Thumbnails: OFF${plain}"
   fi
   if [ "$CANONICAL_MEDIA" = true ]; then
-    echo -e "${cyan}      → Full images: ON (imgops links returned by media-api)${plain}"
+    echo -e "${cyan}      → Full images: ON (resize links returned by media-api)${plain}"
   elif [ "$VITE_IMGPROXY_ENABLED" = "true" ]; then
     echo -e "${yellow}      → Full images: ON (imgproxy on port 3002)${plain}"
   else
@@ -806,11 +802,13 @@ ES_URL="${KUPUA_ES_URL:-http://localhost:9220}"
 
 # Kill any existing SSH tunnel to TEST ES — avoid port confusion
 # (Mirrors Grid's dev/script/start.sh behaviour in non-TEST mode)
-EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
-if [[ $EXISTING_TUNNELS ]]; then
-  echo -e "${yellow}Killing existing SSH tunnel to TEST ES (port 9200)${plain}"
-  # shellcheck disable=SC2046
-  kill $(echo $EXISTING_TUNNELS | awk '{print $2}') 2>/dev/null || true
+if [[ "$ES_URL" != "http://localhost:9220" && "$ES_URL" != "http://127.0.0.1:9220" ]]; then
+  EXISTING_TUNNELS=$(ps -ef | grep ssh | grep 9200 | grep -v grep || true)
+  if [[ $EXISTING_TUNNELS ]]; then
+    echo -e "${yellow}Killing existing SSH tunnel to TEST ES (port 9200)${plain}"
+    # shellcheck disable=SC2046
+    kill $(echo $EXISTING_TUNNELS | awk '{print $2}') 2>/dev/null || true
+  fi
 fi
 
 # --- 1. Start Elasticsearch ---
@@ -901,7 +899,7 @@ echo
 
 # --- 4. Start dev server ---
 echo -e "${yellow}[4/4] Starting Vite dev server...${plain}"
-echo -e "${cyan}      → http://localhost:3000${plain}"
+echo -e "${cyan}      → ${APP_PORT_NOTICE}${plain}"
 echo
 cd "$KUPUA_DIR"
 exec npm run dev

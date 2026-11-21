@@ -24,6 +24,16 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Keep interactive Kupua running during synthetic E2E
+
+Playwright owns strict test ports and separate Vite dependency caches. The full
+wrapper no longer kills listeners or other Playwright processes. Fixture reads
+and setup target local ES on 9220; TEST startup leaves that fixture running.
+Runner-owned Vite servers pin browser ES and media settings; synthetic startup
+receives a fixture response rather than contacting local Grid for collections.
+Interactive startup distinguishes its own port from test ports and describes
+canonical full images as Grid resize links rather than assuming imgops.
+
 ### 21 November 2026 - Canonical Grid imgproxy resize links
 
 Canonical full-image delivery now expands Grid's unsigned imgproxy path variables

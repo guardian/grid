@@ -9,16 +9,14 @@
  *    prevents accidental test runs against TEST/CODE/PROD when the
  *    developer has `start.sh --use-TEST` still running.
  *
- * This makes local test runs resilient after a TEST-mode app session. The
- * --use-TEST startup shuts down Docker ES, so local tests would fail without
- * this auto-recovery after the app is stopped.
+ * The fixture can be started independently of the interactive app.
  */
 
 import { execSync } from "child_process";
 import { resolve } from "path";
 
 const ES_URL = "http://localhost:9220";
-const VITE_URL = "http://localhost:3000";
+const VITE_URL = "http://localhost:3020";
 const KUPUA_DIR = resolve(import.meta.dirname, "..");
 
 /**
@@ -38,7 +36,7 @@ async function isEsReachable(): Promise<boolean> {
 }
 
 /**
- * Safety gate: if a Vite dev server is already running on port 3000,
+ * Safety gate: if a Vite dev server is already running on the test port,
  * check whether it's proxying to local ES or a real cluster.
  * Returns true if safe to proceed, throws if connected to a real cluster.
  */
@@ -64,16 +62,10 @@ async function checkViteNotConnectedToRealES(): Promise<void> {
         `═══════════════════════════════════════════════════════════════\n` +
         `  🛑 REFUSING TO RUN E2E TESTS — REAL ES DETECTED\n` +
         `\n` +
-        `  The Vite dev server on port 3000 is proxying to an ES cluster\n` +
+        `  The test server on port 3020 is proxying to an ES cluster\n` +
         `  with ${count.toLocaleString()} documents. Local sample data has ~10k.\n` +
         `\n` +
-        `  You probably have 'start.sh --use-TEST' still running.\n` +
-        `  Stop it first, then re-run the tests:\n` +
-        `\n` +
-        `    1. Kill the --use-TEST dev server (Ctrl+C or kill the terminal)\n` +
-        `    2. npx playwright test\n` +
-        `\n` +
-        `  The test runner will auto-start local Docker ES + a fresh Vite.\n` +
+        `  Check the test listener on 3020; its ES target must be the local fixture on 9220.\n` +
         `═══════════════════════════════════════════════════════════════\n`,
       );
     }

@@ -24,7 +24,8 @@
  *   npm --prefix kupua run test:e2e -- selections-mobile.spec.ts --headed
  */
 
-import { test, expect, devices, type Page, type Locator } from "@playwright/test";
+import { expect, devices, type Page, type Locator } from "@playwright/test";
+import { test } from "../shared/helpers";
 
 // ---------------------------------------------------------------------------
 // Device emulation -- Pixel 5 sets pointer:coarse via hasTouch

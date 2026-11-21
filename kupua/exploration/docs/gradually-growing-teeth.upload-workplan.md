@@ -2069,7 +2069,7 @@ For isolated validation under an explicitly Kupua-only write scope, override it
 with `-- --outDir node_modules/.cache/u1-hosted` (or another ignored directory
 inside Kupua). This validation override does not change the normal build configuration.
 
-Coordinate ports 3000/3030/3040 and the user's running app before browser suites;
+Follow the [synthetic test port rules](../../e2e/README.md#local-projects-and-ports);
 never stop their app/tunnel implicitly. Do not edit source during a run, hide live
 output with tail/grep, rerun a still-running suite, weaken meaningful assertions
 or add retries to conceal failures. Preserve unresolved traces before subsequent

@@ -1912,7 +1912,7 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --retries=0 2>&1 | tee "$TMP
 ```
 
 Do not run them concurrently or edit files during E2E. Observe runner ownership of
-ports 3000/3030/3040 and the local-ES safety check. Use the existing compiled-hosted
+ports 3020/3030/3040 and the local-ES safety check. Use the existing compiled-hosted
 fixture's output under Kupua; ordinary `build:hosted` writes into Kahuna and requires
 separate outside-directory permission. Performance campaigns/dry runs remain
 operator-run; any live system check requires fresh per-session authorization.

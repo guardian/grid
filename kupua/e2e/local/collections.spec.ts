@@ -162,11 +162,9 @@ test.describe("CollectionTree — with mock service", () => {
 
 test.describe("CollectionTree — graceful absence", () => {
   test("Collections section fully absent when service unavailable", async ({ kupua }) => {
-    await kupua.page.route(
-      (url: URL) => url.pathname === "/collections",
-      (route) => route.fulfill({ status: 503, body: "" }),
-    );
+    const startupResponse = kupua.page.waitForResponse("http://localhost:9010/collections");
     await kupua.startSearch();
+    expect(await (await startupResponse).headerValue("x-kupua-fixture")).toBe("collections-unavailable");
     await kupua.page.keyboard.press("Alt+[");
 
     // Wait for absent state: the whole section (header + content) disappears.

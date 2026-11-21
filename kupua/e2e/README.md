@@ -64,15 +64,21 @@ before a later run; even a focused run clears that directory.
 ### Local Projects and Ports
 
 [playwright.config.ts](../playwright.config.ts) starts the required servers.
-Coordinate with the operator before running: ports **3000, 3030 and 3040** must
-be free. Do not stop or reconfigure a live app or tunnel yourself.
+Ports **3020, 3030 and 3040** must be free. Ordinary synthetic E2E starts its
+own servers and dependency caches; leave interactive Kupua on 3000. The full
+wrapper can prepare missing fixture data on 9220, but does not kill listeners or
+other test runners. Do not run concurrent suites against the same test ports or
+overlap synthetic E2E with a measured performance campaign. Run manual diagnostics
+serially too: configurations sharing Playwright's output directory can clear one
+another's artifacts even when they use different servers. See the
+[data isolation limits](../exploration/docs/infra-safeguards.md#7-e2e-test-real-cluster-gate--refuse-to-run-against-non-local-es).
 
 | Project | Port | Scope |
 | --- | --- | --- |
-| `chromium` | 3000 | Main local specs; the table-tail history cases also use the runner-owned 3030 origin |
+| `chromium` | 3020 | Main local specs; the table-tail history cases also use the runner-owned 3030 origin |
 | `forced-seek` | 3030 | Fixed-density seek tests with position maps disabled by the runner |
 | `justified-preview` | 3040 | Resident Justified fixtures |
-| `justified-indexed` | 3000 | Windowed Justified with normal coordinate thresholds |
+| `justified-indexed` | 3020 | Windowed Justified with normal coordinate thresholds |
 | `justified-seek` | 3030 | Windowed Justified with forced-seek coordinates |
 
 [global-setup.ts](global-setup.ts) checks local ES/sample data, starts local Docker

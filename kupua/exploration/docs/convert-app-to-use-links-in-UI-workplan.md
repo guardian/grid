@@ -267,9 +267,7 @@ orders them last).
 Phases are ordered by value-for-effort. Each is independently shippable.
 **Run the test surfaces named in each phase before declaring it done.** Unit
 tests are mandatory after any `src/` change; e2e is mandatory after any change
-touching components/hooks/scroll/focus. **Before any Playwright run, warn the
-user that ports 3000 and 3030 for habitual E2E must be free and
-wait for confirmation.**
+touching components/hooks/scroll/focus. Follow the [synthetic runner's port rules](../../e2e/README.md#local-projects-and-ports); leave the interactive app running.
 
 ### Phase A — Foundations
 **Build:** §2.1 `applyAutoSort` extraction + §2.2 `src/lib/links.ts` +
@@ -409,8 +407,7 @@ facet-added search in a new tab); active facets still toggle off in-tab.
    components/hooks). Per the AGENTS test directive, run via `npm --prefix
    kupua …` from the repo root, tee output to `"$TMPDIR/kupua-test-output.txt"`,
    foreground, no `tail`/`head`/`sleep`.
-4. **Playwright port warning is mandatory** — warn + wait before any e2e/perf
-  run (ports 3000 and 3030 for habitual E2E).
+4. Keep synthetic E2E separate from operator-run perf measurements.
 5. **A broken test may mean the change is wrong** — do not weaken an assertion
    without reasoning about which of (test wrong / fix wrong / behaviour change
    intentional) is true.

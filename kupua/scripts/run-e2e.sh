@@ -7,7 +7,7 @@
 #   2. Starts kupua's local ES (port 9220) if not already up
 #   3. Waits for ES to be healthy + shards recovered
 #   4. Verifies sample data is loaded (loads if missing)
-#   5. Kills any stale Vite dev server on port 3000
+#   5. Leaves interactive servers and other Playwright processes alone
 #   6. Runs Playwright tests (Vite auto-started by playwright.config.ts)
 #   7. Reports results
 #
@@ -38,6 +38,7 @@ plain='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUPUA_DIR="${SCRIPT_DIR}/.."
+export KUPUA_ES_URL=http://127.0.0.1:9220
 
 # Parse arguments — anything before "--" is ours, after is passed to Playwright
 PW_ARGS=()
@@ -144,32 +145,9 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Kill stale processes on port 3000 (Vite) — prevent conflicts
-# ---------------------------------------------------------------------------
-echo -e "${cyan}[3/4] Cleaning up stale processes...${plain}"
-STALE_VITE=$(lsof -i:3000 -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -n "$STALE_VITE" ]; then
-  echo -e "${yellow}      Killing stale process on port 3000 (PID: ${STALE_VITE})${plain}"
-  kill $STALE_VITE 2>/dev/null || true
-  sleep 1
-  # Force kill if still alive
-  kill -9 $STALE_VITE 2>/dev/null || true
-  sleep 1
-fi
-
-# Also kill any orphaned Playwright test runners
-STALE_PW=$(pgrep -f "playwright.*test" 2>/dev/null || true)
-if [ -n "$STALE_PW" ]; then
-  echo -e "${yellow}      Killing stale Playwright processes: ${STALE_PW}${plain}"
-  echo "$STALE_PW" | xargs kill 2>/dev/null || true
-  sleep 1
-fi
-echo -e "${green}      Clean ✓${plain}"
-
-# ---------------------------------------------------------------------------
 # 5. Run Playwright
 # ---------------------------------------------------------------------------
-echo -e "${cyan}[4/4] Running Playwright tests...${plain}"
+echo -e "${cyan}Running Playwright on test ports 3020, 3030 and 3040 (local fixture ES: 9220).${plain}"
 echo
 cd "$KUPUA_DIR"
 
@@ -192,12 +170,6 @@ else
   echo -e "${red}═══════════════════════════════════════${plain}"
   echo
   echo -e "${yellow}  View report: npx playwright show-report kupua/playwright-report${plain}"
-fi
-
-# Clean up any Vite server that Playwright left behind
-LEFTOVER_VITE=$(lsof -i:3000 -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -n "$LEFTOVER_VITE" ]; then
-  kill $LEFTOVER_VITE 2>/dev/null || true
 fi
 
 exit ${EXIT_CODE}

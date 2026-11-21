@@ -23,6 +23,9 @@ Kupua is also written entirely using Claude Opus 4.6 shamelessly reusing work of
 
 Starts a local ES on port 9220, loads 10k sample images, and opens at **http://localhost:3000**.
 
+Leave the interactive app running for [ordinary synthetic E2E](e2e/README.md#local-projects-and-ports):
+Playwright owns separate app ports and reads the local sample fixture on 9220.
+
 ### TEST mode (real data)
 
 ```bash
@@ -43,6 +46,11 @@ TEST mode automatically:
 4. Starts **imgproxy** (port 3002) – resizes full-size originals from S3 on the fly
 5. Enables **write protection** – only read operations (`_search`, `_count`, `_cat/aliases`) are allowed against the real cluster
 6. Starts the Vite dev server on port 3000
+
+The TEST tunnel still shares host port 9200 with Grid's local Docker ES. Do not run
+both listeners: discovery can select the wrong cluster and buckets. Stopping Grid's
+Play apps does not necessarily stop its Docker ES. This is separate from the
+synthetic E2E fixture on 9220, which TEST startup leaves alone.
 
 All image access is read-only and uses your existing developer AWS credentials. See `exploration/docs/infra-safeguards.md` for the full safety framework.
 

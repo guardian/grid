@@ -149,6 +149,7 @@ const satelliteRoutes = process.env.VITE_USE_MEDIA_API === "true"
     loader: process.env.VITE_GRID_LOADER_ORIGIN }) : [];
 
 return {
+  cacheDir: process.env.KUPUA_E2E_CACHE_DIR,
   ...(hosted && {
     base: "/assets/kupua/",
     envDir: path.resolve(import.meta.dirname, "hosted"),

@@ -18,6 +18,14 @@ import { getDensityChangeButton } from "./density-selection";
 // ---------------------------------------------------------------------------
 
 export const test = base.extend<{ kupua: KupuaHelpers }>({
+  context: async ({ context }, use, testInfo) => {
+    if (testInfo.project.metadata.syntheticLocalE2E) {
+      await context.route("http://localhost:9010/collections", route => route.fulfill({
+        status: 503, headers: { "x-kupua-fixture": "collections-unavailable" }, body: "",
+      }));
+    }
+    await use(context);
+  },
   kupua: async ({ page }, use) => {
     // Optional CPU throttle for slow-hardware experiments (e.g. CPU_THROTTLE=4)
     const throttle = Number(process.env["CPU_THROTTLE"] || 0);

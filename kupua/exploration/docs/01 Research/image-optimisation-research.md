@@ -443,12 +443,9 @@ Local ES has only 10k docs with synthetic data — imgproxy latency is unrealist
    Please start ./scripts/start.sh --use-TEST if it's not running.
    ```
 
-3. Ask the user to stop any dev server on port 3000 before running tests
-   (the test suite starts its own Vite server):
-   ```
-   I need to run E4/E5 experiments — please stop any running dev server
-   on port 3000 first.
-   ```
+3. Leave the authorized TEST app running on 3000. The experiment config attaches
+  to that app; it does not start a synthetic test server. Do not run other suites
+  during the measurement.
 
 4. Run E4 (detail) and E5 (fullscreen) experiments:
    ```

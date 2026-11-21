@@ -112,7 +112,7 @@ directive in one place, copy the change to the other.
 | Jank perf | `npm --prefix kupua run test:perf -- --runs 3 --label "..."` | Never | After changes affecting frame timing/layout (virtualizer, scroll handlers, render paths) |
 | Perceived perf | `npm --prefix kupua run test:perf -- --perceived-only --runs 4 --label "..."` | Never | After touching `search-store.ts`, `useDataWindow.ts`, `useScrollEffects.ts`, `lib/orchestration/`, `lib/reset-to-home.ts`, sort-around-focus / position-map / phantom-focus paths, or perceived trace sites |
 
-Playwright E2E: ports :3000 and :3030 must be free for the normal and forced-seek projects; ask the user to stop the app only when they have said it is running. Perf surfaces require :3000 free. Real-ES surfaces: explicit user permission per session, read-only, no writes against non-local ES.
+Ordinary synthetic E2E (including the full wrapper) owns ports 3020, 3030 and 3040 and uses local fixture ES on 9220. Leave interactive Kupua on 3000 and its tunnel alone; do not ask the user to stop them. If a test port is occupied, report the conflict rather than killing or reusing its listener. Do not run concurrent suites on the same ports or overlap E2E with measured perf. Manual diagnostics and real perf campaigns use their selected running app; follow the owning runner guide. Real-ES surfaces require explicit user permission per session, read-only, no writes against non-local ES.
 
 **Directive: Proportionate coverage and E2E runtime.** Suite wall-clock time is a
 development constraint. Before adding or extending E2E coverage, inspect the

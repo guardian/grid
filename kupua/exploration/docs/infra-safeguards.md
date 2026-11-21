@@ -242,12 +242,9 @@ naively running aggs on every keystroke could strain the cluster.
 
 ## 7. E2E test real-cluster gate — refuse to run against non-local ES
 
-**Problem:** Playwright's `reuseExistingServer: true` means `npx playwright test`
-will happily use an already-running Vite dev server on port 3000. If the developer
-previously ran `start.sh --use-TEST`, that server is proxying to a real ES cluster.
-Running 63 e2e tests against TEST fires hundreds of search/count/agg requests,
-triggers CloudWatch alarms, and produces meaningless test failures (the tests expect
-10k local docs, not 1.3M).
+**Boundary:** Ordinary synthetic E2E starts its own strict-port Vite servers and
+does not reuse interactive Kupua on 3000. Their `/es` proxy targets the local sample
+fixture on 9220. See [test ports and ownership](../../e2e/README.md#local-projects-and-ports).
 
 **Safeguard:** `e2e/global-setup.ts` runs a pre-flight check before any test
 execution. It queries the Vite proxy (`/es/images/_count` then `/es/_count`) and
@@ -255,14 +252,17 @@ checks the document count. If the count exceeds `LOCAL_MAX_DOCS` (50,000), the
 test run is aborted with a clear error message explaining the cause and fix.
 
 The check runs as the very first step of `globalSetup()`, before Docker ES
-auto-start or index verification. If Vite is not running on port 3000, the
-check silently passes (Playwright will start its own Vite instance later,
-which defaults to local ES on port 9220).
+auto-start or index verification. It targets the normal test origin on 3020,
+not the interactive app. An unavailable count is not evidence of cluster identity.
 
-**Why doc count, not env var:** The `VITE_ES_IS_LOCAL` flag exists in the app
-code but is a build-time Vite env var — not accessible to the Playwright global
-setup (which runs in Node.js, not in the browser). Querying the actual data
-through the Vite proxy is the only reliable way to detect the connection target.
+**Limits:** The count check can reject an unexpectedly large dataset; it does not
+authenticate the cluster or intercept browser traffic. The three runner-owned Vite
+servers pin the browser ES base to `/es`, select noncanonical media and disable the
+laptop S3 and image proxies, regardless of shell or dotenv delivery settings.
+The synthetic browser fixture intercepts the local collections startup read before
+navigation; collection-specific page mocks can override its unavailable response.
+The held-image fixture separately blocks non-fixture origins. These targeted guards
+are not a general browser network sandbox.
 
 ---
 
