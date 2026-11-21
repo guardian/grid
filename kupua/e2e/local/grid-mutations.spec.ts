@@ -2966,6 +2966,7 @@ test.describe("buffer publication", () => {
   }
 
   test("buffer publication preserves mounted Justified early demand", async ({ page }) => {
+    await page.clock.install();
     for (const retainGeometry of [true, false]) {
       const escaped = await isolatePublicationFixture(page, origin);
       let probe: JSHandle<{ delta: number; snapshot: () => { reads: number[]; published: boolean; publicationHeadroom: number };
@@ -2976,8 +2977,10 @@ test.describe("buffer publication", () => {
         await expect(region.locator('[data-cell-id="img-0"]')).toBeVisible();
         await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState().loading);
         await region.hover();
+        await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now()) + 1_000));
         for (let step = 0; step < 3; step++) {
           const before = await region.evaluate(element => element.scrollTop);
+          await page.clock.runFor(16);
           await page.mouse.wheel(0, 100);
           await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(before);
         }
@@ -3028,8 +3031,11 @@ test.describe("buffer publication", () => {
         }, retainGeometry);
         const delta = await probe.evaluate(probe => probe.delta);
         expect(delta).toBeGreaterThan(0);
+        await page.clock.runFor(16);
         await page.mouse.wheel(0, delta);
         await expect.poll(() => probe!.evaluate(probe => probe.snapshot().published)).toBe(true);
+        await page.clock.resume();
+        if (retainGeometry) await expect.poll(() => probe!.evaluate(probe => probe.snapshot().reads.length)).toBe(1);
         const result = await probe.evaluate(async probe => {
           for (let frame = 0; frame < 8; frame++) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
           return probe.snapshot();

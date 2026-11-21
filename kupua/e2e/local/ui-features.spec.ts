@@ -2431,12 +2431,12 @@ test.describe("Reloaded detail gesture return", () => {
         await kupua.detailNextAndWait();
         const traversed = (await kupua.getDetailImageId())!;
         await page.reload({ waitUntil: "domcontentloaded" });
-        await page.waitForFunction(target => {
-          const state = (window as any).__kupua_store__?.getState();
-          return state && !state.loading && state.imagePositions.has(target)
-            && document.querySelector(`[data-detail-image-id="${CSS.escape(target)}"]`);
-        }, traversed);
-        if (outcome !== "traversed") await kupua.detailPrevAndWait();
+        const detail = page.locator(`[data-detail-image-id="${traversed}"]`);
+        await expect(detail).toBeVisible();
+        if (outcome !== "traversed") {
+          await expect(detail.locator(`[data-detail-page="previous"][data-detail-page-id="${entry}"]`)).toBeAttached();
+          await kupua.detailPrevAndWait();
+        }
         expect(await kupua.getDetailImageId()).toBe(outcome === "traversed" ? traversed : entry);
         const before = await kupua.getScrollTop();
         if (outcome === "backspace") await kupua.closeDetailViaBackspace();
@@ -2459,7 +2459,7 @@ test.describe("Reloaded detail gesture return", () => {
           } else await expect(page.locator("[data-detail-image-id]")).toHaveCount(0);
         }
         if (outcome === "traversed") {
-          const placement = await kupua.waitForUsableViewportPlacement(traversed);
+          const placement = await kupua.waitForUsableViewportPlacement(traversed, undefined, 1);
           expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(1);
         } else expect(await kupua.getScrollTop()).toBe(before);
         if (outcome !== "cancel") expect(await kupua.getFocusedImageId()).toBe(outcome === "traversed" ? traversed : entry);

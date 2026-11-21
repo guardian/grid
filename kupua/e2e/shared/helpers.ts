@@ -319,9 +319,9 @@ export class KupuaHelpers {
   }
 
   /** Wait for an exact image to be painted near the active usable viewport centre. */
-  async waitForUsableViewportPlacement(imageId: string, timeout = 10_000) {
+  async waitForUsableViewportPlacement(imageId: string, timeout = 10_000, maxCenterDistance?: number) {
     const handle = await this.page.waitForFunction(
-      (targetId) => {
+      ({ targetId, maxCenterDistance }) => {
         const container = document.querySelector<HTMLElement>(
           '[aria-label="Image results grid"], [aria-label="Image results table"]',
         );
@@ -338,14 +338,15 @@ export class KupuaHelpers {
         const visible = cellRect.bottom > usableTop && cellRect.top < usableBottom;
         if (!visible) return false;
 
+        const signedCenterDistance = (cellRect.top + cellRect.bottom - usableTop - usableBottom) / 2;
+        if (maxCenterDistance !== undefined && Math.abs(signedCenterDistance) >= maxCenterDistance) return false;
         return {
           imageId: targetId,
           visible,
-          signedCenterDistance:
-            (cellRect.top + cellRect.bottom - usableTop - usableBottom) / 2,
+          signedCenterDistance,
         };
       },
-      imageId,
+      { targetId: imageId, maxCenterDistance },
       { timeout },
     );
     return handle.jsonValue() as Promise<{

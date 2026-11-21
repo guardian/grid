@@ -2281,13 +2281,13 @@ test.describe("Reload survival — position restoration on reload", () => {
       throw new Error("Traversed target remained in the buffer after forward eviction");
     }, traversedImageId);
 
-    await reloadSearchAndWait(kupua.page);
+    await kupua.page.reload();
     await expect(
       kupua.page.locator(`[data-detail-image-id="${traversedImageId}"]`),
     ).toBeVisible({ timeout: 15_000 });
 
     await kupua.closeDetailViaButton();
-    const placement = await kupua.waitForUsableViewportPlacement(traversedImageId);
+    const placement = await kupua.waitForUsableViewportPlacement(traversedImageId, undefined, 50);
     expect(placement).toMatchObject({ imageId: traversedImageId, visible: true });
     expect(Math.abs(placement.signedCenterDistance)).toBeLessThan(50);
 
@@ -2302,7 +2302,7 @@ test.describe("Reload survival — position restoration on reload", () => {
     await kupua.detailPrevAndWait();
     const reverseTraversedImageId = (await kupua.getDetailImageId())!;
     await kupua.closeDetailViaButton();
-    const reversePlacement = await kupua.waitForUsableViewportPlacement(reverseTraversedImageId);
+    const reversePlacement = await kupua.waitForUsableViewportPlacement(reverseTraversedImageId, undefined, 50);
     expect(reversePlacement).toMatchObject({ imageId: reverseTraversedImageId, visible: true });
     expect(Math.abs(reversePlacement.signedCenterDistance)).toBeLessThan(50);
   });

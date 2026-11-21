@@ -24,6 +24,13 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 21 November 2026 - Stabilise Detail reload and Justified early-read tests
+
+The traversal test waits for the reloaded Detail image and its placement on return,
+not a separate search lifecycle. The Justified publication test controls elapsed
+time between wheel samples so test-runner delays do not change the scroll speed
+being tested. It still requires an early read only when geometry is preserved.
+
 ### 20 November 2026 - Stabilise browser journeys and mobile Crop return
 
 Back to image releases compact Detail's fullscreen session before traversing
