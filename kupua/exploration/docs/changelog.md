@@ -24,6 +24,18 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 20 November 2026 - Stabilise browser journeys and mobile Crop return
+
+Back to image releases compact Detail's fullscreen session before traversing
+history. The browser's fullscreen exit no longer sends the editor back a second
+time, past the original image to Search. Leaving fullscreen directly in Detail
+still returns to the results.
+
+Browser tests wait for the rendered destination, stable image identity or restored
+draft instead of incidental page loads and fixed sleeps. Scroll checks compare
+visible image placement across legitimate virtual-window compensation; settling
+samples run in the browser. Mobile gesture fixtures supply their own image URLs.
+
 ### 20 November 2026 - Connect metadata editing and streamline Upload
 
 Edit metadata on one image or a selection in Details, or work directly in the

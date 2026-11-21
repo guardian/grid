@@ -197,6 +197,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   // Wrapper around the entire detail view — animated during swipe-to-dismiss.
   const detailWrapperRef = useRef<HTMLDivElement>(null);
   const mobileFullscreenRequestedRef = useRef(false);
+  const exitMobileFullscreenForCropReturn = useRef<() => void>(undefined);
   // Carousel strip — the inner element translated by swipe gestures.
   const stripRef = useRef<HTMLDivElement>(null);
   const imageSurfaceRef = useRef<HTMLDivElement>(null);
@@ -442,6 +443,13 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
 
     let active = false;
     let exitTimer: ReturnType<typeof setTimeout> | undefined;
+    exitMobileFullscreenForCropReturn.current = () => {
+      active = false;
+      clearTimeout(exitTimer);
+      if (document.fullscreenElement === fullscreenTarget) {
+        void document.exitFullscreen().catch(() => { active = document.fullscreenElement === fullscreenTarget; });
+      }
+    };
     const onFullscreenChange = () => {
       if (document.fullscreenElement === fullscreenTarget) {
         active = true;
@@ -464,6 +472,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     }
     return () => {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
+      exitMobileFullscreenForCropReturn.current = undefined;
       if (exitTimer) clearTimeout(exitTimer);
       if (document.fullscreenElement === fullscreenTarget) void document.exitFullscreen().catch(() => {});
     };
@@ -492,6 +501,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   }, [navigate, path, canCrop, imageId]);
   const closeCrop = useCallback(() => {
     if (history.state?._cropOriginKupuaKey) {
+      exitMobileFullscreenForCropReturn.current?.();
       markUserInitiatedNavigation();
       history.back();
       return;

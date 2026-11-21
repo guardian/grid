@@ -192,7 +192,8 @@ test.describe("Grid — click to enter/exit selection mode", () => {
       `selection anchor B moved: before=${placementBefore}, after=${placementAfter}`,
     ).toBeLessThan(0.05);
 
-    const scrollBeforeClear = await kupua.getScrollTop();
+    const anchorViewportTop = () => selectionCell.evaluate(cell => cell.getBoundingClientRect().top);
+    const topBeforeClear = await anchorViewportTop();
     await kupua.page.locator('button[aria-label="Deselect"]').click();
     await kupua.page.evaluate(() => new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
@@ -200,7 +201,7 @@ test.describe("Grid — click to enter/exit selection mode", () => {
 
     expect(await getSelectionCount(kupua.page)).toBe(0);
     expect(await kupua.getFocusedImageId()).toBe(focusedId);
-    expect(await kupua.getScrollTop()).toBe(scrollBeforeClear);
+    expect(await anchorViewportTop()).toBe(topBeforeClear);
   });
   }
 });

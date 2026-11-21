@@ -994,19 +994,16 @@ test.describe("Extends recover after cooldown", () => {
     const beforeScroll = await kupua.getStoreState();
 
     // Scroll down to trigger extendForward
-    for (let i = 0; i < 5; i++) {
-      await kupua.page.evaluate(async (bufferEnd) => {
-        const geometryPath = "/src/lib/scroll-geometry-ref.ts";
-        const { getScrollGeometry } = await import(geometryPath);
-        const { columns, rowHeight } = getScrollGeometry();
-        const grid = document.querySelector('[aria-label="Image results grid"]');
-        const table = document.querySelector('[aria-label="Image results table"]');
-        const el = grid ?? table;
-        if (!el) throw new Error("Results viewport is not mounted");
-        el.scrollTop = Math.max(0, Math.ceil(bufferEnd / columns) * rowHeight - el.clientHeight);
-      }, beforeScroll.bufferOffset + beforeScroll.resultsLength);
-      await kupua.page.waitForTimeout(500);
-    }
+    await kupua.page.evaluate(async (bufferEnd) => {
+      const geometryPath = "/src/lib/scroll-geometry-ref.ts";
+      const { getScrollGeometry } = await import(geometryPath);
+      const { columns, rowHeight } = getScrollGeometry();
+      const grid = document.querySelector('[aria-label="Image results grid"]');
+      const table = document.querySelector('[aria-label="Image results table"]');
+      const el = grid ?? table;
+      if (!el) throw new Error("Results viewport is not mounted");
+      el.scrollTop = Math.max(0, Math.ceil(bufferEnd / columns) * rowHeight - el.clientHeight);
+    }, beforeScroll.bufferOffset + beforeScroll.resultsLength);
 
     await kupua.page.waitForFunction((previousLength) => {
       const state = (window as any).__kupua_store__?.getState();

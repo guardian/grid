@@ -76,21 +76,22 @@ export async function waitForStableNthImageId(
   n: number,
   timeout = 10_000,
 ): Promise<string> {
-  const locator = page.locator(selector).nth(n);
-  const start = Date.now();
-  let lastId: string | null = null;
-  let stableCount = 0;
-  while (Date.now() - start < timeout) {
-    const id = await locator.getAttribute("data-image-id").catch(() => null);
-    if (id && id === lastId) {
-      if (++stableCount >= 3) return id;
-    } else {
-      stableCount = 0;
+  const samples = await page.evaluateHandle(() => ({ lastId: "", count: 0 }));
+  try {
+    const result = await page.waitForFunction(({ selector, n, samples }) => {
+      const id = document.querySelectorAll(selector)[n]?.getAttribute("data-image-id") ?? "";
+      samples.count = id && id === samples.lastId ? samples.count + 1 : 0;
+      samples.lastId = id;
+      return samples.count >= 3 ? id : "";
+    }, { selector, n, samples }, { polling: 50, timeout });
+    try {
+      return await result.jsonValue();
+    } finally {
+      await result.dispose();
     }
-    lastId = id;
-    await page.waitForTimeout(50);
+  } finally {
+    await samples.dispose();
   }
-  throw new Error(`waitForStableNthImageId: no stable element at position ${n} within ${timeout}ms`);
 }
 
 // ---------------------------------------------------------------------------
@@ -658,56 +659,20 @@ export class KupuaHelpers {
     timeout?: number,
   ) {
     if (before.twoTier) {
-      // In two-tier mode, the interaction sets scrollTop directly. A
-      // debounced scroll-seek (200ms) will fire if the target is outside
-      // the buffer. We always wait for _seekGeneration to bump. If the
-      // target was actually in the buffer (no scroll-seek needed), we time
-      // out after 3s and carry on — correctness > speed.
-      const seekTimeout = Math.min(timeout ?? 15_000, 3000);
-      try {
-        await this.page.waitForFunction(
-          (prevGen: number) => {
-            const store = (window as any).__kupua_store__;
-            if (!store) return false;
-            const s = store.getState();
-            return s._seekGeneration > prevGen && !s.loading && s.results.length > 0;
-          },
-          before.seekGen,
-          { timeout: seekTimeout },
-        );
-      } catch {
-        // Timeout = target was in buffer, no scroll-seek fired. That's OK.
-      }
-      // Wait for the virtualizer to render real interactive content at the
-      // new scroll position. After the scroll-seek completes, the buffer
-      // is repositioned but React + virtualizer need time to swap skeletons
-      // for real items. We poll until cursor-pointer elements appear in the
-      // visible viewport (not leftover from a previous position).
-      try {
-        await this.page.waitForFunction(
-          () => {
-            const grid = document.querySelector('[aria-label="Image results grid"]');
-            const table = document.querySelector('[aria-label="Image results table"]');
-            const container = grid ?? table;
-            if (!container) return false;
-            const items = container.querySelectorAll('[class*="cursor-pointer"]');
-            if (items.length === 0) return false;
-            const rect = container.getBoundingClientRect();
-            for (const item of items) {
-              const ir = item.getBoundingClientRect();
-              if (ir.bottom > rect.top && ir.top < rect.bottom) return true;
-            }
-            return false;
-          },
-          null,
-          { timeout: 5000 },
-        );
-      } catch {
-        // If no interactive content appeared within 5s, carry on —
-        // the caller may still succeed (e.g. for tests that don't
-        // need to click items).
-      }
-      await this.page.waitForTimeout(200);
+      await this.page.waitForFunction(previousGeneration => {
+        const state = (window as any).__kupua_store__?.getState();
+        if (!state || state.loading || state._browseNavigation || state.error) return false;
+        const mode = document.querySelector('[data-scrubber-mode]')?.getAttribute('data-scrubber-mode');
+        if (mode === 'seek' && state._seekGeneration === previousGeneration) return false;
+        const region = document.querySelector('[aria-label="Image results grid"], [aria-label="Image results table"], [aria-label="Image results justified"]');
+        if (!region) return false;
+        const bounds = region.getBoundingClientRect();
+        const top = region.querySelector('[data-table-header]')?.getBoundingClientRect().bottom ?? bounds.top;
+        return Array.from(region.querySelectorAll<HTMLElement>('[data-image-id]')).some(cell => {
+          const rect = cell.getBoundingClientRect();
+          return rect.top < bounds.bottom && rect.bottom > top && state.imagePositions.has(cell.dataset.imageId);
+        });
+      }, before.seekGen, { timeout: timeout ?? 15_000 });
     } else {
       await this.waitForSeekComplete(timeout);
       // Extra settle time for React re-render

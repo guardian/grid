@@ -71,23 +71,24 @@ export async function measuredDensityJourney(kupua: KupuaHelpers) {
   expect(formLayout.previewWidth).toBe(256);
   expect(formLayout.centered).toBeLessThan(1);
   expect(formLayout.inlineLabel).toBe(true);
-  await region.evaluate(async element => {
+  const targetId = await region.evaluate(async element => {
     const path = "/src/lib/scroll-geometry-ref.ts";
     const geometry = (await import(path)).getLayoutGeometry();
     const id = (window as any).__kupua_store__.getState().results[5].id;
     element.scrollTop = geometry.layout.getItemRow(geometry.window.findItemIndex(id)).top - 50;
     element.dispatchEvent(new Event("scroll"));
+    return id as string;
   });
-  const baseline = await region.evaluate(async element => {
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    const bounds = element.getBoundingClientRect();
-    const cell = Array.from(element.querySelectorAll<HTMLElement>("[data-image-id]"))
-      .find(cell => { const rect = cell.getBoundingClientRect(); return rect.top > bounds.top + 30 && rect.top < bounds.bottom - 300; });
-    if (!cell) throw new Error("Form witness needs a visible image and description");
-    (window as any).__kupua_store__.getState().setFocusedImageId(cell.dataset.imageId);
-    return { id: cell.dataset.imageId!, top: cell.getBoundingClientRect().top - bounds.top };
-  });
-  const cell = region.locator(`[data-image-id="${baseline.id}"]`);
+  const cell = region.locator(`[data-image-id="${targetId}"]`);
+  await expect.poll(() => cell.evaluate(element => {
+    const bounds = element.closest('[role="region"]')!.getBoundingClientRect();
+    const top = element.getBoundingClientRect().top;
+    return top > bounds.top + 30 && top < bounds.bottom - 300;
+  })).toBe(true);
+  const baseline = await cell.evaluate((element, id) => {
+    (window as any).__kupua_store__.getState().setFocusedImageId(id);
+    return { id, top: element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top };
+  }, targetId);
   await cell.getByRole("textbox", { name: "Description", exact: true }).fill("Retained form draft");
   for (let repeat = 0; repeat < 3; repeat++) {
     for (const density of ["table", "grid", "justified", "form"] as const) {
@@ -451,7 +452,7 @@ export async function pendingBrowseAcrossDensity(
       const state = (window as any).__kupua_store__.getState();
       return state._seekGeneration > (window as any).__b17.generation && !state.loading && state._browseNavigation === null;
     });
-    await expect.poll(() => page.evaluate(() => {
+    await page.waitForFunction(() => {
       const state = (window as any).__kupua_store__.getState();
       const probe = (window as any).__b17;
       const identity = probe.expectedId ?? state.results[state._seekTargetLocalIndex]?.id;
@@ -462,7 +463,7 @@ export async function pendingBrowseAcrossDensity(
       const rect = cell.getBoundingClientRect();
       const header = container.querySelector("[data-table-header]")?.getBoundingClientRect();
       return rect.bottom > Math.max(bounds.top, header?.bottom ?? bounds.top) && rect.top < bounds.bottom;
-    })).toBe(true);
+    }, undefined, { timeout: 5000 });
     const final = await page.evaluate(() => {
       const state = (window as any).__kupua_store__.getState();
       const probe = (window as any).__b17;

@@ -35,10 +35,12 @@ test.use({ ...devices["Pixel 5"] });
 // Block Grid API calls — same rationale as the kupua fixture in helpers.ts.
 test.beforeEach(async ({ page }) => {
   await page.route("/api/**", (route) => route.fulfill({ status: 503, body: "" }));
-  await page.route("**/src/lib/image-urls.ts*", async route => {
-    const response = await route.fetch();
-    await route.fulfill({ response, body: `${await response.text()}\ngetFullImageUrl = getThumbnailUrl = image => '/__detail_media/' + image.id + '.svg';\n` });
-  });
+  await page.route("**/src/lib/image-urls.ts*", route => route.fulfill({ contentType: "application/javascript", body: `
+    export const thumbnailsEnabled = false;
+    export const getThumbnailUrl = image => '/__detail_media/' + image.id + '.svg';
+    export const getFullImageUrl = getThumbnailUrl;
+    export const getZoomImageUrl = getFullImageUrl;
+  ` }));
   await page.route("**/__detail_media/*", route => {
     const imageId = new URL(route.request().url()).pathname.split("/").at(-1)!.slice(0, -4);
     const hue = parseInt(imageId.slice(-6), 16) % 360;
@@ -980,6 +982,7 @@ test.describe("detail metadata gestures", () => {
 
   test("mobile Crop separates its controls and preserves geometry through precision and Settings", async ({ page }) => {
     const detail = page.locator("[data-detail-image-id]");
+    const entryImage = await detail.getAttribute("data-detail-image-id");
     await detail.getByRole("button", { name: "Settings", exact: true }).click();
     await expect(detail.getByRole("menu")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -1041,6 +1044,7 @@ test.describe("detail metadata gestures", () => {
     expect(maskBounds.x).toBeGreaterThanOrEqual(dimensions.x + dimensions.width);
     expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath("crop-mobile-layout.png") });
+    await page.clock.install();
     await Promise.all([
       page.waitForEvent("dialog").then(async dialog => {
         expect(dialog.message()).toBe("Abandon the adjusted crop? Leaving this editor will discard it.");
@@ -1049,6 +1053,9 @@ test.describe("detail metadata gestures", () => {
       editor.getByRole("button", { name: "Back to image", exact: true }).click(),
     ]);
     await expect(editor).toHaveCount(0);
+    await page.waitForFunction(() => !document.fullscreenElement);
+    await page.clock.runFor(200);
+    await expect(detail).toHaveAttribute("data-detail-image-id", entryImage!);
     await expect(detail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   });
 

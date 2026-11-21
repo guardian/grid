@@ -664,6 +664,25 @@ test.describe("Post-seek scroll-up", () => {
 // endpoint, which catches movement hidden by final-state assertions.
 
 test.describe("Settle-window stability", () => {
+  function sampleGridPlacement(page: import("@playwright/test").Page, count: number, nearestRow: boolean) {
+    return page.evaluate(async ({ count, nearestRow }) => {
+      const snapshots = [];
+      const start = performance.now();
+      for (let index = 0; index < count; index++) {
+        const grid = document.querySelector<HTMLElement>('[aria-label="Image results grid"]');
+        const state = (window as any).__kupua_store__?.getState();
+        if (!grid || !state) throw new Error("Missing results during settle observation");
+        const columns = Math.max(1, Math.floor(grid.clientWidth / 280));
+        const row = grid.scrollTop / 303;
+        snapshots.push({ t: Math.round(performance.now() - start), scrollTop: grid.scrollTop,
+          offset: state.bufferOffset, len: state.results.length,
+          firstVisibleGlobalPos: state.bufferOffset + columns * (nearestRow ? Math.round(row) : Math.floor(row)) });
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      return snapshots;
+    }, { count, nearestRow });
+  }
+
   test("no visible content shift during settle window after seek", async ({ kupua }) => {
     await kupua.startSearch();
 
@@ -704,33 +723,7 @@ test.describe("Settle-window stability", () => {
     // Poll every 50ms for 1500ms — capture the full settle + deferred scroll window.
     // Track firstVisibleGlobalPos (what the user actually sees), not scrollTop
     // (which changes legitimately during prepend compensation).
-    const snapshots: Array<{
-      t: number; scrollTop: number; offset: number; len: number;
-      firstVisibleGlobalPos: number;
-    }> = [];
-    const startT = Date.now();
-    for (let i = 0; i < 30; i++) {
-      await kupua.page.waitForTimeout(50);
-      const snap = await kupua.page.evaluate(() => {
-        const el = document.querySelector('[aria-label="Image results grid"]') as HTMLElement;
-        if (!el) return null;
-        const store = (window as any).__kupua_store__;
-        if (!store) return null;
-        const s = store.getState();
-        const ROW_HEIGHT = 303;
-        const MIN_CELL_WIDTH = 280;
-        const cols = Math.max(1, Math.floor(el.clientWidth / MIN_CELL_WIDTH));
-        const firstRow = Math.floor(el.scrollTop / ROW_HEIGHT);
-        const firstLocalIdx = firstRow * cols;
-        return {
-          scrollTop: el.scrollTop,
-          offset: s.bufferOffset,
-          len: s.results.length,
-          firstVisibleGlobalPos: firstLocalIdx + s.bufferOffset,
-        };
-      });
-      if (snap) snapshots.push({ t: Date.now() - startT, ...snap });
-    }
+    const snapshots = await sampleGridPlacement(kupua.page, 31, false);
 
     // Check: the visible content (firstVisibleGlobalPos) should be stable.
     // After the initial seek lands, the user should see the same images
@@ -816,30 +809,12 @@ test.describe("Settle-window stability", () => {
       const subRowAfter = postSeekScrollTop % GRID_ROW_HEIGHT;
 
       // Poll for 2 seconds to detect content shift
-      const snapshots: Array<{ t: number; pos: number }> = [];
-      const start = Date.now();
-      for (let i = 0; i < 40; i++) {
-        const snap = await kupua.page.evaluate(() => {
-          const store = (window as any).__kupua_store__;
-          if (!store) return null;
-          const s = store.getState();
-          const el = document.querySelector('[aria-label="Image results grid"]');
-          if (!el) return null;
-          const offset = s.bufferOffset as number;
-          const scrollTop = el.scrollTop;
-          const cols = Math.max(1, Math.floor(el.clientWidth / 280));
-          const rowHeight = 303;
-          const firstVisibleRow = Math.round(scrollTop / rowHeight);
-          return { pos: offset + firstVisibleRow * cols };
-        });
-        if (snap) snapshots.push({ t: Date.now() - start, pos: snap.pos });
-        await kupua.page.waitForTimeout(50);
-      }
+      const snapshots = await sampleGridPlacement(kupua.page, 40, true);
 
       // Calculate max content shift
       let maxShift = 0;
       for (let i = 1; i < snapshots.length; i++) {
-        const shift = Math.abs(snapshots[i].pos - snapshots[i - 1].pos);
+        const shift = Math.abs(snapshots[i].firstVisibleGlobalPos - snapshots[i - 1].firstVisibleGlobalPos);
         if (shift > maxShift) maxShift = shift;
       }
 
@@ -847,7 +822,7 @@ test.describe("Settle-window stability", () => {
         `  [row-offset=${rowOffset}] scrollPx=${scrollPx}, maxShift=${maxShift}, ` +
         `subRow: ${subRowBefore.toFixed(1)} → ${subRowAfter.toFixed(1)}, ` +
         `scrollTop: ${preSeekScrollTop.toFixed(1)} → ${postSeekScrollTop.toFixed(1)}, ` +
-        `snapshots=${snapshots.length}, firstPos=${snapshots[0]?.pos}, lastPos=${snapshots[snapshots.length - 1]?.pos}`,
+        `snapshots=${snapshots.length}, firstPos=${snapshots[0].firstVisibleGlobalPos}, lastPos=${snapshots[snapshots.length - 1].firstVisibleGlobalPos}`,
       );
 
       // Assert 1: No swimming (content shift)

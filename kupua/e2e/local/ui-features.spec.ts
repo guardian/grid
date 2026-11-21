@@ -539,7 +539,7 @@ test.describe("Crop editor dry run", () => {
         await expect.poll(() => page.evaluate(() => new URLSearchParams(location.search).get("cropping"))).toBe("true");
         expect(await coordinates()).toEqual(draftCoordinates);
       }
-      await page.reload();
+      await page.reload({ waitUntil: "commit" });
       await expect(crop).toBeEnabled();
       await expect(editor.getByRole("radio", { name: "video (16:9)" })).toHaveAttribute("aria-checked", "true");
       expect(await coordinates()).toEqual(draftCoordinates);
@@ -550,7 +550,7 @@ test.describe("Crop editor dry run", () => {
     await editor.focus();
     await page.keyboard.press("Delete");
     await expect(crop).toBeDisabled();
-    await page.reload();
+    await page.reload({ waitUntil: "commit" });
     await expect(editor).toBeVisible();
     await expect(crop).toBeDisabled();
     await expect(editor.locator('[data-ready="true"]')).toBeVisible();
@@ -2309,7 +2309,7 @@ test.describe("Detail close during list restoration", () => {
               },
             });
           }, target);
-          await page.reload({ waitUntil: "load" });
+          await page.reload({ waitUntil: "commit" });
           try {
             await page.waitForFunction(target => {
               const state = (window as any).__kupua_store__?.getState();
@@ -2424,16 +2424,13 @@ test.describe("Reloaded detail gesture return", () => {
   for (const view of ["grid", "table"] as const) {
     for (const outcome of ["cancel", "complete", "backspace", "traversed"] as const) {
       test(`${view} ${outcome}: preparation and final return share original entry`, async ({ kupua, page }) => {
-        await page.route("**/*", route => route.request().resourceType() === "image"
-          ? route.fulfill({ contentType: "image/gif", body: Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64") })
-          : route.fallback());
         await kupua.ensurePhantomMode();
         await kupua.startSearch("", view);
         await kupua.seekTo(0.5);
         const entry = await openVisibleDetail(kupua, "phantom");
         await kupua.detailNextAndWait();
         const traversed = (await kupua.getDetailImageId())!;
-        await page.reload({ waitUntil: "load" });
+        await page.reload({ waitUntil: "domcontentloaded" });
         await page.waitForFunction(target => {
           const state = (window as any).__kupua_store__?.getState();
           return state && !state.loading && state.imagePositions.has(target)

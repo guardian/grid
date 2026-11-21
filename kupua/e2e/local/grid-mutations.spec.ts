@@ -3295,22 +3295,25 @@ async function exerciseObservedRemoval(page: Page, outcome: "acknowledged" | "un
     const fixture = page.getByRole("region", { name: "Label editor fixture", exact: true });
     await fixture.getByRole("button", { name: "Remove news", exact: true }).dblclick();
     const snapshot = () => page.evaluate(() => (window as CommandWindow).editorFixture.snapshot());
-    expect((await snapshot()).calls).toBe(1);
-    expect((await snapshot()).receipts[0].items[0].state).toBe("submitted");
+    const submitted = await snapshot();
+    expect(submitted.calls).toBe(1);
+    expect(submitted.receipts[0].items[0].state).toBe("submitted");
     expect(reads).toEqual([]);
     await page.evaluate(outcome => {
       const fixture = (window as CommandWindow).editorFixture;
       fixture.targets(["new-selection"], true);
       fixture.release({ outcome });
     }, outcome);
-    await expect.poll(async () => (await snapshot()).receipts[0].items[0].observation).toBe("observed");
-    expect((await snapshot()).commands).toEqual([{ operation: "remove-label", imageId: "fixture", label: "news",
+    await page.waitForFunction(() => (window as CommandWindow).editorFixture.snapshot().receipts[0].items[0].observation === "observed",
+      undefined, { timeout: 5000 });
+    const observed = await snapshot();
+    expect(observed.commands).toEqual([{ operation: "remove-label", imageId: "fixture", label: "news",
       resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/fixture" }] } }]);
-    expect((await snapshot()).receipts[0]).toMatchObject({ intent: { action: "remove", label: "news", targetIds: ["fixture"] },
+    expect(observed.receipts[0]).toMatchObject({ intent: { action: "remove", label: "news", targetIds: ["fixture"] },
       items: [{ imageId: "fixture", state: outcome === "unknown" ? "unknown" : "accepted-awaiting-visibility", observation: "observed" }] });
     expect(reads).toEqual([["fixture"], ["fixture"]]);
     expect(await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected)).toEqual([{ id: "fixture", labels: ["news suffix"] }]);
-    expect((await snapshot()).calls).toBe(1);
+    expect(observed.calls).toBe(1);
   } finally {
     await page.evaluate(() => (window as CommandWindow).editorFixture.release({ outcome: "unknown" }));
     await page.unroute(routePattern);
