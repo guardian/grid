@@ -37,7 +37,8 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
       allImageRightsInNewPhotoshootAfter <- timedFuture("Get new photoshoot rights after", getAllImageRightsInPhotoshoot(newPhotoshootMaybe))
       oldChangedRights = getChangedRights(allImageRightsInOldPhotoshootBefore, allImageRightsInOldPhotoshootAfter)
       newChangedRights = getChangedRights(allImageRightsInNewPhotoshootBefore, allImageRightsInNewPhotoshootAfter)
-      _ <- timedFuture("Publish the photoshoot rights updates", publish(oldChangedRights ++ newChangedRights, UpdateImageSyndicationMetadata))
+      changedRights <- timedFuture("Restore directly assigned rights", restoreDirectlyAssignedRights(oldChangedRights ++ newChangedRights))
+      _ <- timedFuture("Publish the photoshoot rights updates", publish(changedRights, UpdateImageSyndicationMetadata))
     } yield {
       logger.info(s"Changed rights on old photoshoot ($oldPhotoshootMaybe): ${oldChangedRights.size}")
       logger.info(s"Changed rights on new photoshoot ($newPhotoshootMaybe): ${newChangedRights.size}")
@@ -152,6 +153,21 @@ trait Syndication extends Edit with MessageSubjects with GridLogging {
     // Rights in 'before' which are not present at all in 'after', so have no inferred rights now
     (after.toSet -- before.toSet).toMap.map(kv => kv._1 -> Some(kv._2)) ++
       (before.keySet -- after.keySet).map(id => id -> None)
+  }
+
+  // Leaving a photoshoot only removes inferred rights - rights RCS assigned to the image directly still stand.
+  private[lib] def restoreDirectlyAssignedRights(changedRights: Map[String, Option[SyndicationRights]])
+                                                (implicit ec: ExecutionContext): Future[Map[String, Option[SyndicationRights]]] = {
+    val idsLosingRights = changedRights.collect { case (id, None) => id }.toList
+
+    if (idsLosingRights.isEmpty) Future.successful(changedRights)
+    else syndicationStore.batchGet(idsLosingRights, syndicationRightsFieldName).map { ownRights =>
+      logger.info(s"${ownRights.size} of ${idsLosingRights.size} images losing inferred rights have directly assigned rights to retain")
+      changedRights.map {
+        case (id, None) => id -> ownRights.get(id).map(_.copy(isInferred = false))
+        case unchanged => unchanged
+      }
+    }
   }
 
   def getPhotoshootForImage(id: String)
