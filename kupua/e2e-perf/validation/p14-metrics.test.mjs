@@ -1,0 +1,119 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  classifyAspectRatioChange,
+  deriveNavigationTiming,
+  landingElapsedMs,
+  metricsAreComparable,
+  severeRateIsReportable,
+  sanitizeLayoutShift,
+  classifyImageLookup,
+  comparisonEvidenceClass,
+} from "../p14-metrics.mjs";
+
+test("reserves regression verdicts for repeated current evidence", () => {
+  assert.equal(comparisonEvidenceClass({ sampleCount: 1 }, { sampleCount: 4 }), "watchpoint");
+  assert.equal(comparisonEvidenceClass({ sampleCount: 2 }, { sampleCount: 4 }), "repeated");
+  assert.equal(comparisonEvidenceClass({ sampleCount: 4 }, { sampleCount: 1 }), "watchpoint");
+  assert.equal(comparisonEvidenceClass({}, { sampleCount: 4 }), "watchpoint");
+});
+
+test("classifies image hydration without confusing ordered reads or media", () => {
+  assert.equal(classifyImageLookup("POST", "/es/images/_mget"), "direct-es");
+    assert.equal(classifyImageLookup("GET", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id"), "media-api");
+    assert.equal(classifyImageLookup("POST", "https://kupua.media.local.dev-gutools.co.uk/api/images/mget"), "media-api");
+    assert.equal(classifyImageLookup("GET", "https://api.media.test.dev-gutools.co.uk/images/example-id"), "media-api");
+    assert.equal(classifyImageLookup("POST", "https://api.media.test.dev-gutools.co.uk/images/mget"), "media-api");
+    assert.equal(classifyImageLookup("GET", "https://images.example.test/images/example-id"), null);
+  for (const path of ["/api/images/search-after", "/api/images/window", "/api/images/keys"]) {
+    assert.equal(classifyImageLookup("POST", path), null);
+  }
+    assert.equal(classifyImageLookup("GET", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id/fileMetadata"), null);
+    assert.equal(classifyImageLookup("GET", "https://api.media.test.dev-gutools.co.uk/images/example-id/download"), null);
+    assert.equal(classifyImageLookup("POST", "https://kupua.media.local.dev-gutools.co.uk/api/images/other"), null);
+    assert.equal(classifyImageLookup("DELETE", "https://kupua.media.local.dev-gutools.co.uk/api/images/example-id"), null);
+});
+
+test("measures landing from the final committed navigation", () => {
+  assert.equal(landingElapsedMs(1_250, 1_600), 350);
+  assert.equal(landingElapsedMs(1_250, 1_200), 0);
+});
+
+test("classifies aspect-ratio changes without retaining identity", () => {
+  assert.equal(classifyAspectRatioChange(
+    { width: 400, height: 200 },
+    { width: 800, height: 400 },
+  ), "same");
+  assert.equal(classifyAspectRatioChange(
+    { width: 400, height: 200 },
+    { width: 200, height: 400 },
+  ), "changed");
+  assert.equal(classifyAspectRatioChange(
+    { width: 0, height: 0 },
+    { width: 200, height: 400 },
+  ), "unknown");
+});
+
+test("sanitizes layout shifts into phase, role, geometry and ratio class", () => {
+  const sanitized = sanitizeLayoutShift({
+    value: 0.12,
+    hadRecentInput: false,
+    time: 1_450,
+    sources: [{
+      role: "detail-image",
+      previousRect: { x: 10, y: 20, width: 400, height: 200 },
+      currentRect: { x: 20, y: 25, width: 200, height: 400 },
+      unsafeIdentity: "must-not-survive",
+    }],
+  }, 1_500);
+
+  assert.deepEqual(sanitized, {
+    value: 0.12,
+    phase: "traversal",
+    sources: [{
+      role: "detail-image",
+      previousRect: { x: 10, y: 20, width: 400, height: 200 },
+      currentRect: { x: 20, y: 25, width: 200, height: 400 },
+      aspectRatioClass: "changed",
+    }],
+  });
+  assert.equal(JSON.stringify(sanitized).includes("must-not-survive"), false);
+});
+
+test("rejects comparisons across scenario revisions", () => {
+  assert.equal(metricsAreComparable(
+    { scenarioRevision: 2, cacheClass: "fresh-browser-context" },
+    { scenarioRevision: 2, cacheClass: "fresh-browser-context" },
+  ), true);
+  assert.equal(metricsAreComparable(
+    { scenarioRevision: 2, cacheClass: "fresh-browser-context" },
+    {},
+  ), false);
+  assert.equal(metricsAreComparable(
+    { scenarioRevision: 2, cacheClass: "fresh-browser-context" },
+    { scenarioRevision: 2, cacheClass: "warm" },
+  ), false);
+});
+
+test("derives bounded navigation milestones from browser timing", () => {
+  assert.deepEqual(deriveNavigationTiming({
+    domContentLoadedEventEnd: 320,
+    loadEventEnd: 480,
+    responseEnd: 140,
+  }, [
+    { name: "first-paint", startTime: 210 },
+    { name: "first-contentful-paint", startTime: 230 },
+  ]), {
+    responseEndMs: 140,
+    domContentLoadedMs: 320,
+    loadEventMs: 480,
+    firstPaintMs: 210,
+    firstContentfulPaintMs: 230,
+  });
+});
+
+test("reports severe rate only for sustained frame windows", () => {
+  assert.equal(severeRateIsReportable({ frameCount: 29 }), false);
+  assert.equal(severeRateIsReportable({ frameCount: 30 }), true);
+  assert.equal(severeRateIsReportable({}), false);
+});

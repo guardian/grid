@@ -1,0 +1,11 @@
+[
+  {
+    "path": "/images/mget",
+    "body": {
+      "ids": [
+        "fixture-id",
+        "missing-id"
+      ]
+    }
+  }
+]

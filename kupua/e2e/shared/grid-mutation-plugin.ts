@@ -1,0 +1,433 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { createHash } from "node:crypto";
+import type { Plugin } from "vite";
+
+export const virtualEntry = "virtual:kupua-commands";
+const root = resolve(import.meta.dirname, "../..");
+
+export function gridMutationPlugin(publication: boolean | "readback" | "continuation" | "upload" = false): Plugin {
+  const upload = publication === "upload";
+  const continuation = publication === "continuation" || upload;
+  const readback = publication === "readback" || continuation;
+  const projections = new Map<string, string>();
+  let uploadEdits = false;
+  const metadataOverrides = new Map<string, Record<string, unknown>>();
+  const presetLabels = new Map<string, string[]>();
+  const metadataWrites: { id: string; method: string; data: unknown }[] = [];
+  const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
+  const hiddenFromSearch = new Set<string>();
+  const held = new Set<() => void>();
+  let holdNext = false;
+  const counts = { searchReads: 0, pageReads: 0, mgetReads: 0, fullReads: 0, rankReads: 0, mapReads: 0, countReads: 0, profileFailures: 0,
+    generated: 0, aborted: 0, fakeDispatches: 0, staleDelivered: 0, unexpected: [] as string[] };
+  let logicalTotal = continuation ? 9_000_000 : 120;
+  let matchingPrefix: number | null = null;
+  const epoch = continuation ? Date.UTC(2026, 10, 1) : Date.UTC(2026, 0, 1);
+  const ids = Array.from({ length: 120 }, (_, index) => `local-${index}`);
+  const known = (id: string) => continuation ? /^local-\d+$/.test(id) && Number(id.slice(6)) < logicalTotal
+    : ids.includes(id) || id === "local-offscreen";
+  const tuple = (ordinal: number) => [epoch - ordinal * 1000, `local-${ordinal}`];
+  const excludesLabel = (body: Record<string, unknown>) => String(body.q ?? "").includes("-label:reviewed");
+  const requiresLabel = (body: Record<string, unknown>) => body.q === "label:reviewed";
+  const matches = (ordinal: number, body: Record<string, unknown>) => ordinal >= 0 && ordinal < logicalTotal
+    && !hiddenFromSearch.has(`local-${ordinal}`)
+    && !String(body.q ?? "").includes(`-id:"local-${ordinal}"`)
+    && (!requiresLabel(body) || ordinal < (matchingPrefix ?? 0) || projections.has(`local-${ordinal}`))
+    && (!excludesLabel(body) || !projections.has(`local-${ordinal}`));
+  const scopedOrdinals = (body: Record<string, unknown>) => Array.isArray(body.ids)
+    ? (body.ids as string[]).filter(known).map(id => Number(id.slice(6)))
+      .filter(ordinal => matches(ordinal, body)).sort((first, second) => first - second)
+    : undefined;
+  const currentTotal = (body: Record<string, unknown>): number => {
+    const exclusions = [...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]);
+    if (exclusions.length && !body.ids) {
+      const withoutExclusions = { ...body, q: String(body.q ?? "").replace(/-id:"[^"]+"/g, "").trim() };
+      return currentTotal(withoutExclusions) - new Set(exclusions.filter(id => known(id) && matches(Number(id.slice(6)), withoutExclusions))).size;
+    }
+    return body.since ? 0 : scopedOrdinals(body)?.length ?? (requiresLabel(body)
+      ? (matchingPrefix ?? 0) + [...projections.keys()].filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0)).length
+      : logicalTotal - new Set([...hiddenFromSearch, ...(excludesLabel(body) ? projections.keys() : [])]).size);
+  };
+  const pageOrdinals = (body: Record<string, unknown>) => {
+    const cursor = body.sortValues as (number | string | null)[] | undefined;
+    const reverse = Boolean(body.reverse);
+    const ordinal = cursor ? Math.round((epoch - Number(cursor[0])) / 1000) : reverse ? logicalTotal : -1;
+    const scoped = scopedOrdinals(body);
+    if (scoped) {
+      const candidates = scoped.filter(candidate => reverse ? candidate < ordinal : candidate > ordinal);
+      const offset = Number(body.offset ?? 0);
+      const length = Number(body.length ?? body.size ?? 200);
+      return reverse ? candidates.slice(-offset - length, offset ? -offset : undefined) : candidates.slice(offset, offset + length);
+    }
+    let candidate = ordinal + (reverse ? String(cursor?.at(-1)).endsWith("\u0000") ? 0 : -1 : 1);
+    let skip = Number(body.offset ?? 0);
+    const page: number[] = [];
+    while (candidate >= 0 && candidate < logicalTotal && page.length < Number(body.length ?? body.size ?? 200)) {
+      if (matches(candidate, body)) {
+        if (skip > 0) skip--;
+        else page.push(candidate);
+      }
+      candidate += reverse ? -1 : 1;
+    }
+    return reverse ? page.reverse() : page;
+  };
+  const entity = (id: string, full = false) => {
+    counts.generated++;
+    const index = id === "local-offscreen" ? 120 : Number(id.slice(6));
+    const label = projections.get(id) ?? (matchingPrefix !== null && index < matchingPrefix ? "reviewed" : undefined);
+    const asset = ["test", "test-card-f", "embedded-metadata"][index % 3];
+    const dimensions = index % 3 === 0 ? { width: 700, height: 576 } : { width: 767, height: 561 };
+    return {
+      uri: `/api/images/${id}`, actions: [], links: [
+        { rel: "optimised", href: `/__publication-media/${asset}.jpg` },
+        ...(!label ? [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] : []),
+      ],
+      data: {
+        id, uploadTime: new Date(epoch - index * 1_000).toISOString(), uploadedBy: "synthetic-fixture",
+        lastModified: label ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
+        metadata: { description: label ? `Readback ${id}` : `Original ${id}`, credit: "Fixture", ...(uploadEdits ? metadataOverrides.get(id) : {}) },
+        ...(full && { originalMetadata: { title: `Original camera ${id}` }, fileMetadata: { data: { fixture: "EXIF retained" } } }),
+        cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
+        userMetadata: { data: { lastModified: uploadEdits && metadataOverrides.has(id) ? metadataVersion() : label ? "2026-11-07T00:00:00Z" : "2026-11-01T00:00:00Z",
+          labels: { data: [{ data: label ?? "original label" }] }, archived: { data: false }, metadata: {}, usageRights: {}, photoshoot: {} } },
+        source: { dimensions, mimeType: "image/jpeg" },
+        thumbnail: { secureUrl: `/__publication-media/${asset}.jpg`, dimensions, mimeType: "image/jpeg" },
+        usages: { data: [] }, leases: { data: { leases: [] } }, collections: [],
+      },
+    };
+  };
+  const uploadId = "f".repeat(40);
+  let uploadStatus = "QUEUED";
+  let uploadVisible = false;
+  let uploadSearchable = false;
+  let uploadVisibilityReads = 0;
+  let uploadWrites = 0;
+  let uploadStatusReads = 0;
+  let uploadIdentityAvailable = true;
+  let uploadPermission = true;
+  let multipleUploads = false;
+  let uploadLimit: number | undefined;
+  const embeddedDescriptions = new Map<string, string>();
+  const metadataReads = new Map<string, number>();
+  const uploaded = new Map<string, { name: string; ordinal: number }>();
+  const uploadEntity = (id = uploadId) => {
+    const resource = entity("local-0", true);
+    const file = uploaded.get(id);
+    const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
+    return { ...resource, uri: `/api/images/${id}`, data: { ...resource.data, id,
+      ...(uploadEdits ? { originalMetadata,
+        metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
+        userMetadata: { data: { ...resource.data.userMetadata.data,
+          lastModified: metadataOverrides.has(id) || presetLabels.has(id) ? metadataVersion() : undefined,
+          labels: { data: (presetLabels.get(id) ?? []).map(data => ({ data })) } } } } : {}),
+      uploadInfo: { filename: file?.name ?? "fixture.jpg" }, uploadTime: new Date(epoch + 1_000_000 - (file?.ordinal ?? 0) * 1000).toISOString(),
+    }, links: [...resource.links.map(link => ({ ...link, href: link.href.replace("local-0", id) })),
+      { rel: "crops", href: `https://api.example.test/crops/${id}` }],
+    };
+  };
+  return {
+    name: "isolated-command-fixture",
+    enforce: "pre",
+    transform(code, id) {
+      if (id === resolve(root, "src/main.tsx")) return code.replace('from "./stores/label-editor-store"', 'from "../e2e/shared/label-editor-fixture"');
+    },
+    config() {
+      return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test"),
+        ...(upload ? { "import.meta.env.VITE_GRID_METADATA_ORIGIN": JSON.stringify("https://metadata.example.test") } : {}) } } : undefined;
+    },
+    resolveId(id) { if (id === virtualEntry) return id; },
+    load(id) {
+      if (id === virtualEntry) return `import * as commands from ${JSON.stringify(resolve(root, "src/lib/grid-commands.ts"))}; window.commandFixture = commands;
+        import {labelEditorFixture} from ${JSON.stringify(resolve(root, "e2e/shared/label-editor-fixture.tsx"))}; window.editorFixture = labelEditorFixture;`;
+    },
+    configureServer(server) {
+      server.middlewares.use(async (request, response, next) => {
+        const pathname = request.url?.split("?")[0];
+        if (!pathname) return next();
+        if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata|\/labels)?$/.exec(pathname);
+          response.setHeader("Content-Type", "application/json");
+          if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
+          const id = match[1];
+          if (request.method === "GET" && !match[2]) {
+            metadataReads.set(id, (metadataReads.get(id) ?? 0) + 1);
+            response.end(JSON.stringify({ data: {
+              metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } } },
+              labels: { uri: `https://metadata.example.test/metadata/${id}/labels`, data: [] },
+            } })); return;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of request) chunks.push(Buffer.from(chunk));
+          const body = JSON.parse(Buffer.concat(chunks).toString());
+          if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
+          else if (match[2] === "/labels" && request.method === "POST") presetLabels.set(id, [...new Set([...(presetLabels.get(id) ?? []), ...body.data as string[]])]);
+          else { response.statusCode = 403; response.end("{}"); return; }
+          metadataWrites.push({ id, method: request.method, data: body.data });
+          response.end("{}"); return;
+        }
+        if ((readback && ["/api", "/api/", "/grid-auth/session"].includes(pathname)) || upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
+          || pathname.startsWith("/grid-loader/") || pathname === "/api" || pathname === "/api/"
+          || /^\/api\/images\/[a-f0-9]{40}$/.test(pathname))) {
+          const send = (data: unknown, status = 200) => {
+            response.statusCode = status;
+            response.setHeader("Content-Type", "application/json");
+            response.end(JSON.stringify(data));
+          };
+          if (pathname === "/__upload-control") {
+            if (request.method === "POST") {
+              const chunks: Buffer[] = [];
+              for await (const chunk of request) chunks.push(Buffer.from(chunk));
+              const body = JSON.parse(Buffer.concat(chunks).toString());
+              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); metadataWrites.length = 0; metadataReads.clear(); }
+              if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
+                embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
+              }
+              if (typeof body.editing === "boolean") uploadEdits = body.editing;
+              if (typeof body.canUpload === "boolean") uploadPermission = body.canUpload;
+              if (typeof body.identityAvailable === "boolean") uploadIdentityAvailable = body.identityAvailable;
+              if (typeof body.multiple === "boolean") multipleUploads = body.multiple;
+              if (typeof body.maxFileBytes === "number") uploadLimit = body.maxFileBytes;
+              if (typeof body.status === "string") uploadStatus = body.status;
+              if (typeof body.visible === "boolean") uploadVisible = body.visible;
+              if (typeof body.searchable === "boolean") uploadSearchable = body.searchable;
+              if (Array.isArray(body.members)) {
+                for (const member of body.members) uploaded.set(member.id, { name: member.name, ordinal: uploaded.size });
+              }
+            }
+            return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId,
+              ...(uploadEdits ? { metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
+          }
+          if (pathname === "/api" || pathname === "/api/") return send({ links: [
+            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }] : []),
+            ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
+          ] });
+          if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },
+            ...(upload && uploadIdentityAvailable ? { email: "uploader@example.invalid" } : {}),
+          } } });
+          if (pathname === "/grid-loader/") return send({ links: [
+            { rel: "load", href: "https://loader.example.test/images{?uploadedBy,identifiers,uploadTime,filename}" },
+            { rel: "uploadStatus", href: "https://loader.example.test/uploadStatus/{id}" },
+          ] });
+          if (pathname === "/grid-loader/images" && request.method === "POST") {
+            const chunks: Buffer[] = [];
+            for await (const chunk of request) chunks.push(Buffer.from(chunk));
+            const bytes = Buffer.concat(chunks);
+            uploadWrites++;
+            if (multipleUploads && bytes.toString() === "unsupported") return send({ errorKey: "unsupported-type" }, 415);
+            const id = multipleUploads ? createHash("sha1").update(bytes).digest("hex") : uploadId;
+            if (!uploaded.has(id)) uploaded.set(id, { name: new URL(request.url!, "http://fixture.invalid").searchParams.get("filename") ?? "fixture.jpg", ordinal: uploaded.size });
+            return send({ uri: `https://loader.example.test/uploadStatus/${id}` }, 202);
+          }
+          if (/^\/grid-loader\/uploadStatus\/[a-f0-9]{40}$/.test(pathname) && request.method === "GET") {
+            uploadStatusReads++;
+            return send({ data: { status: uploadStatus } }, uploadStatus === "MISSING" ? 404 : 200);
+          }
+          if (/^\/api\/images\/[a-f0-9]{40}$/.test(pathname) && request.method === "GET") {
+            const id = pathname.split("/").at(-1)!;
+            return send(uploadVisible && uploaded.has(id) ? uploadEntity(id) : {}, uploadVisible && uploaded.has(id) ? 200 : 404);
+          }
+          return send({ error: "unexpected-upload-fixture-request" }, 403);
+        }
+        if (readback && (pathname === "/__readback-control" || pathname.startsWith("/api/images"))) {
+          const chunks: Buffer[] = [];
+          for await (const chunk of request) chunks.push(Buffer.from(chunk));
+          const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown> : {};
+          const send = (data: unknown, status = 200) => {
+            response.statusCode = status;
+            response.setHeader("Content-Type", "application/json");
+            response.end(JSON.stringify(data));
+          };
+          if (upload && Array.isArray(body.ids) && body.ids.some(id => /^[a-f0-9]{40}$/.test(String(id)))) {
+            if (!body.ids.every(id => /^[a-f0-9]{40}$/.test(String(id)))) return send({ error: "unexpected-upload-scope" }, 403);
+            const members = (body.ids as string[]).filter(id => uploaded.has(id) && !String(body.q ?? "").includes(`-id:"${id}"`)).sort((first, second) => uploaded.get(first)!.ordinal - uploaded.get(second)!.ordinal);
+            const data = uploadSearchable ? members.map(id => uploadEntity(id)) : [];
+            const sortValues = data.map(item => [Date.parse(item.data.uploadTime), item.data.id]);
+            if (pathname === "/api/images/mget") return send({ data: uploadVisible ? [...members].reverse().map(id => uploadEntity(id)) : [] });
+            if (pathname === "/api/images/count") {
+              uploadVisibilityReads++;
+              return send({ total: body.since ? 0 : data.length });
+            }
+            if (pathname === "/api/images/keys") return send({ keys: data.map((item, index) => ({ id: item.data.id, sortValues: sortValues[index] })), after: null });
+            if (pathname === "/api/images/rank") return send({ rank: members.indexOf(String((body.sortValues as unknown[])?.at(-1))) });
+            if (pathname === "/api/images/search-after" || pathname === "/api/images/window") return send({ data, total: data.length,
+              sortValues: data.length ? sortValues : [], ...(pathname.endsWith("/window") ? { offset: 0, rawHitCount: data.length } : {}) });
+          }
+          if (upload && body.uploadedBy && !body.ids) {
+            const excluded = new Set([...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]));
+            const prefix = uploadSearchable ? [...uploaded.keys()].filter(id => !excluded.has(id)) : [];
+            const total = prefix.length + currentTotal(body);
+            const values = (id: string) => /^[a-f0-9]{40}$/.test(id)
+              ? [Date.parse(uploadEntity(id).data.uploadTime), id] : tuple(Number(id.slice(6)));
+            const cursor = body.sortValues as (string | number | null)[] | undefined;
+            const cursorId = cursor ? String(cursor.at(-1)).replace(/\u0000$/, "") : undefined;
+            const prefixCursor = cursorId ? prefix.indexOf(cursorId) : -1;
+            const reverse = !!body.reverse;
+            if (pathname === "/api/images/count") { counts.countReads++; return send({ total }); }
+            if (pathname === "/api/images/rank") {
+              counts.rankReads++;
+              return send({ rank: prefixCursor >= 0 ? prefixCursor : prefix.length + Number(cursorId?.slice(6) ?? 0) });
+            }
+            if (["/api/images/search-after", "/api/images/window", "/api/images/keys"].includes(pathname!)) {
+              const length = Number(body.length ?? body.size ?? 200);
+              const offset = Number(body.offset ?? 0);
+              const prefixCandidates = prefix.filter((_, index) => !cursor || (prefixCursor >= 0
+                ? reverse ? index < prefixCursor + (String(cursor!.at(-1)).endsWith("\u0000") ? 1 : 0) : index > prefixCursor : reverse));
+              const selectedPrefix = reverse ? prefixCandidates.slice(-length) : prefixCandidates.slice(offset, offset + length);
+              const localBody = { ...body, offset: !cursor ? Math.max(0, offset - prefix.length) : 0,
+                sortValues: prefixCursor >= 0 ? undefined : cursor, length: length - selectedPrefix.length, size: length - selectedPrefix.length };
+              const locals = reverse && prefixCursor >= 0 ? [] : pageOrdinals(localBody).map(index => `local-${index}`);
+              const selected = reverse ? [...selectedPrefix.slice(Math.max(0, selectedPrefix.length + locals.length - length)), ...locals] : [...selectedPrefix, ...locals];
+              if (pathname === "/api/images/keys") { counts.mapReads++; return send({ keys: selected.map(id => ({ id, sortValues: values(id) })), after: selected.length === length ? values(selected.at(-1)!) : null }); }
+              counts.searchReads++; counts.pageReads++;
+              const payload = { data: selected.map(id => uploaded.has(id) ? uploadEntity(id) : entity(id)), total, sortValues: selected.map(values),
+                ...(pathname.endsWith("/window") ? { offset, rawHitCount: selected.length } : {}) };
+              if (holdNext) {
+                holdNext = false;
+                await new Promise<void>(resolve => {
+                  const release = () => { held.delete(release); response.off("close", release); resolve(); };
+                  held.add(release); response.once("close", release);
+                });
+                if (response.destroyed) { counts.aborted++; return; }
+                counts.staleDelivered++;
+              }
+              return send(payload);
+            }
+          }
+          if (pathname === "/__readback-control") {
+            if (request.method === "POST") {
+              if (body.action === "hold") holdNext = true;
+              else if (body.action === "release") { for (const release of [...held]) release(); }
+              else if (continuation && body.action === "reset" && typeof body.total === "number" && body.total > 0 && body.total <= 9_000_000) {
+                for (const release of [...held]) release();
+                projections.clear();
+                hiddenFromSearch.clear();
+                holdNext = false;
+                logicalTotal = body.total;
+                matchingPrefix = typeof body.matching === "number" && Number.isInteger(body.matching) && body.matching >= 0 && body.matching <= logicalTotal
+                  ? body.matching : null;
+                for (const key of Object.keys(counts) as (keyof typeof counts)[]) {
+                  if (key === "unexpected") counts.unexpected.length = 0;
+                  else counts[key] = 0;
+                }
+              } else if (continuation && body.action === "hide-from-search" && Array.isArray(body.ids) && body.ids.every(id => typeof id === "string" && known(id))) {
+                for (const id of body.ids as string[]) hiddenFromSearch.add(id);
+              } else if (continuation && body.action === "exclude-prefix" && typeof body.count === "number" && body.count <= 1000) {
+                for (let index = 0; index < body.count; index++) projections.set(`local-${index}`, "reviewed");
+              }
+              else if (body.action === "project" && typeof body.imageId === "string" && known(body.imageId) && typeof body.label === "string") {
+                projections.set(body.imageId, body.label);
+                counts.fakeDispatches++;
+              } else return send({ error: "invalid-fixture-control" }, 400);
+            }
+            return send({ ...counts, held: held.size });
+          }
+          if (continuation && request.method === "POST" && pathname === "/api/images/sort-profile" && body.operation === "scalar-anchor" && body.field === "uploadTime") {
+            return send({ value: epoch - Math.floor(logicalTotal * (1 - Number(body.percentile) / 100)) * 1000 });
+          }
+          if (request.method === "POST" && pathname === "/api/images/sort-profile" && body.operation === "date-stats") {
+            counts.profileFailures++;
+            return send({ error: "synthetic-optional-profile-unavailable" }, 503);
+          }
+          if (continuation && request.method === "POST" && pathname === "/api/images/rank") {
+            counts.rankReads++;
+            const cursor = body.sortValues as (number | string)[];
+            const ordinal = Math.round((epoch - Number(cursor[0])) / 1000);
+            const scoped = scopedOrdinals(body);
+            if (scoped) return send({ rank: scoped.filter(candidate => candidate < ordinal).length });
+            if (requiresLabel(body)) return send({ rank: Math.min(ordinal, matchingPrefix ?? 0) + [...projections.keys()]
+              .filter(id => Number(id.slice(6)) >= (matchingPrefix ?? 0) && Number(id.slice(6)) < ordinal).length });
+            const excluded = [...String(body.q ?? "").matchAll(/-id:"([^"]+)"/g)].map(match => match[1]);
+            const removed = [...new Set([...hiddenFromSearch, ...excluded, ...(excludesLabel(body) ? projections.keys() : [])])].filter(id => known(id) && Number(id.slice(6)) < ordinal).length;
+            return send({ rank: Math.max(0, ordinal - removed) });
+          }
+          if (continuation && request.method === "POST" && pathname === "/api/images/keys" && currentTotal(body) <= 65_000) {
+            counts.mapReads++;
+            const page = pageOrdinals(body);
+            return send({ keys: page.map(ordinal => ({ id: `local-${ordinal}`, sortValues: tuple(ordinal) })),
+              after: page.length === Number(body.size) ? tuple(page.at(-1)!) : null });
+          }
+          if (request.method === "POST" && (pathname === "/api/images/search-after" || (continuation && pathname === "/api/images/window"))) {
+            counts.searchReads++;
+            if (!body.ids) counts.pageReads++;
+            const page = continuation ? pageOrdinals(body) : ids.map((_, index) => index);
+            const payload = JSON.stringify({ data: page.map(ordinal => entity(`local-${ordinal}`)),
+              total: continuation ? currentTotal(body) : 120, sortValues: page.map(tuple),
+              ...(pathname.endsWith("/window") && { offset: body.offset, rawHitCount: page.length }) });
+            if (holdNext && !body.ids) {
+              holdNext = false;
+              await new Promise<void>(resolve => {
+                const release = () => { held.delete(release); response.off("close", release); resolve(); };
+                held.add(release);
+                response.once("close", release);
+              });
+              if (response.destroyed) { counts.aborted++; return; }
+              counts.staleDelivered++;
+            }
+            response.setHeader("Content-Type", "application/json");
+            response.end(payload);
+            return;
+          }
+          if (request.method === "POST" && pathname === "/api/images/mget" && Array.isArray(body.ids) && body.ids.length <= 200) {
+            counts.mgetReads++;
+            return send({ data: body.ids.filter((id): id is string => typeof id === "string" && known(id)).map(id => entity(id)) });
+          }
+          if (request.method === "POST" && pathname === "/api/images/count") {
+            counts.countReads++;
+            return send({ total: continuation ? currentTotal(body) : 120 });
+          }
+          if (request.method === "POST" && pathname === "/api/images/aggregations") return send({ fields: {}, isFilterCounts: {} });
+          const singleton = pathname.match(/^\/api\/images\/(local-(?:\d+|offscreen))$/)?.[1];
+          if (request.method === "GET" && singleton && known(singleton)) { counts.fullReads++; return send(entity(singleton, true)); }
+          counts.unexpected.push(`${request.method} ${pathname}`);
+          return send({ error: "unexpected-fixture-read" }, 403);
+        }
+        if (publication && request.method === "GET" && /^\/__publication-media\/(test|test-card-f|embedded-metadata)\.jpg$/.test(pathname ?? "")) {
+          response.setHeader("Content-Type", "image/jpeg");
+          response.end(await readFile(resolve(root, "../e2e-tests/fixtures/images", pathname!.split("/").at(-1)!)));
+          return;
+        }
+        if (publication && request.method === "GET" && ["/api", "/api/", "/api/usage/quotas"].includes(pathname ?? "")) {
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify({ data: {}, links: [] }));
+          return;
+        }
+        if (publication && /^\/(es|api|bedrock|grid-metadata|grid-auth)(\/|$)/.test(pathname ?? "")) {
+          if (readback) counts.unexpected.push(`${request.method} ${pathname}`);
+          response.statusCode = 403;
+          response.end("Synthetic fixture: external transport disabled");
+          return;
+        }
+        const publicationPage = publication && ["/__publication", "/__readback", "/__continuation", "/search", "/", ...(upload ? ["/upload"] : [])].includes(pathname ?? "");
+        const connectedPage = pathname === "/__connected" || (!publication && pathname === "/search");
+        if (pathname !== "/__commands" && !publicationPage && !connectedPage) return next();
+        response.setHeader("Content-Type", "text/html");
+        if (publicationPage) {
+          response.setHeader("Content-Security-Policy", `default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' ws://${request.headers.host}`);
+        }
+        const html = pathname === "/__commands"
+          ? `<html><head></head><body><script type="module" src="/@id/${virtualEntry}"></script></body></html>`
+          : (await readFile(resolve(root, "index.html"), "utf8")).replace('<script type="module" src="/src/main.tsx"></script>',
+            `<script type="module">import "${virtualEntry}"; ${connectedPage ? 'history.replaceState(null, "", "/search");' : `await window.editorFixture.${readback ? "prepareReadback" : "preparePublication"}();`}
+            await import("/src/main.tsx");</script>`);
+          response.end(await server.transformIndexHtml(pathname, upload ? html.replace("<head>", `<head><script>window.__KUPUA_CONFIG__=${JSON.stringify({ gridConfig: { upload: { transport: "direct", maxFileBytes: uploadLimit } } })};</script>`)
+            : readback ? html.replace("<head>", '<head><script>localStorage.setItem("kupua-allow-uploads", "true");</script>') : html));
+      });
+    },
+  };
+}
+
+if (process.argv.includes("--serve-readback")) {
+  Object.assign(process.env, { VITEST: "true", VITE_USE_MEDIA_API: "true", VITE_HOSTED: "false",
+    VITE_MEDIA_API_BASE_URL: "/api", VITE_MEDIA_DELIVERY: "canonical",
+    VITE_GRID_METADATA_ORIGIN: "https://metadata.example.test" });
+  const { createServer } = await import("vite");
+  const continuation = process.argv.includes("--continuation");
+  const upload = process.argv.includes("--upload");
+  if (upload) Object.assign(process.env, { VITE_GRID_LOADER_ORIGIN: "https://loader.example.test", VITE_GRID_AUTH_ORIGIN: "https://auth.example.test" });
+  const server = await createServer({ root, configFile: resolve(root, "vite.config.ts"),
+    cacheDir: resolve(root, "node_modules/.cache/a3-readback-vite"), plugins: [gridMutationPlugin(upload ? "upload" : continuation ? "continuation" : "readback")],
+    server: { host: "127.0.0.1", port: 3067, strictPort: true } });
+  await server.listen();
+  console.log(`Synthetic fixture: http://127.0.0.1:3067/${upload || continuation ? "__continuation" : "__readback"}`);
+}
