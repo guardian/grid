@@ -13,7 +13,7 @@ import { FieldDisclosure } from "./FieldDisclosure";
 import { SuggestionDropdown } from "./SuggestionDropdown";
 import { FieldAddButton } from "./FieldAddButton";
 import { addToast } from "@/stores/toast-store";
-import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit } from "./MetadataEditing";
+import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
 import { useSelectionStore } from "@/stores/selection-store";
 
 export const LabelEditorContext = createContext<ReturnType<typeof createLabelEditorStore>>(labelEditorStore);
@@ -26,7 +26,7 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
     let operations = 0, total = 0, confirmed = 0;
     const finished: LabelReceipt[] = [];
     for (const receipt of receipts) {
-      if (receipt.mode !== "connected") continue;
+      if (receipt.mode !== "connected" || detailImageId && !receipt.intent.targetIds.includes(detailImageId)) continue;
       if (!receipt.blocked && receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending")) {
         operations++;
         total += receipt.intent.targetIds.length;
@@ -36,7 +36,7 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
       finished.push(receipt);
     }
     return { operations, total, confirmed, finished };
-  }, [receipts]);
+  }, [receipts, detailImageId]);
   return <SelectionSaveIndicator targetKey={key} compact={compact} below={below} detailImageId={detailImageId} renderSlot={renderSlot} desktopCount={compact || detailImageId ? undefined : ids.size} labelTotal={status.total} labelCount={status.operations} labelConfirmed={status.confirmed} finishedLabels={status.finished} />;
 }
 
@@ -51,6 +51,9 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const store = useContext(LabelEditorContext);
   const submit = useMetadataCommit();
   const key = labelTargetKey(context.targetIds);
+  const panelSave = usePendingPanelIntent(key, "labels");
+  const labelSave = useStore(store, state => state.receipts.some(receipt => receipt.mode === "connected" && !receipt.blocked &&
+    receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending") && labelTargetKey(receipt.intent.targetIds) === key));
   const { restored, scoped, update } = useDetailsDraft<string>("labels");
   const storedValue = useStore(store, state => state.drafts.get(key)?.value ?? "");
   const [panelValue, setPanelValue] = useState(restored ?? "");
@@ -162,12 +165,12 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
       <FieldAddButton ref={addButtonRef} iconOnly label="Add label" disabled={addDisabled || adding} onClick={() => setAdding(true)} />
     </span>
   }>
-      <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
+      <SavingValue saving={!!panelSave || labelSave}><div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
       {(expanded ? chips : chips.slice(0, 20)).map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent
         count={chip.count} total={counts.selected} coverageKnown={queueAdds || !context.pending && counts.unresolved === 0 && counts.unavailable === 0} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
-    <FieldDisclosure expanded={expanded} hasMore={chips.length > 20} controlsId={valuesId} anchorRef={headerRef}
+    </SavingValue><FieldDisclosure expanded={expanded} hasMore={chips.length > 20} controlsId={valuesId} anchorRef={headerRef}
       onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} />
     {adding && <form className="relative mt-1 max-w-full" onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;

@@ -6,6 +6,8 @@
  */
 
 import { create } from "zustand";
+import { z } from "zod";
+import { gridServiceOrigin, gridServiceUrl } from "@/dal/grid-api/proxy-target";
 import { serviceLink } from "@/lib/grid-api-instance";
 
 export interface UsageRightsCategory {
@@ -21,6 +23,35 @@ export const useUsageRightsCatalogue = create<{ categories: UsageRightsCategory[
 }));
 
 type ArgoBody = { data?: unknown; links?: Array<{ rel?: unknown; href?: unknown }> };
+
+const editorCategory = z.object({
+  value: z.string(), name: z.string().min(1), description: z.string(),
+  caution: z.string().nullish(), defaultRestrictions: z.string().nullish(),
+  usageRestrictions: z.string().nullish(), usageSpecialInstructions: z.string().nullish(),
+  properties: z.array(z.object({
+    name: z.string().min(1), label: z.string(), type: z.string(), required: z.boolean(),
+    options: z.array(z.string()).nullish(), optionsMapKey: z.string().nullish(),
+    optionsMap: z.record(z.string(), z.array(z.string())).nullish(), examples: z.string().nullish(),
+  })),
+});
+
+export type RightsEditorCategory = z.infer<typeof editorCategory>;
+
+export async function readRightsEditorCatalogue(): Promise<RightsEditorCategory[]> {
+  const origin = gridServiceOrigin(await serviceLink("edits"));
+  const signal = AbortSignal.timeout(15_000);
+  const read = async (href: unknown, path: string): Promise<ArgoBody> => {
+    const url = gridServiceUrl("metadata", href, path, origin);
+    if (!url) throw new Error("Invalid rights catalogue resource");
+    const response = await fetch(url, { credentials: "include", redirect: "error", signal });
+    if (!response.ok) throw new Error("Rights catalogue unavailable");
+    return response.json();
+  };
+  const root = await read(`${origin}/`, "/");
+  const catalogue = await read(root.links?.find(link => link.rel === "filtered-usage-rights-list")?.href,
+    "/usage-rights/filtered-categories");
+  return z.array(editorCategory).parse(catalogue.data);
+}
 
 async function getArgo(url: string): Promise<ArgoBody | null> {
   const response = await fetch(url, { credentials: "include" });

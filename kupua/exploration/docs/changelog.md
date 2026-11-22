@@ -24,6 +24,82 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 22 November 2026 - Preserve Rights submissions and later Form edits
+
+Publisher Rights reserves its possible scalar follow-up fields until settlement,
+so restoring an earlier displayed Credit or Byline is still a later edit. The
+Form retains the submitted Rights receipt and draft revision across unmounts;
+confirmation clears only that revision. A newer confirmed Rights outcome can
+retire older collapsed feedback. Creator IME Escape no longer cancels the form.
+Derived feedback indexes each immutable receipt once and releases observed
+successful owners without hiding rejected or uncertain outcomes. Scheduling a
+deferred scalar draft consumes the deferred marker rather than restarting its
+debounce on remount. Dispatch and borrowed turns share session-stop reasons.
+
+### 22 November 2026 - Give a waiting Form draft a turn between settled bulk groups
+
+An ordinary multi-image metadata action may lend dispatch to one ready Form
+autosave at a group boundary. Only the first waiter qualifies, and its image
+must be independent or already observed in the action. Shared waiters, pacing,
+observation capacity, session stops and same-image fences remain effective.
+Unvisited targets after a session stop retain explicit not-sent outcomes.
+Form rendering now skips unchanged scalar fields and builds the batch peer list
+on activation rather than allocating it for every arrow during passive refresh.
+
+### 22 November 2026 - Stabilise empty Credit and Taken calendar during Form saves
+
+Read-only inputs do not participate in browser constraint validation. During a
+temporary grant hold, keep the required border on empty Form inputs and use
+the same calendar artwork on both sides of the transition. The editable date
+retains its native picker target; a withheld grant does not enable it.
+
+### 22 November 2026 - Keep focused Form typing available during confirmation reads
+
+A confirmation read can renew the same edit grant before its metadata is ready
+to publish. If the mounted Form body is current but its command resource is
+withheld, compare its grant stamp to the newer of dispatch and authority read.
+Only local drafting continues. Dispatch still waits for fresh authority, and
+a newer withdrawal does not preserve typing permission.
+
+### 22 November 2026 - Keep a resident card when a refresh returns stale metadata
+
+A metadata preflight can advance the accepted read before its body is published.
+If an older page then supplies the same image, keep the already displayed body
+at its position in the incoming page instead of replacing it with an empty slot.
+The rejected read grants no authority and is not published to the selection cache.
+
+### 21 November 2026 - Keep Upload Form controls visible while a save awaits fresh permission
+
+Form validity reasons use stable key order without replacing server wording.
+While an existing Form grant is temporarily withheld, read-only sibling fields
+retain their borders and the date field retains a passive calendar mark. The
+loaded rights toolbar remains visible with its edit actions disabled. This does
+not grant a write, hide sibling values from assistive technology, or override a
+fresh permission withdrawal.
+
+### 21 November 2026 - Preserve the active Upload Form position during arrivals
+
+A passive batch-membership read can start before an editor focuses a field.
+Before publishing its first page, the refresh checks the current Form image and
+its viewport position rather than applying the earlier placement. Explicit
+navigation, batch membership and write authorization are unchanged.
+
+A mounted Form field can retain local typing while this tab's own edit temporarily
+withholds authority from an otherwise current image. The Form retains that image's
+server validity wording. Batch actions still require current authority; a deferred
+draft revision resumes only with a fresh grant, and actual withdrawal remains read-only.
+
+### 21 November 2026 - Edit Guardian usage rights
+
+The rights editor uses the filtered metadata-editor catalogue, including
+publication-specific suggestions and free creator entry. Rights and derived
+metadata have separate outcomes on the existing editing queue. The guide link
+is optional in hosted and Vite settings. Detail notices prefer Grid's wording.
+Manual leases and configured category-lease automation are not part of the save.
+Before deriving metadata, grouped reads check the saved override and previous
+metadata for each image. Matching images proceed independently; an unconfirmed
+prerequisite withholds that image's follow-up without replaying either write.
+
 ### 21 November 2026 - Keep unsent Details edits with the open editor
 
 Changing a nonempty selection preserves typed metadata, explicit clears and the

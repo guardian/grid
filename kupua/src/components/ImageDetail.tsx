@@ -830,7 +830,6 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const renderMetadata = (detailImage: Image, overlay?: EnrichmentFields) => <>
     <AccordionSection sectionId="detail-metadata" contentId={`detail-metadata-${detailImage.id}`} title="Details">
       <div className="p-3">
-        <SelectedEditStatus detailImageId={imageId} compact={isCompact} />
         <DetailsDrafts key={detailImage.id} routed><ImageMetadata image={detailImage} overlay={overlay} editingPending={detailImage.id !== imageId} /></DetailsDrafts>
       </div>
     </AccordionSection>
@@ -898,6 +897,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       {(!isFullscreen || isCompact) && (
         <header inert={cropping || (isCompact && !chromeVisible)} aria-hidden={isCompact && !chromeVisible || undefined} data-visible={isCompact ? chromeVisible : undefined} style={isCompact ? { background: "linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.72))" } : undefined} className={`detail-toolbar @container/detail-toolbar z-30 flex items-center px-3 py-1.5 h-11 shrink-0 ${isCompact ? "chrome-fade absolute inset-x-0 top-0 text-white" : "relative bg-grid-bg border-b border-grid-separator"}`}>
           <DetailNavigation destination={path === "/upload" ? "uploads" : "search"} onBack={closeDetail} onHome={goHome} />
+          <SelectedEditStatus detailImageId={imageId} compact={isCompact} />
           <div className="w-px h-5 bg-grid-separator shrink-0" />
           {currentGlobalIndex >= 0 && (
             <span className="detail-position flex shrink-0 flex-col items-center px-3 tabular-nums whitespace-nowrap @min-[640px]/detail-toolbar:flex-row @min-[640px]/detail-toolbar:gap-1">

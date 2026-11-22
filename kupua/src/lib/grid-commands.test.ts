@@ -22,6 +22,56 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("groups rights reads but releases each matching image independently", async () => {
+    const { createRightsReadback } = await import("./metadata-operation");
+    const { attachEnrichment } = await import("../stores/enrichment-store");
+    const value = { category: "pay-to-use" } as const;
+    const make = (id: string) => ({ imageId: id, resource: { links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${id}` }] }, operation: "edit-rights" as const, value });
+    const read = vi.fn(async (ids: string[]) => ids.map(id => {
+      const image = { id, metadata: {}, uploadTime: "", uploadedBy: "", source: { mimeType: "image/jpeg", dimensions: { width: 1, height: 1 } },
+        usageRights: value, userMetadata: { usageRights: id === "late" && ids.length === 2 ? {} : value, metadata: {} } };
+      attachEnrichment(image, { resource: make(id).resource }); return image;
+    }));
+    const observe = createRightsReadback(read);
+    vi.useFakeTimers();
+    try {
+      const first = observe(make("ready"), "[]"), later = vi.fn();
+      const second = observe(make("late"), "[]").then(later);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await first).toBe(true); expect(later).not.toHaveBeenCalled();
+      await vi.runAllTimersAsync(); await second;
+      expect(later).toHaveBeenCalledWith(true);
+      expect(read.mock.calls.map(([ids]) => ids)).toEqual([["ready", "late"], ["late"]]);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it.each([200, 403, "not visible"])("keeps rights acknowledgement separate from derived metadata (%s)", async status => {
+    const path = "/metadata/fixture";
+    const value = { category: "publisher-illustration", publication: "Daily", creator: "New contributor" };
+    const writes: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (!init?.method) return Response.json({ data: { usageRights: { uri: `${metadataOrigin}${path}/usage-rights` },
+        metadata: { data: {}, actions: [{ name: "set-from-usage-rights", method: "POST", href: `${metadataOrigin}${path}/metadata/set-from-usage-rights` }] } } });
+      writes.push(`${init.method} ${url}`);
+      if (init.method === "PUT") {
+        expect(JSON.parse(String(init.body))).toEqual({ data: value });
+        return Response.json({ data: value });
+      }
+      return Response.json({ data: { imageType: "Illustration", credit: "Daily", byline: "New contributor" } }, { status: Number(status) });
+    }));
+    const { executeGridCommand } = await import("./grid-commands");
+    const observed = vi.fn(async () => {
+      expect(writes).toEqual([`PUT /grid-metadata${path}/usage-rights`]);
+      return status !== "not visible";
+    });
+    const result = await executeGridCommand({ imageId: command.imageId, resource: command.resource, operation: "edit-rights", value }, observed);
+    expect(observed).toHaveBeenCalledOnce();
+    expect(writes).toEqual([`PUT /grid-metadata${path}/usage-rights`, ...(status === "not visible" ? [] : [`POST /grid-metadata${path}/metadata/set-from-usage-rights`])]);
+    expect(result).toMatchObject({ outcome: "acknowledged", metadataFromRights: status === "not visible" ? "not-sent" : status === 200 ? "acknowledged" : "rejected" });
+  });
+
   it.each(["withdrawn", "changed", "same"] as const)("checks %s edit authority after a held source GET", async authority => {
     const { acceptImageOverlay, captureImageRead, stampImageRead, watchQueuedLabelTargets } = await import("./image-read-freshness");
     const { executeGridCommand } = await import("./grid-commands");

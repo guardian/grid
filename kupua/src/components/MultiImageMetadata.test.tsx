@@ -78,9 +78,10 @@ describe("multi-image cost summary", () => {
   it("uses Unknown for missing rights across summaries, detail and badges", () => {
     const unknown = images.map(image => ({ ...image, usageRights: { category: "" } }));
     render(<><MultiImageMetadata images={unknown} reconciledView={recomputeAll(unknown, RECONCILE_FIELDS)} total={2} />
-      <ImageMetadata image={unknown[0]} /><CostBadgeFromCost noRights cost="pay" size="md" />
+      <ImageMetadata image={unknown[0]} overlay={{ valid: false, invalidReasons: { no_rights: "Custom rights notice" } }} /><CostBadgeFromCost noRights cost="pay" size="md" />
       <CostBadge variant="no-rights" tooltip="Specific warning" /></>);
     expect(screen.getByText("2 Unknown")).toBeTruthy();
+    expect(screen.queryByText("Custom rights notice")).not.toBeNull();
     expect(screen.queryByText("None")).toBeNull();
     act(() => useUsageRightsCatalogue.setState({ categories: [{ value: "", name: "Unspecified rights" }] }));
     expect(screen.getByText("2 Unknown")).toBeTruthy();
@@ -102,7 +103,7 @@ describe("multi-image cost summary", () => {
 });
 
 describe("metadata field preparation", () => {
-  it("closes Details Credit on admission without an inline save receipt", () => {
+  it("retains submitted Credit alongside selection progress without an inline receipt ledger", () => {
     vi.useFakeTimers();
     const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
     const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
@@ -114,9 +115,9 @@ describe("metadata field preparation", () => {
       fireEvent.change(screen.getByLabelText("Credit", { selector: "input" }), { target: { value: "Desk" } });
       fireEvent.click(screen.getByRole("button", { name: "Commit Credit" }));
       expect([...editor.getState().saves.values()].map(save => save.intent.targetIds)).toEqual([targets]);
-      expect(screen.queryByLabelText("Credit", { selector: "input" })).toBeNull();
-      expect(within(fieldRow("Credit")).getByText("Desk")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Edit Credit" }).hasAttribute("disabled")).toBe(true);
+      expect((screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement).value).toBe("Desk");
+      expect(within(fieldRow("Credit")).getByText("Saving…")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Commit Credit" }).matches(":disabled")).toBe(true);
       expect(within(fieldRow("Credit")).queryByText(/Queued:|Saving:|Finished:/)).toBeNull();
       expect(screen.queryByRole("complementary", { name: "Image activity" })).toBeNull();
       expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
@@ -136,7 +137,8 @@ describe("metadata field preparation", () => {
       act(() => editor.getState().stop(save.id));
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
       expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
-      expect(within(fieldRow("Credit")).getByText("Old")).toBeTruthy();
+      expect((screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement).value).toBe("Desk");
+      expect(within(fieldRow("Credit")).getByText("Not confirmed")).toBeTruthy();
     } finally { editor.getState().dispose(); vi.useRealTimers(); }
   });
 
@@ -144,7 +146,7 @@ describe("metadata field preparation", () => {
     const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
     render(<MetadataEditorContext value={editor}>
       <EditLifecycle />
-      <FormBatchContext value={{ key: "batch", ids: ["source", "peer"], processing: 0 }}>
+      <FormBatchContext value={{ key: "batch", ids: ["source", "peer"] }}>
         <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
         <MetadataBatchArrow imageId="source" fieldId="metadata_byline" label="Byline" value="Author" disabled={false} />
       </FormBatchContext>
@@ -160,7 +162,8 @@ describe("metadata field preparation", () => {
       }
       expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: "Applying Credit..." }));
-      expect(screen.getByRole("button", { name: "Stop batch save" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Applying Credit..." }).getAttribute("aria-expanded")).toBe("true");
     } finally { editor.getState().dispose(); }
   });
 
@@ -178,7 +181,7 @@ describe("metadata field preparation", () => {
     });
     try {
       render(<MetadataEditorContext value={editor}>
-        <FormBatchContext value={{ key: "batch", ids: ["source", images[0].id], processing: 0 }}>
+        <FormBatchContext value={{ key: "batch", ids: ["source", images[0].id] }}>
           <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
         </FormBatchContext>
       </MetadataEditorContext>);
@@ -465,7 +468,8 @@ describe("metadata field preparation", () => {
     } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
   });
 
-  it("executes captured offscreen metadata targets in bounded groups and refuses session overflow before dispatch", async () => {
+  it.each(["early", "late", "session rejection", "shared waiter"])("executes captured offscreen targets in bounded groups: %s", async scenario => {
+    const recipientIndex = scenario === "late" ? 100 : 0;
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.useFakeTimers();
     const ids = Array.from({ length: 101 }, (_, index) => `captured-${index}`);
@@ -476,10 +480,13 @@ describe("metadata field preparation", () => {
     let revision = Date.now();
     let releaseDispatch!: () => void;
     const dispatchHeld = new Promise<void>(resolve => { releaseDispatch = resolve; });
+    let releaseForm!: () => void;
+    const formHeld = new Promise<void>(resolve => { releaseForm = resolve; });
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
     const execute = vi.fn(async (command: { imageId: string; fieldId?: string; value?: unknown }): Promise<GridCommandResult> => {
       if (execute.mock.calls.length <= 5) await dispatchHeld;
+      if (scenario === "session rejection" && command.fieldId === "metadata_credit") return { outcome: "rejected", status: 401, errorKey: "unauthorized" };
       const field = command.fieldId === "metadata_byline" ? "byline" : "credit";
       (field === "credit" ? values : bylines).set(command.imageId, String(command.value));
       versions.set(command.imageId, new Date(++revision).toISOString());
@@ -492,24 +499,54 @@ describe("metadata field preparation", () => {
         stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay);
         return image;
       });
-      if (requested.length === 1 && requested[0] === ids.at(-1) && bylines.has(requested[0])) await held;
+      if (requested.length === 1 && requested[0] === ids.at(-1) && bylines.has(requested[0]) && recipientIndex === 0) await held;
+      if (requested.length === 1 && requested[0] === ids[recipientIndex] && values.get(requested[0]) === "Form credit") await formHeld;
       return result;
     });
-    const editor = createMetadataEditorStore(execute, { readImages, publishImages: vi.fn() });
+    const shared = createBatchQueue();
+    const editor = createMetadataEditorStore(execute, { readImages, publishImages: vi.fn() }, shared);
     try {
       const captured = [...ids, ids[0]];
       const id = editor.getState().submit({ fieldId: "metadata_byline", action: "overwrite", value: "Batch byline", targetIds: captured })!;
       captured.push("later-arrival");
       await vi.advanceTimersByTimeAsync(0);
-      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids.slice(0, 5));
+      expect(execute).toHaveBeenCalledTimes(5);
+      const waiter = scenario === "shared waiter" ? shared.admit() : undefined;
+      if (scenario === "shared waiter" && !waiter) throw new Error("Shared waiter was not admitted");
+      useMetadataDrafts.getState().setDraft(ids[recipientIndex], "metadata_credit", "Original", "Form credit");
+      editor.getState().flush(ids[recipientIndex], "metadata_credit");
       releaseDispatch();
       await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
-      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual(ids);
+      const calls = execute.mock.calls.map(([command]) => command);
+      const bulk = calls.filter(command => command.fieldId === "metadata_byline").map(command => command.imageId);
+      expect(bulk.toSorted()).toEqual((scenario === "session rejection" ? ids.slice(0, 100) : ids).toSorted());
+      const formIndex = calls.findIndex(command => command.fieldId === "metadata_credit");
+      if (scenario === "shared waiter") {
+        expect(formIndex).toBe(-1);
+        waiter!.complete(); release(); releaseForm();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(values.get(ids[0])).toBe("Form credit");
+        expect(execute).toHaveBeenCalledTimes(ids.length + 1);
+        return;
+      }
+      expect(calls.filter(command => command.fieldId === "metadata_credit").map(command => command.imageId)).toEqual([ids[recipientIndex]]);
+      expect(formIndex).toBe(recipientIndex === 0 ? 100 : 101);
+      if (scenario === "session rejection") {
+        expect(editor.getState().saves.get(id)?.items.at(-1)).toMatchObject({ imageId: ids[100], state: "not-started", result: { outcome: "blocked", reason: "reload-required" } });
+        return;
+      }
+      expect(calls[recipientIndex === 0 ? formIndex + 1 : formIndex - 1]).toMatchObject({ imageId: ids[100], fieldId: "metadata_byline" });
+      releaseForm();
+      await vi.advanceTimersByTimeAsync(0);
+      if (recipientIndex === 100) {
+        expect(editor.getState().latestSingle(ids[100], "metadata_credit")?.items[0].observation).toBe("observed");
+        return;
+      }
       expect(editor.getState().saves.get(id)?.state).toBe("saving");
       expect(getMetadataWriteWitness(ids[0])).toBeTypeOf("string");
       const successor = editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "New credit", targetIds: [ids[0]] })!;
       await vi.advanceTimersByTimeAsync(0);
-      expect(execute.mock.calls.map(([command]) => command.imageId)).toEqual([...ids, ids[0]]);
+      expect(execute.mock.calls.at(-1)?.[0]).toMatchObject({ imageId: ids[0], value: "New credit" });
       expect(editor.getState().saves.get(successor)?.items).toMatchObject([{ observation: "observed" }]);
       expect(editor.getState().saves.get(id)?.state).toBe("saving");
       release();
@@ -522,8 +559,8 @@ describe("metadata field preparation", () => {
         targetIds: Array.from({ length: BATCH_POLICY.maxTouchedImages }, (_, index) => `overflow-${index}`) })!;
       await vi.advanceTimersByTimeAsync(0);
       expect(editor.getState().saves.get(overflow)?.message).toContain("capacity");
-      expect(execute).toHaveBeenCalledTimes(102);
-    } finally { releaseDispatch(); release(); editor.getState().dispose(); vi.useRealTimers(); }
+      expect(execute).toHaveBeenCalledTimes(103);
+    } finally { releaseDispatch(); releaseForm(); release(); editor.getState().dispose(); shared.dispose(); vi.useRealTimers(); }
   });
 
   it("retains and coalesces Form intent behind shared work without clearing a newer draft", async () => {
@@ -554,7 +591,11 @@ describe("metadata field preparation", () => {
     };
     try {
       change("First draft");
-      await vi.advanceTimersByTimeAsync(600);
+      editor.getState().deferDraft(images[0].id, "metadata_credit");
+      editor.getState().schedule(images[0].id, "metadata_credit");
+      await vi.advanceTimersByTimeAsync(550);
+      editor.getState().settleDraftGrant(images[0].id, "metadata_credit", true);
+      await vi.advanceTimersByTimeAsync(50);
       expect(queue.admit()).toBeUndefined();
       change("Replacement draft");
       editor.getState().flush(images[0].id, "metadata_credit");
@@ -656,7 +697,7 @@ describe("metadata field preparation", () => {
     fireEvent.change(screen.getByLabelText("Taken on"), { target: { value: "2026-11-19T13:15" } });
     expect(useMetadataDrafts.getState().drafts.get(image.id)?.get("location_city")?.value).toBe("Manchester");
     expect(useMetadataDrafts.getState().drafts.get(image.id)?.has("metadata_dateTaken")).toBe(true);
-    expect(screen.getAllByText("Not sent")).toHaveLength(2);
+    expect(screen.queryByText("Not sent")).toBeNull();
     expect(image.metadata.city).toBe("London");
     expect(image.metadata.dateTaken).toBe("2026-11-18T12:00:00Z");
     mounted.unmount();
@@ -710,7 +751,7 @@ describe("metadata field preparation", () => {
     const input = screen.getByLabelText("Description") as HTMLTextAreaElement;
     expect(input.value).toBe("Retained draft");
     expect(input.readOnly).toBe(true);
-    expect(screen.getByRole("status").textContent).toBe("Not sent");
+    expect(screen.queryByText("Not sent")).toBeNull();
     next.rerender(view("New canonical"));
     fireEvent.change(input, { target: { value: "" } });
     expect(input.checkValidity()).toBe(false);
@@ -855,6 +896,10 @@ describe("metadata field preparation", () => {
       act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
       rerender(view(true));
       expect(headings()).toEqual(before);
+      expect(screen.getByText("Saving…").closest("dd")).toBe(fieldRow("Credit").querySelector("dd"));
+      const submitted = screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement;
+      expect(submitted.value).toBe("New");
+      expect(submitted.matches(":disabled")).toBe(true);
       expect(reading()).toEqual(initialReading);
       expect(fieldRow("Description").textContent).toContain("A longer caption");
       expect(screen.getByRole("button", { name: "Edit Description" }).hasAttribute("disabled")).toBe(true);
@@ -868,6 +913,7 @@ describe("metadata field preparation", () => {
       const save = [...editor.getState().saves.values()][0];
       act(() => editor.setState(state => ({ saves: new Map(state.saves).set(save.id, { ...save, state: "finished", items: ids.map(imageId => ({ imageId, state: "accepted-awaiting-visibility", observation: "observed" })) }) })));
       expect(fieldRow("Credit").textContent).toContain("New");
+      expect(screen.queryByLabelText("Credit", { selector: "input" })).toBeNull();
       expect(headings()).toEqual(before);
     } finally { editor.getState().dispose(); }
   });
@@ -1621,7 +1667,7 @@ describe("disconnected label editing", () => {
     const targetIds = [images[0].id], imageId = targetIds[0], targetKey = labelTargetKey(targetIds);
     const failed = [{ imageId, state: "rejected" as const }];
     const confirmed = [{ imageId, state: "unchanged" as const, observation: "observed" as const }];
-    const append: MetadataSave = { id: 1, intent: { fieldId: "metadata_description", targetIds, action: "append", value: "A" }, state: "finished", excluded: 0, items: failed };
+    const append = { id: 1, intent: { fieldId: "metadata_description", targetIds, action: "append", value: "A" }, state: "finished", excluded: 0, items: failed } satisfies MetadataSave;
     const other: MetadataSave = { ...append, id: 2, intent: { ...append.intent, value: "B" }, items: confirmed };
     const fix: MetadataSave = { ...append, id: 3, intent: { fieldId: "labels", action: "add", value: "news", targetIds }, items: confirmed };
     const receipt = { mode: "connected" as const, intent: { action: "add" as const, label: "news", targetIds }, counts: { selected: 1, eligible: 1, ineligible: 0, unresolved: 0, unavailable: 0 }, items: failed, sequence: 1 };
@@ -1687,6 +1733,91 @@ describe("disconnected label editing", () => {
     fireEvent.click(screen.getByText("Select only these 2"));
     expect([...useSelectionStore.getState().selectedIds]).toEqual(ids);
     act(() => useSelectionStore.getState().clear());
+  });
+
+  it("retains the focused Form after an older membership response, but honours a fresh withdrawal", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.spyOn(await import("@/lib/usage-rights-catalogue"), "readRightsEditorCatalogue").mockResolvedValue([
+      { value: "", name: "Unknown Rights", description: "", properties: [] },
+      { value: "publisher-photography", name: "Photography", description: "", properties: [] },
+    ]);
+    const previous = useSearchStore.getState();
+    const id = images[0].id;
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    const schedule = vi.spyOn(editor.getState(), "schedule");
+    const response = (description: string, version: number, granted: boolean) => {
+      const image = { ...images[0], usageRights: { category: "" }, metadata: { description }, userMetadata: { metadata: { description }, lastModified: new Date(version).toISOString() } };
+      const reasons = { no_rights: "Server rights notice", no_credit: "Server credit notice" };
+      const overlay = { invalidReasons: version === 1000 ? reasons : Object.fromEntries(Object.entries(reasons).reverse()), resource: { links: granted ? [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] : [] } };
+      stampImageRead(image, overlay, captureImageRead(), "lean");
+      attachEnrichment(image, overlay);
+      return { image, overlay };
+    };
+    const publish = ({ image, overlay }: ReturnType<typeof response>) => {
+      useEnrichmentStore.getState().setEnrichment(new Map([[id, overlay]]));
+      useSearchStore.setState({ results: [image], bufferOffset: 0, imagePositions: new Map([[id, 0]]) });
+    };
+    function ResidentForm() {
+      const image = useSearchStore(state => state.results[0]);
+      return image ? <MetadataEditorContext value={editor}><FormBatchContext value={{ key: "batch", ids: [id, images[1].id] }}>
+        <ImageMetadata image={image} formFields={new Set(["metadata_description", "metadata_dateTaken"])} />
+      </FormBatchContext></MetadataEditorContext> : null;
+    }
+    try {
+      publish(response("Before", 1000, true));
+      const held = response("Before", 1000, true);
+      const mounted = render(<ResidentForm />);
+      const arrowName = { name: /Apply Rights & restrictions/ };
+      expect(((await screen.findByRole("button", arrowName)) as HTMLButtonElement).disabled).toBe(false);
+      const field = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+      const date = screen.getByLabelText("Taken on") as HTMLInputElement;
+      const warningOrder = () => screen.getAllByText(/^Server .* notice$/).map(item => item.textContent);
+      const initialOrder = warningOrder();
+      field.focus();
+      const operation = admitLabelObservation([id]);
+      if (typeof operation !== "number") throw new Error(operation);
+      act(() => publish(held));
+      mounted.rerender(<ResidentForm />);
+      expect(field.readOnly).toBe(false);
+      expect(document.activeElement).toBe(field);
+      expect(date.readOnly).toBe(true);
+      expect(date.closest("[inert]")).toBeNull();
+      expect(date.closest("[data-grant-pending]")).not.toBeNull();
+      fireEvent.change(date, { target: { value: "2026-11-21T09:30" } });
+      expect(useMetadataDrafts.getState().drafts.get(id)?.has("metadata_dateTaken")).not.toBe(true);
+      expect(warningOrder()).toEqual(initialOrder);
+      expect((screen.queryByRole("button", arrowName) as HTMLButtonElement | null)?.disabled).toBe(true);
+      act(() => publish(response("Before", 1000, true)));
+      const unconfirmed = response("Before", 1000, true);
+      acceptImageOverlay(id, unconfirmed.overlay);
+      mounted.rerender(<ResidentForm />);
+      expect(document.activeElement).toBe(field);
+      expect(field.readOnly).toBe(false);
+      expect((screen.queryByRole("button", arrowName) as HTMLButtonElement | null)?.disabled).toBe(true);
+      fireEvent.change(field, { target: { value: "Still typing" } });
+      expect(schedule).not.toHaveBeenCalled();
+      mounted.unmount();
+      const saved = response("After", 2000, true);
+      expect(acceptObservedImages([saved.image], operation)).toEqual([saved.image]);
+      act(() => publish(saved));
+      act(() => publish(held));
+      const remounted = render(<ResidentForm />);
+      const restored = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
+      expect(restored.value).toBe("Still typing");
+      expect(restored.readOnly).toBe(false);
+      expect(warningOrder()).toEqual(initialOrder);
+      expect(schedule).toHaveBeenCalledExactlyOnceWith(id, "metadata_description");
+      restored.focus();
+      acceptImageOverlay(id, response("After", 2000, false).overlay);
+      remounted.rerender(<ResidentForm />);
+      expect(restored.readOnly).toBe(true);
+      act(() => publish(response("After", 2000, false)));
+      expect(document.activeElement).toBe(restored);
+      expect(restored.value).toBe("Still typing");
+      expect(restored.readOnly).toBe(true);
+      expect(screen.queryByRole("button", arrowName)).toBeNull();
+      expect((screen.getByLabelText("Taken on") as HTMLInputElement).readOnly).toBe(true);
+    } finally { cleanup(); editor.getState().dispose(); useSearchStore.setState(previous); }
   });
 
   it("rechecks captured standalone authority at submit without requiring a parent rerender", () => {

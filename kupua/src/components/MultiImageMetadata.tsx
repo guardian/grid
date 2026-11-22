@@ -448,7 +448,9 @@ function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: 
 // Rights & leases section
 // ---------------------------------------------------------------------------
 
-function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMetadataProps) {
+import { UsageRightsEditor } from "./UsageRightsEditor";
+
+function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }: MultiImageMetadataProps & { ids: readonly string[]; editable: boolean }) {
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
 
@@ -499,9 +501,10 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
   return (
     <>
       {/* Rights & restrictions — stacked layout matching Kahuna */}
-      <MetadataSection>
+      <MetadataSection rights>
         {categoryField && categoryRec && (
           <MetadataBlock label="Rights & restrictions">
+            <UsageRightsEditor ids={ids} rights={images.map(image => image.usageRights ?? {})} allowed={editable}>
             {categoryRec.kind === "all-same" ? (() => {
               const raw = String((categoryRec as { value: unknown }).value);
               return (
@@ -520,6 +523,7 @@ function RightsAndLeasesSection({ images, reconciledView, total }: MultiImageMet
             ) : (
               <Dash />
             )}
+            </UsageRightsEditor>
           </MetadataBlock>
         )}
       </MetadataSection>
@@ -594,7 +598,7 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
     <>
       <CostSummarySection images={images} />
       <dl>
-        <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} />
+        <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} ids={ids} editable={complete && canEditMetadata} />
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si} additional={sectionFields[0]?.detailGroup === "extended"}>
           {sectionFields.map((field) => {

@@ -1,11 +1,13 @@
 import { createStore } from "zustand/vanilla";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { createMetadataOperation, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
-import { metadataEditTargetCounts, nextEditSequence, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
-import type { AddLabelsCommand, GridCommandResult, MetadataCommand } from "@/lib/grid-commands";
+import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
+import { rightsValueSchema, type AddLabelsCommand, type GridCommandResult, type MetadataCommand, type RightsCommand } from "@/lib/grid-commands";
 import { attachedEnrichment } from "./enrichment-store";
 import { acceptImageRead, captureImageRead, ensureImageRead, getMetadataWriteWitness, hasImageCommandConflict, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
 import { useMetadataDrafts } from "./metadata-drafts-store";
+
+const publisherFields = ["metadata_byline", "metadata_credit", "metadata_imageType"];
 
 export interface MetadataSave {
   id: number;
@@ -18,6 +20,10 @@ export interface MetadataSave {
 }
 
 export function metadataIntent(fieldId: string, action: string, value: string | Record<string, string | undefined>, targetIds: readonly string[]): MetadataIntent | undefined {
+  if (fieldId === "usageRights_category" && action === "overwrite") {
+    const rights = rightsValueSchema.safeParse(value);
+    return rights.success ? { fieldId, action, value: rights.data, targetIds } : undefined;
+  }
   if (fieldId === "labels" && action === "add" && typeof value === "string" && value.trim()) return { fieldId, action, value: value.trim(), targetIds };
   const field = fieldId === "keywords" ? "metadata_keywords" : fieldId === "people" ? "metadata_peopleInImage" : fieldId;
   if (field.startsWith("location_")) return { fieldId: "location", action: "overwrite", value: { [field.slice(9)]: value as string }, targetIds };
@@ -36,14 +42,18 @@ export function metadataSaveStatus(save: MetadataSave): string {
   const unknown = save.items.filter(item => item.state === "unknown").length;
   const superseded = save.items.filter(item => item.observation === "superseded").length;
   const rejected = save.items.filter(item => item.state === "rejected" || item.result?.outcome === "blocked").length;
+  const derived = save.items.flatMap(item => item.result?.outcome === "acknowledged" && item.result.metadataFromRights ? [item.result.metadataFromRights] : []);
+  const notSaved = derived.filter(state => state === "rejected" || state === "not-sent").length;
+  const notConfirmed = derived.filter(state => state === "unknown").length;
   return `${save.state === "queued" ? "Queued" : save.state === "saving" ? "Saving" : "Finished"}: ${observed}/${save.intent.targetIds.length} visible`
     + (unknown ? `; ${unknown} uncertain` : "") + (rejected ? `; ${rejected} not saved` : "")
     + (superseded ? `; ${superseded} superseded` : "")
-    + (save.excluded ? `; ${save.excluded} excluded` : "");
+    + (save.excluded ? `; ${save.excluded} excluded` : "")
+    + (notSaved || notConfirmed ? `; Metadata from rights: ${[notSaved && `${notSaved} not saved`, notConfirmed && `${notConfirmed} not confirmed`].filter(Boolean).join(" · ")}` : "");
 }
 
 export function createMetadataEditorStore(
-  execute?: (command: MetadataCommand | AddLabelsCommand) => Promise<GridCommandResult>,
+  execute?: (command: MetadataCommand | AddLabelsCommand | RightsCommand) => Promise<GridCommandResult>,
   observation?: MetadataEditObservation,
   sharedQueue?: ReturnType<typeof createBatchQueue>,
 ) {
@@ -56,24 +66,40 @@ export function createMetadataEditorStore(
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const capturedDrafts = new Map<number, { imageId: string; fieldId: string; revision: number }>();
   const submittedDrafts = new Map<string, number>();
+  const deferredDrafts = new Map<string, number>();
   const running = new Map<number, ReturnType<typeof createMetadataOperation>>();
   const stopped = new Set<number>();
   const reservations = new Map<number, () => void>();
   const keyFor = (imageId: string, fieldId: string) => JSON.stringify([imageId, fieldId]);
+  const latestSingle = new Map<string, number>();
+  const pendingByField = new Map<string, Set<number>>();
+  const keysFor = (intent: MetadataIntent) => intent.targetIds.flatMap(id => (intent.fieldId === "location" && typeof intent.value === "object"
+    ? Object.keys(intent.value).map(component => `location_${component}`) : [intent.fieldId]).map(field => keyFor(id, field)));
   const store = createStore<{
     connected: boolean;
+    latestSingle: (imageId: string, field: string) => MetadataSave | undefined;
+    hasPendingField: (imageId: string, field: string) => boolean;
     saves: ReadonlyMap<number, MetadataSave>;
+    derivedOwners: ReadonlyMap<string, number>;
+    formRightsSaves: ReadonlyMap<string, { id: number; revision: number; superseded?: boolean }>;
+    trackFormRights: (imageId: string, id: number, revision: number) => void;
     panelSaves: readonly { id: number; targetKey: string; returnFocus?: WeakRef<HTMLElement> }[];
     arrowSaves: ReadonlyMap<string, number>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
     submit: (intent: MetadataIntent, newRevision?: boolean) => number | undefined;
     schedule: (imageId: string, fieldId: string) => void;
+    deferDraft: (imageId: string, fieldId: string) => void;
+    settleDraftGrant: (imageId: string, fieldId: string, granted: boolean) => void;
     flush: (imageId: string, fieldId: string) => void;
     pause: (imageId: string, fieldId: string) => void;
     stop: (id: number) => void;
     dispose: () => void;
   }>((set, get) => ({
-    connected: Boolean(execute && observation), saves: new Map(), panelSaves: [], arrowSaves: new Map(),
+    connected: Boolean(execute && observation), saves: new Map(), derivedOwners: new Map(), panelSaves: [], arrowSaves: new Map(),
+    formRightsSaves: new Map(),
+    trackFormRights(imageId, id, revision) { set(state => ({ formRightsSaves: new Map(state.formRightsSaves).set(imageId, { id, revision }) })); },
+    latestSingle: (imageId, field) => get().saves.get(latestSingle.get(keyFor(imageId, field)) ?? -1),
+    hasPendingField: (imageId, field) => !!pendingByField.get(keyFor(imageId, field))?.size,
     submitArrow(intent, key) {
       const id = get().submit(intent);
       if (id !== undefined) set({ arrowSaves: new Map(get().arrowSaves).set(key, id) });
@@ -81,7 +107,7 @@ export function createMetadataEditorStore(
     submit(input, newRevision = false) {
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
-      const intent: MetadataIntent = input.fieldId === "labels" ? { ...input, targetIds }
+      const intent: MetadataIntent = input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds }
         : { ...input, targetIds, value: typeof input.value === "string" ? input.value : { ...input.value } };
       if (!newRevision) {
         const targets = new Set(targetIds);
@@ -91,13 +117,33 @@ export function createMetadataEditorStore(
       }
       const id = ++nextId;
       const sequence = nextEditSequence();
+      if (targetIds.length === 1) for (const key of keysFor(intent)) latestSingle.set(key, id);
       const release = watchQueuedLabelTargets(intent.targetIds);
       if (!release) {
         set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "finished", items: [], excluded: 0,
           message: "Not sent: session editing capacity reached. Reload before starting this action." }) });
         return id;
       }
-      reservations.set(id, release);
+      const keys = keysFor(intent);
+      if (intent.fieldId === "usageRights_category" && ["publisher-photography", "publisher-illustration"].includes(intent.value.category)) {
+        for (const imageId of targetIds) for (const field of publisherFields) keys.push(keyFor(imageId, field));
+      }
+      for (const key of keys) {
+        const owners = pendingByField.get(key) ?? new Set<number>();
+        owners.add(id); pendingByField.set(key, owners);
+      }
+      reservations.set(id, () => {
+        for (const key of keys) {
+          const owners = pendingByField.get(key);
+          owners?.delete(id); if (!owners?.size) pendingByField.delete(key);
+        }
+        release();
+      });
+      if (get().derivedOwners.size) {
+        const keys = intent.fieldId === "usageRights_category" ? publisherFields : [intent.fieldId];
+        const affected = targetIds.flatMap(imageId => keys.map(field => keyFor(imageId, field))).filter(key => get().derivedOwners.has(key));
+        if (affected.length) { const owners = new Map(get().derivedOwners); affected.forEach(key => owners.delete(key)); set({ derivedOwners: owners }); }
+      }
       set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "queued", items: [], excluded: 0 }) });
       pending.push(id);
       queueMicrotask(() => void pump());
@@ -108,15 +154,29 @@ export function createMetadataEditorStore(
       clearTimeout(timers.get(key));
       timers.delete(key);
     },
+    deferDraft(imageId, fieldId) {
+      get().pause(imageId, fieldId);
+      const revision = useMetadataDrafts.getState().drafts.get(imageId)?.get(fieldId)?.revision;
+      if (revision !== undefined) deferredDrafts.set(keyFor(imageId, fieldId), revision);
+    },
+    settleDraftGrant(imageId, fieldId, granted) {
+      const key = keyFor(imageId, fieldId), revision = deferredDrafts.get(key);
+      if (revision === undefined) return;
+      deferredDrafts.delete(key);
+      if (granted && useMetadataDrafts.getState().drafts.get(imageId)?.get(fieldId)?.revision === revision) get().schedule(imageId, fieldId);
+    },
     schedule(imageId, fieldId) {
       get().pause(imageId, fieldId);
-      if (get().connected) timers.set(keyFor(imageId, fieldId), setTimeout(() => get().flush(imageId, fieldId), 600));
+      const key = keyFor(imageId, fieldId);
+      deferredDrafts.delete(key);
+      if (get().connected) timers.set(key, setTimeout(() => get().flush(imageId, fieldId), 600));
     },
     flush(imageId, fieldId) {
       get().pause(imageId, fieldId);
+      const key = keyFor(imageId, fieldId);
+      deferredDrafts.delete(key);
       const draft = useMetadataDrafts.getState().drafts.get(imageId)?.get(fieldId);
       if (!draft) return;
-      const key = keyFor(imageId, fieldId);
       if (submittedDrafts.get(key) === draft.revision) return;
       const intent = metadataIntent(fieldId, "overwrite", draft.value, [imageId]);
       if (!intent) return;
@@ -167,6 +227,11 @@ export function createMetadataEditorStore(
     if (!slot) return;
     pumping = true;
     pending.shift();
+    await runSave(id, slot, true);
+  }
+
+  async function runSave(id: number, slot: NonNullable<ReturnType<typeof queue.admit>>, primary: boolean) {
+    if (!execute || !observation) return;
     const save = store.getState().saves.get(id)!;
     const group = [save];
     const progress = new Map<number, { items: MetadataReceipt["items"]; excluded: number }>();
@@ -175,8 +240,10 @@ export function createMetadataEditorStore(
       if (dispatchReleased) return;
       dispatchReleased = true;
       slot.dispatched();
-      pumping = false;
-      queueMicrotask(() => void pump());
+      if (primary) {
+        pumping = false;
+        queueMicrotask(() => void pump());
+      }
     };
     try {
       waiting = { id, complete: slot.complete };
@@ -184,7 +251,7 @@ export function createMetadataEditorStore(
       waiting = undefined;
       if (disposed || stopped.has(id)) return;
       const unique = new Set(save.intent.targetIds);
-      if (unique.size === 1 && !hasImageCommandConflict(save.intent.targetIds[0])) {
+      if (primary && unique.size === 1 && !hasImageCommandConflict(save.intent.targetIds[0])) {
         while (pending.length && group.length < BATCH_POLICY.maxTargets) {
           const candidate = store.getState().saves.get(pending[0])!;
           if (stopped.has(candidate.id)) { pending.shift(); continue; }
@@ -222,6 +289,14 @@ export function createMetadataEditorStore(
         if (!targets.size) continue;
         const intents = new Map([...targets.keys()].map(imageId => [imageId, owners.get(imageId)!.intent]));
         const operation = createMetadataOperation(execute, observation, {
+          onDerivedDispatch: (imageId, fields) => {
+            const ownerId = owners.get(imageId)!.id;
+            store.setState(state => {
+              const changed = new Map(state.derivedOwners);
+              for (const field of fields) changed.set(keyFor(imageId, field), ownerId);
+              return { derivedOwners: changed };
+            });
+          },
           pacing: slot.pacing, continueAfterLocalBlock: group.length > 1,
           dispatchConcurrency: group.length === 1 && save.intent.fieldId !== "labels" && allIds.length > 1 ? 5 : undefined,
         }, intents);
@@ -256,16 +331,66 @@ export function createMetadataEditorStore(
           own.items = [...own.items, item];
         }
         if (receipt.blocked || receipt.items.some(item => item.result?.outcome === "blocked" || item.state === "stopped" && !stopped.has(owners.get(item.imageId)!.id)
-          || item.result && "status" in item.result && [401, 419].includes(item.result.status ?? 0))) break;
+          || sessionStopReason(item.result))) break;
+        if (primary && group.length === 1 && save.intent.fieldId.startsWith("metadata_") && !stopped.has(id)
+          && offset + BATCH_POLICY.maxTargets < allIds.length) {
+          while (pending.length && stopped.has(pending[0])) pending.shift();
+          const next = pending[0];
+          const draft = capturedDrafts.get(next);
+          if (draft && !hasImageCommandConflict(draft.imageId) && (!unique.has(draft.imageId) || progress.get(id)!.items.some(item =>
+            item.imageId === draft.imageId && item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")))) {
+            let resume!: () => void;
+            const turn = new Promise<void>(resolve => { resume = resolve; });
+            const borrowed = queue.borrowTurn(slot, resume);
+            if (borrowed) {
+              pending.shift();
+              void runSave(next, borrowed, false);
+              await turn;
+              const single = store.getState().saves.get(next);
+              const reason = sessionStopReason(single?.items[0]?.result);
+              if (reason) {
+                const own = progress.get(id)!;
+                own.items = [...own.items, ...allIds.slice(offset + BATCH_POLICY.maxTargets).map((imageId): MetadataSave["items"][number] => ({
+                  imageId, state: "not-started", result: { outcome: "blocked", reason },
+                }))];
+                break;
+              }
+            }
+          }
+        }
       }
       store.setState(state => {
         const saves = new Map(state.saves);
         for (const member of group) saves.set(member.id, { ...saves.get(member.id)!, ...progress.get(member.id)!, state: "finished",
           ...(stopped.has(member.id) ? { message: "Stopped remaining; submitted outcomes retained" } : {}) });
-        return { saves };
+        let owners: Map<string, number> | undefined;
+        let rightsSaves: Map<string, { id: number; revision: number; superseded?: boolean }> | undefined;
+        for (const member of group) {
+          if (member.intent.fieldId !== "usageRights_category") continue;
+          for (const item of progress.get(member.id)!.items) {
+            const older = state.formRightsSaves.get(item.imageId);
+            if (older && older.id < member.id && item.observation === "observed" && (item.state === "unchanged" ||
+              item.result?.outcome === "acknowledged" && (!item.result.metadataFromRights || item.result.metadataFromRights === "acknowledged"))) {
+              (rightsSaves ??= new Map(state.formRightsSaves)).set(item.imageId, { ...older, superseded: true });
+            }
+            if (item.observation !== "observed" || item.result?.outcome !== "acknowledged" || item.result.metadataFromRights !== "acknowledged") continue;
+            for (const field of publisherFields) {
+              const key = keyFor(item.imageId, field);
+              if (state.derivedOwners.get(key) === member.id) (owners ??= new Map(state.derivedOwners)).delete(key);
+            }
+          }
+        }
+        return { saves, ...(owners && { derivedOwners: owners }), ...(rightsSaves && { formRightsSaves: rightsSaves }) };
       });
       for (const member of group) {
         const { items } = progress.get(member.id)!;
+        if (member.intent.fieldId === "usageRights_category" && member.intent.targetIds.length === 1) {
+          const imageId = member.intent.targetIds[0], tracked = store.getState().formRightsSaves.get(imageId);
+          if (tracked?.id === member.id && items.length === 1 && items[0].observation === "observed" &&
+            (items[0].state === "accepted-awaiting-visibility" || items[0].state === "unchanged")) {
+            useMetadataDrafts.getState().clearDraft(imageId, member.intent.fieldId, tracked.revision);
+          }
+        }
         const draft = capturedDrafts.get(member.id);
         if (draft && items.length === 1 && ["acknowledged", "unchanged"].includes(items[0].result?.outcome ?? "") && items[0].observation === "observed") {
           useMetadataDrafts.getState().clearDraft(draft.imageId, draft.fieldId, draft.revision);

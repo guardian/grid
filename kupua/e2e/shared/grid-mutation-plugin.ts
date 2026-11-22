@@ -13,6 +13,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
   const projections = new Map<string, string>();
   let uploadEdits = false;
   const metadataOverrides = new Map<string, Record<string, unknown>>();
+  const rightsOverrides = new Map<string, Record<string, string>>();
   const presetLabels = new Map<string, string[]>();
   const metadataWrites: { id: string; method: string; data: unknown }[] = [];
   const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
@@ -117,8 +118,11 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
     return { ...resource, uri: `/api/images/${id}`, data: { ...resource.data, id,
       ...(uploadEdits ? { originalMetadata,
+        usageRights: rightsOverrides.get(id) ?? resource.data.usageRights,
+        ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", invalidReasons: { paid_image: "Fixture paid-image notice" } }),
         metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
         userMetadata: { data: { ...resource.data.userMetadata.data,
+          usageRights: { data: rightsOverrides.get(id) }, metadata: { data: metadataOverrides.get(id) },
           lastModified: metadataOverrides.has(id) || presetLabels.has(id) ? metadataVersion() : undefined,
           labels: { data: (presetLabels.get(id) ?? []).map(data => ({ data })) } } } } : {}),
       uploadInfo: { filename: file?.name ?? "fixture.jpg" }, uploadTime: new Date(epoch + 1_000_000 - (file?.ordinal ?? 0) * 1000).toISOString(),
@@ -145,26 +149,42 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
+        if (uploadEdits && request.method === "GET" && ["/grid-metadata/", "/grid-metadata/usage-rights/filtered-categories"].includes(pathname)) {
+          const properties = [{ name: "publication", label: "Publication", type: "string", required: true, options: ["Daily", "Weekly"] },
+            { name: "creator", label: "Creator", type: "string", required: true, optionsMapKey: "publication", optionsMap: { Daily: ["Listed contributor"], Weekly: ["Weekly artist", "Other artist"] } }];
+          response.setHeader("Content-Type", "application/json");
+          response.end(JSON.stringify(pathname.endsWith("/") ? { links: [{ rel: "filtered-usage-rights-list", href: "https://metadata.example.test/usage-rights/filtered-categories" }] }
+            : { data: [...["photography", "illustration"].map(kind => ({ value: `publisher-${kind}`, name: `Publisher ${kind}`, description: "", properties })),
+              { value: "pay-to-use", name: "Pay to use", description: "", properties: [] }] })); return;
+        }
         if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
-          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata|\/labels)?$/.exec(pathname);
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/metadata|\/labels)?$/.exec(pathname);
           response.setHeader("Content-Type", "application/json");
           if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
           const id = match[1];
           if (request.method === "GET" && !match[2]) {
             metadataReads.set(id, (metadataReads.get(id) ?? 0) + 1);
             response.end(JSON.stringify({ data: {
-              metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } } },
+              usageRights: { uri: `https://metadata.example.test/metadata/${id}/usage-rights`, data: rightsOverrides.get(id) },
+              metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } }, actions: [
+                { name: "set-from-usage-rights", method: "POST", href: `https://metadata.example.test/metadata/${id}/metadata/set-from-usage-rights` }] },
               labels: { uri: `https://metadata.example.test/metadata/${id}/labels`, data: [] },
             } })); return;
           }
           const chunks: Buffer[] = [];
           for await (const chunk of request) chunks.push(Buffer.from(chunk));
-          const body = JSON.parse(Buffer.concat(chunks).toString());
+          const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
           if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
+          else if (match[2] === "/usage-rights" && request.method === "PUT") rightsOverrides.set(id, body.data);
+          else if (match[2] === "/metadata/set-from-usage-rights" && request.method === "POST") {
+            const rights = rightsOverrides.get(id)!;
+            body.data = { ...metadataOverrides.get(id), ...(rights.creator && { credit: rights.publication, byline: rights.creator, imageType: rights.category === "publisher-illustration" ? "Illustration" : "Photograph" }) };
+            metadataOverrides.set(id, body.data);
+          }
           else if (match[2] === "/labels" && request.method === "POST") presetLabels.set(id, [...new Set([...(presetLabels.get(id) ?? []), ...body.data as string[]])]);
           else { response.statusCode = 403; response.end("{}"); return; }
           metadataWrites.push({ id, method: request.method, data: body.data });
-          response.end("{}"); return;
+          response.end(JSON.stringify({ data: body.data })); return;
         }
         if ((readback && ["/api", "/api/", "/grid-auth/session"].includes(pathname)) || upload && (pathname === "/__upload-control" || pathname === "/grid-auth/session"
           || pathname.startsWith("/grid-loader/") || pathname === "/api" || pathname === "/api/"
@@ -179,6 +199,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
+              if (body.reset) rightsOverrides.clear();
               if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); metadataWrites.length = 0; metadataReads.clear(); }
               if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
                 embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);

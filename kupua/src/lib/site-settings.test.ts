@@ -27,6 +27,7 @@ unusedTemplate { duration = 1 day }
 unusedInstructions { PR Image = Example instructions }
 `;
 const kahuna = `
+links.usageRightsHelp = "https://example.test/rights-guide"
 imageTypes = [Composite]
 showDenySyndicationWarning = true
 warningText.denySyndicationHeader = "Not for syndication"
@@ -38,6 +39,7 @@ describe("TEST site settings", () => {
   it("merges common then Kahuna HOCON and projects the complete hosted settings contract", async () => {
     const settings = await parseSiteSettings(common, kahuna);
     expect(settings).toEqual({
+      usageRightsHelpLink: "https://example.test/rights-guide",
       upload: { transport: "direct" },
       staffPhotographerOrganisation: "ACME",
       fieldAliases: [{ elasticsearchPath: "fileMetadata.xmp.example:Flag", alias: "exampleFlag", label: "Example Flag",

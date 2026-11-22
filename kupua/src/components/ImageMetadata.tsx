@@ -35,7 +35,9 @@
  */
 
 import type { Image } from "@/types/image";
-import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
+import { isPendingFormGrant } from "@/lib/image-read-freshness";
+import { isGridSessionInvalidated } from "@/lib/grid-api-instance";
 import { DETAIL_PANEL_FIELDS, FIELDS_BY_ID } from "@/lib/field-registry";
 import {
   useMetadataSearch,
@@ -48,6 +50,7 @@ import {
 } from "./metadata-primitives";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { VALIDITY_DESCRIPTIONS } from "@/lib/cost/validity-map";
+import { UsageRightsEditor } from "./UsageRightsEditor";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
@@ -223,11 +226,13 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
   const canEditMetadata = Boolean(enriched?.resource && findLink(enriched.resource, "edits"));
+  const attached = formFields && !canEditMetadata && !enriched?.metadataStale ? attachedEnrichment(image) : undefined;
+  const pendingForm = attached && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, attached) ? attached : undefined;
 
   // All cost/validity fields come from deriveImage (ES baseline + API overlay)
-  const cost = enriched?.cost ?? "pay";
-  const invalidReasons = enriched?.invalidReasons ?? {};
-  const isValid = enriched?.valid ?? true;
+  const cost = pendingForm?.cost ?? enriched?.cost ?? "pay";
+  const invalidReasons = pendingForm?.invalidReasons ?? enriched?.invalidReasons ?? {};
+  const isValid = pendingForm?.valid ?? enriched?.valid ?? true;
 
   // Usage rights — from enrichment overlay (API-authoritative) or ES baseline
   const usageRights = enriched?.usageRights ?? image.usageRights;
@@ -316,9 +321,9 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               : "This image can\u2019t be used"}
           </strong>
           <ul className="mt-1 list-none">
-            {Object.entries(invalidReasons).map(([key, desc]) => (
+            {(formFields ? Object.entries(invalidReasons).sort(([left], [right]) => left.localeCompare(right)) : Object.entries(invalidReasons)).map(([key, desc]) => (
               <li key={key}>
-                {VALIDITY_DESCRIPTIONS[key] ?? desc ?? key}
+                {desc || VALIDITY_DESCRIPTIONS[key] || key}
               </li>
             ))}
             {showDenySyndicationBanner && (
@@ -351,12 +356,13 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
 
       {/* Rights section — FIRST section, matching Kahuna's gr-image-metadata internal order:
           Rights & restrictions → Leases → then regular metadata fields. */}
-      <MetadataSection>
+      <MetadataSection rights>
         {/* Usage rights category — stacked layout (label above, value below) like Kahuna */}
         <div className="py-0.75 leading-snug">
           <dt className="text-xs font-bold text-grid-text-dim">Rights &amp; restrictions</dt>
           <dd className="text-xs text-grid-text mt-0.5">
-            {categoryLabel(category)}
+            <UsageRightsEditor key={image.id} ids={labelEditing?.targetIds ?? [image.id]} rights={[usageRights ?? {}]} form={Boolean(formFields)} pendingGrant={!!pendingForm}
+              allowed={canEditMetadata && !labelEditing?.pending && !editingPending && !enriched?.metadataStale}>{categoryLabel(category)}</UsageRightsEditor>
           </dd>
         </div>
       </MetadataSection>
@@ -449,7 +455,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                     const component = LOCATION_COMPONENTS.find(component => component.key === key)!;
                     return <MetadataFormField key={component.key} imageId={image.id} field={FIELDS_BY_ID.get(component.fieldId)!}
                       value={image.metadata?.[component.key] ?? ""}
-                      editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} />;
+                      pendingGrant={!!pendingForm} editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} />;
                   })}
                 </div>
               </div>;
@@ -463,7 +469,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               if (control && (field.id !== "metadata_copyright" || hasValue)) {
                 return <MetadataFormField key={field.id} imageId={image.id} field={field} value={typeof raw === "string" ? raw : ""}
                   editable={canEditMetadata && !enriched?.metadataStale && !image.__availability}
-                  editorialGuidance
+                  pendingGrant={!!pendingForm} editorialGuidance
                   required={field.id === "metadata_description" || field.id === "metadata_credit"} />;
               }
               return readOnly ? <div key={field.id} data-measured-field={field.id}>{readOnly}</div> : null;

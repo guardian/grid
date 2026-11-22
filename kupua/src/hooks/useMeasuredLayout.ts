@@ -91,7 +91,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     return next;
   }, [images, width, context.bufferOffset, context.total, context.indexed, context.searchKey, context.uploadSections?.batch, context.uploadSections?.present, context.uploadChrome, cells, readings, correctionAnchor]);
   useLayoutEffect(() => { committedLayout.current = layout; }, [layout]);
-  const measureRef = useRef(() => {});
+  const measureRef = useRef< (inputCell?: HTMLElement) => void >(() => {});
   const observerRef = useRef<ResizeObserver | null>(null);
   const observed = useRef(new Set<Element>());
   const delivering = useRef(false);
@@ -106,17 +106,19 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     for (const element of mounted) if (!observed.current.has(element)) observer.observe(element);
     observed.current = mounted;
   };
-  const measure = () => {
+  const measure = (inputCell?: HTMLElement) => {
     const element = parent.current;
     if (!element || !cells || !layout) return;
-    const ids = new Set(images.flatMap(image => image ? [image.id] : []));
-    const next = new Map([...readings].filter(([id]) => ids.has(id)));
-    let changed = next.size !== readings.size;
+    if (inputCell && (!element.contains(inputCell) || layout.window.findItemIndex(inputCell.dataset.imageId!) === undefined)) return;
+    const ids = inputCell ? undefined : new Set(images.flatMap(image => image ? [image.id] : []));
+    const next = ids ? new Map([...readings].filter(([id]) => ids.has(id))) : undefined;
+    let changed = next !== undefined && next.size !== readings.size;
+    let updated = next;
     let point: WindowGeometry["correctionAnchor"];
     const viewport = element.getBoundingClientRect();
-    for (const cell of element.querySelectorAll<HTMLElement>("[data-measured-cell][data-image-id]")) {
+    for (const cell of inputCell ? [inputCell] : element.querySelectorAll<HTMLElement>("[data-measured-cell][data-image-id]")) {
       const id = cell.dataset.imageId!;
-      if (!ids.has(id)) continue;
+      if (ids && !ids.has(id)) continue;
       const bounds = cell.getBoundingClientRect();
       const fields = Array.from(cell.querySelectorAll<HTMLElement>("[data-measured-field]"), field => {
         const rect = field.getBoundingClientRect();
@@ -127,7 +129,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
       if (previous?.height === height && previous.width === width && previous.key === cells.key &&
           JSON.stringify(previous.fields) === JSON.stringify(fields)) continue;
       changed = true;
-      next.set(id, { height, fields, width, key: cells.key });
+      (updated ??= new Map(readings)).set(id, { height, fields, width, key: cells.key });
       const captured = capture.current?.id === id ? capture.current : undefined;
       if (captured) {
         const position = captured.fields.findIndex(field => field.key === captured.key);
@@ -142,10 +144,10 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
         if (field && destination) point = { id, beforeOffset: field.top, afterOffset: destination.top };
       }
     }
-    if (changed) {
+    if (changed && updated) {
       capture.current = undefined;
       setCorrectionAnchor(point);
-      setReadings(next);
+      setReadings(updated);
     }
   };
   useLayoutEffect(() => { observeRef.current = observe; measureRef.current = measure; });
@@ -183,7 +185,8 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     const reading = id ? readings.get(id) : undefined;
     if (!element || !cell || !id || !reading) return;
     const top = cell.getBoundingClientRect().top - element.getBoundingClientRect().top - parseFloat(getComputedStyle(element).paddingTop);
-    const field = reading.fields.find(field => top + field.top + field.height > 0);
+    const activeKey = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-measured-field]")?.dataset.measuredField : undefined;
+    const field = reading.fields.find(field => field.key === activeKey) ?? reading.fields.find(field => top + field.top + field.height > 0);
     if (field) {
       const pending = { id, fields: reading.fields, key: field.key, viewportOffset: top + field.top };
       capture.current = pending;
@@ -191,7 +194,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
       inputFrame.current = requestAnimationFrame(() => {
         inputFrame.current = 0;
         if (capture.current !== pending) return;
-        flushSync(() => measureRef.current());
+        flushSync(() => measureRef.current(cell));
         if (capture.current === pending) capture.current = undefined;
       });
     }

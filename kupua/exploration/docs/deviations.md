@@ -30,6 +30,13 @@ multi-image action, independent of field. Individual saves, grouped individual
 saves and upload label follow-ups retain three. Full original and owning override
 reads and same-image write evidence are unchanged. No shared capacity claim follows.
 
+The ordinary metadata pump can give the next individual Form draft a turn
+between settled groups. This is bounded interleaving, not increased concurrency
+or priority over an admitted shared waiter. A safely witnessed acknowledgement
+can let the group after it dispatch before individual visibility; an unwitnessed
+or unresolved result cannot use that early release. A draft on a future bulk
+recipient waits its turn. See R35 in the [Upload workplan](gradually-growing-teeth.upload-workplan.md).
+
 ### Captured Metadata Propagation And Session Budget
 
 U5 arrows capture canonical members of the open upper batch, including offscreen

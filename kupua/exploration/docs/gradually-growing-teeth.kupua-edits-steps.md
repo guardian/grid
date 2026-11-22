@@ -99,7 +99,7 @@ editing foundation and the other feature families can be scheduled according
 to their local dependencies. **Step 6 added the bounded label batch path.** Neither requires
 finishing the entire Grid backlog, inventing batch APIs, adding PIT or solving KUP-041.
 
-Labels have been connected; archive, collection addition and ordinary metadata remain
+Labels and ordinary metadata are connected; archive and collection addition remain
 independent candidates. Crop saving can proceed after its own authorization without
 waiting for metadata/rights editors. Upload, leases, rights and destructive workflows do
 not all have to wait for one another. The numbered order is not a linear programme.
@@ -937,7 +937,7 @@ their operation implementations or authorizing activation.
 | Step / Family | Implemented Now | Still To Do |
 | --- | --- | --- |
 | 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection membership and Library actions prepare Not sent intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
-| 8: Ordinary/configured metadata | Kahuna-aligned order/empty/read-only presentation; capability-gated controls with retained drafts, mixed/clear semantics, Location and segmented dates; preparation only. | Fresh authoritative override merge, commands, outcomes/readback/publication and original/reset behavior; configured-domain schema/bootstrap and typed editors. |
+| 8: Ordinary/configured metadata | U5 connects ordinary fields through fresh override merges, readback and publication. Changed Details drafts follow the open editor; Form autosaves per image and field. | Configured-domain schema and editors; Subjects separately scoped (KUP-051). Replacing Taken on works; clearing an embedded date remains disabled (GRID-025). |
 | 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
 | 13: Full frame / Crop entry | Saved-export rail/preview and replace-only crop URLs; shared ratio restrictions; demand-driven mobile lists; enriched eligibility/source/notices in normal, direct and fullscreen editor. Full-frame preparation skips existing/known-ineligible targets with count feedback. All preparation remains Not sent. | Cropper submission/outcomes, returned export identity/readback/publication and canonical result delivery. |
 | 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
@@ -1174,6 +1174,10 @@ passes step 4's continuity policy. Do not infer an edit permission from a regist
 
 **Depends on:** step 5; step 6 for batch additions.
 
+**Guardian scope (21 November):** manual leases follow Guardian rights as an
+independent family. Category-triggered lease automation is BBC-specific and is
+excluded even when configured on TEST. Templates remain deferred.
+
 Add the four access types (allow/deny use and syndication), notes and applicable date rules.
 Support add, multiple additions, individual deletion and the replace/clear operations needed
 by existing workflows/templates. Replacement needs fresh state and explicit whole-set intent.
@@ -1194,15 +1198,15 @@ unrelated existing leases and distinguish accepted source changes from lagging E
 
 ### Step 10. Usage Rights as an Explicit Multi-Step Operation
 
-**Depends on:** steps 8-9; step 6 for batch rights.
+**Depends on:** the shared Step 8 metadata path and Step 6 batch execution, not Step 9.
 
 Use the server's writable/filtered category catalogue, properties, required fields, defaults,
 dependent options and restrictions. The search category catalogue alone is not an edit form.
 Support clearing/removing overrides without losing unrelated rights properties accidentally.
 Preview whole-object replacement explicitly, especially for mixed selections.
 
-Kahuna rights saving also manages category leases and invokes metadata-from-rights. Preserve
-those intended effects, with per-image before-state and ordered, individually visible substeps.
+For Guardian rights, save the override and invoke metadata-from-rights. Do not
+run the optional category-lease work. Keep individually visible substep outcomes.
 Do not broadcast-and-forget dependent writes or report the whole operation successful when only
 rights saved. Retrying a later failed substep must not replay earlier non-idempotent work.
 Resolve [KUP-046](bug-backlog.md#kup-046) where server wording is needed for the resulting notice.
@@ -1216,7 +1220,7 @@ affected rights routes; this plan contains no exploit recipe or permission bypas
 [EditsController](../../../metadata-editor/app/controllers/EditsController.scala),
 [Kupua catalogue](../../src/lib/usage-rights-catalogue.ts).
 
-**Done when:** category change/removal, dependent metadata and leases, mixed targets and a failed
+**Done when:** category change/clearing, dependent metadata, mixed targets and a failed
 middle substep have tested outcomes. Cost, restrictions, validity and crop/download capability
 are refreshed from the server, not guessed from the chosen category.
 
@@ -1663,7 +1667,7 @@ commands and acceptance stay with their steps. "After" refers to this plan's ste
 | Metadata fields, clear/reset and list/date/location values | 8 | Whole-override semantics; accepted conflict contract |
 | Configured domain fields and batch overwrite/append/prepend | 8 | Hosted specs; no write inferred from display aliases |
 | Lease add/remove/replace/clear and batch addition | 9 | Date/access rules; consistent display |
-| Rights category/properties/restrictions and removal | 10 | Writable catalogue; metadata/category-lease side effects |
+| Guardian rights category/properties/restrictions and clearing | 10 | Caller-filtered catalogue and derived metadata. No category-triggered leases. |
 | Metadata templates and preview/cancel | 11 | Composition of fields, collections, rights and leases |
 | Collection membership removal and tree create/delete | 12 | GRID-011; explicit non-cascade semantics |
 | Crop creation, ratio constraints, existing crop selection | 13 | KUP-044 image facts and KUP-047 read-only UI done; canonical source, creation and export identity remain |

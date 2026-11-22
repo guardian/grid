@@ -164,8 +164,28 @@
 
 .metadata-form-field textarea { resize: vertical; }
 .metadata-form-field select { width: min(100%, 240px); }
-.metadata-form-field :is(input, textarea):read-only { border-color: transparent; }
-.metadata-form-field :is(input, textarea):required:invalid { border-color: var(--color-grid-error); }
+.metadata-form-field :is(input, textarea):read-only:not([data-grant-pending] *) { border-color: transparent; }
+.metadata-form-input input[type="datetime-local"]:read-write,
+.metadata-form-input[data-grant-pending] input[type="datetime-local"]:read-only {
+  position: relative;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%23999'%3E%3Crect x='2' y='3' width='12' height='11' rx='1'/%3E%3Cpath d='M2 6.5h12M5 1v4M11 1v4'/%3E%3C/svg%3E");
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+.metadata-form-input input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+}
+.metadata-form-field :is(input, textarea):required:invalid,
+.metadata-form-input[data-grant-pending] :is(input, textarea):required:placeholder-shown { border-color: var(--color-grid-error); }
 .metadata-form-field :is(input, textarea, select):focus-visible { outline: 2px solid var(--color-grid-accent); outline-offset: 1px; }
 
 @container form-results (max-width: 679px) {
@@ -292,15 +312,60 @@
 .metadata-batch-tool { position: absolute; inset-block-start: 2px; inset-inline-end: 2px; }
 .metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { padding-inline-end: calc(var(--batch-tool-size) + 8px); }
 .metadata-form-input:has(.metadata-batch-tool) > :is(select, input[type="datetime-local"]) { width: calc(100% - var(--batch-tool-size) - 4px); padding-inline-end: 7px; }
+.metadata-form-input:has(.metadata-batch-tool) > input[type="datetime-local"] { padding-inline-end: 28px; }
 .metadata-batch-popover { position: absolute; z-index: 2; inset-inline-end: 0; width: max-content; max-width: min(210px, 50vw); padding: 6px 8px; border: 1px solid var(--color-grid-border); border-radius: 4px; background: var(--color-grid-bg); }
 @media (pointer: coarse) {
   .metadata-form-input { --batch-tool-size: var(--mobile-edit-control-size); }
   .metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { min-height: calc(var(--batch-tool-size) + 4px); }
 }
 .metadata-edit-form { min-width: 0; padding: 3px; }
+.metadata-field-status { display: block; margin-bottom: 2px; text-align: right; font-size: 11px; line-height: 14px; font-weight: 400; color: var(--color-grid-text-muted); }
+.metadata-saving > [aria-busy=true] { min-width: 0; border: 1px dashed var(--color-grid-text-dim); border-radius: 3px; padding: 3px 6px; }
+[data-field-state] { --save-edge: #eee; }
+[data-field-state="Not saved"] { --save-edge: #f07459; }
+[data-field-state="Not confirmed"] { --save-edge: #aaa; }
+.metadata-field-status[data-save-state="Not saved"] { color: #ffa493; }
+.metadata-form-input[data-field-state] :is(input,select,textarea), .metadata-saving > [aria-busy], .metadata-edit-form[data-field-state] > :is(input,textarea,select), .metadata-location-row[data-field-state] input,
+.usage-rights-form[data-field-state] > select, .metadata-edit-form[data-field-state] .metadata-date-entry { outline: 1px dashed var(--save-edge); outline-offset: -1px; }
+.usage-rights-form { display: grid; gap: 10px; min-width: 0; margin-top: 4px; padding: 10px; border: 1px solid transparent; border-radius: 3px; line-height: 1.45; }
+.usage-rights-form[data-unknown],
+.usage-rights-form :is(input, textarea, select):required:invalid { border-color: #f07459; }
+.usage-rights-form .rights-required { display: none; }
+.usage-rights-form :has(:required:invalid) > .rights-required { display: block; float: right; color: #ffa493; }
+.usage-rights-form .rights-required + :is(input, select, textarea, .rights-combobox, .rights-segments) { clear: both; }
+.rights-segments:has(:required:invalid) { outline: 1px solid #f07459; }
+.usage-rights-form .rights-caution { padding: 6px 10px; border-radius: 2px; color: #241b00; background: #ffbf24; font-weight: 600; }
+.usage-rights-form label > :is(select, textarea, input:not([type=checkbox],[type=radio])) { margin-top: 4px; }
+.rights-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 28px; padding: 3px 8px; border-radius: 3px; font-weight: 600; color: white; cursor: pointer; }
+.grid-segment { background: #444; color: var(--color-grid-text); user-select: none; cursor: pointer; }
+.grid-segment:hover, .grid-segment[data-selected=true], .rights-segments label:hover .grid-segment { background: var(--color-grid-hover); }
+.grid-segment:hover { color: var(--color-grid-text-bright); }
+.grid-segment[data-selected=true] { box-shadow: inset 0 -3px 0 var(--color-grid-accent); }
+.rights-segments { display: flex; margin-top: 4px; border: 1px solid var(--color-grid-separator); }
+.rights-segments label { position: relative; flex: 1 1 0; min-width: 0; }
+.rights-segments label + label { border-left: 1px solid var(--color-grid-separator); }
+.rights-segments .grid-segment { display: grid; place-items: center; text-align: center; overflow-wrap: anywhere; min-height: 30px; height: 100%; width: 100%; padding: 4px 6px 6px; outline-offset: -2px; }
+.rights-combobox { position: relative; margin-top: 4px; }
+.rights-combobox input { padding-inline-end: 32px; background: #444; }
+.rights-creator-toggle { position: absolute; inset: 0 0 0 auto; width: 28px; display: grid; place-items: center; cursor: pointer; }
+.rights-creator-options { position: absolute; z-index: 5; width: 100%; max-height: min(400px, 40dvh); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #999; background: #444; padding: 5px; }
+.rights-creator-options [role=option] { cursor: pointer; padding: 5px; }
+.rights-creator-options [aria-selected=true] { background: var(--color-grid-accent); color: white; }
+.usage-rights-form button[type=submit] { background: #087396; }
+@media (hover: hover) {
+  .usage-rights-form button[type=submit]:enabled:hover { background: var(--color-grid-accent-hover); }
+}
+.usage-rights-form button:disabled { opacity: .55; cursor: not-allowed; }
+.usage-rights-form button svg { width: 16px; height: 16px; fill: currentColor; }
+.usage-rights-form :focus-visible { outline: 2px solid var(--color-grid-accent); outline-offset: 2px; }
+[data-metadata-field=rights] .metadata-batch-tool { position: relative; inset: auto; }
+@media (pointer: coarse) {
+  .usage-rights-form :is(button, select, input:not([type=checkbox],[type=radio])) { min-height: 44px; }
+  .usage-rights-form label:has(> :is([type=checkbox],[type=radio])) { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+}
 .metadata-row > dt { min-width: 6em; }
-.metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { padding-right: 0; }
-.metadata-edit-form > input, .metadata-edit-form > textarea, .metadata-edit-form > select { display: block; width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
+.metadata-row:has(.metadata-scalar-edit-form) > dd { padding-right: 0; }
+.metadata-edit-form > input, .metadata-edit-form > textarea, .metadata-edit-form > select, .usage-rights-form select { display: block; width: 100%; min-width: 0; border: 1px solid var(--color-grid-border); border-radius: 3px; background: #444; padding: 5px 7px; }
 .metadata-edit-form > input:focus, .metadata-edit-form > textarea:focus, .metadata-edit-form > select:focus { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
 .metadata-edit-form > textarea { min-height: 96px; resize: vertical; }
 .metadata-edit-form > input::placeholder, .metadata-edit-form > textarea::placeholder, .metadata-edit-form > select[data-mixed] { font-style: italic; }
@@ -321,6 +386,8 @@
 .metadata-date-picker-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; bottom: 0; right: 0; }
 .metadata-location-fields { display: grid; gap: 8px; }
 .metadata-location-row { display: grid; grid-template-columns: minmax(0, 34%) minmax(0, 1fr); align-items: center; gap: 6px; }
+.metadata-location-row[data-field-state] > .metadata-field-status { grid-column: 2; margin: 0; }
+.metadata-location-row[data-field-state] > div { grid-column: 2; }
 .metadata-form-location { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .form-density-item .metadata-form-location .metadata-form-field { grid-template-columns: minmax(0, 1fr); padding: 0; }
 .form-density-item .metadata-form-location .metadata-form-field > :not(:first-child) { grid-column: 1; }
@@ -337,8 +404,8 @@
 .metadata-edit-modes input:checked + span { border-color: var(--color-grid-accent); background: #515151; }
 .metadata-edit-modes input:focus-visible + span { outline: 2px solid var(--color-grid-accent); outline-offset: -2px; }
 @media (pointer: coarse) {
-  .metadata-row:has(> dd > .metadata-scalar-edit-form) { flex-direction: column; }
-  .metadata-row:has(> dd > .metadata-scalar-edit-form) > dt, .metadata-row:has(> dd > .metadata-scalar-edit-form) > dd { width: 100%; align-self: stretch; }
+  .metadata-row:has(.metadata-scalar-edit-form) { flex-direction: column; }
+  .metadata-row:has(.metadata-scalar-edit-form) > dt, .metadata-row:has(.metadata-scalar-edit-form) > dd { width: 100%; align-self: stretch; }
   .metadata-scalar-edit-form > input, .metadata-scalar-edit-form > select { height: var(--mobile-edit-control-size); }
   .metadata-edit-tool { width: var(--mobile-edit-control-size); height: var(--mobile-edit-control-size); }
   .metadata-edit-modes label > span { min-height: var(--mobile-edit-control-size); }

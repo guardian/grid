@@ -116,7 +116,7 @@ function AdditionalMetadataSection({ children }: { children: React.ReactNode }) 
   </div>;
 }
 
-export function MetadataSection({ children, additional = false }: MetadataSectionProps) {
+export function MetadataSection({ children, additional = false, rights = false }: MetadataSectionProps & { rights?: boolean }) {
   // Filter out falsy children (from conditional renders)
   const validChildren = Array.isArray(children)
     ? children.filter(Boolean)
@@ -126,7 +126,7 @@ export function MetadataSection({ children, additional = false }: MetadataSectio
   if (validChildren.length === 0) return null;
   if (additional) return <AdditionalMetadataSection>{validChildren}</AdditionalMetadataSection>;
   return (
-    <div className="py-2.5 border-b border-grid-separator last:border-b-0">
+    <div data-metadata-field={rights ? "rights" : undefined} className={`${rights ? "relative " : ""}py-2.5 border-b border-grid-separator last:border-b-0`}>
       {children}
     </div>
   );

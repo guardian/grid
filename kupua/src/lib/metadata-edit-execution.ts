@@ -13,6 +13,11 @@ export interface MetadataEditTarget {
 let editSequence = 0;
 export function nextEditSequence() { return ++editSequence; }
 
+export function sessionStopReason(result?: GridCommandResult): "disabled" | "reload-required" | undefined {
+  if (result?.outcome === "blocked" && (result.reason === "disabled" || result.reason === "reload-required")) return result.reason;
+  if (result && "status" in result && (result.status === 401 || result.status === 419)) return "reload-required";
+}
+
 export interface MetadataEditContext {
   targetIds: readonly string[];
   targets: ReadonlyMap<string, MetadataEditTarget>;
@@ -349,9 +354,10 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
           try { result = mode === "connected" && !retainsEditGrant(command.imageId, capturedTargets.get(command.imageId)!.resource)
             ? { outcome: "blocked", reason: "unavailable" } : await simulate(command); }
           catch { result = { outcome: "unknown" }; }
-          const metadataWitness = "operation" in command && command.operation === "edit-metadata"
+          const metadataWitness = "operation" in command && (command.operation === "edit-metadata" || command.operation === "edit-rights")
             && (result.outcome === "acknowledged" || result.outcome === "unchanged") ? result.metadataWitness ?? null : undefined;
-          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, result.outcome, metadataWitness);
+          const uncertainMetadata = result.outcome === "acknowledged" && result.metadataFromRights === "unknown";
+          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, uncertainMetadata ? "unknown" : result.outcome, metadataWitness);
           const reported = { ...result };
           if ("metadataWitness" in reported) delete reported.metadataWitness;
           recordOutcome(command.imageId, reported);
@@ -360,8 +366,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
         if (batched) {
           const dispatch = createBatchExecution(commands, async command => {
             const result = await execute(command);
-            return { stop: result.outcome === "blocked" && (!execution?.continueAfterLocalBlock || result.reason === "disabled" || result.reason === "reload-required")
-              || "status" in result && (result.status === 401 || result.status === 419),
+            return { stop: !!sessionStopReason(result) || result.outcome === "blocked" && !execution?.continueAfterLocalBlock,
               throttled: "status" in result && result.status === 429 };
           }, {
             stopped: unsent => {

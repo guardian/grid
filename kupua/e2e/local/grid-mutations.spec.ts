@@ -138,6 +138,53 @@ test.describe("U3 isolated uploads", () => {
     const form = page.getByRole("region", { name: "Image results form", exact: true });
     const first = form.locator(`[data-measured-cell][data-image-id="${ids[0]}"]`);
     await expect(first.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("u5 0.original");
+    const description = first.getByRole("textbox", { name: "Description", exact: true });
+    const creditInput = first.getByLabel("Credit", { exact: true });
+    const dateInput = first.getByLabel("Taken on", { exact: true });
+    await creditInput.fill("");
+    await creditInput.press("Tab");
+    await expect.poll(async () => (await results()).metadataWrites.some(write => write.id === ids[0] && write.method === "PUT" && !write.data.credit)).toBe(true);
+    await expect(creditInput).toHaveValue("");
+    const requiredBorder = await creditInput.evaluate(element => getComputedStyle(element).borderTopColor);
+    const dateIcon = await dateInput.evaluate(element => getComputedStyle(element).backgroundImage);
+    await expect(creditInput).toHaveCSS("border-top-color", "rgb(237, 89, 53)");
+    expect(dateIcon).toContain("image/svg+xml");
+    const calendarPoint = await dateInput.evaluate(element => ({ x: element.clientWidth - 16, y: element.clientHeight / 2 }));
+    await dateInput.click({ position: calendarPoint });
+    await expect(dateInput).toHaveJSProperty("type", "datetime-local");
+    expect(await dateInput.evaluate(element => element.matches(":open"))).toBe(true);
+    await page.keyboard.press("Escape");
+    const ownWrite = `**/grid-metadata/metadata/${ids[0]}/metadata`;
+    let releaseOwn!: () => void;
+    const heldOwn = new Promise<void>(resolve => { releaseOwn = resolve; });
+    const dispatchedOwn = page.waitForRequest(request => request.method() === "PUT" && request.url().endsWith(`/metadata/${ids[0]}/metadata`));
+    await page.route(ownWrite, async route => { if (route.request().method() === "PUT") await heldOwn; await route.continue(); });
+    try {
+      await description.fill("Typing while saving");
+      await dispatchedOwn;
+      await page.evaluate(async id => {
+        const freshnessPath = "/src/lib/image-read-freshness.ts";
+        const enrichmentPath = "/src/stores/enrichment-store.ts";
+        const publicationPath = "/src/lib/image-publication.ts";
+        const { acceptImageOverlay, acceptImageRead } = await import(freshnessPath);
+        const { attachedEnrichment } = await import(enrichmentPath);
+        const { publishImage } = await import(publicationPath);
+        const source = (window as CommandWindow).__kupua_store__.getState().dataSource;
+        const [membership] = await source.getByIds([id]);
+        const [confirmation] = await source.getByIds([id]);
+        if (!membership || !confirmation || acceptImageRead(membership) !== membership) throw new Error("Missing current membership read");
+        acceptImageOverlay(id, attachedEnrichment(confirmation));
+        publishImage(membership, attachedEnrichment(membership));
+      }, ids[0]);
+      await expect(first.locator('[data-measured-field="metadata_description"] [data-grant-pending]')).toBeVisible();
+      await expect(first.getByRole("button", { name: /^Apply Description/ })).toBeDisabled();
+      await expect(creditInput).toHaveCSS("border-top-color", requiredBorder);
+      await expect(dateInput).toHaveCSS("background-image", dateIcon);
+      await expect(description).toBeFocused();
+      await page.keyboard.type(" continues");
+      await expect(description).toHaveValue("Typing while saving continues");
+    } finally { releaseOwn(); await page.unroute(ownWrite); }
+    await expect.poll(async () => (await results()).metadata[ids[0]].description).toBe("Typing while saving continues");
     await first.getByLabel("Byline", { exact: true }).focus();
     const composition = await page.context().newCDPSession(page);
     let composing = false;
@@ -205,7 +252,7 @@ test.describe("U3 isolated uploads", () => {
       await expect(progress.locator("circle")).toBeVisible();
       await expect(creditField.getByText(/Saving: \d\/2 visible/)).toHaveCount(0);
       await progress.click();
-      await expect(creditField.getByRole("button", { name: "Stop batch save", exact: true })).toBeVisible();
+      await expect(creditField.getByRole("button", { name: "Stop batch save", exact: true })).toHaveCount(0);
       await expect(creditField.getByText(/Saving: \d\/2 visible/)).toBeVisible();
     } finally { release(); await page.unroute(pattern); }
     await expect.poll(async () => Object.values((await results()).metadata).filter(value => value.credit === "Shared batch credit").length).toBe(3);
@@ -213,8 +260,72 @@ test.describe("U3 isolated uploads", () => {
     expect((await results()).metadataWrites.filter(write => write.id === laterId).map(write => write.method)).toEqual(["POST"]);
     expect((await results()).metadataReads[laterId]).toBe(1);
     expect(Object.values((await results()).metadata).every(value => JSON.stringify(value.domainMetadata) === JSON.stringify({ desk: { reference: "retained" } }))).toBe(true);
+    const editRights = async (category: string, creator: string) => {
+      await first.getByRole("button", { name: "Edit Rights & restrictions" }).click();
+      const rights = first.getByRole("form", { name: "Image usage rights" });
+      await rights.getByLabel("Rights category").selectOption(category);
+      if (category === "publisher-illustration") {
+        await rights.getByRole("radio", { name: "Weekly" }).check();
+        const input = rights.getByRole("combobox", { name: "Creator" });
+        await rights.getByRole("button", { name: "Show all options" }).click();
+        await expect(rights.getByRole("option", { name: "Weekly artist" })).toBeVisible();
+        await input.press("ArrowUp"); await input.press("Enter");
+        await expect(input).toHaveValue("Other artist");
+        await input.fill("KLY");
+        await expect(rights.getByRole("listbox").getByRole("option")).toHaveText(["Weekly artist"]);
+        await input.dispatchEvent("keydown", { key: "Escape", isComposing: true });
+        await expect(input).toHaveValue("KLY");
+        await input.press("Escape");
+        await expect(rights.getByRole("listbox")).toHaveCount(0);
+      }
+      if (creator) await rights.getByLabel("Creator").fill(creator);
+      await rights.getByRole("button", { name: "Save", exact: true }).click();
+    };
+    const derivedPath = `**/metadata/${ids[0]}/metadata/set-from-usage-rights`;
+    let releaseDerived!: () => void;
+    const heldDerived = new Promise<void>(done => { releaseDerived = done; });
+    await page.route(derivedPath, async route => { await heldDerived; await route.continue(); });
+    try {
+      const dispatched = page.waitForRequest(request => request.method() === "POST" && request.url().endsWith(`/metadata/${ids[0]}/metadata/set-from-usage-rights`));
+      await editRights("publisher-illustration", "Unlisted illustrator");
+      await dispatched;
+      for (const field of ["byline", "credit"]) await expect(first.locator(`[data-measured-field="metadata_${field}"]`).getByText("Saving…", { exact: true })).toBeVisible();
+      await expect(first.locator('[data-measured-field="metadata_description"]').getByText("Saving…", { exact: true })).toHaveCount(0);
+      await creditInput.fill("Temporary credit");
+      await creditInput.fill("Shared batch credit");
+      await (await getDensityChangeButton(page, "grid"))?.click();
+      await expect(form).toHaveCount(0);
+      await (await getDensityChangeButton(page, "form"))?.click();
+      const restoredRights = first.getByRole("form", { name: "Image usage rights" });
+      await expect(restoredRights).toHaveAttribute("data-field-state", "Saving…");
+      await expect(restoredRights.getByLabel("Creator")).toHaveValue("Unlisted illustrator");
+      await expect(restoredRights.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+      await (await getDensityChangeButton(page, "grid"))?.click();
+    } finally { releaseDerived(); await page.unroute(derivedPath); }
+    await expect.poll(async () => (await results()).metadata[ids[0]].byline).toBe("Unlisted illustrator");
+    await expect.poll(() => page.evaluate(async id => {
+      const path = "/src/stores/metadata-drafts-store.ts";
+      return (await import(path)).useMetadataDrafts.getState().drafts.get(id)?.has("usageRights_category") ?? false;
+    }, ids[0])).toBe(false);
+    await (await getDensityChangeButton(page, "form"))?.click();
+    await expect(first.getByLabel("Byline", { exact: true })).toHaveValue("Unlisted illustrator");
+    await expect.poll(async () => (await results()).metadata[ids[0]].credit).toBe("Shared batch credit");
+    await page.route(derivedPath, route => route.fulfill({ status: 403, json: {} }));
+    try {
+      await editRights("publisher-photography", "Unlisted photographer");
+      await expect(first.getByText(/Metadata from rights: 1 not saved/)).toBeVisible();
+      await expect(first.getByLabel("Byline", { exact: true })).toHaveValue("Unlisted illustrator");
+    } finally { await page.unroute(derivedPath); }
+    await editRights("pay-to-use", "");
+    await expect(first.getByText("Fixture paid-image notice")).toBeVisible();
+    await (await getDensityChangeButton(page, "grid"))?.click();
+    await expect(page.locator(`[data-image-id="${ids[0]}"]`).getByText("£", { exact: true }).first()).toBeVisible();
     await (await getDensityChangeButton(page, "table"))?.click();
     await page.getByRole("region", { name: "Image results table", exact: true }).locator(`[data-image-id="${ids[0]}"]`).dblclick();
+    await expect(page.getByText("Fixture paid-image notice")).toBeVisible();
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    await expect(page.getByLabel("Crop notices").getByText("Pay to use", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back to image", exact: true }).click();
     await page.getByRole("button", { name: "Edit Description", exact: true }).click();
     await page.getByRole("textbox", { name: "Description", exact: true }).fill("Details saved description");
     await page.getByRole("button", { name: "Commit Description", exact: true }).click();
@@ -230,16 +341,28 @@ test.describe("U3 isolated uploads", () => {
     await expect(page.getByRole("button", { name: /Apply .* batch images/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit Description", exact: true })).toBeEnabled();
     const rejectWrite = `**/metadata/${ids[0]}/metadata`;
-    await page.route(rejectWrite, route => route.request().method() === "PUT" ? route.fulfill({ status: 422, json: {} }) : route.fallback());
+    let settle!: () => void;
+    const heldFailure = new Promise<void>(resolve => { settle = resolve; });
+    await page.route(rejectWrite, async route => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      await heldFailure; await route.fulfill({ status: 422, json: {} });
+    });
     try {
       await page.getByRole("button", { name: "Edit Description", exact: true }).click();
       await page.getByRole("textbox", { name: "Description", exact: true }).fill("Rejected description");
+      const dispatched = page.waitForRequest(req => req.method() === "PUT" && new URL(req.url()).pathname.endsWith(`/metadata/${ids[0]}/metadata`));
       await page.getByRole("button", { name: "Commit Description", exact: true }).click();
+      await dispatched;
       const detail = page.locator(`[data-detail-image-id="${ids[0]}"]`);
-      await detail.getByRole("button", { name: "1 issue", exact: true }).click();
+      const issue = detail.getByRole("button", { name: "1 issue", exact: true });
+      await expect(issue).toHaveCount(0);
+      settle();
+      await expect(issue).toBeVisible();
+      expect(await issue.evaluate(button => Boolean(button.closest("header.detail-toolbar")))).toBe(true);
+      await issue.click();
       await expect(detail.locator(":popover-open")).toHaveText("Description: 1 not saved");
       await page.keyboard.press("Escape");
-    } finally { await page.unroute(rejectWrite); }
+    } finally { settle(); await page.unroute(rejectWrite); }
     await page.getByRole("button", { name: "Back to uploads", exact: true }).click();
     expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
   });
@@ -1208,6 +1331,28 @@ test.describe("Unit B isolated continuation", () => {
     await expect(region).toBeVisible();
     await page.waitForFunction(() => !(window as CommandWindow).__kupua_store__.getState().loading);
     await page.evaluate(async () => {
+      const path = "/src/lib/browsing-context.tsx";
+      (await import(path)).uploadBatchMembership.getState().set("local-u2", ["local-20", "local-21"], undefined, true);
+    });
+    const early = region.locator('[data-measured-cell][data-image-id="local-20"]').getByRole("textbox", { name: "Description", exact: true });
+    await expect(early).toBeEditable();
+    const earlyTarget = await early.evaluateHandle(element => {
+      element.focus({ preventScroll: true });
+      return { element, top: element.getBoundingClientRect().top };
+    });
+    await page.evaluate(async () => {
+      const path = "/src/lib/browsing-context.tsx";
+      (await import(path)).uploadBatchMembership.getState().set("local-u2", Array.from({ length: 22 }, (_, index) => `local-${index}`), undefined, true);
+    });
+    await page.waitForFunction(() => {
+      const state = (window as CommandWindow).__kupua_store__.getState();
+      return !state.loading && state.uploadSections?.batch === 22;
+    });
+    expect(await earlyTarget.evaluate(({ element, top }) => ({ attached: element.isConnected, focused: document.activeElement === element,
+      shift: Math.round(element.getBoundingClientRect().top - top) }))).toEqual({ attached: true, focused: true, shift: 0 });
+    await earlyTarget.dispose();
+    await region.getByRole("button", { name: "Go to start of current batch" }).click();
+    await page.evaluate(async () => {
       const contextPath = "/src/lib/browsing-context.tsx";
       (await import(contextPath)).uploadBatchMembership.getState().set("local-u2", Array.from({ length: 60 }, (_, index) => `local-${index}`), undefined, true);
     });
@@ -1250,24 +1395,6 @@ test.describe("Unit B isolated continuation", () => {
     await expect(page.locator('[data-fullscreen-preview="active"]')).toBeVisible();
     await page.evaluate(() => document.exitFullscreen());
     await expect(page.locator('[data-fullscreen-preview="active"]')).toHaveCount(0);
-    const cell = region.locator('[data-image-id="local-1"]');
-    const takenOn = cell.getByLabel("Taken on", { exact: true });
-    await takenOn.fill("2026-11-18T12:00");
-    for (let segment = 0; segment < 8; segment++) await takenOn.press("ArrowLeft");
-    await takenOn.press("Backspace");
-    await takenOn.press("0");
-    await takenOn.press("2");
-    await expect(takenOn).toHaveValue("2026-11-02T12:00");
-    const input = cell.getByRole("textbox", { name: "Description", exact: true });
-    const originalDraft = "A retained editorial description. ".repeat(50);
-    const composedDraft = originalDraft.slice(0, 4) + "composed" + originalDraft.slice(12);
-    await input.fill(originalDraft);
-    await input.evaluate(element => {
-      const region = element.closest('[role="region"]')!;
-      region.scrollTop += element.getBoundingClientRect().top - region.getBoundingClientRect().top - 100;
-      (element as HTMLTextAreaElement).setSelectionRange(4, 12);
-    });
-    const top = await input.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
     await page.evaluate(() => {
       const store = (window as CommandWindow).__kupua_store__;
       const source = store.getState().dataSource;
@@ -1288,16 +1415,37 @@ test.describe("Unit B isolated continuation", () => {
     });
     const arrive = (length: number) => page.evaluate(async length => {
       const contextPath = "/src/lib/browsing-context.tsx";
-      (await import(contextPath)).uploadBatchMembership.getState().set("local-u2", Array.from({ length }, (_, index) => `local-${index}`), undefined, true);
+      const members = Array.from({ length }, (_, index) => `local-${index}`);
+      if (length > 62) members.unshift(...members.splice(62));
+      (await import(contextPath)).uploadBatchMembership.getState().set("local-u2", members, undefined, true);
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }, length);
+    await arrive(61);
+    await page.waitForFunction(() => (window as any).__u2Arrivals.calls === 1);
+    const cell = region.locator('[data-image-id="local-1"]');
+    const takenOn = cell.getByLabel("Taken on", { exact: true });
+    await takenOn.fill("2026-11-18T12:00");
+    for (let segment = 0; segment < 8; segment++) await takenOn.press("ArrowLeft");
+    await takenOn.press("Backspace");
+    await takenOn.press("0");
+    await takenOn.press("2");
+    await expect(takenOn).toHaveValue("2026-11-02T12:00");
+    const input = cell.getByRole("textbox", { name: "Description", exact: true });
+    const originalDraft = "A retained editorial description. ".repeat(50);
+    const composedDraft = originalDraft.slice(0, 4) + "composed" + originalDraft.slice(12);
+    await input.fill(originalDraft);
+    await input.evaluate(element => {
+      (window as any).__u2Arrivals.input = element;
+      const region = element.closest('[role="region"]')!;
+      region.scrollTop += element.getBoundingClientRect().top - region.getBoundingClientRect().top - 100;
+      (element as HTMLTextAreaElement).setSelectionRange(4, 12);
+    });
+    const top = await input.evaluate(element => element.getBoundingClientRect().top - element.closest('[role="region"]')!.getBoundingClientRect().top);
     const composition = await page.context().newCDPSession(page);
     let composing = false;
     try {
       await composition.send("Input.imeSetComposition", { text: "composed", selectionStart: 2, selectionEnd: 5 });
       composing = true;
-      await arrive(61);
-      await page.waitForFunction(() => (window as any).__u2Arrivals.calls === 1);
       for (const length of [62, 63, 64]) await arrive(length);
       expect(await page.evaluate(() => (window as any).__u2Arrivals.calls)).toBe(1);
       await page.evaluate(() => (window as any).__u2Arrivals.release());

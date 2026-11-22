@@ -6,7 +6,7 @@ const links = vi.hoisted(() => ({ edits: "https://metadata.example.test" as stri
 vi.mock("@/lib/grid-api-instance", () => ({ serviceLink: async (rel: string) => (rel === "edits" ? links.edits : undefined) }));
 
 import { categoryLabel } from "./category-labels";
-import { groupCategoryBuckets, loadUsageRightsCatalogue, useUsageRightsCatalogue } from "./usage-rights-catalogue";
+import { groupCategoryBuckets, loadUsageRightsCatalogue, readRightsEditorCatalogue, useUsageRightsCatalogue } from "./usage-rights-catalogue";
 
 const categories = [
   { value: "", name: "Unknown Rights", cost: "pay", description: "" },
@@ -37,6 +37,25 @@ afterEach(() => {
 });
 
 describe("usage rights catalogue", () => {
+  it("reads editing properties only from the filtered catalogue on the discovered edits origin", async () => {
+    vi.stubEnv("VITE_HOSTED", "true");
+    const root = "https://metadata.example.test";
+    const property = { name: "creator", label: "Creator", type: "string", required: true,
+      optionsMapKey: "publication", optionsMap: { Daily: ["Example creator"] } };
+    const entry = { value: "publisher-photography", name: "GNM Photography", description: "", properties: [property] };
+    let href = `${root}/usage-rights/filtered-categories`;
+    const fetcher = vi.fn(async (url: string) => url === `${root}/`
+      ? Response.json({ links: [{ rel: "usage-rights-list", href: `${root}/usage-rights/categories` },
+        { rel: "filtered-usage-rights-list", href }] }) : Response.json({ data: [entry] }));
+    vi.stubGlobal("fetch", fetcher);
+    expect(await readRightsEditorCatalogue()).toEqual([entry]);
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([`${root}/`, href]);
+    fetcher.mockClear();
+    href = "https://other.example.test/usage-rights/filtered-categories";
+    await expect(readRightsEditorCatalogue()).rejects.toThrow();
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([`${root}/`]);
+  });
+
   it("follows media-api's edits link to metadata-editor's category list, as Kahuna does", async () => {
     const fetchMock = stubEditsService(categories);
     await loadUsageRightsCatalogue();

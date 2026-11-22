@@ -16,6 +16,7 @@ export interface SiteTickerDefinition {
 }
 
 export interface SiteSettings {
+  usageRightsHelpLink?: string;
   upload?: { transport: "signed" | "direct"; maxFileBytes?: number };
   staffPhotographerOrganisation?: string;
   fieldAliases?: SiteFieldAlias[];
@@ -53,6 +54,11 @@ function isTicker(value: unknown): boolean {
 }
 
 const validators: Record<keyof SiteSettings, (value: unknown) => boolean> = {
+  usageRightsHelpLink: value => {
+    if (!isString(value) || !URL.canParse(value)) return false;
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password;
+  },
   upload: value => isRecord(value) && (value.transport === "signed" || value.transport === "direct")
     && (value.maxFileBytes === undefined || (typeof value.maxFileBytes === "number" && Number.isSafeInteger(value.maxFileBytes) && value.maxFileBytes >= 0)),
   staffPhotographerOrganisation: isNonEmptyString,
@@ -94,11 +100,12 @@ export function validateSiteSettings(raw: unknown): SiteSettings {
   return result as SiteSettings;
 }
 
-export type CompleteSiteSettings = Required<Omit<SiteSettings, "upload">> & Pick<SiteSettings, "upload">;
+type OptionalSettings = "upload" | "usageRightsHelpLink";
+export type CompleteSiteSettings = Required<Omit<SiteSettings, OptionalSettings>> & Pick<SiteSettings, OptionalSettings>;
 
 export function requireSiteSettings(raw: unknown): CompleteSiteSettings {
   const result = validateSiteSettings(raw);
-  if (Object.keys(validators).some(key => key !== "upload" && !(key in result))
+  if (Object.keys(validators).some(key => key !== "upload" && key !== "usageRightsHelpLink" && !(key in result))
     || (isRecord(raw) && raw.upload !== undefined && !result.upload)) throw new Error("Invalid Grid site settings");
   return result as CompleteSiteSettings;
 }

@@ -17,6 +17,245 @@ new runner or a promise that all operation families are implemented.
 
 ## Current Decisions and Open Questions
 
+**22 November: post-review verification.** The production and hosted builds,
+E2E typecheck and all 4,010 unit/component tests passed. The full synthetic
+E2E wrapper then passed all 599 tests in 10.6 minutes. These checks cover the
+reviewed Rights, save-feedback and Upload Form changes; they do not replace
+the pending operator retest of focus, card position and flicker during a fresh
+500-file upload. The local performance trials below predate the final review fixes.
+
+**22 November: bounded fairness candidate and matched local recipient trial.**
+On the same settled 500-image cohort, second recipient visible before typing,
+the previous pump took 11.897s from individual enqueue to PUT (13.091s in an
+earlier run). With a borrowed turn at a settled group boundary, the individual
+PUT started after 200 peer starts, 1.240s after enqueue. Last key to enqueue
+601ms, PUT to HTTP 200 44ms, acknowledgement to observed receipt 1019ms.
+13/13 keyboard inputs overlapped peer dispatch with no read-only keys, wrong
+target, focus loss or sampled viewport/field displacement. All 499 distinct
+peer PUTs acknowledged with at most five PUTs in flight; the application
+reported 499 observed, and an independent recipient read confirmed both fields.
+Last peer start 16.490s versus 17.406s before; final peer ACK 16.535s, finished
+receipt verified by 17.197s. One local comparison, not a throughput guarantee.
+One input-to-frame callback reached 230ms; this is not queue wait. A synthetic
+browser-store scheduling probe timed out and is not evidence. The owning
+deterministic test failed before the repair on command order. It covers early
+and late peers, delayed single readback, an existing shared waiter and borrower
+session rejection with explicit unsent remainder. No speed knobs changed.
+
+**22 November: attribution of long frames.** In an idle six-card Vite dev Form,
+two page-only reads of 200 images had 21/13ms maximum frame gaps. Passive search
+with one results publication had 158/243ms. The marked replay trace showed a
+383ms instrumented task with React development task/JSX and Form render stacks;
+trace overhead and nested stacks preclude exclusive production cost claims.
+With peer arrays allocated only on click, a clean native-debug-task replay
+gave 174/177ms. Suppressing console.createTask before dev startup gave
+112/115ms, and restoring it reproduced the larger delays. This was diagnostic
+only. Shallow memoization of scalar metadata fields reduced a subsequent
+native-hook replay to 135/139ms; 10/11ms for raw reads. These are short
+comparisons, not isolated per-component CPU savings. A marked live trace caught
+a 205ms ingestion gap, but aggregate extraction failed on trace size; the raw
+file was removed and no CPU attribution from that trace is claimed.
+
+Two fresh 500-file local ingestion runs used verified comment-only cohorts,
+the same two typing bursts and default filename sort. With final code in Vite
+dev: 43/43 inputs, exact canonical Description, two pending transitions, no
+read-only keys or measured focus/style/position regression. During typing,
+median/max input-to-frame callback 3/18ms and largest sampled rAF gap 349.4ms.
+A longer capped 20,000-frame sample gave p99 113ms, max 403.3ms (included the
+short trace window). With production React in an isolated same-origin frame,
+the compiled laptop client used the real local API/loader/edits and canonical
+media, the same app entry, site settings and Form styling. All 43 inputs and
+both pending transitions were verified again; median/max input-to-frame 3/9ms,
+largest gap during typing 31ms. Longer capped 20,000-frame sample: p99 16.8ms,
+max 32.8ms, no interval above 50ms. Both batches completed and retained 500/500.
+Separately, a production diagnostic passive replay on the settled cohort had
+15/20ms publication gaps and 11/13ms page-only gaps. The diagnostic frame and
+local API mode are not a hosted deployment or physical-paint measurement;
+these runs distinguish renderer/build effects without proving a universal bound.
+
+**22 November: settled recipient scroll control and visible-recipient repeat.**
+With no batch operation, focus with preventScroll left the second Description
+1488px below the region top at offset zero (919px viewport). One browser key
+brought it to 892px, exactly 596px of container scroll, without detachment. The
+test character was removed and the original Description independently verified.
+This reproduces the prior scripted-focus displacement without any batch writes;
+it does not explain earlier operator-reported jumps while editing visible cards.
+
+In a second settled 499-peer Credit action the recipient was deliberately brought
+into view (442px) before measuring. All 16 keyboard inputs overlapped dispatch;
+the original field stayed focused with zero sampled field or scroll displacement,
+no read-only keydowns, and exact final Description and Credit on fresh readback.
+499 distinct peer writes acknowledged, not 499 independent readbacks. Median/max
+input-to-frame callback 4.3/8.8ms. Seven long tasks were observed across the action,
+maximum 250ms. The recipient's peer write acknowledged 570ms after click; its
+Description enqueued at 5581ms and dispatched at 17478ms (11.897s queue-to-PUT),
+72ms after the last peer dispatch. HTTP 200 followed in 30ms, observed receipt
+1027ms later. The pump releases dispatch only in the final group or at completion;
+this is not network latency, nor authorization for a new scheduling policy.
+
+**22 November: post-CSS live visual acceptance.** Fresh tab/cohort, 491 active
+when binding the first submitted filename. Two pending-grant transitions, 36
+keyboard inputs, two writes and matching final readback with 415 still active.
+No measured position, focus, rights-arrow, reason order, empty-Credit red border
+or Taken background artwork/position change. This is a DOM/style observation,
+not paint certification. Median/max input-to-frame callback 3/32.1ms; maximum
+sampled frame gap 275.9ms. All 500 ultimately completed and were retained in the
+tab's batch descriptor, with no pending follow-ups or persistence issue. Targeted
+Chromium separately opened the native datetime picker by clicking the painted icon.
+
+During a separate 77s instrumented ingestion window there were 95 combined
+searchAfter completions and 2316 batch sessionStorage writes (1.062s total
+inside native setItem, maximum 3ms; excludes validation and serialization).
+The five longest retained script spans (178-189ms) had at most 1ms of storage
+calls and about 1ms of forced layout each. Chromium identified a promise
+continuation at readJson's res.json().catch(...) call, not exclusive JSON-parse
+CPU time. A scoped first-iteration observer on ten search-after response arrays
+of 200 images measured at most 1ms per decode walk. The iterator wrapper can
+change callback attribution: these are bounded controls, not a full CPU profile
+or a finding that all downstream work is cheap. No pacing/cache changes selected.
+
+**22 November: agent-driven local MCP run after the typing repair.** A separate
+tab with verified runtime fixes and empty batch history submitted 500 matched
+JPEGs. The first filename was focused with 489 active. 57 MCP keydowns and two
+separately timed insertText commands (450 and 448 active in the pending-grant
+state) produced 59 inputs; a fresh read matched the entire expected Description.
+No tracked scroll displacement, read-only keydown or focus loss. Median/max
+input-to-frame callback 4/31.4ms, maximum sampled frame gap 191.5ms. On the
+second filename after deliberate scrolling, 29 keys produced 29 inputs, no
+blur or scroll change, and the exact value was confirmed with 317 still active.
+These were driven browser interactions, not a human responsiveness rating.
+The operator saw empty Credit lose its red border and Taken's calendar flicker;
+the first observer measured neither the Credit border nor calendar pixels.
+The existing U5 fixture reproduced the red-to-gray transition before the CSS
+repair and checked consistent red and calendar artwork afterward.
+
+After all 500 completed and follow-ups settled, one confirmed source Credit
+was applied to 499 peers. All 23 recipient Description inputs overlapped peer
+dispatch, with no read-only keys, wrong target or blur. All 499 distinct peer
+PUTs got successful HTTP responses; only the recipient's final Credit and
+Description were independently read back. Last input to enqueue 600ms;
+enqueue to PUT 13.091s; PUT to HTTP 200 27ms; response to observed receipt
+522ms. Median/max input-to-frame callback 3.8/318.1ms. Container offset changed
+by up to 596px after scripted focus; sampled field position on resize changed
+by up to 18px. Cause and visual impact of that movement were not established.
+
+**22 November: verified resident-slot repair, human 500-file ingestion.** The
+running Form store was checked after reload. No reported jump, sampled region
+movement, or target detachment. The operator still reported flicker and typing
+blocks. The recorder counted 209 keydowns, 101 trusted inputs, and 20 keydowns
+while the original Description was read-only; these counts do not measure lost
+characters. One retained interval began after HTTP 200 but before canonical
+observation, with focus, body identity and raw edit link intact, while effective
+and pending grants were both false. The recorder did not identify every internal
+read sequence or measure changes to neighboring controls in this trial.
+
+The mounted held-response fixture reproduced the read-only transition when a
+membership response followed dispatch and a newer, not-yet-matching confirmation
+read retained the same edit link without publishing a body. The repaired local
+draft check recognizes the newer authority read; the fixture also covers disabled
+dispatch, remount/resumption and an unpublished permission withdrawal. No matched
+human retest of this latest typing repair. The concurrent history-saving warning
+was separately verified as the tab's local batch descriptor budget, not evidence
+of credential expiry.
+
+The U5 synthetic Chromium save journey now holds the fixture PUT, delivers a
+later matching permission read ahead of publication of an earlier body, and
+requires the mounted Description to show pending grant with its arrow disabled.
+Browser keystrokes sent to the focused field extended its draft; after release,
+the fixture backend contained the complete value. This isolates keyboard and
+save behavior, not live ingestion load or timing after HTTP acknowledgement.
+
+**22 November: post-repair human ingestion failed.** The operator reported
+flicker, a large visible jump and loss of focus. Binding began with 486 of 500
+attempts active. All five recorded text inputs went to the original Description.
+Two sampled intervals had raw grant present but editable and pending-grant both
+false; the still-focused field was read-only. Later the field emitted focusout,
+then the virtualizer requested offset zero at zero, then the original input was
+sampled detached (53ms after focusout). The recorder stopped on detachment with
+no observed change to that region's scrollTop. This does not exclude a visible
+content replacement or later movement; cause and later input destination are
+unknown. No reload took place during the upload. The settled resident position
+of the image identified by the last tracked Description receipt was zero; its
+position during detachment is unknown. A focused synthetic early-batch growth
+control (two to 22 members) passed without a product change. Membership growth
+alone in that fixture did not reproduce this failure.
+
+**21 November: matched 500-file local Form retest after draft retention.** All
+500 completed; at closeout there were no active attempts or pending follow-ups.
+The operator typed slowly across autosaves and at normal pace, and reported no
+large or small jump. From binding to freeze the one-field recorder saw 386
+scroll requests, no change in the tracked region's scroll offset, no sampled
+target loss and 355 trusted text inputs, all on the original field. Six keydowns
+on that field occurred while read-only; key contents were not retained, so
+lost characters cannot be inferred. At least 52 retained input samples overlapped
+sampled active ingestion. The last 256 input-to-next-frame callback delays had
+a median of 2ms; the whole capture maximum was 65ms, with a separate maximum
+frame gap of 218ms. These are instrumented callback timings, not paint latency.
+The prior 631px jump did not recur and remains unattributed.
+
+There were 34 tracked image-metadata PUT starts and 34 HTTP responses. For the
+last Description receipt, last input to enqueue was 602ms, enqueue to PUT 50ms,
+PUT to HTTP 200 55ms, and response to observed receipt 545ms. Ingestion was
+already settled for this example. This was not the 499-recipient arrow workload.
+
+The operator repeatedly saw the missing-credit and no-rights reasons swap order
+after typing paused; the Usage Rights arrow, date-picker icon and field borders
+disappeared. Those controls and reason order were not instrumented. The rolling
+event detail does not establish their timing relative to the six read-only
+keydowns, or that focus was lost during those changes. The existing held-read
+fixture has one reason and exercises the focused Description, not those sibling
+controls. No write-authority change follows from this observation.
+
+**Settled single-card control, same batch.** With 500 complete and no pending
+follow-ups, a one-character Description append and its exact restoration each
+reached an observed receipt. A targeted fresh read confirmed the original
+Description afterward. A card-scoped DOM observer saw no change in the order
+of the two reasons (credit then rights), rights-arrow presence, Description
+focus/read-only state, date input read-only state, or either input's computed
+border colour. This checks DOM/style state, not painted native calendar-icon
+pixels. No batch arrow was used. Settled autosave alone did not reproduce the
+reported ingestion flicker in these two saves.
+
+**21 November: typing during local 500-file ingestion.** On a foreground MCP Chrome
+Form, the operator began typing with 13 attempts complete and 35 active. A bounded
+observer tracked the original Description, its image identity, focus, native input,
+scroll offset, card position and field offset. About three seconds after focus,
+the still-focused input became read-only, its border transparent and its arrow
+disabled. While the input was attached, a 899px viewport shift was accounted for
+by container scrolling, not movement of the card in the list or the field in the
+card. Later a blur was followed by a sampled detached input. None of eight recorded
+text-input events targeted another image. Capture stopped during ingestion; the
+operator subsequently reported completion with two errors. No failure causes inferred.
+
+In the existing Chromium arrival fixture, starting a membership refresh *before*
+entering the Description reproduced a shift from 100px to 1,226px below the viewport
+top without losing DOM identity. Sampling the active Form target and position before
+publishing the first page preserved the 100px position, caret and composition. A held
+autosave alone allowed continued typing and saved the final value. Neither fixture
+establishes that every live focus loss is fixed or explains which freshness/authority
+check withheld editing. No matched post-fix 500-file trial or latency claim.
+
+**Subsequent 500-file local MCP trial, same evening.** With the first-page placement
+repair loaded, the operator focused Description with 27 complete and 45 active.
+All 500 later completed. For the focused ID, all 434 sampled data-source results
+advertised edits (calls can be nested; this is not a network-request count).
+At the first read-only transition the mounted body was current, both attached and
+shared overlays granted edits, but the command fence selected the unavailable
+authority sentinel. There were 15 read-only transitions, 11 keydowns while read-only,
+32 trusted input events and none on a different image. Unlike the earlier capture,
+there was no sampled detachment or blur. The largest sampled displacement was 631px
+of scrolling with stable card and field offsets; the longest sampled frame gap was
+220ms. These are instrumented observations, not attribution of every stall.
+
+A mounted fixture reproduced read-only on a parent rerender before readback, even
+when an old granted response alone did not reproduce it. Form now separates the
+active local draft from dispatch during that interval, preserving server validity
+wording. A fresh grant can resume an unsent revision after remount; a withdrawn
+grant keeps the draft read-only. Notice order was not recorded live. This repair
+has not yet had a matched live rerun and does not establish the source of the
+remaining viewport movement. Fresh ExifTool-comment copies of three existing local
+cohorts were prepared for retest; no new upload was submitted during preparation.
+
 **Acceptance clarification, 19 November:** Kupua must match or beat correct Kahuna
 operation at shared supported scales, allowing only tiny differences. Slower is
 permitted only where Kahuna is proven to lose data at that speed or cannot operate

@@ -390,6 +390,12 @@ export function useUrlSearchSync() {
     }
 
     search(null, { continuity, ...arrivalState, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
+      activeFormPlacement: membershipOnly && path === "/upload" ? () => {
+        const cell = document.activeElement?.closest<HTMLElement>("[data-form-content]")?.closest<HTMLElement>("[data-measured-cell]");
+        if (!cell?.dataset.imageId) return;
+        const current = captureSearchContinuity("membership");
+        return current.targetId === cell.dataset.imageId && current.placement.kind === "ratio" ? current : undefined;
+      } : undefined,
       sortOnly: isSortOnly || undefined, traceAction, traceInteractionId });
 
     // Clear the external-query latch. cancelSearchDebounce(newQuery) sets

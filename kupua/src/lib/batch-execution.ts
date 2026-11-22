@@ -36,6 +36,19 @@ export function createBatchQueue() {
   const listeners = new Set<() => void>();
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    borrowTurn(owner: BatchSlot, resume: () => void): BatchSlot | undefined {
+      if (closed || active !== owner || retained.size !== 1 || waiting.length) return undefined;
+      const slot: BatchSlot = {
+        pacing, release: resume, dispatched: resume,
+        complete() {
+          if (!retained.delete(slot)) return;
+          resume();
+          for (const listener of listeners) queueMicrotask(listener);
+        },
+      };
+      retained.add(slot);
+      return slot;
+    },
     admit(): BatchSlot | undefined {
       if (closed || retained.size >= BATCH_POLICY.maxQueued + 1) return undefined;
       let release = () => {};

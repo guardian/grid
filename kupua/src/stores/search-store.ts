@@ -81,6 +81,7 @@ import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/sto
 import { useSelectionStore } from "@/stores/selection-store";
 
 interface SearchOptions {
+  activeFormPlacement?: () => SearchContinuity | undefined;
   continuity?: SearchContinuity;
   discardOffsetHint?: boolean;
   phantomOnly?: boolean;
@@ -2210,7 +2211,13 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         const resident = position === undefined ? undefined : current.results[position - current.bufferOffset];
         const previous = resident && isImageMetadataCurrent(resident) ? resident : cached;
         let body = acceptEnrichedImage(image, previous);
-        if (!body && image === resident) continue;
+        if (!body && resident?.id === image.id) {
+          if (resident !== image) {
+            accepted ??= update.results.slice();
+            accepted[index] = resident;
+          }
+          continue;
+        }
         if (body && body !== image && body.__aiScore !== image.__aiScore) {
           const canonical = body;
           body = { ...canonical, __aiScore: image.__aiScore };
@@ -2396,7 +2403,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
   },
 
   search: async (sortAroundFocusId?: string | null, options?: SearchOptions) => {
-    const historyFocusIntent = options?.continuity && options.continuity.provenance !== "user" ? get()._focusIntent : undefined;
+    let historyFocusIntent = options?.continuity && options.continuity.provenance !== "user" ? get()._focusIntent : undefined;
     const historyPresentationCurrent = () => historyFocusIntent === undefined || get()._focusIntent === historyFocusIntent;
     if (options?.continuity) {
       const { targetId, focus, neighbours } = options.continuity;
@@ -2418,7 +2425,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
     // When visibleNeighbours is provided (phantom mode), use those instead
     // of _captureNeighbours — restricts fallback to images the user actually
     // saw, not ±20 buffer positions that may include off-screen images.
-    const prevNeighbours = sortAroundFocusId
+    let prevNeighbours = sortAroundFocusId
       ? (options?.continuity?.fallback === "top" ? [] : options?.visibleNeighbours ?? _captureNeighbours(
           sortAroundFocusId,
           get().results,
@@ -2724,6 +2731,14 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // On popstate restore with a frozenUntil, reuse the original freeze
       // timestamp so the ticker correctly counts new images since the
       // user's original search — not since the back/forward navigation.
+      const activeForm = continuity?.provenance === "maintenance" ? options?.activeFormPlacement?.() : undefined;
+      if (activeForm?.targetId && continuity) {
+        historyFocusIntent = get()._focusIntent;
+        Object.assign(continuity, activeForm, { historyFocusIntent });
+        sortAroundFocusId = activeForm.targetId;
+        prevNeighbours = activeForm.neighbours ?? [];
+        options = { ...options, phantomOnly: true, retainExplicitFocus: true };
+      }
       set({ uploadSections: result.uploadSections ?? null });
       const now = options?.frozenUntil ?? new Date().toISOString();
 

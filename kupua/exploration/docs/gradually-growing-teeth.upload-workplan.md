@@ -307,12 +307,12 @@ unit checkpoints for exact validation and live-trial limits.
 | P04 | **Done locally:** route-independent jobs, activity, outcomes and interruption handling (U3/U4). | No durable transfer resume; complete integrated acceptance remains U8. |
 | P05 | **Done locally:** authenticated lower-section browsing and Search link (U4/U4.5). | The explicit Search URL contains the current uploader identity by operator decision; Upload does not persist or log that identity. Final deployment acceptance remains U8. |
 | P06 | **Done locally:** attempt identity, canonical deduplication and submitted-filename ordering (U3/U4/U4.5). | Server isolation for concurrent same-name submissions is not established; batch editing deduplication remains U5-U7. |
-| P07 | **Not connected:** label add/remove exists for Search/detail, but not automatic Upload follow-ups. | U5: filename-description fallback and captured preset labels, with separate outcomes. |
-| P08 | **Partial:** Form has retained direct-entry text/date/location drafts, required-input borders and editorial guidance; Search/detail retain their separate explicit preparation controls. | U5 and Step 8: shared ordinary-metadata commands, authoritative merge, save/readback and outcomes. Domain editors are excluded from Upload. |
-| P09 | **Not connected:** U4.5 establishes explicit upper-batch ownership. | U5-U7: captured, offscreen-capable batch arrows and accessible exclusions; no lower-section or later-arrival targets. |
+| P07 | **Connected (U5):** filename-description fallback preserves supplied captions; preset labels are captured at submission and reported separately. | Integrated editorial acceptance remains U8. |
+| P08 | **Connected for ordinary metadata (U5/Step 8):** Form autosaves; Details commits explicitly. Both use authoritative merges, readback and outcomes. | Domain editors are excluded from Upload; embedded-date clearing is unavailable (GRID-025). |
+| P09 | **Connected for U5 fields:** an arrow captures the open upper batch, including offscreen members, not the lower section or later arrivals. | U6/U7 families still need their own propagation and outcome checks. |
 | P10 | **Not connected:** rights and lease facts/display exist. | U6a/U6b: authorized commands, side effects, readback and partial outcomes. |
 | P11 | **Deferred by operator:** templates are not a current Upload acceptance gate. | U6c only if separately selected; not a passed feature. |
-| P12 | **Partial:** labels are connected in Search/detail; Form list plus/add/remove controls and other panel controls prepare unsent intent. | U7: Upload targeting and connected keywords, collection membership and photoshoot operations. |
+| P12 | **Partial:** reuse connected Labels and Keywords where supported; an existing control alone is not proof of a connected action. | U7: check each Upload action and its target scope; collection membership and photoshoot workflows remain. |
 | P13 | **Partial:** per-attempt outcomes and deduplicated canonical membership exist. | U7/Step 17: authorized deletion/restore, duplicate eligibility and lifecycle handling. No automatic restore or re-upload. |
 | P14 | **Partial:** batch-aware detail/crop return and disconnected crop eligibility/notices are implemented. | U7/Steps 7 and 13: archive and actual crop creation/readback. |
 | P15 | **Done locally at bounded recovery scope:** retained descriptors, interrupted/uncertain outcomes and read-only Recheck (U3/U4). | No durable draft/transfer recovery or automatic replay; real expiry/login-return acceptance remains separate. |
@@ -562,7 +562,8 @@ Update one line when a unit's state changes; this is not a session diary.
 | Post-U2 UI polish | implemented locally 15 November: toolbar/activity presentation, Kahuna-like Form proportions and upload-access gating; cold-review repairs and final full gates pass; operator visual acceptance remains separate, U5 and R27 are not started |
 | U4.5 | implemented and independently reviewed 15 November: unified batch-plus-all-other-uploads page, retained-batch discovery and explicit entry/return navigation; local validation closed with the operator-approved KUP-053 E2E exception; U5 remains separate |
 | Pre-U5 Form presentation | implemented 18 November: Upload-specific field recipe, editorial guidance, preparation-only list controls, direct-entry date/location drafts and condensed file facts; Details unchanged and U5 saves/arrows remain disconnected; mechanics in the Form component reference |
-| U5-U8 | U5 shared scheduling/policy foundation implemented 18 November; metadata commands, autosave, arrows and upload follow-ups remain unimplemented. U6-U8 not started. U5 overlaps ordinary editing Step 8; domain editors remain excluded and U6c templates deferred. |
+| U5 | Connected ordinary metadata, Form autosave, captured upper-batch arrows, filename fallback and preset labels. See the [U5 checkpoint](#u5-required-metadata-saving-and-batch-propagation); Details draft protection is shared with the editing roadmap. |
+| U6-U8 | Rights and leases, remaining applicable Upload-editor operations, then desktop/phone acceptance. U6c templates are explicitly deferred; configured-domain editors are outside Upload scope. |
 
 **U3's representative local and deployed TEST ingestion checks have passed.**
 The deployed trial used the inherited hosting policy and existing TEST storage
@@ -572,11 +573,12 @@ limits below; this is not broad editorial rollout or durable-recovery approval.
 The Unit Status table and execution order below identify current work; passing
 ingestion checks does not automatically start another unit.
 
-**Next candidate:** U5 together with the ordinary-metadata portion of
-[editing Step 8](gradually-growing-teeth.kupua-edits-steps.md#step-8-editable-metadata-including-configured-domain-fields),
-then the required U6a/U6b and U7 families, followed by U8 acceptance. U3, U4,
-U2 and U4.5 are already implemented at the scopes above. Reuse U2-proto's geometry
-and existing label/publication foundation rather than repeating their proofs.
+**Selected order (21 November):** Guardian rights and their derived metadata
+(U6a / Step 10) first, then independent manual lease editing (U6b / Step 9).
+Do not invoke configured category leases. Confirm rights, derived metadata and
+resulting notices from server data, including partial saves. Then
+select outstanding U7 families individually and finish with U8 acceptance against
+P01-P15. U5/ordinary Step 8 is implemented; do not build a second metadata path.
 U6c templates and Step 8's configured-domain editors remain outside Upload's selected scope.
 Each unit still requires separate selection; no product work starts automatically.
 
@@ -1932,7 +1934,7 @@ These are separate sessions, not one giant patch. Follow roadmap **Steps 9-11** 
 their current source pointers, reusing any operation family completed meanwhile.
 
 - **U6a Rights:** category-specific fields, notices, single and current/retained-batch
-  application; preserve the existing associated metadata/lease effects without
+  application; preserve the existing associated metadata effects without
   claiming transactional completion across services.
 - **U6b Leases:** the lease controls required by the Upload editor, correct target
   and permission handling, and the existing validity/readback semantics.
@@ -2246,6 +2248,16 @@ remain explicit decisions, not automatic Upload prerequisites or backend approva
 | B6 | [GRID-018](bug-backlog.md#grid-018) records a dynamic metadata mapping conflict that can prevent search visibility after transfer. A newer XMP retry covers direct insertion, not ordinary `ImageMessage` upserts. | Remains open for ordinary ingestion; agree containment/rollout evidence. A longer client spinner is not a fix, and no automatic migration/reindex project follows. |
 | B7 | [Collections identity](../../../common-lib/src/main/scala/com/gu/mediaservice/model/Collection.scala#L11) is the path; [membership](../../../collections/app/store/ImageCollectionsStore.scala#L17) copies records per image. No private batch identity/ACL follows from a user-named path. **U0b operator opportunity:** permanent batches and a way to navigate back to them; local tab descriptors deliberately cannot promise this. | **Deferred hypothesis:** an additive Kupua batch/set service could provide stable references, ownership and membership for navigation, later sharing or clipboard-like sets. Benefit: recover a batch beyond one tab without confusing recent uploads with submission history. Cost/risk: authorization, retention/deletion, privacy, synchronization and service ownership; a permanent reference does not make transfers/drafts resumable. Trigger: operator selects durable-batch requirements after working local Upload demonstrates the need. Keep the local resolver separate from image reads/commands now; do not prebuild a universal set abstraction or repurpose Collections. Prefer additive support; a small shared change needs substantial evidence/shared benefit, and a larger redesign remains deferred. |
 
+**B14 - Derived metadata can use an older edit even for one editor (deferred).**
+After a rights PUT, [setMetadataFromUsageRights](../../../metadata-editor/app/controllers/EditsController.scala#L177)
+rereads edits through a [DynamoDB read without a strong consistency request](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L39)
+and writes a merged metadata map. Old rights can derive the wrong fields; an old map can lose a recent unrelated edit.
+This is a source-level risk, not an observed loss. U6a checks the actual rights override and previous metadata overrides
+through grouped media-api reads before admitting each dependent POST. Observation of that projection does not version the server's later read.
+If a real conflict or wider rollout justifies backend work, consider one version-checked, item-atomic change of the rights and derived fields,
+preserving unrelated overrides and returning the committed result. A strongly consistent read alone does not protect the interval before writing.
+No backend implementation, automatic retry or new rollout gate is selected.
+
 ### Refactoring and Frontend Opportunities
 
 | ID | Evidence and opportunity | Boundary |
@@ -2456,6 +2468,16 @@ criteria or approval to implement every opportunity. None reopens U2.
 | R31 | [UploadPage](../../src/routes/search.tsx) currently admits one batch or one recent query; [URL synchronization](../../src/hooks/useUrlSearchSync.ts) and [detail](../../src/components/ImageDetail.tsx) use the active browsing state for query/traversal. The proposed combined page has independently ordered sections and a lower query whose exclusion changes with the open batch. One flat query/ordinal cannot describe both. This is an integration constraint, not a defect in the current single-source view. | **Address in U4.5:** explicit section provenance, independent read qualification and bounded composition under one placement owner. Benefit: no crossed detail traversal, stale section publication or accidental page-wide edit scope. Cost/risk: cursors, counts/ranks, headers, history and upper-arrival compensation while reading below. Select only the adapter needed here; no cloned search stores, catalogue geometry, fake images or universal workspace framework. |
 | R32 | [Batch membership](../../src/lib/browsing-context.tsx), [selection](../../src/stores/selection-store.ts) and [captured label operations](../../src/lib/label-operation.ts) are independent owners. A retained batch could supply an explicit snapshot of canonical image IDs to ordinary Search selection without redefining the upload attempt record. Current UI provides no such handoff. | **Deferred by operator:** consider Select this batch in Search after U5, exposing the captured set visibly and defining replace-versus-add for an existing selection. Benefit: reuse the existing multi-image editor for retained work. Cost/risk: unavailable/denied IDs, pending arrivals, selection hydration, local-reference/history qualification and accidentally retargeting prior operations. Deselecting must not rewrite the batch; later completions must not silently expand the selection. No server persistence or generalized set framework is implied. |
 | R33 | [Upload's route](../../src/routes/search.tsx) omits the selection metadata panel and [ImageGrid](../../src/components/ImageGrid.tsx) enables selection only for Search. Whole-batch Form arrows do not address editing a subset; other Upload densities currently offer browsing and individual detail, not selection editing. | **Deferred by operator:** consider explicit subset selection and the existing multi-image editor within Upload after the basic workflow works. Benefit: apply a change to three images rather than the whole batch, particularly in Grid/Table/Justified. Cost/risk: coexistence with whole-batch arrows, cross-section selection, dormant library selection and redundant Form panels. Keep selected-target and batch-target meanings explicit across densities; decide cross-section behavior separately. No checkbox/panel implementation or U5 gate now. |
+
+**R35 decision, 22 November:** the local 499-peer trials established a long wait
+after the recipient's own bulk write. The ordinary metadata queue now considers
+one captured Form flush at each settled, nonfinal group boundary. It never
+passes an older live waiter, an admitted shared slot, an unresolved same-image
+write, or a later bulk write to the same recipient. The single keeps its own
+receipt and fresh target checks. The bulk can resume on its existing safe
+acknowledgement rule while the single remains under bounded observation. No
+new concurrency ceiling, priority guarantee, automatic retry or live rollout.
+See the [evidence ledger](editing-performance-evidence.md) for the comparison.
 
 **R35 local upload-follow-up evidence, 18 November:** an operator-submitted batch
 of 100 JPEGs (27,774,867 bytes) used Vite and operator-confirmed local Grid,

@@ -8,7 +8,7 @@ import type { Plugin } from "vite";
 import { loadTestSiteSettings, siteSettingsPlugin } from "./scripts/test-site-settings.ts";
 import { bedrockEmbedProxy } from "./scripts/bedrock-embed-proxy.mjs";
 import { isGridApiReadViaPost } from "./src/dal/grid-api/read-via-post.ts";
-import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest, isLoaderRequest, isMetadataUpdateRequest } from "./src/lib/grid-mutation-policy.ts";
+import { gridServiceProxyRoutes, isLabelAddRequest, isLabelRemovalRequest, isLoaderRequest, isMetadataUpdateRequest, isUsageRightsRequest } from "./src/lib/grid-mutation-policy.ts";
 import {
   DEPLOYED_TEST_MEDIA_API_BASE_URL,
   shouldEnableDirectBedrockProxy,
@@ -76,9 +76,10 @@ function gridApiWriteGuard(routes: ReturnType<typeof gridServiceProxyRoutes>): P
           const isReadViaPost = prefix === "/api" && isGridApiReadViaPost(req.method, req.url);
           const isRead = req.method === "GET" && (prefix === "/api"
             || (service === "auth" ? req.url === "/session"
-              : service === "collections" ? req.url === "/collections" : service === "metadata" && /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")));
+              : service === "collections" ? req.url === "/collections" : service === "metadata" && (req.url === "/"
+                || req.url === "/usage-rights/filtered-categories" || /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? ""))));
           const isSelectedWrite = service === "metadata"
-            && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url) || isMetadataUpdateRequest(req.method, req.url));
+            && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url) || isMetadataUpdateRequest(req.method, req.url) || isUsageRightsRequest(req.method, req.url));
           if (!isRead && !isReadViaPost && !isSelectedWrite && !(service === "loader" && isLoaderRequest(req.method, req.url))) {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(

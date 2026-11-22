@@ -72,7 +72,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 | [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
-| [KUP-046](#kup-046) | Known validity reasons replace server wording with local copy | Source-verified; previously unselected B3, review pending | Independent display-copy correction |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 | [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
@@ -162,6 +161,7 @@ legacy-category expansion remains accepted lag.
 | Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
 | Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
 | Crop eligibility and notices at the disconnected UI boundary | [KUP-047](#kup-047) |
+| Server wording retained for known Detail validity reasons | [KUP-046](#kup-046) |
 | Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
@@ -810,8 +810,8 @@ and browse-only repair direction; they do not approve wider API implementation o
 **Known validity reasons replace server wording with local copy**
 - **Component / owner:** ImageMetadata reason presentation; human owner-to-confirm.
 - **Expected / actual:** supplied server custom descriptions should survive display,
-  with local wording available when no description is supplied. The current renderer
-  uses `VALIDITY_DESCRIPTIONS[key]` before the returned description, replacing server
+  with local wording available when no description is supplied. The previous renderer
+  used `VALIDITY_DESCRIPTIONS[key]` before the returned description, replacing server
   wording for recognized keys. The extractor/merge already retain the server strings.
 - **Evidence:** [reason renderer](../../src/components/ImageMetadata.tsx#L293),
   [server custom description precedence](../../../media-api/app/lib/ImageExtras.scala#L79),
@@ -823,8 +823,9 @@ and browse-only repair direction; they do not approve wider API implementation o
   description behavior. A stubbed detail metadata component cannot witness this.
 - **Scope:** wording precedence only; no changes to valid/reasons membership, warning
   severity, server authorization, requests or direct-mode costing.
-- **Disposition:** OPEN, review pending; the previously unselected B3 correction is now
-  indexed, not approved for implementation or made a new migration prerequisite.
+- **Disposition:** fixed locally in U6a. Nonempty server wording wins; missing or empty wording
+  falls back to the local description, then the key. Witnessed in the mounted metadata panel
+  and the connected paid-image edit journey. No change to eligibility or deployment implied.
 
 #### KUP-047
 **Crop rights notices and server eligibility were not wired**

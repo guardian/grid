@@ -25,7 +25,22 @@ const metadataCommandSchema = addLabelsSchema.omit({ operation: true, labels: tr
   value: z.union([z.string(), z.object({ subLocation: z.string().optional(), city: z.string().optional(),
     state: z.string().optional(), country: z.string().optional() }).strict()]),
 }).strict();
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema]);
+const nonempty = z.string().refine(text => text.trim().length > 0);
+const restriction = { restrictions: nonempty.optional() };
+export const rightsValueSchema = z.union([
+  z.object({ category: z.literal("") }).strict(),
+  z.object({ category: z.literal("agency"), supplier: nonempty, suppliersCollection: z.string().optional(), ...restriction }).strict(),
+  z.object({ category: z.literal("pay-to-use"), ...restriction }).strict(),
+  z.object({ category: z.literal("pr-and-third-party"), source: nonempty, restrictions: nonempty }).strict(),
+  z.object({ category: z.enum(["publisher-photography", "publisher-illustration"]), creator: nonempty, publication: nonempty, ...restriction }).strict(),
+]);
+const rightsCommandSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-rights"), value: rightsValueSchema }).strict();
+export type RightsCommand = z.infer<typeof rightsCommandSchema>;
+export type ObserveRights = (command: RightsCommand, metadataBefore: string, onMatch?: (metadata: import("@/types/image").Image["metadata"]) => void) => Promise<boolean>;
+export type DerivedDispatch = (imageId: string, fields: readonly string[]) => void;
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema]);
+const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
+  metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
   uri: z.string(), data: z.record(z.string(), z.unknown()),
 }) }) });
@@ -45,7 +60,7 @@ export type MetadataExpected = Readonly<Record<string, string | string[]>>;
 
 export type GridCommandResult =
   | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" }
-  | { outcome: "acknowledged"; expected?: MetadataExpected; metadataWitness?: string }
+  | { outcome: "acknowledged"; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number }
   | { outcome: "unchanged"; expected?: MetadataExpected; metadataWitness?: string }
   | { outcome: "rejected"; status: number; errorKey: string }
   | { outcome: "unknown"; status?: 429; expected?: MetadataExpected };
@@ -118,16 +133,17 @@ export function gridLabelEditingEnabled(): boolean {
   return import.meta.env.VITE_USE_MEDIA_API === "true" && editingAllowedAtStartup;
 }
 
-export async function executeGridCommand(input: unknown): Promise<GridCommandResult> {
+export async function executeGridCommand(input: unknown, observeRights?: ObserveRights, onDerivedDispatch?: DerivedDispatch): Promise<GridCommandResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { outcome: "blocked", reason: "invalid-command" };
   const command = parsed.data;
   copyImageRead((input as { resource: object }).resource, command.resource);
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
+  if (command.operation === "edit-rights" && !observeRights) return { outcome: "blocked", reason: "unavailable" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
   const path = `/metadata/${command.imageId}`;
   const href = findLink(command.resource, "edits")?.href;
-  const witness = command.operation === "edit-metadata" ? getMetadataWriteWitness(command.imageId) : undefined;
+  const witness = command.operation === "edit-metadata" || command.operation === "edit-rights" ? getMetadataWriteWitness(command.imageId) : undefined;
   if (witness === null) return { outcome: "blocked", reason: "unavailable" };
 
   let dispatched = false;
@@ -170,6 +186,38 @@ export async function executeGridCommand(input: unknown): Promise<GridCommandRes
       if (attempt + 1 === BATCH_POLICY.sourceReadAttempts) return { outcome: "blocked", reason: "unavailable" };
     }
     if (!retainsEditGrant(command.imageId, command.resource)) return { outcome: "blocked", reason: "unavailable" };
+    if (command.operation === "edit-rights") {
+      const resource = rightsResourceSchema.safeParse(body);
+      if (!resource.success) return { outcome: "blocked", reason: "unavailable" };
+      const action = resource.data.data.metadata.actions.find(item => item.name === "set-from-usage-rights" && item.method === "POST");
+      const target = gridServiceUrl("metadata", resource.data.data.usageRights.uri, `${path}/usage-rights`, origin);
+      const derived = gridServiceUrl("metadata", action?.href, `${path}/metadata/set-from-usage-rights`, origin);
+      const before = metadataWriteFingerprint(resource.data.data.metadata.data);
+      if (!target || !derived || !before || !observeRights) return { outcome: "blocked", reason: "unavailable" };
+      dispatched = true;
+      const response = await fetch(target, { credentials: "include", redirect: "error", method: "PUT", signal: AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs),
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: command.value.category ? command.value : {} }) });
+      if (!response.ok) return failure(response, true);
+      const fields: string[] = [];
+      const visible = await observeRights(command, before, metadata => {
+        if (!("creator" in command.value)) return;
+        if (metadata.byline !== command.value.creator) fields.push("metadata_byline");
+        if (metadata.credit !== command.value.publication) fields.push("metadata_credit");
+        if (metadata.imageType !== (command.value.category === "publisher-photography" ? "Photograph" : "Illustration")) fields.push("metadata_imageType");
+      }).catch(() => false);
+      if (!visible) return { outcome: "acknowledged", metadataFromRights: "not-sent" };
+      if (isGridSessionInvalidated() || !retainsEditGrant(command.imageId, command.resource)) return { outcome: "acknowledged", metadataFromRights: "not-sent" };
+      try {
+        if (fields.length) onDerivedDispatch?.(command.imageId, fields);
+        const metadata = await fetch(derived, { credentials: "include", redirect: "error", method: "POST", signal: AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs) });
+        if (!metadata.ok) {
+          const failed = await failure(metadata, true);
+          return { outcome: "acknowledged", metadataFromRights: failed.outcome === "rejected" ? "rejected" : "unknown", status: metadata.status };
+        }
+        const fingerprint = metadataWriteFingerprint((await metadata.json()).data);
+        return { outcome: "acknowledged", metadataFromRights: fingerprint === undefined ? "unknown" : "acknowledged", metadataWitness: fingerprint };
+      } catch { return { outcome: "acknowledged", metadataFromRights: "unknown" }; }
+    }
     if (command.operation === "edit-metadata") {
       const resource = metadataResourceSchema.safeParse(body);
       const target = resource.success ? gridServiceUrl("metadata", resource.data.data.metadata.uri, `${path}/metadata`, origin) : undefined;

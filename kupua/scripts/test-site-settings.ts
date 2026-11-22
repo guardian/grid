@@ -55,6 +55,7 @@ export async function parseSiteSettings(common: string, kahuna: string): Promise
     if (ingestBucket !== undefined && ingestBucket !== null && typeof ingestBucket !== "string") throw new Error();
     if (limitMb !== undefined && limitMb !== null && (typeof limitMb !== "number" || !Number.isSafeInteger(limitMb) || limitMb < 0)) throw new Error();
     return requireSiteSettings({
+      usageRightsHelpLink: setting(config, ["links", "usageRightsHelp"], undefined),
       upload: { transport: ingestBucket === undefined || ingestBucket === null ? "direct" : "signed",
         ...(typeof limitMb === "number" ? { maxFileBytes: limitMb * 1_000_000 } : {}) },
       staffPhotographerOrganisation: organisation,

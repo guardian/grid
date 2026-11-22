@@ -851,7 +851,7 @@ it("metadata-only publication does not compact retained deletion after the viewp
   }
 });
 
-it("retains a selected slot between metadata preflight and grouped publication", async () => {
+it("retains resident slots through a membership refresh between metadata preflight and grouped publication", async () => {
   useApiMode(65_001);
   const page = await corpus.searchAfter({ length: 20, nonFree: "true" }, null);
   const results = page.hits.map(image => ({ ...image, userMetadata: undefined }));
@@ -860,10 +860,13 @@ it("retains a selected slot between metadata preflight and grouped publication",
   const offset = 1200;
   const positions = new Map(results.map((image, index) => [image.id, offset + index]));
   useSearchStore.setState({ results, imagePositions: positions, bufferOffset: offset, total: 65_001 });
-  const selectedIds = new Set(ids);
+  const selectedIds = new Set(ids.slice(1));
   _resetMetadataCache();
   useSelectionStore.setState({ selectedIds });
-  for (const image of pending) useSelectionStore.getState().metadataCache.set(image.id, image);
+  useSelectionStore.getState().metadataCache.set(pending[1].id, pending[1]);
+  const held = results.map(image => ({ ...image }));
+  const membershipRead = captureImageRead();
+  for (const image of held) stampImageRead(image, undefined, membershipRead, "lean");
   const release = watchQueuedLabelTargets(ids)!;
   for (const image of pending) {
     const preflight = { ...image };
@@ -874,6 +877,8 @@ it("retains a selected slot between metadata preflight and grouped publication",
   if (typeof operation !== "number") throw new Error("Expected admitted observation");
   try {
     publishImage({ ...results[4] }, {});
+    expect(state().results.map(image => image?.id)).toEqual(results.map(image => image.id));
+    useSearchStore.setState({ results: held, imagePositions: positions });
     expect(state().results.map(image => image?.id)).toEqual(results.map(image => image.id));
     expect(resolveImageOverlay(state().results[5]!, { resource: { links: [{ rel: "edits", href: "/edits" }] } })?.resource?.links).toEqual([]);
     const observed = pending.map(image => ({ ...image, metadata: { ...image.metadata, credit: "Updated" }, userMetadata: { lastModified: "2026-11-20T10:00:00Z" } }));

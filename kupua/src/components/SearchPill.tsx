@@ -18,6 +18,8 @@
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
 import type { ReactNode } from "react";
 
+export const cancelButtonColours = "bg-[#898989] enabled:hover:bg-grid-hover";
+
 export const PILL_ACTION_ICONS = {
   close: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
   confirm: "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z",
@@ -44,7 +46,7 @@ export function PillActionButton({ action, label, title = label, attached = fals
     className={`inline-flex shrink-0 cursor-pointer items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-grid-accent ${attached
       ? "w-4.5 self-stretch pointer-coarse:w-11 first:rounded-l-sm last:rounded-r-sm"
       : action === "confirm" || action === "cancel"
-        ? `h-6 w-6.5 pointer-coarse:size-11 text-white ${action === "confirm" ? "bg-grid-accent enabled:hover:bg-grid-accent-hover" : "bg-[#898989] enabled:hover:bg-grid-hover"}`
+        ? `h-6 w-6.5 pointer-coarse:size-11 text-white ${action === "confirm" ? "bg-grid-accent enabled:hover:bg-grid-accent-hover" : cancelButtonColours}`
       : compact ? "size-4 self-start pointer-coarse:size-11 text-grid-text enabled:hover:text-white"
       : "size-8 pointer-coarse:size-11 rounded-sm bg-grid-cell-hover text-grid-text hover:bg-grid-accent/20 hover:text-grid-accent"}`}>
     <svg className={attached ? "size-3.5" : "size-4"} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

@@ -7,7 +7,8 @@ import { FieldDisclosure } from "./FieldDisclosure";
 import { Dash, MetadataBlock } from "./metadata-primitives";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import type { MetadataEditIntent } from "./MetadataTextEditor";
-import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit } from "./MetadataEditing";
+import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
+import { labelTargetKey } from "@/stores/label-editor-store";
 
 export const PILL_EDIT_FIELDS = new Set(["keywords", "collections", "people"]);
 
@@ -26,6 +27,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   readOnly?: ReactNode;
 }) {
   const commit = useMetadataCommit(form);
+  const pending = usePendingPanelIntent(labelTargetKey(targetIds), field.id === "keywords" ? "metadata_keywords" : field.id === "people" ? "metadata_peopleInImage" : field.id);
   const available = dataAvailable && editable;
   const canAdd = available || allowQueuedAdd;
   const { restored, update } = useDetailsDraft<string>(field.id);
@@ -57,7 +59,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
       <FieldAddButton ref={addRef} iconOnly label={`Add ${noun}`} disabled={!canAdd || adding} onClick={() => { setAdding(true); setDraft(""); setNotice(""); }} />
     </span>
   }>
-      <div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
+      <SavingValue saving={!form && !!pending}><div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
         {!dataAvailable && !retainReading && <Dash />}
         {(expanded ? sorted : sorted.slice(0, 20)).map(item => <EditableSearchPill key={item.value} value={item.value}
           cqlKey={field.cqlKey!} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} addDisabled={!canAdd} coverageKnown={dataAvailable || retainReading}
@@ -69,7 +71,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
             </span>)}
           </span> : undefined} />)}
       </div>
-      <FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={id} anchorRef={header}
+      </SavingValue><FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={id} anchorRef={header}
         onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} />
     {adding && <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare("add", draft); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;

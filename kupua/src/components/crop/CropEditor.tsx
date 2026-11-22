@@ -518,7 +518,8 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
           aria-checked={o.key === option.key}
           title={`${o.key} [${o.key.charAt(0)}]`}
           onClick={() => selectType(o.key)}
-          className={`grow border-l border-grid-separator first:border-l-0 capitalize text-center text-grid-text select-none cursor-pointer hover:bg-grid-hover hover:text-grid-text-bright ${isCompact ? "basis-0 min-w-11 min-h-11 px-1 py-1 text-xs wrap-anywhere" : "px-2.5 pt-[5px] pb-2 whitespace-nowrap"} ${o.key === option.key ? "bg-grid-hover shadow-[inset_0_-3px_0_var(--color-grid-accent)]" : "bg-[#444]"}`}
+          data-selected={o.key === option.key}
+          className={`grid-segment grow border-l border-grid-separator first:border-l-0 capitalize text-center ${isCompact ? "basis-0 min-w-11 min-h-11 px-1 py-1 text-xs wrap-anywhere" : "px-2.5 pt-[5px] pb-2 whitespace-nowrap"}`}
         >
           {!isCompact && <span className="hidden min-[1295px]:inline">{o.ratioString ? `${o.key} (${o.ratioString})` : o.key}</span>}
           <span className={isCompact ? undefined : "min-[1295px]:hidden"}>{o.ratioString ?? o.key}</span>
