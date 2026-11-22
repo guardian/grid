@@ -110,7 +110,13 @@ function addToTopValues(
   const idx = topValues.findIndex((e) => valuesEqual(e.value, v));
   if (idx >= 0) {
     const next = [...topValues];
-    next[idx] = { value: next[idx].value, count: next[idx].count + 1 };
+    const updated = { value: next[idx].value, count: next[idx].count + 1 };
+    let rank = idx;
+    while (rank > 0 && next[rank - 1].count < updated.count) {
+      next[rank] = next[rank - 1];
+      rank--;
+    }
+    next[rank] = updated;
     return next;
   }
   return [...topValues, { value: v, count: 1 }];
@@ -168,6 +174,7 @@ function applyChipArrayAdd(
   const baseChips: Array<{ value: string; count: number }> =
     current.kind === "chip-array" ? current.chips : [];
   const prevTotal = current.kind === "chip-array" ? current.total : 0;
+  if (values.length === 0) return { kind: "chip-array", chips: baseChips, total: prevTotal + 1 };
 
   const chipMap = new Map<string, number>(
     baseChips.map((c) => [c.value, c.count]),

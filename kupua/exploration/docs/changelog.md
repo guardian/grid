@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 22 November 2026 - Keep selection frequencies ranked and disclose the full Creator list
+
+Adding a cached image now promotes a mixed metadata value above less frequent
+ones, so a later majority is not hidden behind the five-value tooltip limit.
+An image with no chips for a field increments the selection denominator without
+copying the existing chip counts. Earlier views remain unchanged.
+
+The Rights Creator disclosure opens the full catalogue from a filtered subset
+without replacing the typed name. Activating it again closes the list; its
+pressed state reflects whether all options are shown.
+
 ### 22 November 2026 - Preserve Rights submissions and later Form edits
 
 Publisher Rights reserves its possible scalar follow-up fields until settlement,

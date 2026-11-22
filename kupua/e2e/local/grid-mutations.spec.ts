@@ -273,6 +273,10 @@ test.describe("U3 isolated uploads", () => {
         await expect(input).toHaveValue("Other artist");
         await input.fill("KLY");
         await expect(rights.getByRole("listbox").getByRole("option")).toHaveText(["Weekly artist"]);
+        const allOptions = rights.getByRole("button", { name: "Show all options" });
+        await allOptions.click();
+        await expect(rights.getByRole("listbox").getByRole("option")).toHaveText(["Weekly artist", "Other artist"]);
+        await expect(input).toHaveValue("KLY");
         await input.dispatchEvent("keydown", { key: "Escape", isComposing: true });
         await expect(input).toHaveValue("KLY");
         await input.press("Escape");

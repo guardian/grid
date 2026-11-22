@@ -114,6 +114,26 @@ The fixture does not reproduce hosted photo delivery, exact deployed code or eve
 position-preservation path. Do not extrapolate these observations into a hosted
 speedup, regression or acceptance threshold.
 
+## Indexed Grid Backward Runway
+
+The dated comparison and exclusions live at `localIndexedGridBackward20261122`
+in the [research record](../../exploration/docs/scroll-horizons-thumb-lookahead-results.json).
+Start on local indexed Search with more than 1,000 matches. Use stock Grid,
+confirm the API datasource, and calibrate visible global indices from several
+mounted row positions **and their actual resident IDs**. Seek away and back
+between arms. Require the same initial 200 IDs, buffer offset, scroll position,
+speed, travel and mounted endpoint identity; reject stale or unsettled captures.
+
+Compare normal/early/early/normal at 100 results/s for 300 results. For the
+counterfactual only, call the existing guarded backward read once per offset at
+90 results of remaining runway during actual upward travel. Measure requested
+and achieved distance, starts and publications, partial/fully outside logical
+coverage, real-cell hit tests, frame gaps and image demand. Challenge with the
+same start but stop after 30 results; keep this arm separate. Count extra pages
+even if they finish after motion. Never use a changed buffer limit or an eager
+image hint as a substitute. This tab-local experiment is not a permanent driver
+or a recommendation to ship a fixed threshold of 90.
+
 ## Table Scroll Layout Attribution
 
 Select `--grep 'Table scrolling layout scope'` with `test:perf-research`. One case

@@ -8,8 +8,10 @@ export function RightsCreatorInput({ label, value, options, required, className,
   const input = useRef<HTMLInputElement>(null), list = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<"closed" | "all" | "filtered">("closed");
   const [index, setIndex] = useState(0);
-  const matches = mode === "all" ? options : options.filter(option => option.toLowerCase().includes(value.toLowerCase()));
+  const needle = value.toLowerCase();
+  const matches = mode === "filtered" ? options.filter(option => option.toLowerCase().includes(needle)) : options;
   const open = mode !== "closed" && matches.length > 0 && !(mode === "filtered" && matches.length === 1 && matches[0] === value);
+  const showingAll = open && matches.length === options.length;
   const active = Math.min(index, matches.length - 1);
   const filter = () => { setMode("filtered"); setIndex(0); };
   const choose = (option: string) => { onChange(option); setMode("closed"); };
@@ -36,9 +38,9 @@ export function RightsCreatorInput({ label, value, options, required, className,
             else setIndex((active + (event.key === "ArrowDown" ? 1 : -1) + matches.length) % matches.length);
           } else if (event.key === "Tab") setMode("closed");
         }} />
-      <button type="button" className="rights-creator-toggle" aria-label="Show all options" aria-haspopup="listbox" aria-expanded={open}
+      <button type="button" className="rights-creator-toggle" aria-label="Show all options" aria-haspopup="listbox" aria-expanded={open} aria-pressed={showingAll}
         onMouseDown={event => event.preventDefault()} onClick={() => {
-          input.current?.focus(); setMode(open ? "closed" : "all"); setIndex(Math.max(0, options.indexOf(value)));
+          input.current?.focus(); setMode(showingAll ? "closed" : "all"); setIndex(Math.max(0, options.indexOf(value)));
         }}><Chevron direction="down" /></button>
       {open && <div className="rights-creator-options" ref={list} id={listId} role="listbox" aria-label={label}>
         {matches.map((option, position) => <div key={`${position}-${option}`} role="option" id={`${listId}-${position}`} aria-selected={position === active}

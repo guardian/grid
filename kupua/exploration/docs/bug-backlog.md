@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Latest intake: 19 November 2026.** Existing entries retain their cited verification dates.
+**Latest intake: 22 November 2026.** Existing entries retain their cited verification dates.
 The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
@@ -137,7 +137,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
 
 <details>
-<summary>Completed bounded repairs and verification: 48 IDs</summary>
+<summary>Completed bounded repairs and verification: 50 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -163,6 +163,7 @@ legacy-category expansion remains accepted lag.
 | Crop eligibility and notices at the disconnected UI boundary | [KUP-047](#kup-047) |
 | Server wording retained for known Detail validity reasons | [KUP-046](#kup-046) |
 | Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
+| Filtered Rights Creator disclosure and incremental mixed-value tooltip ranking | [KUP-054](#kup-054), [KUP-055](#kup-055) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
 
@@ -597,6 +598,16 @@ set -o pipefail; npm --prefix kupua run test:e2e -- --project=chromium density-c
 - **Implemented A3-C:** bounded simulated readback, touched-ID freshness and omission protection, selected metadata/full standalone delivery, stable retained-coordinate continuation and action-owned exact acquisition, plus explicit unavailable/deleted slots and complete-fitting-set compaction. Final checkpoints in the publication plan own evidence and limits. Root `lastModified` is not a universal freshness version; frozen upload bounds do not exclude later edits. Touched facts retain variable-sized exact comparison metadata within a 1,000-ID cap, not a byte bound.
 - **Unit D evidence:** integrated gates, seeded sequences, local/compiled-hosted observer composition, foreground rehearsal and independent reviews are complete at the [operator checkpoint](gradually-growing-teeth.step-4-publication-plan.md#unit-d-evidence-and-review). Review reproduced and repaired nonmatching-read authority withdrawal and empty cold-detail failure settlement; normal editing remains disconnected.
 - **Disposition:** CLOSED for the Step-4 simulated contract after explicit operator acceptance on 7 November. The documented approximation/resource limits remain. This does not certify deployed writes, authorize Step 5 or implement the real Delete workflow; live activation remains separately gated.
+
+#### KUP-054
+
+- **Observed (22 November, local media-api):** open publisher Rights, choose a publication with three creators, then type a partial name matching one. With the list expanded, activate **Show all options**. The list closes (zero options, `aria-expanded=false`) instead of exposing the other two choices. No Rights were submitted.
+- **Cause and repair:** [RightsCreatorInput](../../src/components/RightsCreatorInput.tsx) formerly toggled on `open`, true for both filtered and full presentations. It now closes only a full visible catalogue. Escape remains an independent close action. U5 first failed with zero options; the amended journey passes. Reloaded local Vite verified 1/3/0 visible options, false/true/false pressed state, and unchanged free text.
+
+#### KUP-055
+**Incremental selection can omit the most frequent mixed value from its tooltip.**
+- **Reproduction:** fold eight in-memory images with Credits A, B, C, D, E, F, F, F through the production reconciliation function. The real `MultiValue` renderer omitted F (3/8); full recomputation put it first. This was a controlled browser-module witness, not a saved image edit.
+- **Cause and repair:** [reconcile](../../src/lib/reconcile.ts) incremented the matching entry in place in the copied array, while the tooltip takes the first five entries. Incremental adds now promote the changed value past strictly lower counts; ties need no global sort. The existing per-add parity test first failed with F ranked sixth at 2/7 and passes after the fix. This guarantees frequency order, not identical tie-breaking across every selection history.
 
 #### KUP-053
 **Mobile unfinished-field test targeted the wrong editing position**

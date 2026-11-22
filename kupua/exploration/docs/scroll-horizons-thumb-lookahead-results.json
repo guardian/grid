@@ -1,4 +1,76 @@
 {
+  "localIndexedGridBackward20261122": {
+    "question": "At 1634 indexed results, can earlier backward metadata admission keep the visible range supplied independently of image eagerness? Local media-api and media only, 1261x999 DPR2. Programmatic motion, not wheel/presentation evidence.",
+    "entryBaseline": {
+      "method": "Hosted shipped Grid, three columns, 303px row stride. Initial actually visible thumbnail rectangles must be loaded. Earlier setup checks incorrectly counted trailing row padding; both failed before measurement. Normal caching; not controlled cold delivery. Entry requires a real visible image element. Completed resource timings alone do not establish transfers or paint.",
+      "columns": ["resultsPerSecond", "seconds", "newImageEntries", "loadedAtEntry", "loadedAt100ms", "absentOrCensoredAt100ms", "noRealImageSamples", "totalSamples"],
+      "runs": [[20,3,60,60,60,0,0,136],[100,3,287,281,10,277,4,138],[100,5,474,462,12,462,10,225],[100,5,492,475,12,480,4,224]],
+      "interpretation": "Few local real-image entries were unready, but this denominator excludes metadata holes. Two fast empty-sample windows overlapped local list responses. Not every empty sample included detectable placeholder markup. No upper-row hint was applied; no evidence of its benefit or lack of benefit on slower media."
+    },
+    "viteAttribution": "Two 5s fast backward paths calibrated physical row offsets against resident IDs. Of 35 samples with no visible real image, 29 had the entire projected index interval outside the resident buffer. Observed admissions had 47-49 results of runway. Remaining six empty samples not attributed.",
+    "admissionControl": {
+      "method": "Each arm seeks away then back to the same 200 real records. Move upward 300 results (30300px over 3s), or 30 results (3030px over 300ms) then stop. Same start IDs/offset/scrollTop, calibrated rows, exact endpoint travel and mounted end ID required within each build. Normal uses shipped admission. Early calls only the existing guarded extendBackward action once per offset when the upward-moving first index enters 50-90 results of runway. 90 represents base 50 plus 400ms at the imposed 100 results/s, not an implementation of production velocity/ownership logic. No changed page size, parallelism or loading hint.",
+      "measurement": "outsideMs integrates animation-frame sample intervals for which the entire logical viewport was outside the metadata buffer; partialMs includes any undercoverage (including full). These are sample-based supply measures, not blank-paint duration. End content is verified by identity, not percentage. Captures continue after motion for settlement.",
+      "viteColumns": ["early", "listReads", "outsideMs", "partialMs", "maxFrameGapMs"],
+      "viteSustained": [[false,2,105,1383,105],[true,2,0,37,37],[true,2,0,0,78],[false,2,400,832,67]],
+      "viteShortStop": [[true,1,0,0,55],[false,0,0,0,32],[false,0,0,0,37],[true,1,0,0,60]],
+      "hostedVerification": "The release client has no public test store. The tab-local diagnostic matched the mounted action's function text SHA-256 to the named extendBackward arrow parsed from the current local release bundle. The live results selector was checked against DOM row identities; each offset change required contiguous overlap and a 200-item prepend. No arbitrary hook calls or product instrumentation. Build-specific diagnostic, not a supported API.",
+      "hostedColumns": ["early", "listReads", "outsideMs", "partialMs", "samplesWithNoHit", "maxFrameGapMs", "completedDistinctImageResources"],
+      "hostedSustained": [[false,2,0,205,0,15,300],[true,2,0,0,0,17,300],[true,2,0,0,0,21,300],[false,2,64,167,2,20,300]],
+      "hostedAdmission": "Early list starts at 64-65ms and 2072-2074ms; normal at 493-494ms and 2500-2504ms. All arms ended on the same mounted image after two 200-item prepends. The two no-hit samples in the last normal arm coincided with fully outside logical coverage. Vite and hosted use different starting records; compare arms only within their build.",
+      "hostedShortStop": "One qualifying early arm published one 200-item page at 667ms with zero undercoverage and 30 completed distinct image resources. Next setup failed runtime verification; a follow-up added a mounted-ID guard and failed the settled-row gate. Both excluded; no completed matched hosted short-stop series. Vite's four-arm series independently demonstrated the speculative page cost.",
+      "decision": "Promising for fast sustained backward browsing in indexed fixed Grid, not an FPS improvement or product selection. Shipped normal and early costs differ on brief movement: while the operator is still inside loaded results, early can fetch and publish 200 additional records. Do not widen all layouts or modes, change the 50-result indexed policy, or select an upper eager row on this evidence. A production candidate needs an explicit speculative-read budget plus velocity reset, reversal, capacity and placement checks. No >65k inference."
+    }
+  },
+  "localHostedIndexed20261122": {
+    "settledUploadFollowup": {
+      "scope": "After the mounted Vite upload store reported no pending attempts, both Search tabs displayed 1634 matches in indexed mode. Both used the same track fractions .78/.20 in forward/reverse/forward/reverse order. Distinct app builds, snapshots and measurement endpoints: no paired build-speed claim.",
+      "viteStore": "Mounted visible IDs matched the exposed ApiDataSource store. Four initially nonresident targets each published one covering 200-image buffer. List response end to subscriber observation 4-13ms; navigation settled after that. Three sampled new cells arrived 68-109ms after publication, including polling delay.",
+      "viteExactColumns": ["targetIndex", "requestStartMs", "responseEndMs", "publicationMs", "firstFrameMountedAndVisibleMs", "loadedMs", "firstAndLastTopPx", "publicationLongFrameMs"],
+      "viteExact": [[1301,210,839,847,983,1037,77,146],[332,203,1024,1031,1132,1192,4,103],[1301,203,834,840,905,958,77,74],[332,201,623,631,723,741,4,94]],
+      "hostedPointColumns": ["sliderPosition", "requestStartMs", "responseEndMs", "threeNewCellsMs", "threeLoadedMs", "maxFrameGapMs"],
+      "hostedPoints": [[1288,210,903,949,1105,36],[327,202,1016,1044,1133,22],[1288,202,891,918,973,27],[327,202,747,767,881,17]],
+      "decision": "Hosted had no reported Long Animation Frames, and visible new-cell samples arrived 20-46ms after response end. Vite reported a script-heavy long frame around every covering publication. Investigate a production rendering change only with production evidence; neither event timing nor loaded-image checks measure physical paint."
+    },
+    "scope": "Local hosted compiled client, local media API, canonical photos, 1261x999 DPR2, 1032 matches and verified indexed scrubber. Vite upload tab still processing at a positively identified mounted-store check. Scripted browser input, normal caches, not a hosted deployment or measurement of physical paint.",
+    "stationaryControl": "On the preceding 691-result resident path, repeated 5120px trips had p95 frame gaps of 392/531ms. On a subsequent 2.5s stationary/moving/moving/stationary sequence, maxima were 467/24/11/16ms. The first stationary interval reported 16 Long Tasks (longest 365ms); later intervals none. Stalls need not originate in scrolling; no attribution to the upload, browser scheduler or app is established.",
+    "indexedSustained": {
+      "method": "Existing 2356px/s programmatic driver, six seconds forward after re-establishing the same interior scrubber landing. Both passes had the same three real endpoint images, same setup points and same extent growth 44483 to 49910px. Observer counts are not a paint or eviction detector.",
+      "columns": ["observeCells", "achievedPx", "p95GapMs", "maxGapMs", "completedListReads"],
+      "runs": [[true, 14132, 12, 17, 2], [false, 14139, 12, 29, 2]],
+      "observed": "270 inserted and 272 removed cells; zero observed insertions removed within 40ms. No uncommanded scroll delta above 3px, gap above 33ms or Long Animation Frame in either pass. No production hitch reproduced in this indexed workload. Not a test of the >65k seek tier."
+    },
+    "directInteriorJump": {
+      "method": "Four programmatic scrollTop jumps between 74% and 20%; sample three viewport points every >=35ms. Zero-overlap destination sample required. Newly completed fetches captured by a resource observer, not the saturated historical resource buffer.",
+      "columns": ["fraction", "localListStartMs", "responseEndMs", "threeNewCellsMs", "threeLoadedMs"],
+      "runs": [[0.74,209,641,675,836],[0.20,211,583,625,875],[0.74,211,676,703,824],[0.20,213,570,599,725]],
+      "exclusion": "Different from explicit scrubber input: view-owned refills have their own timer. Separate trusted End/Home probes reached physical edges but failed the fixed-point readiness criterion; a probe point missed real cells at the bottom. Exclude both keyboard latency estimates."
+    },
+    "explicitTrackClick": {
+      "method": "Scripted MouseEvent on the mounted scrubber click handler, alternating track fractions .76/.19. Scope timer interception to synchronous click only; verified exactly one 200ms call per click and immediate native restoration. Compare native delay and temporary zero delay, normal/zero/zero/normal with both directions in each. Exact same three endpoint IDs per direction, positions 786/195, max 1031. Resource timing list class is search/images-list/position/cursor/window, not exclusive server time. One list completion per isolated click.",
+      "columns": ["delayMs", "position", "listStartMs", "responseEndMs", "threeNewCellsMs", "threeLoadedMs"],
+      "runs": [[200,786,203,619,670,732],[200,195,202,501,543,716],[0,786,5,425,454,691],[0,195,3,1005,1035,1208],[0,786,5,564,593,708],[0,195,4,366,395,482],[200,786,202,829,862,924],[200,195,203,657,683,766]],
+      "challenge": "Two track clicks 81-87ms apart, both initially nonresident, normal/zero/zero/normal. With an inline pass-through fetch counter, normal issued only the final list read (1,1); zero issued a list read for both clicks (2,2), with the first starting at 4ms. Same sampled final destination. Browser starts are not proof that the backend completed abandoned work.",
+      "decision": "Starting earlier is causal and repeatable, but end-to-end readiness overlaps and removing coalescing increases demand under retargeting. Keep the current shared browse debounce. No product change, no change to maintenance refill or drag, and no claim of an optimum interval."
+    }
+  },
+  "localHostedResident20261122": {
+    "scope": "Local compiled hosted client, local media-api and media, current /search results, 1261x999 CSS pixels, DPR2. Programmatic scroll, normal caching, concurrent ingestion possible but not measured. No TEST. Research only.",
+    "justified": {
+      "total": 334,
+      "extentPx": 19156,
+      "method": "2356px/s elapsed-time steps capped at 64ms, seven seconds forward. One observed first pass, unobserved return and forward, observed return and forward. Mutation observer counts inserted elements observed removed within 40ms, not paints. First pass and revisits did not achieve equal work.",
+      "forwardColumns": ["observed", "achievedPx", "p95Ms", "maxMs", "gapsAbove33Ms"],
+      "forward": [[true, 14679, 24, 265, 23], [false, 16507, 12, 14, 0], [true, 16514, 12, 17, 0]],
+      "decision": "Neither observed forward pass saw a short-lived inserted cell or scroll correction. A final forward pass reached the physical end. First-exposure cost unattributed. No evidence about eviction or indexed scroll from this bounded result set."
+    },
+    "table": {
+      "method": "Same 334 results, 32px steps for 80 animation frames. First five arms checked positions at 0/640/1280/1920/2560px. IDs, row geometry, cell counts, text and first cell width matched at every checkpoint vs the second normal pass; confirms matching only for this path. A separate lean contained/normal/normal/contained comparison omitted intermediate checks. Applied CSS verified, final mounted row IDs equal, containment removed.",
+      "leanColumns": ["contained", "durationMs", "p95GapMs", "maxGapMs"],
+      "lean": [[true, 678, 14, 16], [false, 669, 11, 14], [false, 686, 12, 19], [true, 673, 10, 12]],
+      "decision": "No repeatable frame benefit. Earlier first and second normal passes had maxima of 965 and 1239ms; the final normal pass had 12ms. Those stalls were not attributable to containment. No layout CPU, paint, editor or physical wheel claim. Do not ship the rule."
+    }
+  },
   "scrollReconPortfolio20261117": {
     "kind": "bounded-exploratory-portfolio-not-a-campaign-or-product-acceptance",
     "scope": "Hosted TEST reconnaissance at1200x999/DPR2 with normal media delivery and programmatic scrolling; isolated counterfactual uses local3041/mock metadata/synthetic media/DEV. No product source, dependencies, live data or canonical histories changed.",

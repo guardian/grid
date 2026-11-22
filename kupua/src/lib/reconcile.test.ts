@@ -179,6 +179,7 @@ describe("reconcileAdd", () => {
     [undefined, undefined, "Populated"], ["", "", "Populated"],
     [undefined, "Populated", undefined], ["Populated", undefined, undefined],
     [], [undefined, undefined], ["Same", "Same"], ["First", "Second"],
+    ["A", "B", "C", "D", "E", "F", "F", "F"],
     [undefined, undefined, false], [undefined, undefined, 0],
     [null, [], "Populated"], [undefined, ["Same"], ["Same"]],
   ])("agrees with full recomputation for scalar cohort %j", (...values: unknown[]) => {
