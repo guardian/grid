@@ -120,6 +120,11 @@ class KupuaPageTest extends AnyFreeSpec with Matchers {
       (grid \ "upload").as[JsObject] shouldBe Json.obj("transport" -> "direct")
     }
 
+    "includes the optional rights guide when configured" in {
+      val url = "https://example.test/rights-guide"
+      (config(settings.copy(usageRightsHelpLink = Some(url))) \ "gridConfig" \ "usageRightsHelpLink").as[String] shouldBe url
+    }
+
     "builds media-api's ticker shapes in its order" in {
       (config() \ "gridConfig" \ "tickerDefinitions").as[JsArray] shouldBe Json.arr(
         Json.obj("name" -> "ACME-owned", "searchClause" -> "is:ACME-owned", "backgroundColour" -> "#005689"),

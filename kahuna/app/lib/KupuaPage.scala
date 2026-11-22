@@ -17,7 +17,8 @@ case class KupuaSiteSettings(
   denySyndicationTextHeader: String,
   defaultShouldBlurGraphicImages: Boolean,
   shouldUploadStraightToBucket: Boolean,
-  maybeUploadLimitInBytes: Option[Int]
+  maybeUploadLimitInBytes: Option[Int],
+  usageRightsHelpLink: Option[String] = None
 )
 
 object KupuaSiteSettings {
@@ -34,7 +35,8 @@ object KupuaSiteSettings {
     denySyndicationTextHeader = config.denySyndicationTextHeader,
     defaultShouldBlurGraphicImages = config.defaultShouldBlurGraphicImages,
     shouldUploadStraightToBucket = config.shouldUploadStraightToBucket,
-    maybeUploadLimitInBytes = config.maybeUploadLimitInBytes
+    maybeUploadLimitInBytes = config.maybeUploadLimitInBytes,
+    usageRightsHelpLink = config.usageRightsHelpLink
   )
 }
 
@@ -96,7 +98,7 @@ object KupuaPage {
       "denySyndicationTextHeader" -> denySyndicationTextHeader,
       "defaultShouldBlurGraphicImages" -> defaultShouldBlurGraphicImages,
       "upload" -> upload
-    )
+    ) ++ usageRightsHelpLink.fold(Json.obj())(url => Json.obj("usageRightsHelpLink" -> url))
     Json.obj("mediaApiUri" -> mediaApiUri, "collectionsUri" -> collectionsUri, "gridConfig" -> gridConfig) ++
       showPaid.fold(Json.obj())(paid => Json.obj("showPaid" -> paid))
   }
