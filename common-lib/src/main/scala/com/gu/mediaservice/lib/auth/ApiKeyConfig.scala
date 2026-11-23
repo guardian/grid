@@ -3,7 +3,6 @@ package com.gu.mediaservice.lib.auth
 import com.gu.mediaservice.auth.Permissions
 import com.gu.permissions.PermissionDefinition
 import play.api.libs.json.{Format, JsString, OFormat, Writes, __}
-
 import java.time.Instant
 
 sealed trait PrincipalType
