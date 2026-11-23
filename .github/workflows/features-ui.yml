@@ -116,16 +116,23 @@ jobs:
         export CAROOT="$HOME/.local/share/mkcert"
         mkcert -install
         echo "certificate=$CAROOT/rootCA.pem" >> "$GITHUB_OUTPUT"
-    - name: Capture screen recordings
+    - name: Capture screen recordings and coverage
       env:
         NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
-      run: npm run test:video
+      run: npm run test:video:coverage
     - uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
         path: e2e-tests/playwright-report/
         retention-days: 30
+    - uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: coverage-reports
+        path: e2e-tests/coverage-reports/
+        retention-days: 30
+        if-no-files-found: ignore
     - name: Build features UI
       run: npm run features:build
     - uses: actions/upload-artifact@v7

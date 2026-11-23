@@ -17,6 +17,7 @@ Feature: Emptying the search box
   # Evidence: kahuna/public/js/search/query.js lines 388-394, 627-629
   # Evidence: kahuna/public/js/search/index.js lines 166-168
 
+  @timing-sensitive
   Scenario: Deleting all the text runs a search with no search text
     Given I open a search link with the query "cat"
     When I delete all the text in the search box

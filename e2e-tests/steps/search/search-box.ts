@@ -1,4 +1,4 @@
-import type { Locator, Page, Request } from '@playwright/test';
+import type { Keyboard, Locator, Page, Request } from '@playwright/test';
 import { DOMAIN } from '../../setup/constants.ts';
 import { expect } from '../setup.ts';
 
@@ -24,6 +24,18 @@ export async function searchBoxReady(page: Page): Promise<Locator> {
 
 export async function expectSearchBoxEmpty(page: Page): Promise<void> {
   await expect(cqlInput(page)).toHaveAttribute('value', '');
+}
+
+/**
+ * Focus the search box and run `edit` against page.keyboard. locator.press re-runs
+ * actionability checks on every keystroke; under V8 coverage those run slowly enough in the
+ * instrumented page that the gap between keys can exceed Kahuna's 500 ms debounce, splitting one
+ * logical edit into several searches. Focusing once and driving the keyboard directly keeps the
+ * keystrokes grouped inside the debounce window.
+ */
+export async function editSearchBox(page: Page, edit: (keyboard: Keyboard) => Promise<void>): Promise<void> {
+  await searchBoxEditable(page).focus();
+  await edit(page.keyboard);
 }
 
 /**

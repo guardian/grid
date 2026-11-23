@@ -31,6 +31,7 @@ Scripts and dependencies live in [the parent package.json](../package.json).
 | `npm run features:serve -- --port 4180` | Choose the initial preview port. |
 | `npm run features:build` | Typecheck and generate a static export without starting a server. |
 | `npm run features:build -- --report /path/to/playwright-report` | Build from a different HTML report; `features:serve` accepts the same option. |
+| `npm run features:build -- --coverage /path/to/coverage-reports` | Build from a different coverage directory; `features:serve` accepts the same option. |
 | `npm run features:typecheck` | Check all feature-library TypeScript and TSX, including tests. |
 | `npm run features:test` | Run importer, report-matching and HTTP server tests. |
 | `npm run features:test:browser` | Build, then exercise the UI in headless Chromium with isolated fixtures. |
@@ -60,6 +61,11 @@ Feature definitions always come from the current working tree's
 A missing report is allowed: the catalogue still displays definitions and planned
 scenarios. An existing but malformed report fails the build instead of silently
 discarding its results.
+
+Coverage for the Files page and the line-coverage total comes from the monocart
+reports `npm test` writes to `e2e-tests/coverage-reports/` (`npm run test:video`
+disables coverage). Without them the library still builds, just without coverage.
+The deployed site uses the coverage from the **Playwright Tests** run for the same `main` commit.
 
 To update recordings, follow the e2e setup and run `npm run test:video`, then rebuild
 the library. That command does run browser scenarios against Grid; it is not needed
