@@ -10,6 +10,7 @@ import play.api.mvc.{RequestHeader, Result}
 import java.time.Instant
 
 sealed trait Tier
+case object Administrator extends Tier
 case object Internal extends Tier
 case object ReadOnly extends Tier
 case object Syndication extends Tier
@@ -20,6 +21,7 @@ object Tier {
   def parseV1(value: String): Tier = value.toLowerCase match {
     case "internal" => Internal
     case "syndication" => Syndication
+    case "administrator" => Administrator
     case _ => ReadOnly // readonly by default
   }
   def parseV2(permissions: Seq[PermissionDefinition]): Tier = {
@@ -61,9 +63,10 @@ object ApiAccessor extends ArgoHelpers with GridLogging {
   }
 
   def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
-    case Internal => true
+    case Internal => request.method != "DELETE"
     case ReadOnly => request.method == "GET"
     case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
+    case Administrator => true
     case _ => true // Pass through for future permissioned tiers, which will be handled by the PermissionsAuthorisationProvider
   }
 }
