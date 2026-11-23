@@ -12,9 +12,9 @@ const testDir = defineBddConfig({
      @timing-sensitive scenarios rely on keystrokes beating Kahuna's 500ms search debounce;
      coverage instrumentation slows the page enough to break them, so skip them when
      collecting coverage. They still run uninstrumented in the main Playwright job. */
-  tags: process.env.GRID_DISABLE_COVERAGE === 'true'
-    ? 'not @todo'
-    : 'not @todo and not @timing-sensitive',
+  tags: process.env.GRID_ENABLE_COVERAGE === 'true'
+    ? 'not @todo and not @timing-sensitive'
+    : 'not @todo',
 });
 
 /* CI splits the suite with `--shard=n/N`. Each shard writes a blob report, which the
