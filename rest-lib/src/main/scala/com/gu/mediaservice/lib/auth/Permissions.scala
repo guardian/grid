@@ -22,4 +22,9 @@ object Permissions {
   case object UploadImages extends SimplePermission
   case object ArchiveImages extends SimplePermission
   case object DeveloperAdmin extends SimplePermission
+
+  def isDeletePermission(permission: SimplePermission): Boolean = permission match {
+    case DeleteImage | DeleteCropsOrUsages => true
+    case _ => false
+  }
 }
