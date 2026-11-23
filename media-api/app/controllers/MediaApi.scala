@@ -400,34 +400,38 @@ class MediaApi(
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.getImageById(id) map {
+    elasticSearch.getImageById(id) flatMap {
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            val deleteTime = DateTime.now(DateTimeZone.UTC)
+            val deletedBy = request.user.accessor.identity
+            val imageStatusRecord = ImageStatusRecord(id, deletedBy, deleteTime.toString, isDeleted = true)
             softDeletedMetadataTable.setStatus(imageStatusRecord)
             .map { _ =>
-              messageSender.publish(
-                UpdateMessage(
-                  subject = SoftDeleteImage,
-                  id = Some(id),
-                  softDeletedMetadata = Some(SoftDeletedMetadata(
-                    deleteTime = DateTime.now(DateTimeZone.UTC),
-                    deletedBy = request.user.accessor.identity
-                  ))
+              blocking {
+                messageSender.publish(
+                  UpdateMessage(
+                    subject = SoftDeleteImage,
+                    id = Some(id),
+                    softDeletedMetadata = Some(SoftDeletedMetadata(
+                      deleteTime = deleteTime,
+                      deletedBy = deletedBy
+                    ))
+                  )
                 )
-              )
+              }
+              Accepted
             }
-            Accepted
           } else {
-            ImageDeleteForbidden
+            Future.successful(ImageDeleteForbidden)
           }
         } else {
-          ImageCannotBeDeleted
+          Future.successful(ImageCannotBeDeleted)
         }
-      case _ => ImageNotFound(id)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 

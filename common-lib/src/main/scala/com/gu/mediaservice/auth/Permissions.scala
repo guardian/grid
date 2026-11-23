@@ -1,4 +1,4 @@
-package com.gu.mediaservice.lib.guardian.auth
+package com.gu.mediaservice.auth
 
 import com.gu.permissions.PermissionDefinition
 
@@ -15,4 +15,7 @@ object Permissions {
 
   // FIXME ideally factor this out in favour of a permission definition that can be defined at runtime (e.g. loaded from config)
   val Pinboard: PermissionDefinition = PermissionDefinition("pinboard", "pinboard")
+
+  val all = Seq(GridAccess, UploadImages, EditMetadata, DeleteImage, DeleteCropsOrUsages, ShowPaid, DeveloperAdmin, Pinboard)
+
 }

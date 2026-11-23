@@ -26,7 +26,49 @@ within 10 minutes and you'll be able to make authenticated calls.
 
 When running locally, the `setup.sh` creates an API key `dev-`.
 
-### Creating a Key
+### Creating a Key V2
+
+Keys are created with the `CreateKeyV2` script, which generates a random key filename,
+builds the key config (name, permissions, expiry, principal type) and uploads it straight
+to the `KeyBucket`.
+
+First find your `KeyBucket`:
+
+```bash
+./get-stack-resource.sh KeyBucket <stack-name>
+```
+
+Then run the script, pointing `API_KEY_BUCKET` at that bucket:
+
+```bash
+API_KEY_BUCKET=<bucket> sbt "scripts/runMain com.gu.mediaservice.scripts.key.CreateKeyV2 \
+  --name=<name> \
+  --type=developer \
+  --permissions=grid_access \
+  --expiry=7"
+```
+
+Because the script uploads the key directly, you don't need to copy anything by hand or
+delete a local key file afterwards.
+
+#### Options
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `--name=<name>` | yes | – | Name of the user or application that will use the key |
+| `--type=<type>` | no | `developer` | `developer` or `machine` |
+| `--permissions=<csv>` | no | none | Comma-separated list of permissions (see below), case-insensitive |
+| `--expiry=<days>` | no | 1 day for developer keys; none for machine keys | Days until the key expires (positive whole number) |
+| `--help` | no | – | Print usage, including the list of available permissions |
+
+Run with `--help` to see the authoritative list of permissions, which is derived from
+`Permissions.all`:
+
+```bash
+sbt "scripts/runMain com.gu.mediaservice.scripts.key.CreateKeyV2 --help"
+```
+
+### Creating a Key V1 (to be deprecated)
 Generate a key file with a random string as the filename. The contents of the file should contain the name of the user or the application.
 The following script will create a key file with a random string as the filename, and the name of the user or application as the contents.
 The API key will by default have the "Internal" tier, other tiers can be set by naming the tier in the second line of the file contents.
