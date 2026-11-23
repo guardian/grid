@@ -59,7 +59,7 @@ class ApiAccessorTest extends AnyFunSpec  {
       when(services.apiHost).thenReturn("api.example.com")
       assert(ApiAccessor.hasAccess(apiAccessor, request, services))
     }
-    it("should deny Internal tier access to any request if the tier is not Internal")   {
+    it("should deny Internal tier access to any request if the tier is Internal")   {
       val apiAccessor = ApiAccessor("internal-user", Internal)
       val request = mockRequest("DELETE", "api.example.com", "/images/some-image")
       val services = mock[Services]
