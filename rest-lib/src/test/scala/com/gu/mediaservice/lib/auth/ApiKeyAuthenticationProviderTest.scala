@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
-import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
+import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, ExpiredMachine, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
@@ -109,8 +109,8 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
       val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-expired"
       val status = provider.authenticateRequest(FakeRequest().withHeaders(testHeader))
       inside(status) {
-        case Invalid(message, _) =>
-          message shouldBe "API key old-timer has expired"
+        case ExpiredMachine(apiAccessor) =>
+          apiAccessor.identity shouldBe "old-timer"
       }
     }
     "should authenticate a key whose expiry is in the future" in {
