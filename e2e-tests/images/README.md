@@ -6,7 +6,7 @@ one shared toolchain (JDK, sbt, Node, and the native image-processing tools) and
 bind-mount the repository over `/build` at run time — no application source or
 Kahuna output is baked into either image. You select between them with the
 `--target` parameter:
-- **CI image** (`--target ci`, tagged `grid-e2e-ci`): builds the Kahuna frontend once (`npm ci` + `npm run dist`), stages the services with `sbt e2eStage`, then runs the staged applications in production mode. Used by the e2e-tests testcontainers harness.
+- **CI image** (`--target ci`, tagged `grid-e2e-ci`): builds the Kahuna frontend once (`npm ci` + `GRID_BROWSER_COVERAGE=true npm run dist`), stages the services with `sbt e2eStage`, then runs the staged applications in production mode. Used by the e2e-tests testcontainers harness.
 - **Local-dev image** (`--target dev`, tagged `grid-e2e-dev`): runs the webpack watcher and the Scala services under `sbt <svc>/run` (Play dev mode) with the repo bind-mounted, so source changes recompile live. See [Development image (live reload)](#development-image-live-reload) below.
 
 The two images share the same environment and differ only in their entrypoint.
@@ -81,4 +81,3 @@ docker run --rm -v "$PWD:/build" -v "$HOME/.grid:/root/.grid:ro" \
 
 The services still need their backing infrastructure reachable (see the root
 `docker-compose.yml`). The image also works against the e2e-tests testcontainers harness: mount the generated config the same way the CI image does (to`/root/.grid` and/or `/etc/grid`) and join the same network.
-

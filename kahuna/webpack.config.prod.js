@@ -1,10 +1,50 @@
 const shared = require('./webpack.config.shared');
 const { merge } = require('webpack-merge');
 const ImageMinimizerPlugin = require("image-minimizer-webpack-plugin");
+const { sentryWebpackPlugin } = require("@sentry/webpack-plugin");
+
+const browserCoverage = process.env.GRID_BROWSER_COVERAGE === 'true';
+// Coverage builds keep their maps for Playwright and never upload them to Sentry.
+const sentryAuthToken = browserCoverage ? undefined : process.env.SENTRY_AUTH_TOKEN;
+const sentryOrg = process.env.SENTRY_ORG;
+const sentryProject = process.env.SENTRY_PROJECT;
+
+// Must match the server's BuildInfo.gitCommitId, or Sentry cannot match events to these maps.
+const release = process.env.BUILD_VCS_NUMBER;
+
+const missingUploadSettings = Object.entries({
+  SENTRY_ORG: sentryOrg,
+  SENTRY_PROJECT: sentryProject,
+  BUILD_VCS_NUMBER: release
+}).filter(([, value]) => !value).map(([name]) => name);
+
+if (sentryAuthToken && missingUploadSettings.length > 0) {
+  // Failing loudly beats shipping a release whose stack traces are silently unsymbolicated.
+  throw new Error(
+    `SENTRY_AUTH_TOKEN is set but required upload settings are missing: ${missingUploadSettings.join(', ')}, ` +
+    'so source maps could not be uploaded.'
+  );
+}
+
+const sentryPlugins = sentryAuthToken ? [
+  sentryWebpackPlugin({
+    authToken: sentryAuthToken,
+    org: sentryOrg,
+    project: sentryProject,
+    release: { name: release },
+    sourcemaps: {
+      // Source maps are uploaded, then deleted before the Debian package is built, so they
+      // are never served from the deployed assets.
+      filesToDeleteAfterUpload: ["./public/dist/**/*.map"]
+    },
+    telemetry: false
+  })
+] : [];
 
 module.exports = merge(shared, {
   mode: 'production',
-  devtool: 'source-map',
+  devtool: browserCoverage ? 'source-map' : 'hidden-source-map',
+  plugins: sentryPlugins,
   optimization: {
     minimize: true,
     minimizer: [

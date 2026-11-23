@@ -17,6 +17,7 @@ Feature: Typing in the search box runs a search
   # Evidence: kahuna/public/js/search/query.js lines 627-629, 388-394
   # Evidence: kahuna/public/js/search/index.js lines 166-168
 
+  @timing-sensitive
   Scenario: Pausing after typing runs one search for the typed text
     Given the search box is empty
     When I type "cat" into the search box
@@ -35,6 +36,7 @@ Feature: Typing in the search box runs a search
   # Evidence: kahuna/public/js/search/structured-query/structured-query.js lines 47-51, 86-88, 93-97
   # Evidence: kahuna/public/js/search/query.js lines 357-363, 388-394
 
+  @timing-sensitive
   Scenario: Undoing a change before pausing does not run the search again
     Given I open a search link with the query "cat"
     When I type "s" and quickly delete it again
