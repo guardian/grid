@@ -97,6 +97,17 @@ services:
     volumes:
       - "./dev/.localstack:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
+      # Seeds the core stack and config files every time localstack starts
+      - "./dev/localstack/ready.d:/etc/localstack/init/ready.d:ro"
+      - "./dev/cloudformation:/seed/cloudformation:ro"
+      - "./dev/config:/seed/config:ro"
+      - "./dev/.env:/seed/.env:ro"
+    healthcheck:
+      # Healthy once the ready.d scripts have finished successfully (the default check only covers localstack itself)
+      test: ["CMD-SHELL", "curl -sf localhost:4566/_localstack/init/ready | grep -q 'completed.: true' && ! curl -s localhost:4566/_localstack/init/ready | grep -q ERROR"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
   oidc-provider:
     build:
       context: ./dev/oidc-provider

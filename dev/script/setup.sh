@@ -18,9 +18,6 @@ export AWS_CBOR_DISABLE=true
 
 LOCALSTACK_ENDPOINT=http://localhost:4566
 
-CORE_STACK_FILE="$ROOT_DIR/dev/cloudformation/grid-dev-core.yml"
-CORE_STACK_FILENAME=$(basename "$CORE_STACK_FILE")
-
 AUTH_STACK_FILE="$ROOT_DIR/dev/cloudformation/grid-dev-auth.yml"
 AUTH_STACK_FILENAME=$(basename "$AUTH_STACK_FILE")
 # ---- END
@@ -61,14 +58,9 @@ clean() {
 }
 
 startDocker() {
-  docker compose up -d
-
-  echo "waiting for localstack to launch on $LOCALSTACK_ENDPOINT"
-  while ! curl -s $LOCALSTACK_ENDPOINT >/dev/null; do
-    echo "  localstack not ready yet"
-    sleep 1 # wait for 1 second before check again
-  done
-  echo "  localstack is now ready"
+  # localstack is seeded (core stack, config files, api key) by its ready hook in dev/localstack/ready.d
+  # and docker compose waits for that to complete, so this also reseeds after localstack is recreated
+  docker compose up -d --wait
 }
 
 setupDevNginx() {
@@ -165,62 +157,6 @@ setupGuardianPermissionConfiguration() {
   echo "  uploaded file to $permissionsBucket"
 }
 
-setupPhotographersConfiguration() {
-  echo "setting up photographers configuration"
-
-  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
-
-  target="$ROOT_DIR/dev/config/photographers.json"
-
-  aws s3 cp "$target" \
-    "s3://$configBucket/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
-
-  echo "  uploaded file to $configBucket"
-}
-
-setupQuotasConfiguration () {
-  echo "setting up quotas configuration"
-
-  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
-
-  target="$ROOT_DIR/dev/config/rcs-quota.json"
-
-  aws s3 cp "$target" \
-    "s3://$configBucket/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
-
-  echo "  uploaded file to $configBucket"
-}
-
-setupUsagesData () {
-  echo "setting up usages data"
-
-  usageBucket=$(getStackResource "$CORE_STACK_NAME" UsageMailBucket)
-
-  target="$ROOT_DIR/dev/config/usages.eml"
-
-  aws s3 cp "$target" \
-    "s3://$usageBucket/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
-
-  echo "  uploaded file to $usageBucket"
-}
-
-setupUsageRightsConfiguration() {
-  echo "setting up usage rights configuration"
-
-  configBucket=$(getStackResource "$CORE_STACK_NAME" ConfigBucket)
-
-  target="$ROOT_DIR/dev/config/usage_rights.json"
-
-  aws s3 cp "$target" \
-    "s3://$configBucket/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
-
-  echo "  uploaded file to $configBucket"
-}
-
 
 getStackResource() {
   stackName=$1
@@ -238,46 +174,6 @@ getStackResource() {
   )
 
   echo "$resource"
-}
-
-createCoreStack() {
-  echo "creating local core cloudformation stack"
-  set -x
-  stackNames=$(
-    aws cloudformation list-stacks \
-      --endpoint-url http://localhost:4566 | \
-      jq -r '.StackSummaries[].StackName'
-  )
-  if echo ${stackNames} | grep -q '^grid-dev-core$'; then
-    aws cloudformation update-stack \
-      --stack-name "$CORE_STACK_NAME" \
-      --template-body "file://$CORE_STACK_FILE" \
-      --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
-    echo "  updated stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
-  else
-    aws cloudformation create-stack \
-      --stack-name "$CORE_STACK_NAME" \
-      --template-body "file://$CORE_STACK_FILE" \
-      --endpoint-url $LOCALSTACK_ENDPOINT > /dev/null
-    echo "  created stack $CORE_STACK_NAME using $CORE_STACK_FILENAME"
-  fi
-  set +x
-
-  for attempt in $(seq 1 15); do
-    status="$(aws cloudformation describe-stacks --stack-name "$CORE_STACK_NAME" \
-      --endpoint-url $LOCALSTACK_ENDPOINT | jq -r ".Stacks[0].StackStatus")"
-
-    if [[ $status = "CREATE_COMPLETE" || $status = "UPDATE_COMPLETE" ]]; then
-      echo "core stack created"
-      return
-    else
-      echo "still waiting for core stack - status was $status"
-      sleep 2
-    fi
-  done
-
-  echo "cloudformation stack did not finish creating after 30s - what's gone wrong?"
-  exit 1
 }
 
 createGuardianLocalAuthStack() {
@@ -305,22 +201,6 @@ generateConfig() {
   echo "  configuration files created in ${CONF_HOME}"
 }
 
-uploadApiKey() {
-  echo "uploading an api key"
-  keyBucket=$(getStackResource "$CORE_STACK_NAME" KeyBucket)
-
-  target="/tmp/$API_KEY"
-
-  echo "DEV Key" > "$target"
-
-  aws s3 cp "$target" \
-    "s3://$keyBucket/" \
-    --endpoint-url $LOCALSTACK_ENDPOINT
-
-  rm "$target"
-  echo "  uploaded"
-}
-
 checkForJavaHome() {
   echo "Checking JAVA_HOME"
   if [[ -z "$JAVA_HOME" ]]; then
@@ -336,7 +216,6 @@ main() {
   checkForJavaHome
   clean
   startDocker
-  createCoreStack
 
   if [[ $LOCAL_AUTH == true ]]; then
     if [[ $NO_AUTH != true ]]; then
@@ -346,13 +225,8 @@ main() {
     fi
   fi
 
-  setupPhotographersConfiguration
-  setupQuotasConfiguration
-  setupUsagesData
-  setupUsageRightsConfiguration
   setupDevNginx
   generateConfig
-  uploadApiKey
   echo "Setup complete. You're now able to start Grid!"
 }
 
