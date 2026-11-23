@@ -297,9 +297,6 @@ def dockerSettings(projectName: String, extraApkPackages: Seq[String]) = Seq(
 
     dockerCommands.value.flatMap {
       case from @ Cmd("FROM", args @ _*) if args.last.equalsIgnoreCase("mainstage") => Seq(from, Cmd("RUN", apkInstall))
-      // The final (non-root) stage: make the gc log directory writable by the app user
-      case user @ Cmd("USER", name) if name != "root" =>
-        Seq(Cmd("RUN", s"mkdir -p /var/log/$projectName && chown -R $name /var/log/$projectName"), user)
       case command => Seq(command)
     }
   }
@@ -334,9 +331,7 @@ def playProject(projectName: String, port: Int, path: Option[String] = None, ext
       Universal / javaOptions ++= Seq(
         "-Dpidfile.path=/dev/null",
         s"-Dconfig.file=/usr/share/$projectName/conf/application.conf",
-        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml",
-        "-J-Xlog:gc*",
-        s"-J-Xlog:gc:/var/log/$projectName/gc.log"
+        s"-Dlogger.file=/usr/share/$projectName/conf/logback.xml"
       )
     ))
   //Add the BBC library dependency if defined
