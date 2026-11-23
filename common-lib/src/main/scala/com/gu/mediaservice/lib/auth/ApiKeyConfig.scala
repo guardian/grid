@@ -6,9 +6,34 @@ import play.api.libs.json.{Format, JsString, Json, OFormat, Writes, __}
 
 import java.time.Instant
 
+sealed trait Expiry {
+  val days: Int
+}
+
+case object Day extends Expiry {
+  val days: Int = 1
+}
+case object Week extends Expiry {
+  val days: Int = 7
+}
+case object Month extends Expiry {
+  val days: Int = 30
+}
+
+object Expiry {
+  def fromString(s: String): Option[Int] = s.toLowerCase match {
+    case "day" => Some(1)
+    case "week" => Some(7)
+    case "month" => Some(30)
+    case _ => None
+  }
+}
+
+
 sealed trait PrincipalType
 case object Developer extends PrincipalType
 case object Machine extends PrincipalType
+
 
 object PrincipalType {
   def fromString(s: String): PrincipalType = s.toLowerCase match {
@@ -29,15 +54,14 @@ case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], ex
 
 object ApiKeyConfig {
 
-  val defaultExpiryDays = 1
+  val defaultExpiry: Expiry= Day
 
-  def expiry(expiryDays: Option[Int], principalType: PrincipalType): Option[Instant] = {
-    val days = expiryDays
-      .filter(_ >= 1)
-      .orElse(Option.when(principalType == Developer)(defaultExpiryDays))
+  def expiry(expiryDays: Option[Expiry], principalType: PrincipalType): Option[Instant] = {
+    val days = expiryDays.map(_.days)
+      .orElse(Option.when(principalType == Developer)(defaultExpiry.days))
     days.map(d => Instant.now().plusSeconds(60 * 60 * 24 * d))
   }
-  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType, expiryDays: Option[Int]): ApiKeyConfig = {
+  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType, expiryDays: Option[Expiry]): ApiKeyConfig = {
     ApiKeyConfig(name, permissions, expiry(expiryDays, principalType), principalType)
   }
 

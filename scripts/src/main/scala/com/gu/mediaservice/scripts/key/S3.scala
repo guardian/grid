@@ -1,6 +1,7 @@
 package com.gu.mediaservice.scripts.key
 
 import com.gu.mediaservice.lib.auth.ApiKeyConfig
+import com.gu.mediaservice.lib.auth.{Expiry, Day, Week, Month}
 import play.api.libs.json.Json
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
 import software.amazon.awssdk.core.sync.RequestBody
@@ -9,7 +10,6 @@ import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.{GetObjectRequest, PutObjectRequest, Tag, Tagging}
 
 import java.nio.charset.StandardCharsets
-import java.time.{Duration, Instant}
 
 class S3(bucket: String) {
 
@@ -24,11 +24,14 @@ class S3(bucket: String) {
   private def taggging(tags: List[Tag]): Tagging = {
     Tagging.builder().tagSet(tags: _*).build()
   }
-  def upload(key: String, config: ApiKeyConfig): Unit = {
+  def upload(key: String, config: ApiKeyConfig, expiry: Option[Expiry]): Unit = {
 
-    val ttlDays = config.expiresAt.map(expiry => {
-      math.ceil(Duration.between(Instant.now(), expiry).toMinutes / 1440.0).toLong + 2L
+    val ttlDays = expiry.map({
+      case Day => 1
+      case Week => 7
+      case Month => 30
     })
+
     val tags = List(buildTag("schema", "v2")) ++ ttlDays.map(days => buildTag("ttl", days.toString)).toList
 
     val s3key = s"${config.name}-$key"
