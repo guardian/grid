@@ -29,10 +29,13 @@ CI=true npm test
 ```
 
 `grid-e2e-ci` ([`images/Dockerfile`](images/Dockerfile)) bind-mounts the repo over
-`/build`, builds Kahuna's production bundle once (`npm ci` + `npm run dist`), stages
+`/build`, builds Kahuna's production bundle once (`npm ci` +
+`GRID_BROWSER_COVERAGE=true npm run dist`), stages
 the services with `sbt e2eStage` and runs the staged applications in production mode,
 so it exercises the same code paths as a deployed Grid. No source or compiled artefacts
 are baked into the image, so the build is quick and staging happens on first run.
+The test bundle includes source map references so Playwright can report coverage of
+the original Kahuna sources. Release builds still use hidden maps.
 The stack starts the published Chekov image on ports `80` and `443` in both dev and CI.
 Chekov discovers each Grid service at its primary hostname from the port label and
 registers only additional hostnames as aliases (for example, `loader-projection.media`
@@ -128,11 +131,18 @@ fails to boot, for example with an opaque `Failed to build image`. Set
 `DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
 whole run.
 
-CI also adds GitHub failure annotations. Both reports and their captured attachments are
-uploaded together as `e2e-report`, retained for 14 days after successful or failed runs,
-excluding cancelled runs. Failures before report generation may leave no reports to
-upload. Failed runs also upload the debug log as `testcontainers-log`, linked from an
-annotation on the job page.
+CI splits the suite into 4 shards with Playwright's native `--shard` option. Each shard
+boots its own stack and writes a blob report instead of the HTML reports. A
+`merge-reports` job then combines the blobs with
+`playwright merge-reports --config playwright.config.ts`. To reproduce one shard locally,
+run, for example, `CI=true npm test -- --shard=2/4`. The `playwright-result` job passes
+only when every shard passes, so use it as the required status check.
+
+CI also adds GitHub failure annotations. The merged reports and their captured attachments
+are uploaded together as `e2e-report`, retained for 14 days after successful or failed
+runs, excluding cancelled runs. Failures before report generation may leave no reports to
+upload. Each failed shard also uploads its debug log as `testcontainers-log-<shard>`,
+linked from an annotation on that shard's job page.
 
 ### Feature library
 

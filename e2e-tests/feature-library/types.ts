@@ -95,4 +95,38 @@ export interface LibraryManifest {
   /** Report start is epoch milliseconds; duration is milliseconds. Null means no report was found. */
   report: { startedAt: number; duration: number } | null;
   features: Feature[];
+  /** Browser code coverage percentages from the combined e2e coverage report; absent when no report was found. */
+  coverage?: CoverageSummary;
+}
+
+export interface CoverageSummary {
+  lines: number;
+  functions: number;
+  branches: number;
+}
+
+/** Serialized as coverage.json: which browser functions each feature's scenarios executed. */
+export interface CoverageManifest {
+  /** Features with a browser coverage report; slug is the report directory name. */
+  features: { name: string; slug: string }[];
+  /** Scenarios with a browser coverage report; feature indexes into features. */
+  scenarios: { feature: number; name: string; slug: string }[];
+  /** Covered functions only; line is one-based in the original (source-mapped) file. */
+  functions: { name: string; file: string; line: number }[];
+  /** Indexes into features/functions; count is the number of calls during that feature's tests. */
+  links: { feature: number; fn: number; count: number }[];
+  /** As links, for each individual scenario. */
+  scenarioLinks: { scenario: number; fn: number; count: number }[];
+}
+
+/** Serialized as source-coverage.json: source text and line-by-line coverage for each feature and scenario. */
+export interface SourceCoverage {
+  /** Every source file the browser loaded during the tests; source is the source-mapped original. */
+  files: { path: string; source: string }[];
+  /**
+   * Aligned with CoverageManifest features/scenarios: file index → one character per line,
+   * '+' run, '~' partly run (some branches), '-' not run, '.' not executable. Files nothing ran are omitted.
+   */
+  features: Record<number, string>[];
+  scenarios: Record<number, string>[];
 }

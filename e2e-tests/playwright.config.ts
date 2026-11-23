@@ -8,9 +8,18 @@ const testDir = defineBddConfig({
   features: './features/**/*.feature',
   steps: './steps/**/*.ts',
   /* @todo marks scenarios that are specified but not yet implemented. Excluding them keeps
-     bddgen's "undefined step" failures meaningful for the scenarios we do implement. */
-  tags: 'not @todo',
+     bddgen's "undefined step" failures meaningful for the scenarios we do implement.
+     @timing-sensitive scenarios rely on keystrokes beating Kahuna's 500ms search debounce;
+     coverage instrumentation slows the page enough to break them, so skip them when
+     collecting coverage. They still run uninstrumented in the main Playwright job. */
+  tags: process.env.GRID_ENABLE_COVERAGE === 'true'
+    ? 'not @todo and not @timing-sensitive'
+    : 'not @todo',
 });
+
+/* CI splits the suite with `--shard=n/N`. Each shard writes a blob report, which the
+   merge-reports job combines into the HTML and Cucumber reports using this config. */
+const isShardRun = process.argv.some((arg) => arg.startsWith('--shard'));
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -29,11 +38,15 @@ export default defineConfig({
   reporter: [
     ...(process.env.CI ? [['github'] as ['github']] : []),
     ['list', { printFailuresInline: true }],
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    cucumberReporter('html', {
-      outputFile: 'cucumber-report/index.html',
-      externalAttachments: true,
-    }),
+    ...(isShardRun
+      ? [['blob', { outputDir: 'blob-report' }] as ['blob', { outputDir: string }]]
+      : [
+          ['html', { outputFolder: 'playwright-report', open: 'never' }] as ['html', { outputFolder: string; open: 'never' }],
+          cucumberReporter('html', {
+            outputFile: 'cucumber-report/index.html',
+            externalAttachments: true,
+          }),
+        ]),
   ],
   /* Boot the Grid stack with Testcontainers before tests, and tear it down after. */
   globalSetup: './setup/global-setup.ts',

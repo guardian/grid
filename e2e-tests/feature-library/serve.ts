@@ -80,10 +80,13 @@ export function createStaticServer(directory: string): Server {
 
 // The CLI rebuilds once, then serves localhost; occupied ports advance by at most ten.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values } = parseArgs({ options: { report: { type: 'string' }, port: { type: 'string', default: '4173' } } });
+  const { values } = parseArgs({ options: { report: { type: 'string' }, coverage: { type: 'string' }, port: { type: 'string', default: '4173' } } });
   const requestedPort = Number(values.port);
   if (!Number.isInteger(requestedPort) || requestedPort < 1 || requestedPort > 65535) throw new Error('Port must be between 1 and 65535.');
-  const directory = await buildLibrary(values.report ? path.resolve(values.report) : undefined);
+  const directory = await buildLibrary(
+    values.report ? path.resolve(values.report) : undefined,
+    values.coverage ? path.resolve(values.coverage) : undefined,
+  );
   const server = createStaticServer(directory);
   let port = requestedPort;
   server.on('error', (error: NodeJS.ErrnoException) => {

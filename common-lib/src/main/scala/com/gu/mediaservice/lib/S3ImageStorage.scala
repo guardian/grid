@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.config.CommonConfig
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model.MimeType
 import org.slf4j.LoggerFactory
-import software.amazon.awssdk.services.s3.model.{DeleteObjectRequest, HeadObjectRequest, ListObjectsV2Request}
+import software.amazon.awssdk.services.s3.model.{DeleteObjectRequest, HeadObjectRequest, ListObjectsV2Request, NoSuchKeyException}
 
 import java.io.File
 import scala.jdk.CollectionConverters._
@@ -29,15 +29,20 @@ class S3ImageStorage(config: CommonConfig) extends S3(config) with ImageStorage 
   }
 
   def deleteImage(bucket: String, key: String)(implicit logMarker: LogMarker) = Future {
-    logger.info(logMarker, s"Deleted image $key from bucket $bucket")
     client.deleteObject(
       DeleteObjectRequest.builder().bucket(bucket).key(key).build())
+    logger.info(logMarker, s"Deleted image $key from bucket $bucket")
   }
 
   def deleteVersionedImage(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
-    val objectVersion = client.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
-    client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
-    logger.info(logMarker, s"Deleted image $id from bucket $bucket (version: $objectVersion)")
+    try {
+      val objectVersion = client.headObject(HeadObjectRequest.builder().bucket(bucket).key(id).build()).versionId()
+      client.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(id).versionId(objectVersion).build())
+      logger.info(logMarker, s"Deleted image $id from bucket $bucket (version: $objectVersion)")
+    } catch {
+      case _: NoSuchKeyException =>
+        logger.info(logMarker, s"Image $id already absent from bucket $bucket")
+    }
   }
 
   def deleteFolder(bucket: String, id: String)(implicit logMarker: LogMarker) = Future {
