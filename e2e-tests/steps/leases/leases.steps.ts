@@ -4,7 +4,7 @@ import { Given, Then, When, expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
 import { answerDialogs } from '../utils/dialogs.ts';
 import { openImage } from '../utils/single-image.ts';
-import { leaseAccess, seedLeasedImage } from './leases.ts';
+import { leaseAccess, recordLeaseWrites, seedLeasedImage } from './leases.ts';
 
 Given('the image has no leases', async ({ seedImage, testContext }) => {
   testContext.imageId = await seedLeasedImage(seedImage);
@@ -22,6 +22,7 @@ Given(
 async function openSeededImage({ page, testContext }: { page: Page; testContext: TestContext }) {
   expect(testContext.imageId, 'no image was seeded by an earlier step').toBeDefined();
   answerDialogs(page, testContext);
+  recordLeaseWrites(page, testContext);
   await openImage(page, testContext.imageId!);
 }
 
@@ -42,4 +43,18 @@ Then('I am alerted {string}', async ({ testContext }, message: string) => {
 
 Then('I am asked {string}', async ({ testContext }, message: string) => {
   await expect.poll(() => testContext.dialogs).toContain(message);
+});
+
+Then('I see a(n) {string} button', async ({ page }, name: string) => {
+  await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+});
+
+Then('I do not see a(n) {string} button', async ({ page }, name: string) => {
+  await expect(page.getByRole('button', { name, exact: true })).toBeHidden();
+});
+
+Then('I do not see a(n) {string} region', async ({ page }, name: string) => {
+  // Once a sibling region has rendered, a missing region is not one still loading.
+  await expect(page.getByRole('region', { name: 'Rights and restrictions', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name, exact: true })).toBeHidden();
 });

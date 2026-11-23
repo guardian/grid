@@ -8,7 +8,8 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 import { isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
 import type { LeaseAccess, SeedLease } from '../../setup/seed-leases.ts';
-import type { SeedImage } from '../setup.ts';
+import { KAHUNA_APP_URL } from '../setup.ts';
+import type { SeedImage, TestContext } from '../setup.ts';
 
 type Scope = Page | Locator;
 
@@ -62,3 +63,52 @@ export const applyLeasesToAllButton = (scope: Scope) =>
 
 export const removeAllLeasesButton = (scope: Scope) =>
   scope.getByRole('button', { name: 'Remove all leases', exact: true });
+
+/** gr-confirm-delete's button, which is labelled "Delete image" wherever it is used. */
+export const deleteLeaseControl = (scope: Scope) =>
+  leaseItems(scope).getByRole('button', { name: 'Delete image', exact: true });
+
+/**
+ * The button that opens a gu-date picker, named by its icon ("event"), its `label` (e.g. "to")
+ * and the date it shows.
+ */
+export const datePickerButton = (scope: Scope, label: string) =>
+  scope.getByRole('button', { name: new RegExp(`^event ${label} `) });
+
+const isLeasesService = (url: string | URL) => new URL(url).hostname.startsWith('media-leases.');
+
+const recording = new WeakSet<Page>();
+
+/**
+ * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
+ * can check nothing was saved. Idempotent, so steps sharing a page can each call it.
+ */
+export function recordLeaseWrites(page: Page, testContext: TestContext): void {
+  testContext.leaseWrites ??= [];
+  if (recording.has(page)) return;
+  recording.add(page);
+  page.on('request', (request) => {
+    if (isLeasesService(request.url()) && ['POST', 'PUT', 'DELETE'].includes(request.method())) {
+      testContext.leaseWrites!.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
+  });
+}
+
+/** Make the leases service fail every `method` request the page sends it. */
+export async function failLeaseRequests(page: Page, method: 'POST' | 'DELETE'): Promise<void> {
+  await page.route(isLeasesService, async (route) => {
+    if (route.request().method() !== method) return route.fallback();
+    await route.fulfill({
+      status: 500,
+      // Readable cross-origin, so Kahuna sees the failure rather than a CORS error.
+      headers: {
+        'Access-Control-Allow-Origin': KAHUNA_APP_URL,
+        'Access-Control-Allow-Credentials': 'true',
+      },
+      json: { errorKey: 'e2e-failure', errorMessage: 'Failed by the e2e test' },
+    });
+  });
+}
+
+/** Short month names, as Kahuna's moment formats show them. */
+export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

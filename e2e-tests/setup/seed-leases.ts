@@ -39,7 +39,8 @@ export function isLeaseAccess(access: string): access is LeaseAccess {
   return (LEASE_ACCESS as readonly string[]).includes(access);
 }
 
-async function mediaApiLeases(mediaId: string): Promise<MediaLease[]> {
+/** The leases media-api serves for `mediaId`. */
+export async function imageLeases(mediaId: string): Promise<MediaLease[]> {
   const response = await fetch(`${MEDIA_API_URL}/images/${mediaId}`, { headers: HEADERS });
   if (!response.ok) {
     throw new Error(`Fetching image ${mediaId} failed: HTTP ${response.status} ${await response.text()}`);
@@ -52,7 +53,7 @@ async function mediaApiLeases(mediaId: string): Promise<MediaLease[]> {
 async function waitForLeaseCount(mediaId: string, count: number): Promise<MediaLease[]> {
   const deadline = Date.now() + 10_000;
   for (;;) {
-    const leases = await mediaApiLeases(mediaId);
+    const leases = await imageLeases(mediaId);
     if (leases.length === count) return leases;
     if (Date.now() > deadline) {
       throw new Error(`Image ${mediaId} has ${leases.length} leases after 10s, expected ${count}`);

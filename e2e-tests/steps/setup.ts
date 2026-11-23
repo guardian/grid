@@ -25,6 +25,10 @@ export interface TestContext {
   dialogAnswer?: 'accept' | 'dismiss';
   /** The disposable image copy that "the image" steps refer to. */
   imageId?: string;
+  /** Requests that changed leases, as "METHOD /path" (see recordLeaseWrites). */
+  leaseWrites?: string[];
+  /** When a lease access type was chosen in the add lease form. */
+  accessChosenAt?: Date;
   fileChooser?: Promise<FileChooser>;
   /** The query run on the search page before navigating to the upload page. */
   previousSearchQuery?: string;
