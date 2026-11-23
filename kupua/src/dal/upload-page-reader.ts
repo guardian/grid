@@ -8,7 +8,9 @@ export function otherUploadParams(scope: NonNullable<SearchParams["recentUploadS
 }
 
 export class UploadPageReader {
-  constructor(private source: ImageDataSource) {}
+  constructor(private source: ImageDataSource, private readCountedBatch?: (
+    params: SearchParams, cursor: SortValues | null, signal: AbortSignal | undefined, reverse: boolean, total: number,
+  ) => Promise<SearchAfterResult>) {}
 
   parts(params: SearchParams): [SearchParams, SearchParams] {
     const scope = params.recentUploadScope!;
@@ -59,9 +61,11 @@ export class UploadPageReader {
       const count = section === 0 ? bounds.batch : bounds.other;
       if (!remaining || !count) continue;
       try {
-        const page = await this.source.searchAfter({ ...parts[section], length: remaining,
-          ...(!decoded && !reverse && offset > 0 ? { offset } : {}) },
-          decoded?.section === section ? decoded.raw : null, null, signal, reverse, reverse && !decoded);
+        const part = { ...parts[section], length: remaining, ...(!decoded && !reverse && offset > 0 ? { offset } : {}) };
+        const raw = decoded?.section === section ? decoded.raw : null;
+        const page = section === 0 && part.imageScope?.submittedOrder && !part.orderBy && !part.ids && !part.offset && this.readCountedBatch
+          ? await this.readCountedBatch(part, raw, signal, reverse, count)
+          : await this.source.searchAfter(part, raw, null, signal, reverse, reverse && !decoded);
         pages.push({ ...page, sortValues: page.sortValues.map(values => [section, ...values]) });
         remaining -= page.hits.length;
       } catch (error) {

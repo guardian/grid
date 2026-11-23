@@ -86,6 +86,7 @@ describe("API query forwarding", () => {
     } };
     const first = await source.searchAfter(scope, null);
     expect(first.hits.map(image => image.id)).toEqual([...batchIds, ...others.slice(0, 2)]);
+    expect(calls.filter(call => call.path === "/images/count" && call.body.ids)).toHaveLength(1);
     expect(first.total).toBe(132);
     expect(first.sortValues).toEqual([[0, 0, batchIds[0]], [0, 1, batchIds[1]], [1, 0, others[0]], [1, 1, others[1]]]);
     const second = await source.searchAfter(scope, first.sortValues.at(-1)!);

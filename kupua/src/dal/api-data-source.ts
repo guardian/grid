@@ -76,7 +76,7 @@ function yieldToMain(): Promise<void> {
 export class ApiDataSource implements ImageDataSource {
   readonly supportsBucketNameMatching = true;
   readonly offsetReadLimit = API_WINDOW_OFFSET_LIMIT;
-  readonly uploadPage = new UploadPageReader(this);
+  readonly uploadPage = new UploadPageReader(this, (params, cursor, signal, reverse, total) => this.submittedPage(params, cursor, signal, reverse, total));
 
   searchByAi(params: SearchParams, signal?: AbortSignal): Promise<AiSearchResult | null> {
     return apiSearchByAi(params, signal);
@@ -188,13 +188,13 @@ export class ApiDataSource implements ImageDataSource {
     return json.rank;
   }
 
-  private async submittedPage(params: SearchParams, cursor: SortValues | null, signal?: AbortSignal, reverse = false): Promise<SearchAfterResult> {
+  private async submittedPage(params: SearchParams, cursor: SortValues | null, signal?: AbortSignal, reverse = false, sectionTotal?: number): Promise<SearchAfterResult> {
     const started = Date.now();
     const scope = params.imageScope!;
     const probe = params.ids ? new Set(params.ids.split(",")) : undefined;
     const members = probe ? scope.ids.filter(id => probe.has(id)) : scope.ids;
     if (!members.length) return { hits: [], total: 0, sortValues: [] };
-    const total = await this.count({ ...params, ids: undefined, imageScope: { ...scope, ids: members } }, signal);
+    const total = sectionTotal ?? await this.count({ ...params, ids: undefined, imageScope: { ...scope, ids: members } }, signal);
     const length = params.length ?? PAGE_SIZE;
     let position = reverse ? members.length : 0;
     if (cursor) {

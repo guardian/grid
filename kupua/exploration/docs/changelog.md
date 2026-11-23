@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Avoid recounting the filename-ordered upload batch
+
+When composing an Upload page in submitted filename order, the batch reader reuses the section count already obtained for that page instead of sending an identical media-api request. Filtered-ID and positive-offset section reads retain their own counts. No count is shared between page reads or with upload visibility or navigation checks.
+
 ### 23 November 2026 - Skip unchanged upload progress updates
 
 Pending upload checks keep their usual schedule without notifying the interface or rewriting a retained batch when no progress changed. A failed save still gets another opportunity on the next check; processing completion and search visibility are still recorded separately.
