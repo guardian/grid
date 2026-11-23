@@ -18,7 +18,7 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
   private val syndicationMachine = MachinePrincipal(ApiAccessor("machine", Syndication))
   private val editMetadata = Permissions.EditMetadata
   private val uploadImages = Permissions.UploadImages
-  private val machineWithEditPermission = MachinePrincipal(ApiAccessor("machine", PermissionTier(Seq(PermissionDefinition(editMetadata.name, "grid")))))
+  private val machineWithEditPermission = MachinePrincipal(ApiAccessor("machine", PermissionTier(Seq(editMetadata.definition).flatten)))
   "hasPermissionTo (context)" - {
     "delegates to provider when a user principal" in {
       val mockProvider = mock[AuthorisationProvider]
@@ -37,7 +37,6 @@ class AuthorisationTest extends AsyncFreeSpec with Matchers with EitherValues wi
       }
 
       "permission tier with the correct permission should always be allowed" in {
-        (mockProvider.hasPermissionTo _).expects(editMetadata, *).returns(true).never()
         val filter = auth.hasPermissionTo(editMetadata)
         filter(machineWithEditPermission) shouldBe true
       }
