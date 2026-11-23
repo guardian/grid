@@ -13,5 +13,5 @@ object CreateExpiredKey extends App {
   val apiKeyConfig = ApiKeyConfig("expired-key", Seq(Permissions.EditMetadata), Some(Instant.now().minusSeconds(60 * 60 * 24)), Developer)
 
   val key = KeyGenerator.randomKey()
-  s3Client.upload(key, apiKeyConfig)
+  s3Client.upload(key, apiKeyConfig, None)
 }

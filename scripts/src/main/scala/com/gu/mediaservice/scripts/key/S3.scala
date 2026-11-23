@@ -24,15 +24,9 @@ class S3(bucket: String) {
   private def taggging(tags: List[Tag]): Tagging = {
     Tagging.builder().tagSet(tags: _*).build()
   }
-  def upload(key: String, config: ApiKeyConfig, expiry: Option[Expiry]): Unit = {
+  def upload(key: String, config: ApiKeyConfig, ttl: Option[Expiry]): Unit = {
 
-    val ttlDays = expiry.map({
-      case Day => 1
-      case Week => 7
-      case Month => 30
-    })
-
-    val tags = List(buildTag("schema", "v2")) ++ ttlDays.map(days => buildTag("ttl", days.toString)).toList
+    val tags = List(buildTag("schema", "v2")) ++ ttl.map(expiry => buildTag("ttl", expiry.days.toString)).toList
 
     val s3key = s"${config.name}-$key"
     val request = PutObjectRequest.builder()

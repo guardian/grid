@@ -14,6 +14,6 @@ object CreateKeyV2 extends App {
 
   val key = KeyGenerator.randomKey()
 
-  s3Client.upload(key, apiKeyConfig, parsed.expiry)
+  s3Client.upload(key, apiKeyConfig, ApiKeyConfig.resolveExpiry(parsed.expiry, parsed.principalType))
 
 }

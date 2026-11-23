@@ -56,13 +56,16 @@ object ApiKeyConfig {
 
   val defaultExpiry: Expiry= Day
 
-  def expiry(expiryDays: Option[Expiry], principalType: PrincipalType): Option[Instant] = {
-    val days = expiryDays.map(_.days)
-      .orElse(Option.when(principalType == Developer)(defaultExpiry.days))
-    days.map(d => Instant.now().plusSeconds(60 * 60 * 24 * d))
-  }
-  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType, expiryDays: Option[Expiry]): ApiKeyConfig = {
-    ApiKeyConfig(name, permissions, expiry(expiryDays, principalType), principalType)
+  def resolveExpiry(requested: Option[Expiry], principalType: PrincipalType): Option[Expiry] =
+    requested.orElse(Option.when(principalType == Developer)(defaultExpiry))
+
+  private def expiresAt(expiry: Option[Expiry]): Option[Instant] =
+    expiry.map(e => Instant.now().plusSeconds(60L * 60 * 24 * e.days))
+
+  def apply(name: String, permissions: Seq[PermissionDefinition],
+            principalType: PrincipalType, requestedExpiry: Option[Expiry]): ApiKeyConfig = {
+    val resolved = resolveExpiry(requestedExpiry, principalType)
+    ApiKeyConfig(name, permissions, expiresAt(resolved), principalType)
   }
 
   private val byName: Map[String, PermissionDefinition] =
