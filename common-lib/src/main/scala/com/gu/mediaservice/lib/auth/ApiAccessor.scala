@@ -22,6 +22,7 @@ object Tier {
     case Internal => "internal"
     case ReadOnly => "readonly"
     case Syndication => "syndication"
+    case Administrator => "administrator"
   }
 
   implicit val format: Format[Tier] = Format(
