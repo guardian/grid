@@ -3,7 +3,7 @@
 There are three ways to authenticate with Grid.
 
 ## Inner service
-Services can call other Grid services, typically reusing the credentials of the original using the `onBehalfOf` mechanism. However, sometimes services such as `thrall` will need to originate a call to another Grid service (e.g. during a long-running migration), in which case they can make use of the `innerServiceCall` method on instances of `Authentication` (the same place where one can call `getOnBehalfOfPrincipal`). This `innerServiceCall` method adds the following headers to the request: 
+Services can call other Grid services, typically reusing the credentials of the original using the `onBehalfOf` mechanism. However, sometimes services such as `thrall` will need to originate a call to another Grid service (e.g. during a long-running migration), in which case they can make use of the `innerServiceCall` method on instances of `Authentication` (the same place where one can call `getOnBehalfOfPrincipal`). This `innerServiceCall` method adds the following headers to the request:
 
 - `X-Inner-Service-Identity`: contains the name of the originating service, e.g. `thrall` and  possibly names of other services the request has gone via (see `onBehalfOf` section below)
 - `X-Inner-Service-UUID`: contains a unique identifier for the request
@@ -66,7 +66,8 @@ You can always redeploy the application if impatient!
 
 API keys are considered to have different "tiers" of access. Three are currently considered:
 
-- internal - Allowed to call any endpoint
+- administrator - Allowed to call any endpoint
+- internal - Allowed to call any endpoint except delete
 - readonly - Only allows GET requests
 - syndication - Only allows GET requests on endpoints specifically required for the syndication workflows
 

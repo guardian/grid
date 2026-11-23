@@ -10,8 +10,16 @@ permissions:
   packages: write
 jobs:
   test:
+    name: test (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    # Playwright's native sharding: each shard boots its own stack and runs a quarter
+    # of the scenarios. The merge-reports job combines their blob reports.
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
     defaults:
       run:
         working-directory: e2e-tests
@@ -105,9 +113,10 @@ jobs:
         load: true
         # Share layers across branches via a single stable cache ref. Every run
         # reads from :main; only pushes to main write it back (mode=max caches
-        # intermediate layers too, so the mise toolchain layer is reused).
+        # intermediate layers too, so the mise toolchain layer is reused). Only the
+        # first shard writes, so parallel shards don't race to push the same ref.
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
-        cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+        cache-to: ${{ github.event_name == 'push' && matrix.shardIndex == 1 && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Set up local CA for devcontainer-nginx
       id: local-ca
       run: |
@@ -119,23 +128,23 @@ jobs:
     - name: Run Playwright tests
       env:
         NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
-      run: npm test
-    - name: Upload e2e reports
+      run: npm test -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    # Blob reports hold the shard's results and attachments; merge-reports turns
+    # them into the HTML and Cucumber reports.
+    - name: Upload blob report
       uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
-        name: e2e-report
-        path: |
-          e2e-tests/playwright-report/
-          e2e-tests/cucumber-report/
-        retention-days: 14
+        name: blob-report-${{ matrix.shardIndex }}
+        path: e2e-tests/blob-report/
+        retention-days: 1
         if-no-files-found: ignore
     - name: Upload testcontainers log
       id: testcontainers-log
       uses: actions/upload-artifact@v7
       if: ${{ failure() }}
       with:
-        name: testcontainers-log
+        name: testcontainers-log-${{ matrix.shardIndex }}
         path: e2e-tests/logs/
         retention-days: 14
         if-no-files-found: ignore
@@ -148,3 +157,55 @@ jobs:
         echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
         cat logs/*/testcontainers.log
 
+
+  merge-reports:
+    # Merge even when shards fail, so failures appear in the combined reports.
+    if: ${{ !cancelled() }}
+    needs: test
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e-tests
+    steps:
+    - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+    - uses: actions/setup-node@v7
+      with:
+        node-version: lts/*
+        cache: npm
+        cache-dependency-path: e2e-tests/package-lock.json
+    - name: Install dependencies
+      run: npm ci
+    - name: Download blob reports
+      uses: actions/download-artifact@v7
+      with:
+        path: e2e-tests/all-blob-reports
+        pattern: blob-report-*
+        merge-multiple: true
+    # The Cucumber reporter needs the generated BDD files and the config, so run
+    # bddgen and pass --config. The reporters come from playwright.config.ts.
+    - name: Merge reports
+      run: npx bddgen && npx playwright merge-reports --config playwright.config.ts ./all-blob-reports
+    - name: Upload e2e reports
+      uses: actions/upload-artifact@v7
+      with:
+        name: e2e-report
+        path: |
+          e2e-tests/playwright-report/
+          e2e-tests/cucumber-report/
+        retention-days: 14
+        if-no-files-found: ignore
+
+  # A single, stable check name for branch protection, independent of the shard count.
+  playwright-result:
+    if: ${{ always() }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check all shards passed
+      if: ${{ needs.test.result != 'success' }}
+      env:
+        RESULT: ${{ needs.test.result }}
+      run: |
+        echo "::error::One or more Playwright shards did not pass (result: $RESULT)"
+        exit 1
