@@ -10,6 +10,7 @@ import org.joda.time.DateTime
 import scalaz.NonEmptyList
 
 import scala.collection.immutable
+import scala.concurrent.duration._
 import scala.util.Try
 
 case class StoreConfig(
@@ -82,6 +83,15 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
   // When true, embedded metadata (EXIF/IPTC/XMP) is stripped from downloaded original images via ExifTool,
   // keeping only the copyright/credit fields. When false (the default), images are streamed unmodified.
   val stripDownloadMetadata: Boolean = boolean("images.downloads.stripMetadata.enabled")
+  // Safeguards for the temp files stripping uses - see `DownloadTempFiles`.
+  val stripDownloadMetadataTimeout: FiniteDuration =
+    intDefault("images.downloads.stripMetadata.exiftoolTimeoutSeconds", 60).seconds
+  val stripDownloadMetadataMinFreeDiskBytes: Long =
+    intDefault("images.downloads.stripMetadata.minFreeDiskSpaceMb", 1024).toLong * 1024 * 1024
+  val stripDownloadMetadataTempFileMaxAge: FiniteDuration =
+    intDefault("images.downloads.stripMetadata.tempFileMaxAgeMinutes", 60).minutes
+  val stripDownloadMetadataTempFileSweepInterval: FiniteDuration =
+    intDefault("images.downloads.stripMetadata.tempFileSweepIntervalMinutes", 30).minutes
   val takedownEnabled: Boolean = booleanOpt("image.takedown.enabled").getOrElse(false)
 
   val queueUrl: String = stringOpt("sqs.embedder.queue.url").getOrElse("")

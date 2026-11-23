@@ -9,6 +9,7 @@ import lib.elasticsearch.ElasticSearch
 import play.api.ApplicationLoader.Context
 import router.Routes
 
+import java.nio.file.Paths
 import scala.concurrent.Future
 
 class MediaApiComponents(context: Context) extends GridComponents(context, new MediaApiConfig(_)) {
@@ -33,7 +34,15 @@ class MediaApiComponents(context: Context) extends GridComponents(context, new M
   val embedder = new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(config.queueUrl, config))
   val previewContentApi = new PreviewContentApi(config)(ScheduledExecutor())
 
-  val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, previewContentApi, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation, embedder)
+  val downloadTempFiles = new DownloadTempFiles(
+    Paths.get(System.getProperty("java.io.tmpdir"), "grid-downloads"),
+    config.stripDownloadMetadataMinFreeDiskBytes,
+    config.stripDownloadMetadataTempFileMaxAge
+  )
+  private val downloadTempFileSweeps = downloadTempFiles.scheduleSweeps(actorSystem.scheduler, config.stripDownloadMetadataTempFileSweepInterval)
+  applicationLifecycle.addStopHook(() => Future(downloadTempFileSweeps.cancel()))
+
+  val mediaApi = new MediaApi(auth, messageSender, softDeletedMetadataTable, elasticSearch, imageResponse, config, previewContentApi, controllerComponents, s3Client, mediaApiMetrics, wsClient, authorisation, embedder, downloadTempFiles)
   val suggestionController = new SuggestionController(auth, elasticSearch, controllerComponents)
   val aggController = new AggregationController(auth, elasticSearch, controllerComponents)
   val usageController = new UsageController(auth, config, elasticSearch, usageQuota, controllerComponents)
