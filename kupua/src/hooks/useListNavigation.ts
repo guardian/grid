@@ -62,6 +62,7 @@ export type ListNavigationConfig = {
    */
   headerHeight: number;
   getStickyInset?: (scrollTop?: number) => number;
+  pageByImage?: boolean;
 
   /** Current focused image ID (from useDataWindow). */
   focusedImageId: string | null;
@@ -249,6 +250,16 @@ export function useListNavigation(config: ListNavigationConfig): void {
     if (!el || config.virtualizerCount === 0) return;
     if (config.spatial) {
       const inset = config.getStickyInset?.() ?? 0;
+      if (config.pageByImage) {
+        const row = config.spatial.rowAtOffset(el.scrollTop + inset + 1);
+        if (!row) return;
+        const destination = row.firstItemIndex + (direction === "down" ? 1 : -1);
+        const top = destination < 0 ? 0 : destination >= config.virtualizerCount ? el.scrollHeight
+          : config.spatial.getItemRow(destination).top;
+        el.scrollTop = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, top - (config.getStickyInset?.(top) ?? 0)));
+        el.dispatchEvent(new Event("scroll"));
+        return;
+      }
       const height = Math.max(1, el.clientHeight - config.headerHeight - inset);
       const edge = direction === "down" ? el.scrollTop + el.clientHeight - config.headerHeight : el.scrollTop + inset;
       const row = config.spatial.rowAtOffset(edge);
@@ -494,7 +505,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
           if (hasFocus) {
             moveFocusByRow(-1);
           } else {
-            scrollByRows(-1);
+            if (c.pageByImage) c.scrollRef.current?.scrollBy({ top: -40 }); else scrollByRows(-1);
           }
           break;
         case "ArrowDown":
@@ -502,7 +513,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
           if (hasFocus) {
             moveFocusByRow(1);
           } else {
-            scrollByRows(1);
+            if (c.pageByImage) c.scrollRef.current?.scrollBy({ top: 40 }); else scrollByRows(1);
           }
           break;
         // ArrowLeft/Right: in multi-column grid with focus, move focus.

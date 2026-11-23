@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Plugin } from "vite";
+import { isLeaseRequest } from "../../src/lib/grid-mutation-policy.ts";
 
 export const virtualEntry = "virtual:kupua-commands";
 const root = resolve(import.meta.dirname, "../..");
@@ -14,6 +15,13 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
   let uploadEdits = false;
   const metadataOverrides = new Map<string, Record<string, unknown>>();
   const rightsOverrides = new Map<string, Record<string, string>>();
+  const leases = new Map<string, { mediaId: string; id: string; access: string; notes?: string }[]>();
+  const leaseOrigin = "https://leases.example.test";
+  const leaseActions = (id: string) => uploadEdits ? [
+    { name: "add-lease", method: "POST", href: `${leaseOrigin}/leases` },
+    { name: "replace-leases", method: "PUT", href: `${leaseOrigin}/leases/media/${id}` },
+    { name: "delete-leases", method: "DELETE", href: `${leaseOrigin}/leases/media/${id}` },
+  ] : [];
   const presetLabels = new Map<string, string[]>();
   const metadataWrites: { id: string; method: string; data: unknown }[] = [];
   const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
@@ -80,7 +88,8 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const asset = ["test", "test-card-f", "embedded-metadata"][index % 3];
     const dimensions = index % 3 === 0 ? { width: 700, height: 576 } : { width: 767, height: 561 };
     return {
-      uri: `/api/images/${id}`, actions: [], links: [
+      uri: `/api/images/${id}`, actions: leaseActions(id), links: [
+        ...(uploadEdits ? [{ rel: "leases", href: `${leaseOrigin}/leases/media/${id}` }] : []),
         { rel: "optimised", href: `/__publication-media/${asset}.jpg` },
         ...(!label ? [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] : []),
       ],
@@ -94,7 +103,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
           labels: { data: [{ data: label ?? "original label" }] }, archived: { data: false }, metadata: {}, usageRights: {}, photoshoot: {} } },
         source: { dimensions, mimeType: "image/jpeg" },
         thumbnail: { secureUrl: `/__publication-media/${asset}.jpg`, dimensions, mimeType: "image/jpeg" },
-        usages: { data: [] }, leases: { data: { leases: [] } }, collections: [],
+        usages: { data: [] }, leases: { data: { leases: leases.get(id) ?? [] } }, collections: [],
       },
     };
   };
@@ -116,10 +125,10 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const resource = entity("local-0", true);
     const file = uploaded.get(id);
     const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
-    return { ...resource, uri: `/api/images/${id}`, data: { ...resource.data, id,
+    return { ...resource, uri: `/api/images/${id}`, actions: leaseActions(id), data: { ...resource.data, id, leases: { data: { leases: leases.get(id) ?? [] } },
       ...(uploadEdits ? { originalMetadata,
-        usageRights: rightsOverrides.get(id) ?? resource.data.usageRights,
-        ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", invalidReasons: { paid_image: "Fixture paid-image notice" } }),
+        usageRights: rightsOverrides.get(id) ?? {},
+        ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", valid: leases.get(id)?.some(item => item.access === "allow-use") ?? false, invalidReasons: { paid_image: "Fixture paid-image notice" } }),
         metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
         userMetadata: { data: { ...resource.data.userMetadata.data,
           usageRights: { data: rightsOverrides.get(id) }, metadata: { data: metadataOverrides.get(id) },
@@ -138,7 +147,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     },
     config() {
       return readback ? { define: { "import.meta.env.VITE_GRID_AUTH_ORIGIN": JSON.stringify("https://auth.example.test"),
-        ...(upload ? { "import.meta.env.VITE_GRID_METADATA_ORIGIN": JSON.stringify("https://metadata.example.test") } : {}) } } : undefined;
+        ...(upload ? { "import.meta.env.VITE_GRID_METADATA_ORIGIN": JSON.stringify("https://metadata.example.test"), "import.meta.env.VITE_GRID_LEASES_ORIGIN": JSON.stringify(leaseOrigin) } : {}) } } : undefined;
     },
     resolveId(id) { if (id === virtualEntry) return id; },
     load(id) {
@@ -149,16 +158,42 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
+        if (/^\/grid-(?:(?:local|test)-)?leases(?:\/|$)/.test(pathname)) {
+          const path = request.url!.slice("/grid-leases".length);
+          if (!uploadEdits || !pathname.startsWith("/grid-leases/") || !isLeaseRequest(request.method, path)) {
+            response.statusCode = 403; response.end("Synthetic fixture: lease transport disabled"); return;
+          }
+          const id = path.split("/").at(-1)!;
+          response.setHeader("Content-Type", "application/json");
+          if (request.method === "GET") {
+            response.end(JSON.stringify(path === "/" ? { links: [{ rel: "leases", href: `${leaseOrigin}/leases/{id}` }] } : { data: { leases: leases.get(id) ?? [] } })); return;
+          }
+          const chunks: Buffer[] = [];
+          for await (const chunk of request) chunks.push(Buffer.from(chunk));
+          const body = JSON.parse(Buffer.concat(chunks).toString() || "null");
+          if (request.method === "POST" && (uploaded.has(body?.mediaId) || known(body?.mediaId))) {
+            const existing = leases.get(body.mediaId) ?? [];
+            const isSyndication = (access: string) => access === "allow-syndication" || access === "deny-syndication";
+            const retained = isSyndication(body.access) ? existing.filter(item => !isSyndication(item.access)).map(item => ({ ...item, id: randomUUID() })) : existing;
+            leases.set(body.mediaId, [...retained, { ...body, id: randomUUID() }]);
+          }
+          else if (request.method === "PUT" && (uploaded.has(id) || known(id))) leases.set(id, body.map((item: object) => ({ ...item, id: randomUUID() })));
+          else if (request.method === "DELETE" && path.startsWith("/leases/media/") && (uploaded.has(id) || known(id))) leases.delete(id);
+          else if (request.method === "DELETE" && !path.startsWith("/leases/media/")) { for (const [key, items] of leases) leases.set(key, items.filter(item => item.id !== id)); }
+          else { response.statusCode = 403; response.end("{}"); return; }
+          response.statusCode = 202; response.end(); return;
+        }
         if (uploadEdits && request.method === "GET" && ["/grid-metadata/", "/grid-metadata/usage-rights/filtered-categories"].includes(pathname)) {
           const properties = [{ name: "publication", label: "Publication", type: "string", required: true, options: ["Daily", "Weekly"] },
             { name: "creator", label: "Creator", type: "string", required: true, optionsMapKey: "publication", optionsMap: { Daily: ["Listed contributor"], Weekly: ["Weekly artist", "Other artist"] } }];
           response.setHeader("Content-Type", "application/json");
           response.end(JSON.stringify(pathname.endsWith("/") ? { links: [{ rel: "filtered-usage-rights-list", href: "https://metadata.example.test/usage-rights/filtered-categories" }] }
             : { data: [...["photography", "illustration"].map(kind => ({ value: `publisher-${kind}`, name: `Publisher ${kind}`, description: "", properties })),
-              { value: "pay-to-use", name: "Pay to use", description: "", properties: [] }] })); return;
+              { value: "pay-to-use", name: "Pay to use", description: "", properties: [] },
+              { value: "", name: "Unknown Rights", description: "No known rights", caution: "You cannot use this image in content!", properties: [] }] })); return;
         }
         if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
-          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/metadata|\/labels)?$/.exec(pathname);
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/metadata|\/labels(?:\/([^/]+))?)?$/.exec(pathname);
           response.setHeader("Content-Type", "application/json");
           if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
           const id = match[1];
@@ -168,7 +203,8 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               usageRights: { uri: `https://metadata.example.test/metadata/${id}/usage-rights`, data: rightsOverrides.get(id) },
               metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } }, actions: [
                 { name: "set-from-usage-rights", method: "POST", href: `https://metadata.example.test/metadata/${id}/metadata/set-from-usage-rights` }] },
-              labels: { uri: `https://metadata.example.test/metadata/${id}/labels`, data: [] },
+              labels: { uri: `https://metadata.example.test/metadata/${id}/labels`, data: (presetLabels.get(id) ?? []).map(data => ({ data,
+                uri: `https://metadata.example.test/metadata/${id}/labels/${new URLSearchParams({ label: data }).toString().slice(6)}` })) },
             } })); return;
           }
           const chunks: Buffer[] = [];
@@ -182,6 +218,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
             metadataOverrides.set(id, body.data);
           }
           else if (match[2] === "/labels" && request.method === "POST") presetLabels.set(id, [...new Set([...(presetLabels.get(id) ?? []), ...body.data as string[]])]);
+          else if (match[3] && request.method === "DELETE") presetLabels.set(id, (presetLabels.get(id) ?? []).filter(label => label !== decodeURIComponent(match[3].replace(/\+/g, " "))));
           else { response.statusCode = 403; response.end("{}"); return; }
           metadataWrites.push({ id, method: request.method, data: body.data });
           response.end(JSON.stringify({ data: body.data })); return;
@@ -199,7 +236,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              if (body.reset) rightsOverrides.clear();
+              if (body.reset) { rightsOverrides.clear(); leases.clear(); }
               if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); metadataWrites.length = 0; metadataReads.clear(); }
               if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
                 embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
@@ -220,7 +257,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               ...(uploadEdits ? { metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
           }
           if (pathname === "/api" || pathname === "/api/") return send({ links: [
-            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }] : []),
+            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }, { rel: "leases", href: leaseOrigin }] : []),
             ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
           ] });
           if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },

@@ -1,10 +1,63 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { resolve } from "node:path";
+import { Readable } from "node:stream";
 import type { Connect } from "vite";
+import { gridMutationPlugin } from "../../../e2e/shared/grid-mutation-plugin";
 import { GRID_API_READ_VIA_POST, isGridApiReadViaPost } from "./read-via-post";
 
 afterEach(() => vi.unstubAllEnvs());
+
+function fixtureRequest(mode: Parameters<typeof gridMutationPlugin>[0]) {
+  const use = vi.fn<(handler: Connect.NextHandleFunction) => void>();
+  const configure = gridMutationPlugin(mode).configureServer;
+  if (typeof configure !== "function") throw new Error("Missing fixture middleware");
+  configure.call({} as never, { middlewares: { use } } as never);
+  const [[handler]] = use.mock.calls;
+  return async (method: string, url: string, body?: unknown) => {
+    const request = Object.assign(Readable.from(body === undefined ? [] : [JSON.stringify(body)]), { method, url });
+    const response = { statusCode: 200, setHeader: vi.fn(), end: vi.fn<(text?: string) => void>() };
+    const next = vi.fn();
+    await handler(request as never, response as never, next);
+    expect(next, `${method} ${url} reached downstream middleware`).not.toHaveBeenCalled();
+    expect(response.end).toHaveBeenCalledOnce();
+    return { status: response.statusCode, text: response.end.mock.calls[0][0] };
+  };
+}
+
+it("blocks unhandled lease requests in the fixture without reaching a proxy", async () => {
+  for (const mode of [false, true, "readback", "continuation", "upload"] as const) {
+    const request = fixtureRequest(mode);
+    for (const prefix of ["/grid-leases", "/grid-local-leases", "/grid-test-leases"]) {
+      expect((await request("POST", `${prefix}/leases`)).status).toBe(403);
+    }
+  }
+  const request = fixtureRequest("upload");
+  await request("POST", "/__upload-control", { editing: true, members: [{ id: "fixture", name: "fixture.jpg" }] });
+  for (const [method, url] of [
+    ["GET", "/grid-local-leases/"], ["DELETE", "/grid-test-leases/leases/media/fixture"],
+    ["GET", "/grid-leases/unsupported"], ["PUT", "/grid-leases/other/fixture"],
+    ["DELETE", "/grid-leases/leases/reindex"], ["PATCH", "/grid-leases/leases/media/fixture"],
+    ["DELETE", "/grid-leases/leases/media/fixture?all=true"],
+  ]) expect((await request(method, url, [])).status).toBe(403);
+});
+
+it("reissues retained use terms when a fixture syndication POST replaces the previous decision", async () => {
+  const request = fixtureRequest("upload");
+  await request("POST", "/__upload-control", { editing: true });
+  const post = async (access: string) => expect((await request("POST", "/grid-leases/leases", { mediaId: "local-0", access, notes: access })).status).toBe(202);
+  const read = async (): Promise<{ id: string; access: string; notes: string }[]> => JSON.parse((await request("GET", "/grid-leases/leases/media/local-0")).text!).data.leases;
+  await post("allow-syndication");
+  const [previous] = await read();
+  await post("deny-use");
+  const [unchanged, retained] = await read();
+  expect(unchanged).toEqual(previous);
+  await post("deny-syndication");
+  const replacements = await read();
+  expect(replacements).toEqual([expect.objectContaining({ access: "deny-use", notes: retained.notes, id: expect.any(String) }),
+    expect.objectContaining({ access: "deny-syndication", id: expect.any(String) })]);
+  for (const { id } of replacements) expect([previous.id, retained.id]).not.toContain(id);
+});
 
 it("routes advertised local and TEST satellites independently without manual targets", async () => {
   vi.stubEnv("VITE_HOSTED", "false");
@@ -15,6 +68,8 @@ it("routes advertised local and TEST satellites independently without manual tar
   for (const environment of ["local", "test"]) {
     const metadata = `https://media-metadata.${environment}.dev-gutools.co.uk`;
     const auth = `https://media-auth.${environment}.dev-gutools.co.uk`;
+    const leases = `https://media-leases.${environment}.dev-gutools.co.uk`;
+    expect(gridServiceUrl("leases", `${leases}/leases`, "/leases", leases)).toBe(environment === "test" ? `${leases}/leases` : "/grid-local-leases/leases");
     const loader = `https://loader.media.${environment}.dev-gutools.co.uk`;
     expect(gridServiceUrl("metadata", `${metadata}/metadata/fixture`, "/metadata/fixture", metadata))
       .toBe(environment === "test" ? `${metadata}/metadata/fixture` : `/grid-local-metadata/metadata/fixture`);
@@ -109,7 +164,7 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
     ]) loaderGuard(request as never, response as never, next);
     expect(next).not.toHaveBeenCalled();
     for (const environment of ["local", "test"]) {
-      for (const service of ["metadata", "auth", "collections", "loader"]) {
+      for (const service of ["metadata", "auth", "collections", "loader", "leases"]) {
         const prefix = `/grid-${environment}-${service}`;
         const proxy = server.config.server.proxy![`^${prefix}/`];
         if (environment === "test" && service === "collections") {
@@ -126,7 +181,7 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
         const fixedGuard = server.middlewares.stack.find(entry => entry.route === prefix)?.handle as Connect.NextHandleFunction;
         expect(fixedGuard).toBeDefined();
         next.mockClear();
-        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : service === "collections" ? "/collections" : service === "loader" ? "/" : "/metadata/fixture" } as never, response as never, next);
+        fixedGuard({ method: "GET", url: service === "auth" ? "/session" : service === "collections" ? "/collections" : service === "loader" || service === "leases" ? "/" : "/metadata/fixture" } as never, response as never, next);
         expect(next).toHaveBeenCalledOnce();
         next.mockClear();
         fixedGuard({ method: "POST", url: "/metadata/fixture/labels" } as never, response as never, next);
@@ -138,6 +193,14 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
           fixedGuard({ method: "DELETE", url: "/collections" } as never, response as never, next);
           fixedGuard({ method: "POST", url: "/collections" } as never, response as never, next);
           fixedGuard({ method: "GET", url: "/collections/other" } as never, response as never, next);
+        }
+        if (service === "leases") {
+          fixedGuard({ method: "POST", url: "/leases/media/fixture" } as never, response as never, next);
+          fixedGuard({ method: "DELETE", url: "/leases/media/fixture?all=true" } as never, response as never, next);
+          fixedGuard({ method: "DELETE", url: "/leases/reindex" } as never, response as never, next);
+          expect(next).not.toHaveBeenCalled();
+          fixedGuard({ method: "PUT", url: "/leases/media/fixture" } as never, response as never, next);
+          expect(next).toHaveBeenCalledOnce(); next.mockClear();
         }
         expect(next).not.toHaveBeenCalled();
       }

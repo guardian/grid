@@ -46,11 +46,12 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const hasAll = (value: string) => values.some(item => item.value === value.trim() && item.count === targetIds.length);
   const prepare = (action: "add" | "remove", value: string) => {
     if (!(action === "add" ? canAdd : available) || !value.trim() || !targetIds.length || action === "add" && hasAll(value)) return;
-    const intent: MetadataEditIntent = { fieldId: field.id, action, value: value.trim(), targetIds: [...targetIds] };
+    const intent: MetadataEditIntent = { fieldId: field.id, action, value: action === "remove" ? value : value.trim(), targetIds: [...targetIds] };
     const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent, addRef.current);
     const message = `Not sent - ${action === "add" ? "Add" : "Remove"} ${noun} prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`;
     if (form) setNotice(submitted === undefined ? message : "");
-    else if (panelSaveAdmitted(submitted, message) && action === "add" && value === draft) setAdding(false);
+    const admitted = form ? submitted?.state !== "finished" : panelSaveAdmitted(submitted, message) || !submitted;
+    if (admitted && action === "add" && value === draft) { setAdding(false); setDraft(""); }
   };
   const sorted = [...values].sort((first, second) => second.count - first.count);
   if (!editable && !adding) return readOnly ?? null;
@@ -62,7 +63,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
       <SavingValue saving={!form && !!pending}><div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
         {!dataAvailable && !retainReading && <Dash />}
         {(expanded ? sorted : sorted.slice(0, 20)).map(item => <EditableSearchPill key={item.value} value={item.value}
-          cqlKey={field.cqlKey!} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} addDisabled={!canAdd} coverageKnown={dataAvailable || retainReading}
+          cqlKey={field.cqlKey!} accent={field.id === "labels"} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} addDisabled={!canAdd} coverageKnown={dataAvailable || retainReading}
           onAdd={() => prepare("add", item.value)} onRemove={() => prepare("remove", item.value)}
           label={collection ? <span className="inline-flex max-w-full flex-wrap items-center gap-x-1">
             {(collectionPaths?.get(item.value) ?? item.value.split("/")).map((part, index) => <span key={index} className="inline-flex min-w-0 items-center gap-1">

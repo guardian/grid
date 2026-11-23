@@ -4,9 +4,11 @@ import { type MetadataEditTarget } from "./metadata-edit-execution";
 import type { LabelCommand } from "./grid-commands";
 import type { GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
-import { acceptImageOverlay, acceptImageRead, admitLabelObservation, captureImageRead, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
+import { acceptImageOverlay, acceptImageRead, admitLabelObservation, captureImageRead, hasImageCommandConflict, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, resolveImageOverlay, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
 import { attachEnrichment } from "@/stores/enrichment-store";
 import { createMetadataOperation } from "./metadata-operation";
+import { metadataSaveStatus } from "@/stores/metadata-editor-store";
+import { leaseSetKey } from "./lease-change";
 import { BATCH_POLICY } from "./batch-execution";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
@@ -22,6 +24,26 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("metadata edit execution", () => {
+  it("observes only the acknowledged label prefix and stops queued work on expiry without leaving a conflict", async () => {
+    const result = { outcome: "partial", status: 419, expected: { labels: ["news"] },
+      labelSteps: { acknowledged: 1, rejected: 1, notSent: 0, uncertain: 0 } } as const;
+    const execute = vi.fn().mockResolvedValue(result);
+    const current = observedImage(), publishImages = vi.fn();
+    const operation = createMetadataOperation(execute, { readImages: async () => [current], publishImages },
+      { pacing: { nextStart: 0 }, dispatchConcurrency: 1 });
+    try {
+      await operation.confirm({ fieldId: "labels", action: "overwrite", value: [], targetIds: ["first", "next"] }, new Map([...targets, ["next", { resource }]]));
+      expect(execute).toHaveBeenCalledOnce();
+      expect(operation.getSnapshot()?.items).toMatchObject([{ state: "partial", observation: "observed", result }, { state: "stopped" }]);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+      const receipt = operation.getSnapshot()!;
+      const summary = metadataSaveStatus({ id: 1, intent: receipt.intent, items: receipt.items, state: "finished", excluded: 0 });
+      expect(summary).toContain("0/2 visible");
+      expect(summary).toContain("1 acknowledged");
+      expect(summary).toContain("1 rejected");
+      expect(hasImageCommandConflict("first")).toBe(false);
+    } finally { operation.stopRemaining(); operation.cancelObservation(); }
+  });
   it("retains shared capacity reservations until every queued owner releases them", () => {
     recordImageAvailability(Array.from({ length: BATCH_POLICY.maxTouchedImages - 1 }, (_, index) => `unavailable-${index}`), "unavailable");
     const first = watchQueuedLabelTargets(["shared"])!;
@@ -52,6 +74,68 @@ describe("metadata edit execution", () => {
       expect(operation.getSnapshot()?.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
       expect(execute).toHaveBeenCalledOnce();
     } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it.each([true, false])("sends only this image's overwrite decision (%s) and observes an uncertain lease addition without replay", async overwrite => {
+    vi.useFakeTimers();
+    const lease = { access: "allow-syndication" } as const;
+    const current = { ...observedImage(), leases: { leases: [lease] } };
+    const execute = vi.fn().mockResolvedValue({ outcome: "unknown", expectedLeases: leaseSetKey([lease]) });
+    const publishImages = vi.fn();
+    const operation = createMetadataOperation(execute, {
+      readImages: vi.fn().mockResolvedValueOnce([{ ...current, leases: { leases: [] } }]).mockResolvedValue([current]), publishImages,
+    });
+    try {
+      await operation.confirm({ fieldId: "leases", action: "overwrite", value: { kind: "add", lease, overwriteOn: overwrite ? ["first"] : ["other"] }, targetIds: ["first"] }, targets);
+      expect(execute).toHaveBeenCalledExactlyOnceWith({ operation: "edit-leases", resource, imageId: "first", value: { kind: "add", lease, overwrite } });
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+      expect(operation.getSnapshot()?.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
+      expect(execute).toHaveBeenCalledOnce();
+    } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it.each([true, false])("fences later lease bodies and overlays until newer evidence or a confirmed clear (versioned: %s)", async versioned => {
+    const lease = { id: "first-lease", access: "allow-use" } as const;
+    const timestamp = "2026-11-06T00:01:00Z";
+    const read = (leases: Image["leases"]) => {
+      const image = { ...observedImage(), leases };
+      const overlay = { resource: structuredClone(resource), leasesSummary: { currentCount: leases?.leases?.length ?? 0, inactiveCount: 0, hasActiveAllowLease: false } };
+      attachEnrichment(image, overlay);
+      stampImageRead(image, overlay, captureImageRead(), "full");
+      return { image, overlay };
+    };
+    const confirm = async (records: typeof lease[]) => {
+      const grant = read({ leases: [lease], lastModified: versioned ? timestamp : undefined });
+      acceptImageOverlay("first", grant.overlay);
+      const operation = createMetadataOperation(async () => ({ outcome: "acknowledged", expectedLeases: leaseSetKey(records) }), {
+        readImages: async () => [read({ leases: records, lastModified: versioned ? (records.length ? timestamp : "2026-11-06T00:00:30Z") : undefined }).image], publishImages: vi.fn(),
+      });
+      try {
+        await operation.confirm({ fieldId: "leases", action: "overwrite", value: { kind: "replace", leases: records.map(({ access }) => ({ access })) }, targetIds: ["first"] }, new Map([["first", grant.overlay]]));
+        expect(operation.getSnapshot()?.items[0].observation).toBe("observed");
+      } finally { operation.cancelObservation(); }
+    };
+    await confirm([lease]);
+    const current = read({ leases: [lease], lastModified: versioned ? timestamp : undefined });
+    expect(acceptImageRead(current.image)).toBe(current.image);
+    expect(acceptImageOverlay("first", current.overlay)).toBe(current.overlay);
+    for (const lastModified of versioned ? ["2026-11-06T00:00:00Z", timestamp, undefined] : [undefined]) {
+      const stale = read({ leases: [], lastModified });
+      expect(acceptImageRead(stale.image, current.image)).toBe(current.image);
+      expect(acceptImageRead(stale.image, stale.image)).toBeUndefined();
+      expect(acceptImageOverlay("first", stale.overlay, current.overlay)).toBe(current.overlay);
+      expect(resolveImageOverlay(current.image, current.overlay, stale.overlay)).toBe(current.overlay);
+    }
+    await confirm([]);
+    expect(acceptImageRead(read({ leases: [lease], lastModified: versioned ? timestamp : undefined }).image)).toBeUndefined();
+    if (versioned) {
+      const newer = read({ leases: [lease], lastModified: "2026-11-06T00:02:00Z" });
+      expect(acceptImageRead(newer.image)).toBe(newer.image);
+      expect(acceptImageOverlay("first", newer.overlay)).toBe(newer.overlay);
+      expect(acceptImageRead(read({ leases: [], lastModified: timestamp }).image, newer.image)).toBe(newer.image);
+    }
   });
 
   it.each(["deadline", "failed", "exhausted"])("preserves Byline authority when an older standalone Credit read ends (%s)", async end => {

@@ -343,6 +343,7 @@ export function Scrubber({
   getPositionLabelRef.current = getPositionLabel;
 
   const dragPositionRef = useRef<number | null>(null);
+  const hoverPositionRef = useRef<number | null>(null);
 
   // -------------------------------------------------------------------------
   // Measure track height + wheel forwarding (callback ref)
@@ -700,6 +701,7 @@ export function Scrubber({
       if (!isHovered) setIsHovered(true);
       // Ignore moves over the thumb — thumb hover shows current position
       if ((e.target as HTMLElement).dataset.scrubberThumb) {
+        hoverPositionRef.current = null;
         // Restore tooltip to current/thumb position when mouse enters thumb
         const tipEl = tooltipRef.current;
         const trackEl = trackRef.current;
@@ -717,6 +719,7 @@ export function Scrubber({
 
       const pos = positionFromY(e.clientY);
       const rect = trackEl.getBoundingClientRect();
+      hoverPositionRef.current = pos;
       const cursorTop = Math.max(0, Math.min(trackEl.clientHeight, e.clientY - rect.top));
       applyTooltipContent(pos, total, cursorTop, trackEl, tipEl, getSortLabelRef.current?.(pos), getPositionLabelRef.current?.(pos));
 
@@ -773,6 +776,7 @@ export function Scrubber({
   }, [isDragging]);
 
   const handleTrackMouseLeave = useCallback(() => {
+    hoverPositionRef.current = null;
     setIsHovered(false);
     setIsHoveringTrack(false);
 
@@ -1047,6 +1051,9 @@ export function Scrubber({
     : (effectivePosition + 1).toLocaleString());
   const sortLabel = getSortLabel?.(effectivePosition) ?? null;
   const accessibleSortLabel = sortLabel ? sortLabelText(sortLabel) : null;
+  const hovered = isHoveringTrack && !isDragging ? hoverPositionRef.current : null;
+  const tooltipSort = hovered !== null ? getSortLabel?.(hovered) : sortLabel;
+  const tooltipPosition = hovered !== null ? getPositionLabel?.(hovered) ?? (hovered < reportedTotal ? `${(hovered + 1).toLocaleString()} of ${reportedTotal.toLocaleString()}` : (hovered + 1).toLocaleString()) : positionLabel;
 
   // Thumb color — three states: dragging > hover > idle
   const thumbColor = isDragging
@@ -1142,10 +1149,10 @@ export function Scrubber({
           <span
             data-sort-label=""
             className="block font-medium"
-            style={sortLabel ? undefined : { display: "none" }}
-            dangerouslySetInnerHTML={sortLabel ? { __html: sortLabel } : undefined}
+            style={tooltipSort ? undefined : { display: "none" }}
+            dangerouslySetInnerHTML={tooltipSort ? { __html: tooltipSort } : undefined}
           />
-          <span data-position-label="">{positionLabel}</span>
+          <span data-position-label="" className="whitespace-pre">{tooltipPosition}</span>
           {/* Loading dot — always in the DOM to prevent width twitch on load
               state changes. Visibility toggled, not presence. */}
           <span

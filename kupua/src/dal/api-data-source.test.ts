@@ -706,7 +706,7 @@ describe("ApiDataSource date distribution", () => {
     expect(calls.map((c) => c.body.operation)).toEqual(["date-stats", "date-buckets"]);
     expect(calls[0].body).toMatchObject({ field: "uploadTime", missingField: "lastModified" });
     expect(calls[1].body).toMatchObject({ field: "uploadTime", missingField: "lastModified", interval: "day" });
-    expect(dist).toEqual({ buckets, coveredCount: 10 });
+    expect(dist).toEqual({ buckets, coveredCount: 10, dateInterval: "day" });
   });
 
   it("keeps exact parent coverage separate from approximate evidence for max-mode dates", async () => {
@@ -718,7 +718,7 @@ describe("ApiDataSource date distribution", () => {
     });
     const dist = await new ApiDataSource().getDateDistribution({ ...params, orderBy: "-usagesDateAdded" }, "usages.dateAdded", "desc");
 
-    expect(dist).toEqual({ buckets, coveredCount: 6, bucketPositionKind: "approximate-evidence", evidenceCount: 9 });
+    expect(dist).toEqual({ buckets, coveredCount: 6, dateInterval: "month", bucketPositionKind: "approximate-evidence", evidenceCount: 9 });
   });
 
   it.each([

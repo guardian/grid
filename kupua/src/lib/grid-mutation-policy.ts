@@ -39,10 +39,17 @@ export function isLoaderRequest(method: string | undefined, path: string | undef
       || /^\/uploadStatus\/[a-f0-9]{40}$/.test(path ?? ""));
 }
 
-export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string; loader?: string } = {}) {
-  const routes: { service: "metadata" | "auth" | "collections" | "loader"; prefix: string; origin: string }[] = [];
+export function isLeaseRequest(method: string | undefined, path: string | undefined): boolean {
+  if (path === "/") return method === "GET";
+  if (path === "/leases") return method === "POST";
+  if (/^\/leases\/media\/[a-zA-Z0-9_-]+$/.test(path ?? "")) return ["GET", "PUT", "DELETE"].includes(method ?? "");
+  return method === "DELETE" && /^\/leases\/[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(path ?? "");
+}
+
+export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string; loader?: string; leases?: string } = {}) {
+  const routes: { service: "metadata" | "auth" | "collections" | "loader" | "leases"; prefix: string; origin: string }[] = [];
   for (const environment of ["local", "test"]) {
-    for (const service of ["metadata", "auth", "loader"] as const) {
+    for (const service of ["metadata", "auth", "loader", "leases"] as const) {
       const hostname = service === "loader" ? "loader.media" : `media-${service}`;
       routes.push({ service, prefix: `/grid-${environment}-${service}`,
         origin: `https://${hostname}.${environment}.dev-gutools.co.uk` });
@@ -50,7 +57,7 @@ export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: s
   }
   routes.push({ service: "collections", prefix: "/grid-local-collections",
     origin: "https://media-collections.local.dev-gutools.co.uk" });
-  for (const service of ["metadata", "auth", "loader"] as const) {
+  for (const service of ["metadata", "auth", "loader", "leases"] as const) {
     const origin = serviceOrigin(configured[service], true);
     if (origin) routes.push({ service, prefix: `/grid-${service}`, origin });
   }

@@ -71,7 +71,6 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 | [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
-| [KUP-045](#kup-045) | Lease summary has consumers but no current producer | Source-verified display gap; review and composed witness pending | Independent shared-display correction |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
 | [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
@@ -137,7 +136,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
 
 <details>
-<summary>Completed bounded repairs and verification: 50 IDs</summary>
+<summary>Completed bounded repairs and verification: 51 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -162,6 +161,7 @@ legacy-category expansion remains accepted lag.
 | Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
 | Crop eligibility and notices at the disconnected UI boundary | [KUP-047](#kup-047) |
 | Server wording retained for known Detail validity reasons | [KUP-046](#kup-046) |
+| API-derived lease summary for shared cost presentation | [KUP-045](#kup-045) |
 | Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
 | Filtered Rights Creator disclosure and incremental mixed-value tooltip ranking | [KUP-054](#kup-054), [KUP-055](#kup-055) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
@@ -814,8 +814,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Scope:** review a common display summary using the existing lease-date policy,
   not a new permission engine, server scalar or lease refresh system. Keep server
   validity/crop capabilities authoritative; a lease tint is not authorization.
-- **Disposition:** OPEN, source-verified and awaiting review/composed regression.
-  Independent shared-display work; not a crop-mock or API-migration gate.
+- **Disposition: DONE (22 November), API-backed display.** The shared derivation computes current/inactive totals and active Allow use from returned records when the summary is missing. The [canonical page regression](../../src/dal/grid-api-search-adapter.test.ts) covers a stale indexed flag; the [Upload-to-Grid journey](../../e2e/local/grid-mutations.spec.ts) observes a saved lease and the leased tooltip on a still-paid badge. No permission, periodic expiry refresh or live deployment claim.
 
 #### KUP-046
 **Known validity reasons replace server wording with local copy**

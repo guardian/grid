@@ -1,11 +1,13 @@
 # Gradually Growing Teeth: Kupua Editing Steps
 
-**Status, 20 November:** the agreed metadata editing implementation is done:
-individual Form and Details saves, bounded selected metadata and Labels, and
-Upload batch arrows and follow-ups. This closes implementation in that scope,
-not all future operations below. Shared deployment remains a separate decision. Cross-user conflict behavior
-is a review question, not a new guarantee or a policy change. See the
-[performance summary](editing-performance-evidence.md#executive-summary-20-november).
+**23 November 2026 — Manual Leases connected; U7 pill fields built.** Guardian Rights
+and its derived metadata are connected. Do not rebuild Rights or ordinary metadata
+for Upload: [Step 15's workplan](gradually-growing-teeth.upload-workplan.md#unit-status)
+reuses those editors. After Leases, select one missing Upload action at a time,
+then review the whole editorial journey. Full Kahuna replacement is a wider goal.
+
+<details>
+<summary>Editing interactions, original brief and policy history (2–20 November)</summary>
 
 **Unsent Details edits:** a changed field belongs to the open editor, not to a saved
 selection. Selecting B before removing A keeps the text and Description action;
@@ -40,17 +42,13 @@ direct-ES remains temporary laptop support, intended for separately authorized
 removal and never an API fallback. That decision alone enabled no writes; Step 2
 was subsequently implemented at its bounded label scope.
 
+</details>
+
 ## 0. The Recommendation
 
-### Cross-workflow performance evidence
+<a id="current-status-and-shared-ownership-16-november-2026"></a>
 
-The [editing performance plan](editing-performance-plan.md) owns incremental tuning
-questions, exact-file/reset comparisons and the path from evidence to operation/service
-policy. Its [cumulative ledger](editing-performance-evidence.md) preserves results and
-open decisions across sessions. Use those before starting another benchmark; this
-capability plan still owns activation, correctness and destructive-operation prerequisites.
-
-### Current status and shared ownership (16 November 2026)
+### Current status and shared ownership
 
 The numbering is a capability map, not the order in which work was done. **Done**
 below means the stated scope is implemented, not that every deployment or later
@@ -61,13 +59,24 @@ own the Upload-specific evidence and remaining work.
 | Area | Done | Still needed |
 | --- | --- | --- |
 | Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
-| Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions; batching currently covers labels, not every command. |
+| Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions. Later families reuse this foundation; each still needs its own command. |
 | Steps 7-8 | Connected labels and U5 ordinary metadata; explicit Search/detail commits, Form autosave and shared observation/publication. | Archive and collection writes; configured-domain editors and Subjects remain separate. |
-| Steps 9-11 | Existing rights/lease display and category reads; no connected editors or template execution. | Lease and rights operations and their side effects; templates separately selected and deferred for Upload. |
+| Step 10 / U6a | **Done for Guardian:** save or clear Rights; confirm the override and report derived metadata separately. Uses the filtered catalogue and server notice wording. | Deployment acceptance. No category-triggered leases in Guardian scope. |
+| Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
+| Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
-| Steps 12, 14, 16, 17, 20 | Some membership, action and photoshoot presentation is prepared only. | Their respective commands, delivery and acceptance are not complete. |
-| Step 15 / Upload | U1-U5 delivered ingestion, local batches, Form, navigation, ordinary metadata and captured propagation at their recorded scopes. | U6-U8: other required editing and final parity acceptance. |
-| Steps 18-19, 21-22 | No completion claimed for privileged cleanup, takedown, parity rollout or beyond-Kahuna capabilities. | Separately select and authorize the relevant destructive, integration and follow-on work. |
+| Steps 12, 14, 16, 17, 20 | Some collection, download, photoshoot, delete and share controls prepare an action without sending it. | Collection removal/tree management; file/ZIP delivery; photoshoots, syndication and Photo Sales; soft delete/restore; clipboard, drag and embedding integrations. |
+| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases and batch Labels/Keywords/People. | U7 collection membership, photoshoot and remaining image actions; U8 integrated and target-deployment acceptance. |
+| Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
+| Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
+
+### Cross-workflow performance evidence
+
+The [performance plan](editing-performance-plan.md) and [evidence ledger](editing-performance-evidence.md)
+own tuning questions and measured results. Local trials are not shared capacity or rollout approval.
+
+<details>
+<summary>Foundation rationale, U5 integration and original research qualifications</summary>
 
 **U5 coordination:** Upload and the ordinary-metadata portion of Step 8 share one
 authoritative metadata operation for Form and existing single/multi-image panels.
@@ -141,7 +150,15 @@ not all have to wait for one another. The numbered order is not a linear program
    Keep "never hard delete" for ordinary/batch editing. Full Kahuna parity needs a separately
    authorized, single-image takedown decision, not a hard-delete toolbar button.
 
+</details>
+
 ## 1. Shared Foundation
+
+**Done: Steps 1–6** at their stated prototype scopes. The recorded real writes were local;
+hosted fixture coverage does not establish shared deployment capacity or session behavior.
+
+<details>
+<summary>Steps 1–6: original contracts, implementation closeouts and local label trials</summary>
 
 ### Step 1. Agree the Write Contract and Retain Authoritative Capabilities
 
@@ -912,6 +929,8 @@ forced ES refresh, durable job service, automatic retry or wider editing family 
 from this addendum. The [command contract](../../src/dal/grid-api/README.md#step-6-bounded-label-execution)
 continues to own the precise behavior and limits.
 
+</details>
+
 ## 2. Add Feature Families Independently
 
 For every following step: use the same disconnected-preview -> fake execution -> bounded live
@@ -919,6 +938,12 @@ activation progression. A successful UI rehearsal is not backend validation; a 2
 is not projected completion. Single-image activation can precede batch activation.
 
 ### Current Implementation Checkpoint
+
+The status table above owns current completion. The following checkpoint explains why
+a visible action such as Download, Library or Delete is not yet a connected operation.
+
+<details>
+<summary>Panel and action UI checkpoints, preparation contracts and deletion blocker</summary>
 
 **11 November 2026: broader UI, not broader execution.** The operator selected a real
 single/multi-image editing surface rather than completing only Step 7's original
@@ -992,6 +1017,8 @@ The full local unit, build, browser-type and E2E gates passed with E2E retries d
 These are disconnected/local-fixture checks, not live-command, deployed-authentication,
 physical-phone keyboard or performance certification.
 
+</details>
+
 ### Step 7. Finish Labels, Archive and Collection Addition
 
 **Depends on:** step 5; step 6 for batches.
@@ -999,6 +1026,9 @@ physical-phone keyboard or performance certification.
 **Status: partial.** The selected app-UI expansion is implemented; Labels retains
 its existing execution. Archive/unarchive and connected collection addition are
 not implemented. Later-family UI listed above is not completion of those steps.
+
+<details>
+<summary>10–11 November UI inventory (before U5 connected ordinary metadata)</summary>
 
 **Expanded UI scope, 10 November 2026:** the operator selected integration in the
 actual app, not another desktop mock. Labels retain their existing connected or
@@ -1088,7 +1118,9 @@ future hookup: [GRID-011](bug-backlog.md#grid-011) and
 [GRID-020](bug-backlog.md#grid-020) remain recorded, not new blanket editing gates.
 No server repair, shared-environment mutation or broader rollout is authorized here.
 
-Complete label suggestions, add/remove and mixed-selection behavior. Add archive/unarchive as
+</details>
+
+Label suggestions, add/remove and mixed-selection behavior are implemented. Add archive/unarchive as
 explicit target states, not a blind toggle across mixed values. Archive is persistence/reaper
 policy, not soft deletion. Add selected images to an existing collection, using canonical path
 identity and fresh capability information. Avoid duplicate additions on ambiguous retry.
@@ -1174,7 +1206,7 @@ passes step 4's continuity policy. Do not infer an edit permission from a regist
 
 **Depends on:** step 5; step 6 for batch additions.
 
-**Guardian scope (21 November):** manual leases follow Guardian rights as an
+**Connected at local fixture scope:** see the [manual editing guide](00%20Architecture%20and%20philosophy/07-syndication-and-leases.md#manual-editing-in-api-backed-kupua). Manual leases follow the connected Guardian rights editor as an
 independent family. Category-triggered lease automation is BBC-specific and is
 excluded even when configured on TEST. Templates remain deferred.
 
@@ -1200,6 +1232,14 @@ unrelated existing leases and distinguish accepted source changes from lagging E
 
 **Depends on:** the shared Step 8 metadata path and Step 6 batch execution, not Step 9.
 
+**Done for Guardian (22 November).** The [Kupua editor](../../src/components/UsageRightsEditor.tsx)
+and [command path](../../src/lib/grid-commands.ts) support single, selected and upper-batch
+edits. The [browser witness](../../e2e/local/grid-mutations.spec.ts) covers a rejected
+derived-metadata step and server notices. This is implementation, not deployment acceptance.
+
+<details>
+<summary>Rights contract, original acceptance criteria and source references</summary>
+
 Use the server's writable/filtered category catalogue, properties, required fields, defaults,
 dependent options and restrictions. The search category catalogue alone is not an edit form.
 Support clearing/removing overrides without losing unrelated rights properties accidentally.
@@ -1209,7 +1249,7 @@ For Guardian rights, save the override and invoke metadata-from-rights. Do not
 run the optional category-lease work. Keep individually visible substep outcomes.
 Do not broadcast-and-forget dependent writes or report the whole operation successful when only
 rights saved. Retrying a later failed substep must not replay earlier non-idempotent work.
-Resolve [KUP-046](bug-backlog.md#kup-046) where server wording is needed for the resulting notice.
+Detail now uses the server wording for known validity reasons ([KUP-046](bug-backlog.md#kup-046)).
 Private maintainer review of write-admission consistency must precede broader activation of
 affected rights routes; this plan contains no exploit recipe or permission bypass.
 
@@ -1224,7 +1264,11 @@ affected rights routes; this plan contains no exploit recipe or permission bypas
 middle substep have tested outcomes. Cost, restrictions, validity and crop/download capability
 are refreshed from the server, not guessed from the chosen category.
 
+</details>
+
 ### Step 11. Metadata Templates Without Pretend Atomicity
+
+**Deferred for Upload.** No implementation or acceptance is claimed.
 
 **Depends on:** steps 7-10 for the operations a template actually uses.
 
@@ -1363,19 +1407,23 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 ### Step 15. Upload, Import and Post-Upload Editing
 
-**Depends on:** steps 1-5; steps 8/10/11 for corresponding completion editors/templates.
+**Built:** file upload and ordinary metadata (U1–U5), Guardian Rights (U6a), manual Leases (U6b), and the Labels, Keywords and People portion of U7. Remaining operations and U8 acceptance are open.
+
+**Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Collections and Photoshoot arrows are disabled, not connected operations. A future non-empty Collections arrow adds memberships, never propagates individual removals.
+
+Upload Form opens missing Rights directly for an authorised editor; opening is not a save. Other categories retain the pencil. Cost/restrictions, usability and Library status sit below the thumbnail. Library uses the existing action policy and does not archive an image. Search/Detail keep their own presentation and targets. The [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status) owns acceptance and remaining work.
 
 The [Upload workplan](gradually-growing-teeth.upload-workplan.md) owns the sequence,
 reusable-density/local-batch contract, source-backed parity checklist and deferred
 opportunities. Its [U4.5](gradually-growing-teeth.upload-workplan.md#u45-unified-upload-page-and-navigation)
 establishes one open batch above all other uploads, explicit entry/return behavior
-and section-bounded navigation before U5 connects ordinary metadata and arrows.
+and section-bounded navigation. U5 connected ordinary metadata and arrows.
 Batch arrows belong only to the upper Form section and capture the displayed batch;
 other uploads and detail never become implicit batch targets. Upload selections,
 batch-to-Search selection handoff and per-image Show in search remain deferred.
 Neither document supplies live-write approval.
 
-Complete file picker, drag/drop and the selected upload/job workflows. URL import
+File picker, drag/drop and route-independent upload jobs are implemented. URL import
 is excluded from the selected Upload scope, domain editors are excluded there, and
 metadata templates remain deferred. Do not implement those merely from this broader
 editing roadmap. Preserve one new batch per submission; no appending or merging.
@@ -1654,21 +1702,20 @@ service, new bulk lane or migration work is implicitly selected here.
 
 ## 4. Parity Checklist and Dependency Map
 
-This remains a target parity checklist, not a blanket completion claim. The
-[current status](#current-status-and-shared-ownership-16-november-2026) distinguishes
-completed foundations, connected labels and partial presentation; outstanding
-commands and acceptance stay with their steps. "After" refers to this plan's step.
+Use the [current status](#current-status-and-shared-ownership) for sequencing.
+This checklist maps each Kahuna capability to its owning step. A connected
+operation is not a deployment sign-off; a preview is not a connected operation.
 
-| Kahuna capability / acceptance family | After | Additional dependency or limit |
+| Kahuna capability / acceptance family | Step | Status, dependency or limit |
 | --- | --- | --- |
-| Labels add/remove, suggestions and mixed selection | 7 | Common single/batch path |
+| Labels add/remove, suggestions and mixed selection | 7 | Done on the shared single/batch path |
 | Archive/unarchive | 7 | Archive permission; preserve reaper meaning |
 | Add images to collections, including drop integration | 7, 20 | Canonical path identity; no duplicate blind retry |
-| Metadata fields, clear/reset and list/date/location values | 8 | Whole-override semantics; accepted conflict contract |
+| Ordinary metadata and list/date/location values | 8 | Connected with fresh override merges; clearing an embedded Taken date remains disabled (GRID-025) |
 | Configured domain fields and batch overwrite/append/prepend | 8 | Hosted specs; no write inferred from display aliases |
-| Lease add/remove/replace/clear and batch addition | 9 | Date/access rules; consistent display |
-| Guardian rights category/properties/restrictions and clearing | 10 | Caller-filtered catalogue and derived metadata. No category-triggered leases. |
-| Metadata templates and preview/cancel | 11 | Composition of fields, collections, rights and leases |
+| Lease add/remove/replace/clear and batch addition | 9 | Connected; deployed acceptance separate |
+| Guardian rights category/properties/restrictions and clearing | 10 | Done for Guardian: filtered catalogue and derived metadata; no category-triggered leases |
+| Metadata templates and preview/cancel | 11 | Deferred for Upload; no template execution |
 | Collection membership removal and tree create/delete | 12 | GRID-011; explicit non-cascade semantics |
 | Crop creation, ratio constraints, existing crop selection | 13 | KUP-044 image facts and KUP-047 read-only UI done; canonical source, creation and export identity remain |
 | Full-frame export, single and batch | 13 | Separate crop creation, not original download |
@@ -1682,11 +1729,9 @@ commands and acceptance stay with their steps. "After" refers to this plan's ste
 | Image/crop drag, copy/link, asset handles and embedded picking | 20 | External consumers; current iframe exclusion |
 | Hosted rollout, permission/configuration variants, full parity acceptance | 21 | Real target/deployment evidence; no hidden fallback counted as parity |
 
-**Useful independent order after step 5:** crop/download can advance while metadata work is
-underway; ordinary labels/archive/add-to-collection do not wait for collection-removal repairs;
-uploads can begin with their disconnected job UI while ingest reliability is addressed;
-syndication and destructive features wait only for their own prerequisites. Backend owners
-can prepare GRID-011/012/009/013 fixes independently of the client UI.
+**Sequencing:** after manual Leases, select one remaining U7 family at a time, then U8.
+Crop, downloads and the other replacement features can be selected independently when their
+own dependencies are met. Backend rollout and destructive-operation decisions remain separate.
 
 ## 5. Which Bugs Actually Block What?
 
@@ -1695,7 +1740,7 @@ can prepare GRID-011/012/009/013 fixes independently of the client UI.
 | KUP-043 | **Resolved** for Step 4's simulated publication contract; connected labels reuse it. Each new operation still needs its own readback/postcondition; deliberate deletion remains Step 17. |
 | KUP-044 | Image-level retention implemented in step 1; nested write controls remain consumer-scoped, not a new image endpoint. |
 | KUP-045 | Lease-display acceptance in step 9; not a gate for labels. |
-| KUP-046 | Server wording in rights/notices work; not a blanket first-write blocker. |
+| KUP-046 | Resolved for known Detail validity reasons: preserve supplied server wording. |
 | KUP-047 | **Resolved** at the disconnected crop UI boundary; live crop creation/readback remains Step 13 work, not an open KUP-047 prerequisite. |
 | GRID-019 | General batch rollout gate; resolve table/GSI capacity or explicitly bound an operator-only exception. No "three flights makes it safe" claim. |
 | GRID-018 and missing drop alert | **Open for ordinary ingestion:** the newer XMP retry covers direct insertion, not the ordinary ImageMessage upsert. Contain or resolve for broad Upload rollout; not a U5 metadata or existing-image editing gate. |

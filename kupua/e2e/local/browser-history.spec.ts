@@ -1740,25 +1740,28 @@ test.describe("Browser back/forward — density toggle", () => {
   test("navigation retains table, a reused independent case explicitly starts grid, and a fresh tab defaults grid", async ({ kupua, page }) => {
     await kupua.initializeDensity("grid");
     await kupua.startSearch("", "table");
-    await kupua.goto();
+    const imageId = await page.locator('[aria-label="Image results table"] [data-image-id]').first().getAttribute("data-image-id");
+    expect(imageId).toBeTruthy();
+    const scope = `ids=${encodeURIComponent(imageId!)}`;
+    await kupua.gotoPerfStable(scope);
     await kupua.assertDensity("table");
+    await page.reload();
+    await kupua.waitForResults();
+    await kupua.assertDensity("table");
+    await page.goto("about:blank");
+    await kupua.startSearch(scope);
+    await kupua.assertDensity("grid");
+    await kupua.switchToTable();
     await page.reload();
     await kupua.waitForResults();
     await kupua.assertDensity("table");
     const fresh = await page.context().newPage();
     try {
       await fresh.route("/api/**", route => route.fulfill({ status: 503, body: "" }));
-      await fresh.goto("/search?nonFree=true");
+      await fresh.goto(`/search?nonFree=true&${scope}`);
       await expect(fresh.getByLabel("Image results grid", { exact: true })).toBeVisible();
       expect(await fresh.evaluate(() => sessionStorage.getItem("kupua-density"))).toBeNull();
     } finally { await fresh.close(); }
-    await page.goto("about:blank");
-    await kupua.startSearch();
-    await kupua.assertDensity("grid");
-    await kupua.switchToTable();
-    await page.reload();
-    await kupua.waitForResults();
-    await kupua.assertDensity("table");
   });
 
   test("density creates no entry, keeps identity and Forward, and history keeps current layout", async ({ kupua, page }) => {

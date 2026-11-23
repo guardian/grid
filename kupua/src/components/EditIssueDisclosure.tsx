@@ -1,13 +1,15 @@
 import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MetadataSave } from "@/stores/metadata-editor-store";
+import { labelStepStatus, sessionStopReason } from "@/lib/metadata-edit-execution";
 import { StatusIcon } from "./UploadProgress";
 import { Chevron } from "./Chevron";
 
 export function editIssue(imageId: string, field: string, item?: MetadataSave["items"][number], missingNotSent = false) {
   const result = item?.result;
   const notSaved = item ? ["not-started", "queued", "stopped", "rejected"].includes(item.state) || result?.outcome === "blocked" : missingNotSent;
-  const reload = result?.outcome === "blocked" && result.reason === "reload-required" || result?.outcome === "rejected" && [401, 419].includes(result.status);
-  return { imageId, field, notSaved, reload };
+  const reload = sessionStopReason(result) === "reload-required";
+  const steps = labelStepStatus(result);
+  return { imageId, field, notSaved, reload, ...(steps && { steps }) };
 }
 export type EditIssue = ReturnType<typeof editIssue>;
 
@@ -19,7 +21,14 @@ export function EditIssueDisclosure({ issues, count, compact, below, onSelect }:
   const [placedBelow, setPlacedBelow] = useState(below);
   const lines = useMemo(() => {
     const fields = new Map<string, Map<string, boolean>>();
+    const stepGroups = new Map<string, Set<string>>();
     for (const issue of issues) {
+      if (issue.steps) {
+        const images = stepGroups.get(issue.steps) ?? new Set<string>();
+        images.add(issue.imageId);
+        stepGroups.set(issue.steps, images);
+        continue;
+      }
       const images = fields.get(issue.field) ?? new Map<string, boolean>();
       images.set(issue.imageId, issue.notSaved && images.get(issue.imageId) !== false);
       fields.set(issue.field, images);
@@ -27,7 +36,8 @@ export function EditIssueDisclosure({ issues, count, compact, below, onSelect }:
     return [...fields].map(([field, images]) => {
       const notSaved = [...images.values()].filter(Boolean).length;
       return { field, reasons: [notSaved && `${notSaved.toLocaleString()} not saved`, images.size > notSaved && `${(images.size - notSaved).toLocaleString()} not confirmed`].filter(Boolean).join(" · "), mixed: notSaved > 0 && notSaved < images.size };
-    });
+    }).concat([...stepGroups].map(([steps, images]) => ({ field: `Label changes (${images.size} ${images.size === 1 ? "image" : "images"})`,
+      reasons: `${steps}${images.size > 1 ? " per image" : ""}`, mixed: false })));
   }, [issues]);
   const reload = issues.some(issue => issue.reload);
   const summary = lines.map(line => `${line.field}: ${line.reasons}`).concat(reload ? ["Reload page"] : []).join("\n");
@@ -53,7 +63,7 @@ export function EditIssueDisclosure({ issues, count, compact, below, onSelect }:
       <span className="text-grid-warning"><StatusIcon status="error" /></span>{text}<Chevron direction={(open ? !placedBelow : below) ? "down" : "up"} className="size-3" />
     </button>
     <div ref={popup} id={popId} popover="auto" onToggle={event => setOpen(event.newState === "open")} className="fixed m-0 max-w-[calc(100vw-8px)] overflow-y-auto rounded border border-grid-separator bg-grid-bg px-3 py-2 text-sm text-grid-text shadow-lg">
-      {lines.map(({field, reasons, mixed}) => <p key={field}><strong>{field}</strong>{mixed ? <br /> : ": "}{reasons}</p>)}
+      {lines.map(({field, reasons, mixed}) => <p key={field + reasons}><strong>{field}</strong>{mixed ? <br /> : ": "}{reasons}</p>)}
       {reload && <p>Reload page</p>}
       {onSelect && <button type="button" className="upload-link pointer-coarse:min-h-11" onClick={() => { popup.current?.hidePopover?.(); onSelect(); }}>{count === 1 ? "Select only this image" : `Select only these ${count.toLocaleString()}`}</button>}
     </div>

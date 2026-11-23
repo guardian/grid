@@ -13,7 +13,15 @@ export interface MetadataEditTarget {
 let editSequence = 0;
 export function nextEditSequence() { return ++editSequence; }
 
+export function labelStepStatus(result?: GridCommandResult): string | undefined {
+  if (!result || !("labelSteps" in result) || !result.labelSteps) return;
+  const { acknowledged, rejected, notSent, uncertain } = result.labelSteps;
+  return [acknowledged && `${acknowledged} acknowledged`, rejected && `${rejected} rejected`,
+    uncertain && `${uncertain} uncertain`, notSent && `${notSent} not sent`].filter(Boolean).join(", ");
+}
+
 export function sessionStopReason(result?: GridCommandResult): "disabled" | "reload-required" | undefined {
+  if (result?.outcome === "partial" && result.reason === "reload-required") return result.reason;
   if (result?.outcome === "blocked" && (result.reason === "disabled" || result.reason === "reload-required")) return result.reason;
   if (result && "status" in result && (result.status === 401 || result.status === 419)) return "reload-required";
 }
@@ -59,7 +67,7 @@ export interface MetadataEditReceipt<Intent> {
 
 interface MetadataEditItem {
   imageId: string;
-  state: "not-started" | "queued" | "stopped" | "submitted" | "accepted-awaiting-visibility" | "unchanged" | "rejected" | "unknown";
+  state: "not-started" | "queued" | "stopped" | "submitted" | "accepted-awaiting-visibility" | "unchanged" | "partial" | "rejected" | "unknown";
   result?: Readonly<GridCommandResult>;
   observation?: "pending" | "observed" | "deadline" | "unavailable" | "superseded";
 }
@@ -153,7 +161,10 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
     function publishVerified() {
       const ready = [...verified.values()].filter(image => !published.has(image.id)
         && (observation!.publicationReady?.(image) ?? true));
-      const accepted = acceptObservedImages(ready, operationId!);
+      const accepted = acceptObservedImages(ready, operationId!, image => {
+        const result = receipt?.items.find(item => item.imageId === image.id)?.result;
+        return !!result && "expectedLeases" in result;
+      });
       if (accepted.length) observation!.publishImages(accepted);
       for (const image of accepted) {
         published.add(image.id);
@@ -220,7 +231,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
       if (dispatching && attempts > 0) return;
       const queued = receipt.items.some(item => item.state === "queued");
       const ids = receipt.items.filter(item => !verified.has(item.imageId) && !unavailable.has(item.imageId) && !superseded.has(item.imageId)
-        && (item.state === "accepted-awaiting-visibility" || item.state === "unchanged" || item.state === "unknown"))
+        && (item.state === "accepted-awaiting-visibility" || item.state === "unchanged" || item.state === "partial" || item.state === "unknown"))
         .map(item => item.imageId);
       const submitted = queued || receipt.items.some(item => item.state === "submitted");
       if (!ids.length) {
@@ -357,7 +368,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
           const metadataWitness = "operation" in command && (command.operation === "edit-metadata" || command.operation === "edit-rights")
             && (result.outcome === "acknowledged" || result.outcome === "unchanged") ? result.metadataWitness ?? null : undefined;
           const uncertainMetadata = result.outcome === "acknowledged" && result.metadataFromRights === "unknown";
-          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, uncertainMetadata ? "unknown" : result.outcome, metadataWitness);
+          if (operationId !== undefined) recordLabelOutcome(operationId, command.imageId, uncertainMetadata ? "unknown" : result.outcome === "partial" ? "acknowledged" : result.outcome, metadataWitness);
           const reported = { ...result };
           if ("metadataWitness" in reported) delete reported.metadataWitness;
           recordOutcome(command.imageId, reported);

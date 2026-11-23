@@ -16,7 +16,7 @@ export interface MeasuredCells {
   key: string;
   estimate: (image: Image | undefined, width: number) => number;
   thumbnailHeight: (image: Image, width: number) => number;
-  render: (image: Image, thumbnail: ReactNode) => ReactNode;
+  render: (image: Image, thumbnail: ReactNode, enterDetail: (id: string) => void) => ReactNode;
 }
 
 interface FieldPoint { key: string; top: number; height: number }

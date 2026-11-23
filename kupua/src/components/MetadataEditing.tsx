@@ -10,9 +10,10 @@ import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { useShallow } from "zustand/react/shallow";
 import { editIssue, EditIssueDisclosure, type EditIssue } from "./EditIssueDisclosure";
 import type { LabelReceipt } from "@/lib/label-operation";
+import type { LeaseChange } from "@/lib/lease-change";
 
 export const MetadataEditorContext = createContext(metadataEditorStore);
-export type FieldSaveState = "Saving…" | "Not saved" | "Not confirmed";
+export type FieldSaveState = "Saving…" | "Not saved" | "Not confirmed" | "Partially saved";
 const derivedItems = new WeakMap<MetadataSave["items"], ReadonlyMap<string, MetadataSave["items"][number]>>();
 function derivedItem(items: MetadataSave["items"], id: string) {
   let index = derivedItems.get(items);
@@ -46,6 +47,7 @@ export function useSubmittedField(onConfirmed: () => void, retainedId?: number) 
   const confirmed = !!save && save.state === "finished" && !save.message && !save.excluded && save.items.length === save.intent.targetIds.length && save.items.every(item =>
     item.observation === "observed" && (item.state === "accepted-awaiting-visibility" || item.state === "unchanged"));
   const state: FieldSaveState | undefined = !save || confirmed ? undefined : save.state !== "finished" ? "Saving…"
+    : save.items.some(item => item.state === "partial") && !save.items.some(item => item.state === "unknown") ? "Partially saved"
     : save.items.every(item => editIssue(item.imageId, "", item).notSaved) ? "Not saved" : "Not confirmed";
   useEffect(() => { if (confirmed) { track(undefined); onConfirmed(); } }, [confirmed, onConfirmed]);
   return { track, state, locked: state === "Saving…" || state === "Not confirmed" };
@@ -60,12 +62,23 @@ export function SavingValue({ saving, state = saving ? "Saving…" : undefined, 
 export const FormBatchContext = createContext<{ key: string; ids: readonly string[] } | undefined>(undefined);
 
 export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }: {
-  imageId: string; fieldId: string; label: string; value: string | Record<string, string | undefined>; disabled: boolean;
+  imageId: string; fieldId: string; label: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; disabled: boolean;
 }) {
   const batch = useContext(FormBatchContext);
   const store = useContext(MetadataEditorContext);
   const key = JSON.stringify([batch?.key, imageId, fieldId]);
   const save = useStore(store, state => state.saves.get(state.arrowSaves.get(key) ?? -1));
+  const removed = useStore(store, state => state.removedPills.get(key));
+  const sourcePending = useStore(store, state => Array.isArray(value) && state.hasPendingField(imageId, fieldId === "people" ? "metadata_peopleInImage" : fieldId === "keywords" ? "metadata_keywords" : fieldId));
+  const [confirming, setConfirming] = useState<typeof batch>();
+  const pill = Array.isArray(value) && ["labels", "keywords", "people", "collections"].includes(fieldId);
+  const emptyPills = pill && value.length === 0;
+  useEffect(() => {
+    if (!confirming) return;
+    if (confirming !== batch || !emptyPills || disabled || sourcePending) { setConfirming(undefined); return; }
+    const timer = setTimeout(() => setConfirming(undefined), 5000);
+    return () => clearTimeout(timer);
+  }, [confirming, batch, emptyPills, disabled, sourcePending]);
   const [detailsFor, setDetailsFor] = useState<number>();
   const [dismissed, setDismissed] = useState<number>();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -74,25 +87,42 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
   const valid = Boolean(metadataIntent(fieldId, "overwrite", value, batch.ids));
   const busy = !!save && save.state !== "finished";
   const needsAttention = !!save && save.id !== dismissed && !busy && !panelSaveSucceeded(save);
-  if (!busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken") return null;
-  const applyLabel = `Apply ${label} to ${peerCount} batch images`;
-  const tooltip = busy ? `Applying ${label}...` : needsAttention ? `${label} edit needs attention` : applyLabel;
+  const unsupported = fieldId === "collections" || fieldId === "photoshoot" ? `${label} batch editing is not connected` : undefined;
+  if (!busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && !unsupported) return null;
+  const clear = value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
+    fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
+    fieldId === "usageRights_category" && "category" in value && value.category === ""
+  ));
+  const peers = `${peerCount} ${peerCount === 1 ? "image" : "images"}`;
+  const others = `${peerCount} other ${peerCount === 1 ? "image" : "images"}`;
+  const removals = pill && !emptyPills ? removed?.filter(item => !value.includes(item)) : undefined;
+  const noun = fieldId === "people" ? "people" : fieldId === "keywords" ? "keywords" : "labels";
+  const applyLabel = pill ? emptyPills ? `Clear ${fieldId} on ${others}` : removals?.length
+    ? `Apply ${fieldId} to ${others} (also removes ${removals.length === 1 ? `“${removals[0]}”` : `${removals.length} ${noun}`})` : `Add ${fieldId} to ${others}`
+    : fieldId === "leases" ? clear ? `Clear leases on ${others}` : `Replace leases on ${peerCount === 1 ? "the" : "all"} ${others}`
+    : clear ? `Clear ${label} on ${peers}` : `Apply ${label} to ${peerCount} batch ${peerCount === 1 ? "image" : "images"}`;
+  const question = `Remove ALL ${fieldId} from the ${others}?`;
+  const tooltip = busy ? `Applying ${label}...` : needsAttention ? `${label} edit needs attention`
+    : unsupported ? `${applyLabel} (${unsupported})` : !valid && fieldId === "metadata_dateTaken" ? `${label} cannot be cleared` : applyLabel;
   const hasDetails = busy || needsAttention;
   const expanded = hasDetails && save?.id === detailsFor;
-  const apply = () => {
-    if (value === "" && !window.confirm(`Clear ${label} for ${peerCount} batch images?`)) return;
+  const apply = (confirmed = false) => {
+    if (emptyPills && !confirmed) { setConfirming(batch); return; }
+    if (clear && !emptyPills && !window.confirm(`${applyLabel}?`)) return;
+    if (!clear && fieldId === "leases" && !window.confirm(`Replace all leases on ${peers}?`)) return;
     const intent = metadataIntent(fieldId, "overwrite", value, batch.ids.filter(id => id !== imageId));
-    if (intent) store.getState().submitArrow(intent, key);
+    if (intent) store.getState().submitArrow(removals?.length ? { ...intent, removed: removals } : intent, key);
   };
   return <div className="metadata-batch-tool"
-    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDetailsFor(undefined); }}
+    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setDetailsFor(undefined); setConfirming(undefined); } }}
     onKeyDown={event => {
-      if (event.key !== "Escape" || !expanded) return;
+      if (event.key !== "Escape" || (!expanded && !confirming)) return;
+      setConfirming(undefined);
       event.stopPropagation();
       setDetailsFor(undefined);
       trigger.current?.focus();
     }}>
-    <button ref={trigger} type="button" disabled={!hasDetails && (disabled || !valid || !peerCount)} className="metadata-edit-tool"
+    <button ref={trigger} type="button" disabled={!hasDetails && (disabled || pill && sourcePending || !valid || !peerCount)} className="metadata-edit-tool"
       aria-label={tooltip} title={tooltip} aria-expanded={hasDetails ? expanded : undefined}
       onClick={() => {
         if (hasDetails) { setDetailsFor(expanded ? undefined : save?.id); return; }
@@ -106,6 +136,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
         <path d="M7,21L2,16l5-5l1.43,1.4L5.83,15H21v2H5.83l2.6,2.6L7,21Zm10-8l-1.42-1.4L18.18,9H3V7H18.18l-2.6-2.6L17,3l5,5l-5,5Z" />
       </svg>}
     </button>
+    {confirming === batch && emptyPills && !disabled && !sourcePending && !busy && <div className="metadata-batch-popover text-xs"><button type="button" className="bg-grid-error text-white p-1" onClick={() => { setConfirming(undefined); apply(true); trigger.current?.focus(); }}>{question}</button></div>}
     {expanded && save && <div className="metadata-batch-popover text-xs">
       <p>{metadataSaveStatus(save)}</p>
       {busy && !disabled && valid && save.intent.value !== value && <button type="button" className="mr-2 underline"
@@ -117,9 +148,11 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
 
 export function useMetadataCommit(form = false) {
   const store = useContext(MetadataEditorContext);
-  return (input: { fieldId: string; action: string; value: string | Record<string, string | undefined>; targetIds: readonly string[] }, returnFocus?: HTMLElement | null) => {
+  const batch = useContext(FormBatchContext);
+  return (input: { fieldId: string; action: string; value: string | Record<string, string | undefined> | LeaseChange; targetIds: readonly string[] }, returnFocus?: HTMLElement | null) => {
     const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds);
-    const id = intent ? store.getState().submit(intent) : undefined;
+    const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
+    const id = intent ? store.getState().submit(intent, false, source) : undefined;
     if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
     return id === undefined ? undefined : store.getState().saves.get(id);
   };
@@ -152,7 +185,7 @@ export function usePendingPanelIntent(targetKey: string, fieldId?: string, recon
 }
 
 const inspectedPanelIssues = new WeakSet<MetadataSave | LabelReceipt>();
-function derivedIssue(item: MetadataSave["items"][number]) {
+function derivedIssue(item: MetadataSave["items"][number]): EditIssue | undefined {
   const result = item.result;
   if (result?.outcome !== "acknowledged" || !result.metadataFromRights || result.metadataFromRights === "acknowledged") return;
   return { imageId: item.imageId, field: "Metadata from rights", notSaved: result.metadataFromRights !== "unknown", reload: result.status === 401 || result.status === 419 };
@@ -291,5 +324,6 @@ export function MetadataSaveFeedback({ fieldId, targetIds, saveId }: { fieldId: 
   const item = save.items.find(item => item.imageId === targetIds[0]);
   const derived = item && derivedIssue(item);
   const issue = derived ?? editIssue(targetIds[0], fieldId, item, true);
+  if (issue.steps) return <p role="status" className="metadata-field-status">Label changes: {issue.steps}{issue.reload && ". Reload page"}</p>;
   return <p role="status" className="metadata-field-status">{derived ? "Metadata from rights: 1 " : ""}{issue.notSaved ? derived ? "not saved" : "Not saved" : derived ? "not confirmed" : "Not confirmed"}</p>;
 }

@@ -2,7 +2,8 @@ import { createStore } from "zustand/vanilla";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { createMetadataOperation, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
 import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
-import { rightsValueSchema, type AddLabelsCommand, type GridCommandResult, type MetadataCommand, type RightsCommand } from "@/lib/grid-commands";
+import { rightsValueSchema, type GridCommandResult, type MetadataCommand } from "@/lib/grid-commands";
+import { leaseChangeSchema, type LeaseChange } from "@/lib/lease-change";
 import { attachedEnrichment } from "./enrichment-store";
 import { acceptImageRead, captureImageRead, ensureImageRead, getMetadataWriteWitness, hasImageCommandConflict, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
 import { useMetadataDrafts } from "./metadata-drafts-store";
@@ -19,12 +20,23 @@ export interface MetadataSave {
   message?: string;
 }
 
-export function metadataIntent(fieldId: string, action: string, value: string | Record<string, string | undefined>, targetIds: readonly string[]): MetadataIntent | undefined {
+export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[]): MetadataIntent | undefined {
+  if (Array.isArray(value)) {
+    if (action !== "overwrite" || value.some(item => !item.trim())) return;
+    if (fieldId === "labels") return { fieldId, action: value.length ? "add" : "overwrite", value, targetIds };
+    if (fieldId !== "people" && fieldId !== "keywords") return;
+    return { fieldId: fieldId === "people" ? "metadata_peopleInImage" : "metadata_keywords", action: value.length ? "add" : "overwrite", value, targetIds };
+  }
+  if (fieldId === "leases" && action === "overwrite") {
+    const change = leaseChangeSchema.safeParse(value);
+    return change.success ? { fieldId, action, value: change.data, targetIds } : undefined;
+  }
+  if (typeof value !== "string" && "kind" in value) return;
   if (fieldId === "usageRights_category" && action === "overwrite") {
     const rights = rightsValueSchema.safeParse(value);
     return rights.success ? { fieldId, action, value: rights.data, targetIds } : undefined;
   }
-  if (fieldId === "labels" && action === "add" && typeof value === "string" && value.trim()) return { fieldId, action, value: value.trim(), targetIds };
+  if (fieldId === "labels" && (action === "add" || action === "remove") && typeof value === "string" && value.trim()) return { fieldId, action, value: action === "remove" ? value : value.trim(), targetIds };
   const field = fieldId === "keywords" ? "metadata_keywords" : fieldId === "people" ? "metadata_peopleInImage" : fieldId;
   if (field.startsWith("location_")) return { fieldId: "location", action: "overwrite", value: { [field.slice(9)]: value as string }, targetIds };
   if (!["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline", "metadata_credit",
@@ -38,7 +50,14 @@ export function metadataIntent(fieldId: string, action: string, value: string | 
 
 export function metadataSaveStatus(save: MetadataSave): string {
   if (save.message) return save.message;
-  const observed = save.items.filter(item => item.observation === "observed").length;
+  const observed = save.items.filter(item => item.observation === "observed" && !(item.result && "labelSteps" in item.result && item.result.labelSteps)).length;
+  const steps = { acknowledged: 0, rejected: 0, uncertain: 0, notSent: 0 };
+  for (const { result } of save.items) {
+    if (!result || !("labelSteps" in result) || !result.labelSteps) continue;
+    for (const key of ["acknowledged", "rejected", "uncertain", "notSent"] as const) steps[key] += result.labelSteps[key];
+  }
+  const stepSummary = [steps.acknowledged && `${steps.acknowledged} acknowledged`, steps.rejected && `${steps.rejected} rejected`,
+    steps.uncertain && `${steps.uncertain} uncertain`, steps.notSent && `${steps.notSent} not sent`].filter(Boolean).join(" · ");
   const unknown = save.items.filter(item => item.state === "unknown").length;
   const superseded = save.items.filter(item => item.observation === "superseded").length;
   const rejected = save.items.filter(item => item.state === "rejected" || item.result?.outcome === "blocked").length;
@@ -49,11 +68,12 @@ export function metadataSaveStatus(save: MetadataSave): string {
     + (unknown ? `; ${unknown} uncertain` : "") + (rejected ? `; ${rejected} not saved` : "")
     + (superseded ? `; ${superseded} superseded` : "")
     + (save.excluded ? `; ${save.excluded} excluded` : "")
+    + (stepSummary ? `; Interrupted label steps: ${stepSummary}` : "")
     + (notSaved || notConfirmed ? `; Metadata from rights: ${[notSaved && `${notSaved} not saved`, notConfirmed && `${notConfirmed} not confirmed`].filter(Boolean).join(" · ")}` : "");
 }
 
 export function createMetadataEditorStore(
-  execute?: (command: MetadataCommand | AddLabelsCommand | RightsCommand) => Promise<GridCommandResult>,
+  execute?: (command: import("@/lib/metadata-operation").EditorCommand) => Promise<GridCommandResult>,
   observation?: MetadataEditObservation,
   sharedQueue?: ReturnType<typeof createBatchQueue>,
 ) {
@@ -70,6 +90,8 @@ export function createMetadataEditorStore(
   const running = new Map<number, ReturnType<typeof createMetadataOperation>>();
   const stopped = new Set<number>();
   const reservations = new Map<number, () => void>();
+  const pillSources = new Map<number, string>();
+  const pillApplications = new Map<number, { key: string; captured: readonly string[] }>();
   const keyFor = (imageId: string, fieldId: string) => JSON.stringify([imageId, fieldId]);
   const latestSingle = new Map<string, number>();
   const pendingByField = new Map<string, Set<number>>();
@@ -82,11 +104,14 @@ export function createMetadataEditorStore(
     saves: ReadonlyMap<number, MetadataSave>;
     derivedOwners: ReadonlyMap<string, number>;
     formRightsSaves: ReadonlyMap<string, { id: number; revision: number; superseded?: boolean }>;
+    formLeaseSaves: ReadonlyMap<string, { id: number; revision: number }>;
+    trackFormLease: (imageId: string, id: number, revision: number) => void;
     trackFormRights: (imageId: string, id: number, revision: number) => void;
     panelSaves: readonly { id: number; targetKey: string; returnFocus?: WeakRef<HTMLElement> }[];
     arrowSaves: ReadonlyMap<string, number>;
+    removedPills: ReadonlyMap<string, readonly string[]>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
-    submit: (intent: MetadataIntent, newRevision?: boolean) => number | undefined;
+    submit: (intent: MetadataIntent, newRevision?: boolean, pillSource?: string) => number | undefined;
     schedule: (imageId: string, fieldId: string) => void;
     deferDraft: (imageId: string, fieldId: string) => void;
     settleDraftGrant: (imageId: string, fieldId: string, granted: boolean) => void;
@@ -96,19 +121,26 @@ export function createMetadataEditorStore(
     dispose: () => void;
   }>((set, get) => ({
     connected: Boolean(execute && observation), saves: new Map(), derivedOwners: new Map(), panelSaves: [], arrowSaves: new Map(),
-    formRightsSaves: new Map(),
+    formRightsSaves: new Map(), formLeaseSaves: new Map(), removedPills: new Map(),
+    trackFormLease(imageId, id, revision) { set(state => ({ formLeaseSaves: new Map(state.formLeaseSaves).set(imageId, { id, revision }) })); },
     trackFormRights(imageId, id, revision) { set(state => ({ formRightsSaves: new Map(state.formRightsSaves).set(imageId, { id, revision }) })); },
     latestSingle: (imageId, field) => get().saves.get(latestSingle.get(keyFor(imageId, field)) ?? -1),
-    hasPendingField: (imageId, field) => !!pendingByField.get(keyFor(imageId, field))?.size,
+    hasPendingField: (imageId, field) => {
+      const owners = pendingByField.get(keyFor(imageId, field));
+      if (owners) for (const owner of owners) if (get().saves.get(owner)?.state !== "finished") return true;
+      return false;
+    },
     submitArrow(intent, key) {
       const id = get().submit(intent);
+      const captured = get().removedPills.get(key);
+      if (id !== undefined && captured && get().saves.get(id)?.state !== "finished") pillApplications.set(id, { key, captured });
       if (id !== undefined) set({ arrowSaves: new Map(get().arrowSaves).set(key, id) });
     },
-    submit(input, newRevision = false) {
+    submit(input, newRevision = false, pillSource) {
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
-      const intent: MetadataIntent = input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds }
-        : { ...input, targetIds, value: typeof input.value === "string" ? input.value : { ...input.value } };
+      const intent: MetadataIntent = input.fieldId === "leases" ? { ...input, targetIds, value: structuredClone(input.value) } : input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds, value: Array.isArray(input.value) ? [...input.value] : input.value }
+        : { ...input, targetIds, value: typeof input.value === "string" ? input.value : Array.isArray(input.value) ? [...input.value] : { ...input.value } };
       if (!newRevision) {
         const targets = new Set(targetIds);
         const latest = [...get().saves.values()].findLast(save => save.intent.fieldId === intent.fieldId
@@ -133,12 +165,14 @@ export function createMetadataEditorStore(
         owners.add(id); pendingByField.set(key, owners);
       }
       reservations.set(id, () => {
+        pillSources.delete(id); pillApplications.delete(id);
         for (const key of keys) {
           const owners = pendingByField.get(key);
           owners?.delete(id); if (!owners?.size) pendingByField.delete(key);
         }
         release();
       });
+      if (pillSource) pillSources.set(id, pillSource);
       if (get().derivedOwners.size) {
         const keys = intent.fieldId === "usageRights_category" ? publisherFields : [intent.fieldId];
         const affected = targetIds.flatMap(imageId => keys.map(field => keyFor(imageId, field))).filter(key => get().derivedOwners.has(key));
@@ -319,7 +353,7 @@ export function createMetadataEditorStore(
         });
         await operation.confirm({ ...save.intent, targetIds: [...targets.keys()] }, targets);
         if (!disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
-          && operation.getSnapshot()!.items.every(item => intents.get(item.imageId)?.fieldId !== "labels"
+          && operation.getSnapshot()!.items.every(item => !["leases", "labels"].includes(intents.get(item.imageId)?.fieldId ?? "")
             && (item.result?.outcome === "acknowledged" || item.result?.outcome === "unchanged")
             && typeof getMetadataWriteWitness(item.imageId) === "string")) releaseDispatch();
         await done;
@@ -363,6 +397,20 @@ export function createMetadataEditorStore(
         const saves = new Map(state.saves);
         for (const member of group) saves.set(member.id, { ...saves.get(member.id)!, ...progress.get(member.id)!, state: "finished",
           ...(stopped.has(member.id) ? { message: "Stopped remaining; submitted outcomes retained" } : {}) });
+        let removedPills: Map<string, readonly string[]> | undefined;
+        for (const member of group) {
+          const source = pillSources.get(member.id), applied = pillApplications.get(member.id);
+          if (!source && !applied) continue;
+          const final = saves.get(member.id)!;
+          if (final.excluded || final.items.length !== final.intent.targetIds.length || !final.items.every(item => item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility"))) continue;
+          const history = removedPills ??= new Map(state.removedPills);
+          if (applied && history.get(applied.key) === applied.captured) history.delete(applied.key);
+          if (source && typeof final.intent.value === "string") {
+            const values = new Set(history.get(source));
+            if (final.intent.action === "remove") values.add(final.intent.value); else values.delete(final.intent.value);
+            if (values.size) history.set(source, [...values]); else history.delete(source);
+          }
+        }
         let owners: Map<string, number> | undefined;
         let rightsSaves: Map<string, { id: number; revision: number; superseded?: boolean }> | undefined;
         for (const member of group) {
@@ -380,12 +428,13 @@ export function createMetadataEditorStore(
             }
           }
         }
-        return { saves, ...(owners && { derivedOwners: owners }), ...(rightsSaves && { formRightsSaves: rightsSaves }) };
+        return { saves, ...(removedPills && { removedPills }), ...(owners && { derivedOwners: owners }), ...(rightsSaves && { formRightsSaves: rightsSaves }) };
       });
       for (const member of group) {
         const { items } = progress.get(member.id)!;
-        if (member.intent.fieldId === "usageRights_category" && member.intent.targetIds.length === 1) {
-          const imageId = member.intent.targetIds[0], tracked = store.getState().formRightsSaves.get(imageId);
+        if ((member.intent.fieldId === "usageRights_category" || member.intent.fieldId === "leases") && member.intent.targetIds.length === 1) {
+          const imageId = member.intent.targetIds[0];
+          const tracked = (member.intent.fieldId === "leases" ? store.getState().formLeaseSaves : store.getState().formRightsSaves).get(imageId);
           if (tracked?.id === member.id && items.length === 1 && items[0].observation === "observed" &&
             (items[0].state === "accepted-awaiting-visibility" || items[0].state === "unchanged")) {
             useMetadataDrafts.getState().clearDraft(imageId, member.intent.fieldId, tracked.revision);

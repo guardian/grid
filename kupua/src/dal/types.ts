@@ -266,6 +266,8 @@ export interface AggregationsResult {
  * and date sorts (date_histogram agg → one bucket per time interval).
  */
 export interface SortDistribution {
+  /** Requested UTC date histogram interval, when known. Sparse bucket keys need not be adjacent. */
+  dateInterval?: "month" | "day" | "hour" | "30m" | "10m" | "5m";
   /** Buckets in sort order, with cumulative start positions. */
   buckets: SortDistBucket[];
   /** Total docs covered by the distribution (may be < total if nulls exist). */

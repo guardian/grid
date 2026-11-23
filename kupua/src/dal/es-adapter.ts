@@ -458,7 +458,7 @@ function parseTickerAggs(
 // ---------------------------------------------------------------------------
 
 /** Date-histogram interval for a value span, as documented on getDateDistribution. */
-export function chooseDateHistogramInterval(spanMs: number): string {
+export function chooseDateHistogramInterval(spanMs: number) {
   const MS_PER_DAY = 86_400_000;
   if (spanMs > 2 * 365 * MS_PER_DAY) return "month";
   if (spanMs > 2 * MS_PER_DAY) return "day";

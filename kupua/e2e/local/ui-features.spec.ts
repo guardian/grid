@@ -2287,14 +2287,13 @@ test.describe("Detail close during list restoration", () => {
                   const read = { operation: args[0].ids ? "lookup" : "range", stage: "request", signal: args[3] };
                   probe.pending.push(read);
                   try {
-                    const result = await original.apply(this, args);
                     if (args[0].ids && args[0].length === 1) {
                       if (args[0].ids === target) probe.targetReads += 1;
                       probe.ready += 1;
                       read.stage = "held";
                       await pending;
                     }
-                    return result;
+                    return await original.apply(this, args);
                   } finally {
                     probe.pending.splice(probe.pending.indexOf(read), 1);
                   }
@@ -2769,20 +2768,14 @@ test.describe("Stability — image detail reload", () => {
     const detailImageId = await kupua.getDetailImageId();
     expect(detailImageId).toBeTruthy();
 
-    // Wait for things to settle before reload
-    await kupua.page.waitForTimeout(1000);
+    await expect(kupua.page.locator(`[data-detail-image-id="${detailImageId}"]`)).toBeVisible();
 
     // Start console capture BEFORE reload so we catch all post-reload logs
     kupua.startConsoleCapture();
 
     // Reload the page — this is the scenario that triggered the infinite loop
-    await kupua.page.reload({ waitUntil: "load" });
-
-    // Wait for the page to recover: image detail should appear (URL has ?image=)
-    await kupua.page.waitForFunction(
-      () => new URL(window.location.href).searchParams.has("image"),
-      { timeout: 10_000 },
-    );
+    await kupua.page.reload({ waitUntil: "commit" });
+    await expect(kupua.page.locator(`[data-detail-image-id="${detailImageId}"]`)).toBeVisible();
 
     // Wait for data to load and stabilise
     await kupua.page.waitForFunction(
@@ -2790,9 +2783,9 @@ test.describe("Stability — image detail reload", () => {
         const store = (window as any).__kupua_store__;
         if (!store) return false;
         const s = store.getState();
-        return s.results.length > 0 && !s.loading;
+        return s.results.length > 0 && !s.loading && !s.positionMapLoading;
       },
-      { timeout: 15_000 },
+      undefined, { timeout: 15_000 },
     );
 
     // Give the system time to either stabilise or start looping

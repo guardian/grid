@@ -149,7 +149,7 @@ export const useUiPrefsStore = create<UiPrefsState>()(
  */
 export function useEffectiveFocusMode(): FocusMode {
   const compact = useIsCompact();
-  const mode = useUiPrefsStore((s) => s.focusMode);
+  const mode = useUiPrefsStore((s) => s.densityContext === "upload" ? "phantom" : s.focusMode);
   return compact ? "phantom" : mode;
 }
 
@@ -158,7 +158,7 @@ export function useEffectiveFocusMode(): FocusMode {
  */
 export function getEffectiveFocusMode(): FocusMode {
   const s = useUiPrefsStore.getState();
-  return isCompactNow() ? "phantom" : s.focusMode;
+  return s.densityContext === "upload" || isCompactNow() ? "phantom" : s.focusMode;
 }
 
 // ---------------------------------------------------------------------------

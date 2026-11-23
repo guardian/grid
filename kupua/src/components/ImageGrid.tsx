@@ -1237,6 +1237,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // -------------------------------------------------------------------------
 
   useListNavigation({
+    pageByImage: path === "/upload" && !!measuredCells,
     ...(justifiedLayout ? { spatial: measuredLayout?.spatial ?? justifiedLayout } : { columnsPerRow: columns, rowHeight, itemOffset: fixedGeometry.itemOffset }),
     virtualizer,
     scrollRef: parentRef,
@@ -1373,8 +1374,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                     />
                   );
                   return measuredCells && image ? <div key={image.id} data-grid-cell data-measured-cell data-image-id={image.id}
-                    className={animClass} style={{ width: justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth }}>
-                    {measuredCells.render(image, thumbnail)}
+                    className={animClass === "anim-focus-here-unfocused" ? undefined : animClass} style={{ width: justifiedLayout?.getBox(imageIdx)?.width ?? cellWidth }}>
+                    {measuredCells.render(image, thumbnail, enterDetail)}
                   </div> : thumbnail;
                 })}
               </div>

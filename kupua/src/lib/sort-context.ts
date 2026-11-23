@@ -336,7 +336,7 @@ export function resolveDateSortInfo(
  * O(log n) where n = number of buckets. Returns the bucket key (keyword
  * value or ISO date string), or null if position is outside the covered range.
  */
-function lookupSortDistribution(
+export function lookupSortDistribution(
   dist: SortDistribution,
   globalPosition: number,
 ): string | null {
@@ -671,19 +671,20 @@ export interface TrackTick {
  * Returns an empty array for keyword sorts, script sorts, or when no
  * usable date data is available.
  */
+const MONTH_ABBRS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
 function computeTrackTicks(
   orderBy: string | undefined,
   total: number,
   bufferOffset: number,
   results: (Image | undefined)[],
   sortDist?: SortDistribution | null,
+  calendar: "local" | "utc" = "local",
 ): TrackTick[] {
   if (total <= 0) return [];
 
   const mapping = resolveSortMapping(orderBy);
   if (!mapping || mapping.type !== "date") return [];
-
-  const MONTH_ABBRS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
   // -----------------------------------------------------------------------
   // Distribution mode: use histogram buckets directly as ticks.
@@ -691,25 +692,27 @@ function computeTrackTicks(
   // each startPosition is the accurate cumulative doc count.
   // -----------------------------------------------------------------------
 
-  if (sortDist && sortDist.buckets.length >= 2) {
+  const utc = calendar === "utc";
+  const interval = utc ? sortDist?.dateInterval : undefined;
+  if (utc && !interval) return [];
+  if (sortDist && sortDist.buckets.length >= (interval ? 1 : 2)) {
     const ticks: TrackTick[] = [];
 
     // Detect the histogram interval from the first two bucket keys
     const d0 = new Date(sortDist.buckets[0].key);
-    const d1 = new Date(sortDist.buckets[1].key);
-    const intervalMs = Math.abs(d1.getTime() - d0.getTime());
-    const isMonthly = intervalMs > 20 * MS_PER_DAY; // ~28–31 days
-    const isDaily = !isMonthly && intervalMs > 12 * 3600_000; // ~24h
-    const isHourly = !isMonthly && !isDaily && intervalMs >= 3600_000; // 1h
+    const intervalMs = interval ? 0 : Math.abs(Date.parse(sortDist.buckets[1].key) - d0.getTime());
+    const isMonthly = interval ? interval === "month" : intervalMs > 20 * MS_PER_DAY;
+    const isDaily = interval ? interval === "day" : !isMonthly && intervalMs > 12 * 3600_000;
+    const isHourly = interval ? interval === "hour" : !isMonthly && !isDaily && intervalMs >= 3600_000;
 
     // For monthly buckets: compute span in years to decide label density.
     // Short spans (< ~15 years): every January gets a year label and major
     // status — individual years are the primary orientation landmarks.
     // Long spans (≥ 15 years): decade/half-decade hierarchy prevents
     // overcrowding — only yr%5==0 gets a label, only yr%10==0 is major.
-    const dFirst = new Date(sortDist.buckets[0].key);
     const dLast = new Date(sortDist.buckets[sortDist.buckets.length - 1].key);
-    const spanYears = Math.abs(dLast.getFullYear() - dFirst.getFullYear());
+    const year = (date: Date) => utc ? date.getUTCFullYear() : date.getFullYear();
+    const spanYears = Math.abs(year(dLast) - year(d0));
     const shortSpan = spanYears < 15;
 
     const seenPositions = new Set<number>();
@@ -728,19 +731,21 @@ function computeTrackTicks(
       seenPositions.add(pos);
 
       const d = new Date(bucket.key);
+      const month = utc ? d.getUTCMonth() : d.getMonth();
+      const day = utc ? d.getUTCDate() : d.getDate();
 
       if (isMonthly) {
         // Monthly buckets: Jan = major (year label), other months = minor (month abbr).
         // Label/major strategy adapts to span length — see shortSpan above.
-        const isJan = d.getMonth() === 0;
-        const yr = d.getFullYear();
+        const isJan = month === 0;
+        const yr = year(d);
         if (shortSpan) {
           // Short span: every January is major with a year label.
           // Non-January months are minor with month abbreviation.
           ticks.push({
             position: pos,
             type: isJan ? "major" : "minor",
-            label: isJan ? `${yr}` : MONTH_ABBRS[d.getMonth()],
+            label: isJan ? `${yr}` : MONTH_ABBRS[month],
           });
         } else {
           // Long span: half-decade hierarchy — label only at yr%5, major at yr%5.
@@ -753,7 +758,7 @@ function computeTrackTicks(
             type: isJan && isHalfDecade ? "major" : "minor",
             label: isJan
               ? `${yr}`
-              : MONTH_ABBRS[d.getMonth()],
+              : MONTH_ABBRS[month],
           });
         }
       } else if (isDaily) {
@@ -762,18 +767,18 @@ function computeTrackTicks(
         // based on available pixel space — sparse months show most days, dense months
         // show fewer. Week boundaries (Mondays) could be promoted to major but that
         // adds complexity for marginal value — day numbers alone orient well enough.
-        const isMajor = d.getDate() === 1;
+        const isMajor = day === 1;
         ticks.push({
           position: pos,
           type: isMajor ? "major" : "minor",
-          label: isMajor ? MONTH_ABBRS[d.getMonth()] : `${d.getDate()}`,
+          label: isMajor ? MONTH_ABBRS[month] : `${day}`,
         });
       } else if (isHourly) {
         // Hourly buckets: 6-hour marks = major, midnight = day+month label
-        const h = d.getHours();
+        const h = utc ? d.getUTCHours() : d.getHours();
         const isMajor = h % 6 === 0;
         const label = h === 0
-          ? `${d.getDate()} ${MONTH_ABBRS[d.getMonth()]}`
+          ? `${day} ${MONTH_ABBRS[month]}`
           : `${String(h).padStart(2, "0")}:00`;
         ticks.push({ position: pos, type: isMajor ? "major" : "minor", label });
       } else {
@@ -781,12 +786,12 @@ function computeTrackTicks(
         // Midnight gets day+month label; other hours get HH:00; sub-hour
         // buckets get HH:MM. Label decimation in the Scrubber hides labels
         // that are too close together.
-        const h = d.getHours();
-        const m = d.getMinutes();
+        const h = utc ? d.getUTCHours() : d.getHours();
+        const m = utc ? d.getUTCMinutes() : d.getMinutes();
         const isMajor = m === 0;
         let label: string;
         if (h === 0 && m === 0) {
-          label = `${d.getDate()} ${MONTH_ABBRS[d.getMonth()]}`;
+          label = `${day} ${MONTH_ABBRS[month]}`;
         } else {
           label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
         }
@@ -816,17 +821,37 @@ function computeTrackTicks(
   const msPerPos = (endMs - startMs) / Math.max(1, total - 1);
   if (msPerPos === 0) return [];
 
-  const earlierMs = Math.min(startMs, endMs);
-  const laterMs = Math.max(startMs, endMs);
+  return calendarTicks(startMs, endMs, ms => {
+    const pos = Math.round((ms - startMs) / msPerPos);
+    return pos >= 0 && pos < total ? pos : null;
+  });
+}
+
+export function descendingDateTicks(total: number, timestampAt: (index: number) => number): TrackTick[] {
+  if (total < 2) return [];
+  const newest = timestampAt(0), oldest = timestampAt(total - 1);
+  if (!Number.isFinite(newest) || !Number.isFinite(oldest) || newest <= oldest) return [];
+  const occupied = new Set<number>();
+  return calendarTicks(newest, oldest, boundary => {
+    let low = 0, high = total - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const timestamp = timestampAt(middle);
+      if (!Number.isFinite(timestamp)) return null;
+      if (timestamp > boundary) low = middle + 1; else high = middle;
+    }
+    if (occupied.has(low)) return null;
+    occupied.add(low);
+    return low;
+  });
+}
+
+function calendarTicks(startMs: number, endMs: number, toPosition: (ms: number) => number | null): TrackTick[] {
+  const earlierMs = Math.min(startMs, endMs), laterMs = Math.max(startMs, endMs);
   const spanMs = laterMs - earlierMs;
   if (spanMs <= 0) return [];
   const earlier = new Date(earlierMs);
   const ticks: TrackTick[] = [];
-
-  const toPosition = (ms: number): number | null => {
-    const pos = Math.round((ms - startMs) / msPerPos);
-    return pos >= 0 && pos < total ? pos : null;
-  };
 
   if (spanMs > 2 * 365 * MS_PER_DAY) {
     const later = new Date(laterMs);
@@ -1031,9 +1056,10 @@ export function computeTrackTicksWithNullZone(
   results: (Image | undefined)[],
   sortDist: SortDistribution | null | undefined,
   nullZoneDist: SortDistribution | null | undefined,
+  calendar: "local" | "utc" = "local",
 ): TrackTick[] {
   // Start with covered-zone ticks (existing logic)
-  const coveredTicks = computeTrackTicks(orderBy, total, bufferOffset, results, sortDist);
+  const coveredTicks = computeTrackTicks(orderBy, total, bufferOffset, results, sortDist, calendar);
 
   const sortKey = resolvePrimarySortKey(orderBy);
   const coveredCount = sortDist?.coveredCount;

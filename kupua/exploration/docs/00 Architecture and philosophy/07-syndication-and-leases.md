@@ -14,12 +14,29 @@
 
 ---
 
+## Manual editing in API-backed Kupua
+
+Search edits the selected images; Detail edits only the open image. In Upload, Save edits one Form card. Only the upper open batch has an arrow: it replaces the **whole lease set** on the other captured images, not a union. An empty source means clear all leases on the peers. Both replacements and clears ask for confirmation. Other uploads and later arrivals are not implicit targets.
+
+| Access | Timing and editorial impact |
+| --- | --- |
+| Allow use | Optional start and expiry; defaults to the end of the local day two days ahead. May override usage restrictions, but does not make paid imagery free or supply missing credit or description. |
+| Deny use | Same date choices. An active denial participates in Grid's validity and download decisions; it does not remove usages or exports. |
+| Allow syndication | Starts now unless delayed; cannot expire. Call Agency and Premium prefix the optional notes. Changes syndication eligibility, not partner delivery. |
+| Deny syndication | Starts immediately; may expire. It can block syndication without changing the image's usage-rights category. |
+
+Choose **Delay start** to set a local start time; switch it off to start immediately. **Set expiry** works the same way: switch it off for no expiry. Only applicable controls appear. Dates display to the minute, while an untouched default use-lease expiry still covers the entire last minute of that day.
+
+Add a use lease as often as needed: records of the same type may have different notes or dates. Adding a syndication lease replaces existing syndication leases, with confirmation. The service can reissue IDs and attribution for retained records during replacement. Remove on a single card identifies one UUID. The selection summary counts **images**, not interchangeable records, and has no bulk remove-by-type action. Phone entry uses the same explicit Save with native date/time inputs; changing a field does not submit it.
+
+The [command boundary](../../../src/lib/grid-commands.ts) checks the startup editing preference, session, fresh image action and current service-owned leases. It shares metadata pacing and grouped image readback. Acknowledgement is not search visibility: additions are checked with multiplicity, individual removals by ID and remaining contents, and copies against the complete intended set. A partial or uncertain operation is not replayed. Fresh reads do not make whole-set replacement atomic across editors. Server cost, validity, syndication status and advertised capabilities remain authoritative; neither a lease card nor a tinted badge grants access. No category-triggered leases, templates or partner dispatch are part of manual editing.
+
+**Validation scope:** isolated Search selection and Detail journeys, touch-emulated Form entry, confirmed batch replacement/clear, a rendered paid-but-leased badge, guarded Vite routing and hosted command fixtures. Physical keyboard/picker behaviour, deployed authentication and a real lease write have not been verified.
+
 ## 1. What it is
 
 Syndication status is a five-value classification of whether an image can be
-syndicated to partners. Kupua computes it **client-side from raw ES data** — no
-media-api dependency. This replaces the server-computed `syndicationStatus` field
-on Grid's `Image.scala` model (a Scala `def`, never stored in ES).
+syndicated to partners. API-backed views prefer the status returned by media-api. The local computation described below applies when that status is absent; it is not the authority for editing.
 
 The lease system records access permissions per image. Four lease types exist:
 `allow-use`, `deny-use`, `allow-syndication`, `deny-syndication`. Kupua determines

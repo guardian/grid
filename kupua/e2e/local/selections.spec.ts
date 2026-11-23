@@ -719,7 +719,9 @@ test.describe("S4 -- multi-image Details panel", () => {
         await expect(kupua.page.getByText("Focus an image to see its metadata.", { exact: true })).toBeVisible();
         await expect(kupua.page.getByText("Focus an image to see its usages.", { exact: true })).toBeVisible();
       } else {
-        await expect(kupua.page.getByText("No leases", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("Leases", { exact: true })).toBeVisible();
+        await expect(kupua.page.getByText("Allow use", { exact: true })).toHaveCount(0);
+        await expect(kupua.page.getByText("No leases", { exact: true })).toHaveCount(0);
       }
       await kupua.page.evaluate(() => (window as any).__s3_release__());
       await expect.poll(() => kupua.page.evaluate(() => {

@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Manual leases and batch editing in Upload
+
+Editors can add manual leases in Search, Detail and Upload, remove an individual lease, and copy or clear a whole lease set across an open upload batch. Paid images remain marked as paid when leased. Upload opens missing Rights for editing and shows cost, usability and Library status below the image. Labels, Keywords and People batch arrows propagate additions and explicit removals without overwriting unrelated pills. Returning from Detail highlights the image briefly; Form paging moves one image at a time, and the My other uploads scrubber shows upload dates. See the [editing roadmap](gradually-growing-teeth.kupua-edits-steps.md#step-15-upload-import-and-post-upload-editing) for scope and remaining work.
+
 ### 22 November 2026 - Keep selection frequencies ranked and disclose the full Creator list
 
 Adding a cached image now promotes a mixed metadata value above less frequent

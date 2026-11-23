@@ -844,6 +844,22 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Settings" })).toBeTruthy();
   });
 
+  it("shows fixed Click to open on Upload without changing Search click mode", () => {
+    useUiPrefsStore.setState({ densityContext: "upload", focusMode: "explicit", _pointerCoarse: false });
+    render(<SettingsMenu />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const open = screen.getByRole<HTMLButtonElement>("menuitemradio", { name: /Click to open/ });
+    const focus = screen.getByRole<HTMLButtonElement>("menuitemradio", { name: /Click to focus/ });
+    fireEvent.click(open);
+    expect(useUiPrefsStore.getState().focusMode).toBe("explicit");
+    expect(open.disabled && focus.disabled).toBe(true);
+    expect(open.getAttribute("aria-checked")).toBe("true");
+    act(() => useUiPrefsStore.setState({ densityContext: "search" }));
+    expect(focus.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(open);
+    expect(useUiPrefsStore.getState().focusMode).toBe("phantom");
+  });
+
   it("offers results zoom and Lock View only when the menu is opted in", () => {
     useUiPrefsStore.setState({ density: "grid" });
     const mounted = render(<SettingsMenu showViewControls />);

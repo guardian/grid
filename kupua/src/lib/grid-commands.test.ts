@@ -22,6 +22,50 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it.each([401, 419, 403, 429, "network"])("retains label substeps after a later failure (%s)", async status => {
+    const labels = `${metadataOrigin}/metadata/fixture/labels`;
+    const writes: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (!init?.method) return Response.json({ data: { labels: { uri: labels,
+        data: ["first", "second"].map(data => ({ data, uri: `${labels}/${data}` })) } } });
+      writes.push(`${init.method} ${url}`);
+      if (writes.length === 1) return new Response(null, { status: 204 });
+      if (status === "network") throw Error("lost response");
+      return new Response(null, { status: Number(status) });
+    }));
+    const { executeGridCommand } = await import("./grid-commands");
+    const result = await executeGridCommand({ operation: "edit-label-list", imageId: command.imageId, resource: command.resource,
+      clear: false, remove: ["first", "second"], add: ["third"] });
+    expect(writes).toEqual(["DELETE /grid-metadata/metadata/fixture/labels/first", "DELETE /grid-metadata/metadata/fixture/labels/second"]);
+    const uncertain = status === 429 || status === "network";
+    expect(result).toMatchObject({ outcome: uncertain ? "unknown" : "partial", ...(status !== "network" && { status }),
+      expected: { labels: uncertain ? [] : ["second"] }, labelSteps: { acknowledged: 1, rejected: uncertain ? 0 : 1, notSent: 1, uncertain: uncertain ? 1 : 0 } });
+  });
+  it.each(["network", "429"])("requires explicit syndication replacement and retains the expected leases after an uncertain POST (%s)", async failure => {
+    const origin = "https://leases.example.test", path = "/leases/media/fixture";
+    vi.stubEnv("VITE_HOSTED", "true");
+    vi.stubGlobal("window", { __KUPUA_CONFIG__: { mediaApiUri: "https://api.example.test" } });
+    let writes = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "https://api.example.test") return Response.json({ links: [{ rel: "leases", href: origin }, { rel: "session", href: `${authOrigin}/session` }] });
+      if (url === `${authOrigin}/session`) return session();
+      if (url === "https://api.example.test/images/fixture") return Response.json({ data: { id: "fixture" },
+        links: [...command.resource.links, { rel: "leases", href: origin + path }], actions: [{ name: "add-lease", method: "POST", href: `${origin}/leases` }] });
+      if (url === origin + path) return Response.json({ data: { leases: [{ mediaId: "fixture", id: "23a47def-4fea-44bb-b706-30bd5e145f31", access: "allow-syndication" }] } });
+      expect(url).toBe(`${origin}/leases`); expect(init?.method).toBe("POST"); writes++;
+      if (failure === "network") throw Error("lost response");
+      return new Response(null, { status: 429 });
+    }));
+    const { executeGridCommand } = await import("./grid-commands");
+    const { leaseSetKey } = await import("./lease-change");
+    const edit = (overwrite: boolean) => executeGridCommand({ imageId: "fixture", resource: command.resource, operation: "edit-leases", value: { kind: "add", lease: { access: "deny-syndication" }, overwrite } });
+    expect(await edit(false)).toEqual({ outcome: "blocked", reason: "unavailable" });
+    expect(writes).toBe(0);
+    expect(await edit(true)).toEqual({ outcome: "unknown", expectedLeases: leaseSetKey([{ access: "deny-syndication" }]), ...(failure === "429" && { status: 429 }) });
+    expect(writes).toBe(1);
+  });
   it("groups rights reads but releases each matching image independently", async () => {
     const { createRightsReadback } = await import("./metadata-operation");
     const { attachEnrichment } = await import("../stores/enrichment-store");

@@ -69,7 +69,7 @@ function mapApiImageToImage(raw: unknown, links?: Link[]): Image {
 
   // leases: unwrap single Argo entity — keep the data object shape ({ leases: [...] })
   const leasesEntity = d.leases as { data?: unknown } | undefined;
-  const leases = leasesEntity?.data ?? { leases: [] };
+  const leases = leasesEntity?.data;
 
   // collections: array of Argo entities, extract each .data
   const collectionsRaw = d.collections as Array<{ data?: unknown }> | undefined;

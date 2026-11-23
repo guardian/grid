@@ -365,6 +365,7 @@ explicit Kupua `--use-TEST`, and deployed-API startup retain their previous setu
 | `VITE_ES_IS_LOCAL` | `true` | `.env` | Set to `false` when connecting to non-local ES (enables write protection) |
 | `VITE_MEDIA_API_BASE_URL` | `/api` | `start.sh` | Media-api request base; only deployed TEST mode sets the allowlisted absolute TEST origin |
 | `VITE_GRID_METADATA_ORIGIN` | (unset) | Shell | Optional custom metadata-editor target beyond fixed local/TEST routes; must match root discovery |
+| `VITE_GRID_LEASES_ORIGIN` | (unset) | Shell | Optional fixed Leases target; must match the discovered root. The Vite guard admits root/per-image reads, single Add, UUID removal and per-image replacement/clear only. |
 | `VITE_GRID_AUTH_ORIGIN` | (unset) | Shell | Optional custom auth target beyond fixed local/TEST routes; must match session discovery |
 | `VITE_S3_PROXY_ENABLED` | `false` | `start.sh` | Set to `true` when S3 thumbnail proxy is running |
 | `VITE_IMGPROXY_ENABLED` | `false` | `start.sh` | Set to `true` when imgproxy container is running |

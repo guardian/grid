@@ -1,3 +1,4 @@
+import { useDeleteConfirmation } from "@/hooks/useDeleteConfirmation";
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useStore } from "zustand";
 import { MetadataEditorContext } from "./MetadataEditing";
@@ -77,6 +78,7 @@ interface ImageActionsProps {
   onPrepared?: () => void;
   presentation?: "toolbar" | "detail" | "floaty";
   showReasons?: boolean;
+  iconOnly?: boolean;
 }
 
 export function SelectionImageActions(props: Omit<ImageActionsProps, "context" | "resolveContext">) {
@@ -100,11 +102,10 @@ export function SelectionImageActions(props: Omit<ImageActionsProps, "context" |
   }} />;
 }
 
-export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true }: ImageActionsProps) {
+export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true, iconOnly = false }: ImageActionsProps) {
   useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
   const { settings: cropSettings } = useCropSettings();
   const [archive, setArchive] = useState<boolean | null>(null);
-  const [armedDelete, setArmedDelete] = useState<string | null>(null);
   const settledOpacity = useRef(new Map<ImageAction, number>());
   const [narrow, setNarrow] = useState(() => window.matchMedia?.("(max-width: 599px)").matches ?? false);
   useEffect(() => {
@@ -129,12 +130,7 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
   });
   const targetKey = JSON.stringify(current.targets.map(target => target.id));
   const deleteReason = descriptions.get("delete")?.reason;
-  useEffect(() => { setArmedDelete(null); }, [targetKey, deleteReason]);
-  useEffect(() => {
-    if (!armedDelete) return;
-    const timer = setTimeout(() => setArmedDelete(null), 5000);
-    return () => clearTimeout(timer);
-  }, [armedDelete]);
+  const [armedDelete, setArmedDelete] = useDeleteConfirmation(targetKey, deleteReason);
   const activate = (action: ImageAction, trigger: HTMLButtonElement) => {
     const latest = { ...(resolveContext?.() ?? context), archive };
     if (describeImageAction(action, latest).reason) return;
@@ -158,10 +154,10 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
         title={description.reason ?? description.label}
         className={`image-action flex shrink-0 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${confirming ? "bg-grid-error text-white" : "text-grid-text-muted"}`}>
         <ImageActionIcon action={action} />
-        <span className={expanded ? "min-w-0 whitespace-normal wrap-anywhere" : "image-action-full"}>{visibleLabel}
+        {!iconOnly && <span className={expanded ? "min-w-0 whitespace-normal wrap-anywhere" : "image-action-full"}>{visibleLabel}
           {expanded && showReasons && presentation !== "floaty" && description.reason && <span className="block text-xs font-normal">{description.reason}</span>}
-        </span>
-        {!expanded && <span className="image-action-short">{confirming ? "Confirm" : description.shortLabel}</span>}
+        </span>}
+        {!iconOnly && !expanded && <span className="image-action-short">{confirming ? "Confirm" : description.shortLabel}</span>}
       </button>;
   };
   const inline = narrow && !expanded ? actions.filter(action => action === "share" || action === "library") : actions;

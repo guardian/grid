@@ -2,6 +2,11 @@ import type { ImageDataSource, SearchParams, SearchAfterResult, SortValues, Uplo
 import type { PositionMap } from "./position-map";
 import { PAGE_SIZE } from "@/constants/tuning";
 
+export function otherUploadParams(scope: NonNullable<SearchParams["recentUploadScope"]>, ids?: string): SearchParams {
+  return { nonFree: "true", orderBy: "-uploadTime", ids,
+    recentUploadScope: { key: `${scope.key}:other`, uploadedBy: scope.uploadedBy, excludedIds: scope.batch?.ids ?? [] } };
+}
+
 export class UploadPageReader {
   constructor(private source: ImageDataSource) {}
 
@@ -12,8 +17,7 @@ export class UploadPageReader {
     const orderedBatch = descendingFilename ? { ...batch, ids: [...batch.ids].reverse() } : batch;
     return [
       { nonFree: "true", imageScope: orderedBatch ?? { key: `${scope.key}:empty`, revision: 0, ids: [] }, orderBy: descendingFilename ? undefined : params.orderBy, ids: params.ids },
-      { nonFree: "true", orderBy: "-uploadTime", ids: params.ids,
-        recentUploadScope: { key: `${scope.key}:other`, uploadedBy: scope.uploadedBy, excludedIds: batch?.ids ?? [] } },
+      otherUploadParams(scope, params.ids),
     ];
   }
 

@@ -61,6 +61,10 @@ describe("independent per-tab density", () => {
     const { useUiPrefsStore, getEffectiveFocusMode } = await import("./ui-prefs-store");
     const { isMobile } = await import("@/lib/is-mobile");
     expect(getEffectiveFocusMode()).toBe(focusMode);
+    useUiPrefsStore.setState({ densityContext: "upload" });
+    expect(getEffectiveFocusMode()).toBe("phantom");
+    useUiPrefsStore.setState({ densityContext: "search" });
+    expect(getEffectiveFocusMode()).toBe(focusMode);
     expect(isMobile()).toBe(compact);
     expect(useUiPrefsStore.getState().focusMode).toBe("explicit");
     expect(useUiPrefsStore.getState().density).toBe(density);

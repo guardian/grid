@@ -27,7 +27,7 @@ import { calculateCost } from "@/lib/cost/calculate-cost";
 import { buildValidityMap, deriveInvalidReasons, deriveValid } from "@/lib/cost/validity-map";
 import guardianConfig from "@/lib/cost/guardian-config.json";
 import type { GuardianCostConfig } from "@/lib/cost/types";
-import { calculateSyndicationStatus } from "@/lib/syndication/calculate-syndication-status";
+import { calculateSyndicationStatus, isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 
 const GUARDIAN_COST_CONFIG = guardianConfig as GuardianCostConfig;
 
@@ -105,6 +105,19 @@ export function deriveImage(
     invalidReasons ??= deriveInvalidReasons(validityMap);
   }
   const noRights = !image.usageRights?.category;
+  const now = Date.now();
+  let leasesSummary = overlay?.leasesSummary;
+  const leases = image.leases?.leases;
+  if (overlay && !leasesSummary && leases?.length) {
+    let currentCount = 0;
+    let hasActiveAllowLease = false;
+    for (const lease of leases) {
+      if (!isLeaseActive(lease, now)) continue;
+      currentCount++;
+      if (lease.access === "allow-use") hasActiveAllowLease = true;
+    }
+    leasesSummary = { currentCount, inactiveCount: leases.length - currentCount, hasActiveAllowLease };
+  }
 
   return {
     ...image,
@@ -113,11 +126,11 @@ export function deriveImage(
     invalidReasons,
     noRights,
     usageRights: overlay?.usageRights ?? image.usageRights,
-    leasesSummary: overlay?.leasesSummary,
+    leasesSummary,
     persisted: overlay?.persisted,
     actions: overlay?.actions,
     resource: overlay?.resource,
-    syndicationStatus: overlay?.syndicationStatus ?? calculateSyndicationStatus(image, Date.now()),
+    syndicationStatus: overlay?.syndicationStatus ?? calculateSyndicationStatus(image, now),
     enrichedUsages: overlay?.usages ?? image.usages,
   };
 }

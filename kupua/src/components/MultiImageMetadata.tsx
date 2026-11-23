@@ -449,6 +449,7 @@ function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: 
 // ---------------------------------------------------------------------------
 
 import { UsageRightsEditor } from "./UsageRightsEditor";
+import { LeaseEditor } from "./LeaseEditor";
 
 function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }: MultiImageMetadataProps & { ids: readonly string[]; editable: boolean }) {
   const onSearch = useMetadataSearch();
@@ -530,10 +531,8 @@ function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }
 
       {/* Leases — compact card rows, use before syndication, deny before allow, active before pending */}
       <MetadataSection>
-        <div className="text-xs font-bold text-grid-text-dim pb-1">Leases</div>
-        {!hasAnyActive && !hasAnyPending && imagesWithAnyExpired === 0 ? (
-          <p className="text-xs text-grid-text-dim">No leases</p>
-        ) : (
+        <LeaseEditor ids={ids} images={images} allowed={editable && images.every(image => resolveImageOverlay(image, useEnrichmentStore.getState().data.get(image.id), attachedEnrichment(image))?.actions?.some(action => action.name === "add-lease"))} />
+        {(hasAnyActive || hasAnyPending || imagesWithAnyExpired > 0) && (
           <div className="space-y-0.5">
             {LEASE_ROW_ORDER.map(({ key, access, label, isAllow, state }) => (
               <LeaseTypeRow

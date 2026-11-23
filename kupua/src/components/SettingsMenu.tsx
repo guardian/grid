@@ -91,6 +91,7 @@ export function SettingsMenu({ inset = false, showViewControls = false, uploadMe
     batch.attempts.some(attempt => activeUploadPhases.has(attempt.phase))));
 
   const isCompact = useIsCompact();
+  const isUpload = useUiPrefsStore((s) => s.densityContext === "upload");
   const effectiveMode = useEffectiveFocusMode();
   const setFocusMode = useUiPrefsStore((s) => s.setFocusMode);
   const blurGraphicImages = useUiPrefsStore((s) => s.blurGraphicImages);
@@ -199,9 +200,9 @@ export function SettingsMenu({ inset = false, showViewControls = false, uploadMe
             role="menuitemradio"
             aria-checked={effectiveMode === "explicit"}
             onClick={() => handleModeChange("explicit")}
-            disabled={isCompact}
+            disabled={isUpload || isCompact}
             className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${
-              isCompact
+              isUpload || isCompact
                 ? "text-grid-text-dim cursor-not-allowed"
                 : effectiveMode === "explicit"
                   ? "text-grid-accent bg-grid-hover/20"
@@ -222,6 +223,7 @@ export function SettingsMenu({ inset = false, showViewControls = false, uploadMe
           <button
             role="menuitemradio"
             aria-checked={effectiveMode === "phantom"}
+            disabled={isUpload}
             onClick={() => handleModeChange("phantom")}
             className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 transition-colors ${
               effectiveMode === "phantom"
@@ -236,7 +238,7 @@ export function SettingsMenu({ inset = false, showViewControls = false, uploadMe
               Click to open
               <span className="block text-xs text-grid-text-dim">
                 Single-click opens image (like Kahuna)
-                {isCompact && " — always on for phones"}
+                {isUpload ? " — always on for Upload" : isCompact && " — always on for phones"}
               </span>
             </span>
           </button>

@@ -26,6 +26,20 @@ import type { Image } from "@/types/image";
 import type { SortDistribution } from "@/dal/types";
 
 describe("computeTrackTicksWithNullZone — boundary cases (Part A)", () => {
+  it("labels sparse lower Upload histogram ticks by their declared UTC interval", () => {
+    const distribution: SortDistribution = {
+      coveredCount: 5, dateInterval: "day",
+      buckets: [
+        { key: "2024-03-01T00:00:00Z", startPosition: 0, count: 3 },
+        { key: "2024-01-17T00:00:00Z", startPosition: 3, count: 2 },
+      ],
+    };
+    expect(computeTrackTicksWithNullZone("-uploadTime", 5, 0, [], distribution, null, "utc")).toEqual([
+      { position: 0, type: "major", label: "Mar" },
+      { position: 3, type: "minor", label: "17" },
+    ]);
+  });
+
   it("A1: coveredCount >= total → no boundary tick (keyword orderBy, empty result)", () => {
     const sortDist: SortDistribution = { buckets: [], coveredCount: 10 };
     const result = computeTrackTicksWithNullZone("credit", 10, 0, [], sortDist, null);

@@ -3,12 +3,13 @@ import { useStore } from "zustand";
 import type { UsageRights } from "@/types/image";
 import { readRightsEditorCatalogue, type RightsEditorCategory } from "@/lib/usage-rights-catalogue";
 import { siteSettings } from "@/lib/site-settings";
+import { useBrowsingContext } from "@/lib/browsing-context";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
 import { rightsValueSchema } from "@/lib/grid-commands";
-import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
+import { useDetailsDraft } from "./DetailsDrafts";
 import { MetadataEditButton } from "./MetadataTextEditor";
 import { RightsCreatorInput } from "./RightsCreatorInput";
-import { cancelButtonColours, PILL_ACTION_ICONS } from "./SearchPill";
+import { MetadataFormActions } from "./MetadataFormActions";
 import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, useMetadataCommit, SavingValue, usePendingPanelIntent, FieldSaveNote, useSubmittedField } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
 
@@ -35,6 +36,7 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   ids: readonly string[]; rights: readonly UsageRights[]; allowed: boolean; form?: boolean; pendingGrant?: boolean; children: ReactNode;
 }) {
   const editor = useContext(MetadataEditorContext);
+  const uploadForm = useBrowsingContext().path === "/upload" && form;
   const connected = useStore(editor, state => state.connected);
   const tracking = useStore(editor, state => form ? state.formRightsSaves.get(ids[0]) : undefined);
   const retained = useMetadataDrafts(state => form ? state.drafts.get(ids[0])?.get(fieldId) : undefined);
@@ -51,12 +53,14 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   const pending = usePendingPanelIntent(labelTargetKey(ids), fieldId);
   const { restored, update } = useDetailsDraft<Draft>(fieldId);
   const [localDraft, setDraft] = useState(form ? undefined : restored);
-  const draft = localDraft ?? (retained ? JSON.parse(retained.value) as Draft : undefined);
+  const [dismissed, setDismissed] = useState(false);
   const unique = useId();
   const choices = categories?.filter(category => supported.has(category.value)) ?? [];
   const modern = choices.some(category => category.value && category.value !== "agency");
   const common = rights.every(item => item.category === rights[0]?.category) ? rights[0]?.category ?? "" : "mixed";
   const initial = initialDraft(choices.find(category => category.value === common), rights);
+  const draft = localDraft ?? (retained ? JSON.parse(retained.value) as Draft : undefined)
+    ?? (uploadForm && enabled && !dismissed && common === "" && initial.values.category === "" ? initial : undefined);
   const change = (next: Draft) => {
     submitted.track(undefined);
     setDraft(next);
@@ -67,6 +71,7 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   const close = () => {
     submitted.track(undefined);
     setDraft(undefined);
+    if (uploadForm) setDismissed(true);
     if (!form) return update(label, undefined);
     const store = useMetadataDrafts.getState(), retained = store.drafts.get(ids[0])?.get(fieldId);
     if (retained) store.clearDraft(ids[0], fieldId, retained.revision);
@@ -140,7 +145,6 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
       </select> : <input className={inputClass} value={value} required={property.required} autoComplete="off"
         placeholder={property.examples ? `e.g. ${property.examples}` : undefined} onChange={event => setField(name, event.target.value)} />}</label>;
     })}
-    <div className="rights-actions flex flex-wrap justify-end items-center gap-1.5"><DetailsTargetCount count={ids.length} /><button type="button" className={cancelButtonColours} onClick={close}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={PILL_ACTION_ICONS.close} /></svg>Cancel</button>
-      <button type="submit" disabled={!enabled || !selected || !rightsValueSchema.safeParse(values).success || draft.restricted && !values.restrictions?.trim()}><svg aria-hidden="true" viewBox="0 0 24 24"><path d={PILL_ACTION_ICONS.confirm} /></svg>Save</button></div>
+    <MetadataFormActions count={ids.length} cancel={close} disabled={!enabled || !selected || !rightsValueSchema.safeParse(values).success || !!(draft.restricted && !values.restrictions?.trim())} />
   </form></fieldset>{submitted.state === "Not confirmed" && <button type="button" onClick={close}>Cancel</button>}</>;
 }

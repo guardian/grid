@@ -603,6 +603,11 @@ describe("apiSearchAfter canonical image normalization", () => {
     });
     expect(image.usages).toEqual(usages);
     expect(image.leases).toEqual(data.leases.data);
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-03-02T12:00:00Z"));
+    try {
+      expect(deriveImage(image, result.enrichment?.get(data.id)).leasesSummary)
+        .toEqual({ currentCount: 2, inactiveCount: 0, hasActiveAllowLease: true });
+    } finally { clock.mockRestore(); }
     expect(image.collections).toEqual(data.collections.map((collection) => collection.data));
     expect(result.enrichment?.get(data.id)).toEqual({
       cost: data.cost, valid: data.valid, invalidReasons: data.invalidReasons,

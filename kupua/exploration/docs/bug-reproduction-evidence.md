@@ -8,6 +8,8 @@ All browser-beneficial entries are included, not just an initial eight-case shor
 
 ## How To Use This Queue
 
+**KUP-045 (22 November, later editing work):** the [API mapper regression](../../src/dal/grid-api-search-adapter.test.ts) verifies the shared display summary from normalized records, including a stale activity flag. The [local Upload fixture](../../e2e/local/grid-mutations.spec.ts) verifies the still-paid Grid badge and leased tooltip after canonical publication. These are synthetic, not live deployment observations.
+
 - **Browser-first:** mounted UI, history, geometry or real caller ownership is important evidence.
 - **Local-first:** a small helper/contract check is cheaper; browser follow-through can establish
   whether the wrong result reaches the real UI or affects its lifecycle. Do not manufacture a UI

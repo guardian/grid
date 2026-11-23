@@ -3,6 +3,7 @@ import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
 import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
 import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated } from "./grid-api-instance";
 import { isLabelRemovalRequest } from "./grid-mutation-policy";
+import { leaseCommandValueSchema, leaseSetKey, storedLeases } from "./lease-change";
 import { editingAllowedAtStartup } from "./editing-preference";
 import { BATCH_POLICY } from "./batch-execution";
 import { copyImageRead, getMetadataWriteWitness, retainsEditGrant } from "./image-read-freshness";
@@ -22,7 +23,8 @@ const metadataCommandSchema = addLabelsSchema.omit({ operation: true, labels: tr
     "metadata_credit", "metadata_copyright", "metadata_dateTaken", "metadata_imageType", "metadata_keywords",
     "metadata_peopleInImage", "location"]),
   action: z.enum(["overwrite", "prepend", "append", "add", "remove", "if-empty"]),
-  value: z.union([z.string(), z.object({ subLocation: z.string().optional(), city: z.string().optional(),
+  removed: z.array(z.string()).optional(),
+  value: z.union([z.string(), z.array(z.string().min(1)), z.object({ subLocation: z.string().optional(), city: z.string().optional(),
     state: z.string().optional(), country: z.string().optional() }).strict()]),
 }).strict();
 const nonempty = z.string().refine(text => text.trim().length > 0);
@@ -38,7 +40,12 @@ const rightsCommandSchema = addLabelsSchema.omit({ operation: true, labels: true
 export type RightsCommand = z.infer<typeof rightsCommandSchema>;
 export type ObserveRights = (command: RightsCommand, metadataBefore: string, onMatch?: (metadata: import("@/types/image").Image["metadata"]) => void) => Promise<boolean>;
 export type DerivedDispatch = (imageId: string, fields: readonly string[]) => void;
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema]);
+const leaseCommandSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-leases"), value: leaseCommandValueSchema }).strict();
+export type LeaseCommand = z.infer<typeof leaseCommandSchema>;
+const labelListSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-label-list"),
+  add: z.array(nonempty), remove: z.array(nonempty), clear: z.boolean() }).strict();
+export type LabelListCommand = z.infer<typeof labelListSchema>;
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
   metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
@@ -58,12 +65,14 @@ export type LabelCommand = AddLabelsCommand | RemoveLabelCommand;
 export type MetadataCommand = z.infer<typeof metadataCommandSchema>;
 export type MetadataExpected = Readonly<Record<string, string | string[]>>;
 
+type LabelSteps = Readonly<{ acknowledged: number; rejected: number; notSent: number; uncertain: number }>;
 export type GridCommandResult =
-  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" }
-  | { outcome: "acknowledged"; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number }
-  | { outcome: "unchanged"; expected?: MetadataExpected; metadataWitness?: string }
-  | { outcome: "rejected"; status: number; errorKey: string }
-  | { outcome: "unknown"; status?: 429; expected?: MetadataExpected };
+  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required"; labelSteps?: LabelSteps }
+  | { outcome: "acknowledged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number }
+  | { outcome: "unchanged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string }
+  | { outcome: "partial"; expected: MetadataExpected; labelSteps: LabelSteps; status?: number; errorKey?: string; reason?: "reload-required" | "unavailable" }
+  | { outcome: "rejected"; status: number; errorKey: string; labelSteps?: LabelSteps }
+  | { outcome: "unknown"; status?: 429; expected?: MetadataExpected; expectedLeases?: string; labelSteps?: LabelSteps };
 
 export function metadataWriteFingerprint(value: unknown): string | undefined {
   try {
@@ -89,21 +98,23 @@ export function metadataWriteFingerprint(value: unknown): string | undefined {
 function metadataChange(command: MetadataCommand, original: Record<string, unknown>, overrides: Record<string, unknown>) {
   const expected: Record<string, string | string[]> = {};
   if (command.fieldId === "location") {
-    if (command.action !== "overwrite" || typeof command.value === "string" || !Object.keys(command.value).length) return;
+    if (command.action !== "overwrite" || typeof command.value === "string" || Array.isArray(command.value) || !Object.keys(command.value).length) return;
     Object.assign(expected, command.value);
   } else {
-    if (typeof command.value !== "string") return;
     const field = command.fieldId.slice("metadata_".length);
     const current = overrides[field] ?? original[field];
     if (field === "keywords" || field === "peopleInImage") {
       if (!["overwrite", "add", "remove"].includes(command.action) || current !== undefined && !Array.isArray(current)) return;
-      const values = command.action === "overwrite" ? [...new Set(command.value.split(",").map(value => value.trim()).filter(Boolean))]
+      if (typeof command.value !== "string" && !Array.isArray(command.value)) return;
+      const values = Array.isArray(command.value) ? command.value : command.action === "overwrite" ? [...new Set(command.value.split(",").map(value => value.trim()).filter(Boolean))]
         : command.value.trim() ? [command.value.trim()] : [];
       const existing = z.array(z.string()).safeParse(current ?? []);
       if (!existing.success) return;
-      expected[field] = command.action === "add" ? [...new Set([...existing.data, ...values])]
+      const removed = new Set(command.removed);
+      expected[field] = command.action === "add" ? [...new Set([...existing.data.filter(value => !removed.has(value)), ...values])]
         : command.action === "remove" ? existing.data.filter(value => !values.includes(value)) : values;
     } else {
+      if (typeof command.value !== "string") return;
       if (current !== undefined && typeof current !== "string") return;
       if (command.action !== "overwrite" && (field !== "description" || !["prepend", "append", "if-empty"].includes(command.action))) return;
       if (field === "dateTaken" && (!command.value || !Number.isFinite(Date.parse(command.value)))) return;
@@ -120,7 +131,7 @@ function metadataChange(command: MetadataCommand, original: Record<string, unkno
   return { expected, replacement, unchanged: JSON.stringify(replacement) === JSON.stringify(overrides) };
 }
 
-async function failure(response: Response, dispatched: boolean): Promise<GridCommandResult> {
+async function failure(response: Response, dispatched: boolean): Promise<Extract<GridCommandResult, { outcome: "unknown" | "rejected" }>> {
   if (response.status === 401 || response.status === 419) invalidateGridSession();
   if (dispatched && ![401, 403, 419, 422].includes(response.status)) return {
     outcome: "unknown", ...(response.status === 429 && { status: 429 as const }),
@@ -133,6 +144,62 @@ export function gridLabelEditingEnabled(): boolean {
   return import.meta.env.VITE_USE_MEDIA_API === "true" && editingAllowedAtStartup;
 }
 
+async function executeLeaseChange(command: LeaseCommand): Promise<GridCommandResult> {
+  let dispatchedLeases: string | undefined;
+  const blocked = { outcome: "blocked", reason: "unavailable" } as const;
+  try {
+    const { imageId, value } = command;
+    const [origin, session] = await Promise.all([getGridServiceOrigin("leases"), getGridSessionPermissions()]);
+    if (!origin || !session || isGridSessionInvalidated()) return blocked;
+    const signal = AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs);
+    const options = { credentials: "include", redirect: "error", signal } as const;
+    const full = await fetch(mediaApiUrl(`/images/${imageId}`), options);
+    if (!full.ok) return failure(full, false);
+    const image = await full.json();
+    const path = `/leases/media/${imageId}`;
+    if (image.data?.id !== imageId || !findLink(command.resource, "edits")?.href || findLink(image, "edits")?.href !== findLink(command.resource, "edits")?.href) return blocked;
+    const name = value.kind === "add" ? "add-lease" : value.kind === "remove" || !value.leases.length ? "delete-leases" : "replace-leases";
+    const method = name === "add-lease" ? "POST" : name === "replace-leases" ? "PUT" : "DELETE";
+    const action = (image.actions as {name: string; method: string; href: string}[] | undefined)?.find(item => item.name === name && item.method === method);
+    let target = gridServiceUrl("leases", action?.href, name === "add-lease" ? "/leases" : path, origin);
+    const source = gridServiceUrl("leases", findLink(image, "leases")?.href, path, origin);
+    if (!source || !target) return blocked;
+    const response = await fetch(source, options);
+    if (!response.ok) return failure(response, false);
+    const current = storedLeases.safeParse(await response.json());
+    if (!current.success || current.data.data.leases.some(item => item.mediaId !== imageId)) return blocked;
+    const before = current.data.data.leases;
+    let body: unknown;
+    let expectedLeases: string;
+    const forImage = (lease: Parameters<typeof leaseSetKey>[0][number]) => ({ ...lease, mediaId: imageId, createdAt: new Date().toISOString() });
+    if (value.kind === "remove") {
+      if (!before.some(item => item.id === value.id)) return blocked;
+      const root = await fetch(gridServiceUrl("leases", `${origin}/`, "/", origin)!, options);
+      if (!root.ok) return failure(root, false);
+      const template = findLink(await root.json(), "leases")?.href;
+      if (template !== `${origin}/leases/{id}`) return blocked;
+      target = gridServiceUrl("leases", template.replace("{id}", value.id), `/leases/${value.id}`, origin);
+      expectedLeases = leaseSetKey(before.filter(item => item.id !== value.id));
+    } else if (value.kind === "add") {
+      const syndication = value.lease.access.endsWith("-syndication");
+      if (syndication && before.some(item => item.access.endsWith("-syndication")) && !value.overwrite) return blocked;
+      expectedLeases = leaseSetKey([...before.filter(item => !syndication || !item.access.endsWith("-syndication")), value.lease]);
+      body = forImage(value.lease);
+    } else {
+      expectedLeases = leaseSetKey(value.leases);
+      if (expectedLeases === leaseSetKey(before)) return { outcome: "unchanged", expectedLeases };
+      if (value.leases.length) body = value.leases.map(forImage);
+    }
+    if (!target || isGridSessionInvalidated() || !retainsEditGrant(imageId, command.resource)) return blocked;
+    const request = { ...options, method, ...(body !== undefined && { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }) };
+    dispatchedLeases = expectedLeases;
+    const write = await fetch(target, request);
+    if (write.ok) return { outcome: "acknowledged", expectedLeases };
+    const failed = await failure(write, true);
+    return failed.outcome === "unknown" ? { ...failed, expectedLeases } : failed;
+  } catch { return dispatchedLeases !== undefined ? { outcome: "unknown", expectedLeases: dispatchedLeases } : blocked; }
+}
+
 export async function executeGridCommand(input: unknown, observeRights?: ObserveRights, onDerivedDispatch?: DerivedDispatch): Promise<GridCommandResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { outcome: "blocked", reason: "invalid-command" };
@@ -141,6 +208,7 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
   if (command.operation === "edit-rights" && !observeRights) return { outcome: "blocked", reason: "unavailable" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
+  if (command.operation === "edit-leases") return executeLeaseChange(command);
   const path = `/metadata/${command.imageId}`;
   const href = findLink(command.resource, "edits")?.href;
   const witness = command.operation === "edit-metadata" || command.operation === "edit-rights" ? getMetadataWriteWitness(command.imageId) : undefined;
@@ -239,6 +307,46 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
     }
     const resource = labelsResourceSchema.safeParse(body);
     let target = resource.success ? gridServiceUrl("metadata", resource.data.data.labels.uri, `${path}/labels`, origin) : undefined;
+    if (command.operation === "edit-label-list") {
+      const source = removalResourceSchema.safeParse(body);
+      if (!target || !source.success || command.clear && (command.add.length || command.remove.length)) return { outcome: "blocked", reason: "invalid-command" };
+      const members = source.data.data.labels.data;
+      const remove = new Set(command.remove), add = new Set(command.add), current = new Set(members.map(member => member.data));
+      const deletions = members.filter(member => command.clear || remove.has(member.data) && !add.has(member.data)).map(member => {
+        const suffix = new URLSearchParams({ label: member.data }).toString().slice(6);
+        const memberPath = `${path}/labels/${suffix}`;
+        return { label: member.data, url: isLabelRemovalRequest("DELETE", memberPath) ? gridServiceUrl("metadata", member.uri, memberPath, origin) : undefined };
+      });
+      if (deletions.some(step => !step.url)) return { outcome: "blocked", reason: "unavailable" };
+      const additions = [...add].filter(value => !current.has(value));
+      expected = { labels: command.clear ? [] : [...new Set([...current].filter(value => !remove.has(value)).concat([...add]))] };
+      const steps = [...new Map(deletions.map(step => [step.url!, step.label])).entries()].map(([url, label]) =>
+        ({ url, label: label as string | undefined, method: "DELETE", body: undefined as string | undefined }));
+      if (additions.length) steps.push({ url: target, label: undefined, method: "POST", body: JSON.stringify({ data: additions }) });
+      for (const [index, step] of steps.entries()) {
+        const labelSteps = { acknowledged: index, rejected: 0, notSent: steps.length - index, uncertain: 0 };
+        const reload = isGridSessionInvalidated();
+        if (reload || sourceSignal.aborted || !retainsEditGrant(command.imageId, command.resource)) {
+          const reason = reload ? "reload-required" : "unavailable";
+          return index ? { outcome: "partial", reason, labelSteps, expected: { labels: [...current] } } : { outcome: "blocked", reason, labelSteps };
+        }
+        let failed: Awaited<ReturnType<typeof failure>> | undefined;
+        try {
+          const response = await fetch(step.url, { credentials: "include", redirect: "error", signal: sourceSignal, method: step.method,
+            ...(step.body && { headers: { "Content-Type": "application/json" }, body: step.body }) });
+          if (!response.ok) failed = await failure(response, true);
+        } catch { failed = { outcome: "unknown" }; }
+        labelSteps.notSent--;
+        if (failed?.outcome === "rejected") {
+          labelSteps.rejected++;
+          return index ? { ...failed, outcome: "partial", labelSteps, expected: { labels: [...current] } } : { ...failed, labelSteps };
+        }
+        if (step.label !== undefined) current.delete(step.label);
+        else for (const label of additions) current.add(label);
+        if (failed) return { ...failed, labelSteps: { ...labelSteps, uncertain: 1 }, expected: { labels: [...current] } };
+      }
+      return { outcome: steps.length ? "acknowledged" : "unchanged", expected };
+    }
     if (command.operation === "remove-label") {
       const removal = removalResourceSchema.safeParse(body);
       const matches = removal.success ? removal.data.data.labels.data.filter(item => item.data === command.label) : [];

@@ -101,6 +101,27 @@ test.describe("U3 isolated uploads", () => {
     }
     await expect(input).toHaveCount(0);
     expect(await writes()).toHaveLength(1);
+    await page.goto(`${origin}/__readback?density=grid`);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+    await page.getByRole("button", { name: "Add lease", exact: true }).click();
+    const lease = page.getByRole("form", { name: "New lease" });
+    await lease.getByLabel("Access").selectOption("allow-syndication");
+    await lease.getByLabel("Premium").check();
+    await lease.getByRole("button", { name: "Save lease" }).click();
+    await expect(page.getByText("Allow syndication", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete Allow syndication lease" })).toHaveCount(0);
+    await body("local-1").dblclick();
+    const detail = page.locator('[data-detail-image-id="local-1"]');
+    await expect(detail.getByText("PREMIUM", { exact: true })).toBeVisible();
+    await detail.getByRole("button", { name: "Delete Allow syndication lease" }).click();
+    const confirmDelete = detail.getByRole("button", { name: "Confirm delete Allow syndication lease" });
+    await expect(confirmDelete).toHaveText("Confirm delete");
+    await expect(detail.getByText("PREMIUM", { exact: true })).toBeVisible();
+    await confirmDelete.press("Escape");
+    await detail.getByRole("button", { name: "Delete Allow syndication lease" }).click();
+    await confirmDelete.click();
+    await expect(detail.getByText("PREMIUM", { exact: true })).toHaveCount(0);
+    await expect.poll(async () => (await (await page.request.get(`${origin}/api/images/local-0`)).json()).data.leases.data.leases.length).toBe(1);
   });
 
   test("U5 saves Form and Details metadata and captures only the open upper batch", async ({ page }) => {
@@ -210,6 +231,111 @@ test.describe("U3 isolated uploads", () => {
     const expectedDate = await page.evaluate(() => new Date("2026-11-02T12:00:00").toISOString());
     await expect.poll(async () => (await results()).metadata[ids[0]].dateTaken).toBe(expectedDate);
     await page.request.post(`${origin}/__upload-control`, { data: { embeddedDescription: { filename: "newer.jpg", value: "Embedded caption" } } });
+    const desktopViewport = page.viewportSize()!;
+    const fieldArrow = (id: string) => first.locator(`[data-measured-field="${id}"] .metadata-batch-tool > button`);
+    const expectedEdge = (await fieldArrow("metadata_credit").boundingBox())!.x;
+    for (const id of ["collections", "labels", "people", "keywords", "photoshoot"]) {
+      await expect(fieldArrow(id)).toBeVisible();
+      expect(Math.abs((await fieldArrow(id).boundingBox())!.x - expectedEdge)).toBeLessThanOrEqual(1);
+    }
+    await expect(fieldArrow("collections")).toBeDisabled();
+    await expect(fieldArrow("photoshoot")).toBeDisabled();
+    await expect(fieldArrow("labels")).toBeEnabled();
+    await expect(fieldArrow("keywords")).toHaveAttribute("title", "Clear keywords on 2 other images");
+    const leasePlus = await first.getByRole("button", { name: "Add lease", exact: true }).boundingBox();
+    const labelPlus = await first.getByRole("button", { name: "Add label", exact: true }).boundingBox();
+    expect(Math.abs(leasePlus!.x - labelPlus!.x)).toBeLessThanOrEqual(1);
+    const touch = await page.context().newCDPSession(page);
+    await page.setViewportSize({ width: 412, height: 830 });
+    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+    await expect(page.locator('[data-shell="compact"]').first()).toBeVisible();
+    const copyLeases = first.getByRole("button", { name: "Replace leases on all 2 other images" });
+    const clearLeases = first.getByRole("button", { name: "Clear leases on 2 other images" });
+    await expect(clearLeases).toHaveAttribute("title", "Clear leases on 2 other images");
+    const creditArrow = first.locator('[data-measured-field="metadata_credit"] .metadata-batch-tool > button');
+    await expect(clearLeases).toHaveCSS("color", await creditArrow.evaluate(button => getComputedStyle(button).color));
+    const copyInsideHeader = () => clearLeases.or(copyLeases).evaluate(button => {
+      const header = button.closest(".lease-header-actions")?.parentElement;
+      if (!header || !header.textContent?.includes("Leases")) return false;
+      const bounds = header.getBoundingClientRect(), control = button.getBoundingClientRect();
+      return control.width > 0 && control.left >= bounds.left - 1 && control.right <= bounds.right + 1
+        && control.top >= bounds.top - 1 && control.bottom <= bounds.bottom + 1;
+    });
+    await expect.poll(copyInsideHeader).toBe(true);
+    await expect(first.getByText("No leases", { exact: true })).toHaveCount(0);
+    await first.getByRole("button", { name: "Add lease", exact: true }).click();
+    const leaseForm = first.getByRole("form", { name: "New lease" });
+    await leaseForm.getByLabel("Access").selectOption("allow-use");
+    await expect(leaseForm.getByLabel("Notes")).toHaveCSS("border-top-style", "solid");
+    await expect(leaseForm.getByLabel("Expires", { exact: true })).toHaveValue(/T23:59$/);
+    await leaseForm.getByRole("checkbox", { name: "Set expiry" }).uncheck();
+    for (const [caption, value] of [["Delay start", "Starts now"], ["Set expiry", "No expiry"]]) {
+      const offset = await leaseForm.evaluate((form, [caption, value]) => {
+        const walker = document.createTreeWalker(form, NodeFilter.SHOW_TEXT);
+        const tops = new Map<string, number>();
+        while (walker.nextNode()) {
+          const text = walker.currentNode.textContent?.trim();
+          if (text !== caption && text !== value) continue;
+          const range = document.createRange();
+          range.selectNodeContents(walker.currentNode);
+          tops.set(text, range.getBoundingClientRect().top);
+        }
+        return Math.abs(tops.get(caption)! - tops.get(value)!);
+      }, [caption, value]);
+      expect(offset, `${caption} and ${value} text alignment`).toBeLessThanOrEqual(1);
+    }
+    await expect(leaseForm.getByRole("button", { name: "Save lease" }).locator('svg')).toBeVisible();
+    await expect(leaseForm.getByRole("button", { name: "Cancel" }).locator('svg')).toBeVisible();
+    await leaseForm.getByLabel("Notes").fill("Fixture desk lease");
+    await leaseForm.getByRole("button", { name: "Save lease" }).click();
+    await expect(first.getByText("Fixture desk lease", { exact: true })).toBeVisible();
+    await touch.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+    await touch.detach();
+    await page.setViewportSize(desktopViewport);
+    await expect.poll(copyInsideHeader).toBe(true);
+    const savedLease = first.getByRole("listitem").filter({ hasText: "Fixture desk lease" });
+    const savedBox = (await savedLease.boundingBox())!;
+    const fieldBox = (await takenOn.boundingBox())!;
+    const headingBox = (await first.locator(".lease-heading").boundingBox())!;
+    expect(Math.abs(savedBox.x - fieldBox.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(savedBox.width - fieldBox.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(savedBox.y - headingBox.y)).toBeLessThanOrEqual(1);
+    for (const access of ["allow-syndication", "deny-syndication"]) {
+      await first.getByRole("button", { name: "Add lease", exact: true }).click();
+      if (access === "allow-syndication") {
+        const accessBox = (await leaseForm.getByLabel("Access").boundingBox())!;
+        const valueBox = (await takenOn.boundingBox())!;
+        expect(Math.abs(accessBox.x - valueBox.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(accessBox.width - valueBox.width)).toBeLessThanOrEqual(1);
+        const headingOffset = await leaseForm.evaluate(form => {
+          const top = (element: Element) => {
+            const range = document.createRange();
+            range.selectNodeContents(element.firstChild!);
+            return range.getBoundingClientRect().top;
+          };
+          return Math.abs(top(form.querySelector("label")!) - top(form.parentElement!.querySelector(".lease-heading")!));
+        });
+        expect(headingOffset).toBeLessThanOrEqual(1);
+      }
+      await leaseForm.getByLabel("Access").selectOption(access);
+      if (access === "deny-syndication") page.once("dialog", dialog => dialog.accept());
+      await leaseForm.getByRole("button", { name: "Save lease" }).click();
+      await expect(leaseForm).toHaveCount(0);
+    }
+    await expect(first.getByRole("button", { name: "Delete Allow syndication lease" })).toHaveCount(0);
+    await expect(first.getByText("Fixture desk lease", { exact: true })).toBeVisible();
+    await first.getByRole("button", { name: "Delete Deny syndication lease" }).click();
+    await first.getByRole("button", { name: "Confirm delete Deny syndication lease" }).click();
+    await expect(first.getByRole("button", { name: /delete deny syndication lease/i })).toHaveCount(0);
+    page.once("dialog", dialog => dialog.accept());
+    await copyLeases.click();
+    await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(3);
+    await first.getByRole("button", { name: "Delete Allow use lease" }).click();
+    await first.getByRole("button", { name: "Confirm delete Allow use lease" }).click();
+    await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(2);
+    page.once("dialog", dialog => dialog.accept());
+    await clearLeases.click();
+    await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(0);
     await page.locator('input[type="file"]').setInputFiles({ name: "newer.jpg", mimeType: "image/jpeg", buffer: Buffer.from("U5 newer image") });
     await expect.poll(() => new URL(page.url()).searchParams.get("batch")).not.toBe(batch);
     const newerBatch = new URL(page.url()).searchParams.get("batch")!;
@@ -261,8 +387,9 @@ test.describe("U3 isolated uploads", () => {
     expect((await results()).metadataReads[laterId]).toBe(1);
     expect(Object.values((await results()).metadata).every(value => JSON.stringify(value.domainMetadata) === JSON.stringify({ desk: { reference: "retained" } }))).toBe(true);
     const editRights = async (category: string, creator: string) => {
-      await first.getByRole("button", { name: "Edit Rights & restrictions" }).click();
+      if (category !== "publisher-illustration") await first.getByRole("button", { name: "Edit Rights & restrictions" }).click();
       const rights = first.getByRole("form", { name: "Image usage rights" });
+      if (category === "publisher-illustration") await expect(rights.getByLabel("Rights category")).toHaveValue("");
       await rights.getByLabel("Rights category").selectOption(category);
       if (category === "publisher-illustration") {
         await rights.getByRole("radio", { name: "Weekly" }).check();
@@ -321,9 +448,66 @@ test.describe("U3 isolated uploads", () => {
       await expect(first.getByLabel("Byline", { exact: true })).toHaveValue("Unlisted illustrator");
     } finally { await page.unroute(derivedPath); }
     await editRights("pay-to-use", "");
-    await expect(first.getByText("Fixture paid-image notice")).toBeVisible();
+    const status = first.getByRole("group", { name: "Image status" });
+    await expect(status.getByText("Pay to use", { exact: true })).toBeVisible();
+    await expect(status.getByRole("button", { name: "Unusable" })).toHaveAttribute("title", "Fixture paid-image notice");
+    await expect(status.getByRole("button", { name: "Unusable" }).locator("svg")).toHaveAttribute("fill", "white");
+    expect((await status.boundingBox())!.height).toBeLessThanOrEqual(24);
+    await expect(status.getByRole("button", { name: /Library/ })).toBeVisible();
+    await expect(first.getByText("Fixture paid-image notice", { exact: true })).toHaveCount(0);
+    await status.getByRole("button", { name: "Unusable" }).click();
+    await expect(page.locator(`[data-detail-image-id="${ids[0]}"]`).getByText("Fixture paid-image notice", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Back to uploads", exact: true }).click();
+    await first.getByRole("button", { name: "Add person", exact: true }).click();
+    await first.getByRole("textbox", { name: "New person", exact: true }).fill("Illustrator, Jr.");
+    await first.getByRole("button", { name: "Commit new person" }).click();
+    await expect(first.getByText("Illustrator, Jr.", { exact: true })).toBeVisible();
+    await fieldArrow("people").click();
+    await expect.poll(async () => (await (await page.request.get(`${origin}/api/images/${ids[1]}`)).json()).data.metadata.peopleInImage).toEqual(["Illustrator, Jr."]);
+    await expect(fieldArrow("people")).toHaveAttribute("title", /^Add people to /);
+    const peer = form.locator(`[data-measured-cell][data-image-id="${ids[1]}"]`);
+    for (const [card, noun, value] of [[peer, "keyword", "Peer only"], [first, "keyword", "Source keyword"], [first, "label", "Batch label"]] as const) {
+      await card.getByRole("button", { name: `Add ${noun}`, exact: true }).click();
+      await card.getByLabel(`New ${noun}`, { exact: true }).fill(value);
+      await card.getByRole("button", { name: `Commit new ${noun}` }).click();
+      await expect(card.getByRole("button", { name: `Remove ${value}`, exact: true })).toBeVisible();
+    }
+    await fieldArrow("labels").click();
+    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["submitted preset", "Batch label"]);
+    await expect(fieldArrow("labels")).toHaveAttribute("title", /^Add labels to /);
+    await first.getByRole("button", { name: "Remove submitted preset", exact: true }).click();
+    await expect(fieldArrow("labels")).toHaveAttribute("title", /also removes “submitted preset”/);
+    await fieldArrow("labels").click();
+    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["Batch label"]);
+    const peerMetadata = async () => (await (await page.request.get(`${origin}/api/images/${ids[1]}`)).json()).data.metadata;
+    await fieldArrow("keywords").click();
+    await expect.poll(async () => (await peerMetadata()).keywords).toEqual(["Peer only", "Source keyword"]);
+    await expect(fieldArrow("keywords")).toHaveAttribute("title", /^Add keywords to /);
+    await first.getByRole("button", { name: "Add keyword", exact: true }).click();
+    await first.getByLabel("New keyword", { exact: true }).fill("Football");
+    await first.getByRole("button", { name: "Commit new keyword" }).click();
+    await expect(first.getByRole("button", { name: "Remove Football", exact: true })).toBeVisible();
+    await first.getByRole("button", { name: "Remove Source keyword", exact: true }).click();
+    await expect(fieldArrow("keywords")).toHaveAttribute("title", /also removes “Source keyword”/);
+    await fieldArrow("keywords").click();
+    await expect.poll(async () => (await peerMetadata()).keywords).toEqual(["Peer only", "Football"]);
+    await expect(fieldArrow("keywords")).toHaveAttribute("title", /^Add keywords to /);
+    for (const [field, value, property] of [["keywords", "Football", "keywords"], ["people", "Illustrator, Jr.", "peopleInImage"], ["labels", "Batch label", "labels"]]) {
+      await first.getByRole("button", { name: `Remove ${value}`, exact: true }).click();
+      await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
+      await fieldArrow(field).click();
+      await first.getByRole("button", { name: new RegExp(`Remove ALL ${field} from the .* other images`) }).click();
+      await expect.poll(async () => field === "labels" ? (await results()).labels[ids[1]] : (await peerMetadata())[property]).toEqual([]);
+      await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
+    }
+    await first.getByRole("button", { name: "Add lease", exact: true }).click();
+    await leaseForm.getByLabel("Access").selectOption("allow-use");
+    await leaseForm.getByRole("button", { name: "Save lease" }).click();
+    await expect(first.getByRole("button", { name: "Delete Allow use lease" })).toBeEnabled();
     await (await getDensityChangeButton(page, "grid"))?.click();
-    await expect(page.locator(`[data-image-id="${ids[0]}"]`).getByText("£", { exact: true }).first()).toBeVisible();
+    const paidBadge = page.locator(`[data-image-id="${ids[0]}"]`).getByText("£", { exact: true }).first();
+    await expect(paidBadge).toBeVisible();
+    await expect(paidBadge).toHaveAttribute("title", /^Leased, but:/);
     await (await getDensityChangeButton(page, "table"))?.click();
     await page.getByRole("region", { name: "Image results table", exact: true }).locator(`[data-image-id="${ids[0]}"]`).dblclick();
     await expect(page.getByText("Fixture paid-image notice")).toBeVisible();
@@ -375,7 +559,7 @@ test.describe("U3 isolated uploads", () => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => localStorage.setItem("kupua-allow-uploads", "true"));
     await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, status: "COMPLETED", visible: true, searchable: true } });
-    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 650 } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 1650 } });
     await page.goto(`${origin}/__continuation?density=table`);
     await new KupuaHelpers(page).waitForResults();
     await (await getDensityChangeButton(page, "table"))?.click();
@@ -399,7 +583,41 @@ test.describe("U3 isolated uploads", () => {
     await page.locator('input[type="file"]').setInputFiles([{ name: "newer.jpg", mimeType: "image/jpeg", buffer: Buffer.from("newer upload") }]);
     const newer = new URL(page.url()).searchParams.get("batch")!;
     expect(newer).not.toBe(older);
-    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections)).toMatchObject({ batch: 1, other: 651 });
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections)).toMatchObject({ batch: 1, other: 1651 });
+    const form = page.getByRole("region", { name: "Image results form", exact: true });
+    const firstThumb = form.getByRole("button", { name: "Open image", exact: true }).first();
+    const returnId = await firstThumb.getAttribute("data-cell-id");
+    await firstThumb.click();
+    await page.getByRole("button", { name: "Back to uploads", exact: true }).click();
+    const returned = form.locator(`[data-cell-id="${returnId}"]`);
+    await expect(returned).toHaveClass(/anim-focus-here-unfocused/);
+    expect(await returned.evaluate(el => getComputedStyle(el, "::after").animationName)).toBe("kupua-form-return");
+    await expect(returned).not.toHaveClass(/ring-grid-accent/);
+    await page.keyboard.press("ArrowDown");
+    expect(await page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().focusedImageId)).toBe(returnId);
+    await page.keyboard.press("PageDown");
+    await expect(form.locator(`[data-cell-id="${olderId}"]`)).toBeInViewport();
+    await page.keyboard.press("PageUp");
+    await expect(returned).toBeInViewport();
+    const track = page.getByTestId("scrubber-track");
+    const trackBox = (await track.boundingBox())!;
+    await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().positionMap?.length)).toBe(1652);
+    const profiles: string[] = [];
+    page.on("request", request => { if (request.url().endsWith("/images/sort-profile")) profiles.push(request.postDataJSON()?.operation); });
+    await page.mouse.move(trackBox.x + 2, trackBox.y + trackBox.height * .85);
+    await expect(track.locator("[data-sort-label]")).toHaveText("My other uploads");
+    const positionLabel = track.locator("[data-position-label]");
+    await expect(positionLabel).toHaveText(/of 1,651\s+\d+ (October|November) 2026/);
+    const [position, date] = (await positionLabel.innerText()).split("\n");
+    const local = Number(position.split(" of ")[0].replaceAll(",", "")) - 1;
+    const mapped = await page.evaluate(local => {
+      const state = (window as CommandWindow).__kupua_store__.getState(), index = local + state.uploadSections!.batch;
+      return { outside: !state.results[index - state.bufferOffset], timestamp: state.positionMap!.sortValues[index][1] };
+    }, local);
+    expect(mapped.outside).toBe(true);
+    expect(date).toBe(new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone) }).format(Number(mapped.timestamp)));
+    expect(await track.locator("[data-debug-tick-position]").count()).toBeGreaterThan(0);
+    expect(profiles).toEqual([]);
     await (await getDensityChangeButton(page, "table"))?.click();
     const table = page.getByRole("region", { name: "Image results table", exact: true });
     await expect(table.locator('[data-upload-section="batch"]')).toHaveCount(0);
@@ -492,6 +710,25 @@ test.describe("U3 isolated uploads", () => {
         }));
       }, members);
       await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_store__.getState().uploadSections?.batch), { timeout: 60_000 }).toBe(249);
+      const profileOps: string[] = [];
+      await page.route("**/api/images/sort-profile", async route => {
+        const body = route.request().postDataJSON();
+        if (!["date-stats", "date-buckets"].includes(body.operation)) return route.fallback();
+        expect(body).toMatchObject({ uploadedBy: "uploader@example.invalid", field: "uploadTime", orderBy: "-uploadTime" });
+        expect(body.q).toContain(`-id:"${members[0].id}"`);
+        profileOps.push(body.operation);
+        if (body.operation === "date-buckets") expect(body.interval).toBe("month");
+        await route.fulfill({ json: body.operation === "date-stats" ? { min: Date.UTC(2023, 6, 1), max: Date.UTC(2026, 10, 1), valueCount: 9_000_000 }
+          : { evidenceCount: 9_000_000, positionKind: "exact-rank", buckets: [
+            { key: "2026-11-01T00:00:00Z", startPosition: 0, count: 4_000_000 },
+            { key: "2026-07-01T00:00:00Z", startPosition: 4_000_000, count: 5_000_000 }] } });
+      });
+      const track = page.getByTestId("scrubber-track"), bounds = (await track.boundingBox())!;
+      await page.mouse.move(bounds.x + 2, bounds.y + bounds.height * .75);
+      await expect(track.locator('[data-debug-tick-position="4000249"]')).toHaveCount(1);
+      await expect(track.locator("[data-position-label]")).toHaveText(/\nJuly 2026 UTC$/);
+      expect(profileOps).toEqual(["date-stats", "date-buckets"]);
+      await page.mouse.move(bounds.x - 40, bounds.y);
       await page.evaluate(async () => { await (window as CommandWindow).__kupua_store__.getState().seek(500_249); });
       const form = page.getByRole("region", { name: "Image results form", exact: true });
       const input = form.locator('[data-measured-cell][data-image-id="local-500000"]').getByRole("textbox", { name: "Description", exact: true });
@@ -863,7 +1100,6 @@ test.describe("U3 isolated uploads", () => {
     expect(consoleMessages.join("\n").includes("uploader@example.invalid")).toBe(false);
     await table.evaluate(element => { element.scrollTop = 650; });
     const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
-    await page.mouse.click(point.x, point.y);
     const anchor = await table.locator(`[data-image-id="${point.imageId}"]`).evaluate(element => element.getBoundingClientRect().top);
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await kupua.waitForResults();
@@ -886,7 +1122,7 @@ test.describe("U3 isolated uploads", () => {
     }).toBeLessThan(1);
     await kupua.seekTo(0.55);
     const deep = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
-    await table.locator(`[data-image-id="${deep.imageId}"]`).dblclick();
+    await table.locator(`[data-image-id="${deep.imageId}"]`).click();
     await expect(page.locator(`[data-detail-image-id="${deep.imageId}"]`)).toBeVisible();
     await page.reload();
     await expect(page.locator(`[data-detail-image-id="${deep.imageId}"]`)).toBeVisible();
@@ -896,13 +1132,8 @@ test.describe("U3 isolated uploads", () => {
     await page.goBack();
     await expect(table).toBeVisible();
     expect(await page.evaluate(() => Object.keys(sessionStorage).map(key => sessionStorage.getItem(key)).join("").includes("uploader@example.invalid"))).toBe(false);
-    await page.evaluate(async () => {
-      const prefsPath = "/src/stores/ui-prefs-store.ts";
-      (await import(prefsPath)).useUiPrefsStore.getState().setFocusMode("explicit");
-      const state = (window as CommandWindow).__kupua_store__.getState();
-      state.setFocusedImageId(state.results.find(Boolean)!.id);
-    });
-    await page.keyboard.press("f");
+    const previewPoint = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    await page.mouse.click(previewPoint.x, previewPoint.y, { button: "middle" });
     await expect(page.locator('[data-fullscreen-preview="active"]')).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.fullscreenElement?.hasAttribute("data-fullscreen-preview") === true)).toBe(true);
     await page.evaluate(async () => {
@@ -1406,7 +1637,9 @@ test.describe("Unit B isolated continuation", () => {
       let release!: () => void;
       const held = new Promise<void>(resolve => { release = resolve; });
       const probe = { calls: 0, pulses: [] as string[], input: document.activeElement, release, cleanup: () => {} };
-      const unsubscribe = store.subscribe(state => { if (state._phantomPulseImageId) probe.pulses.push(state._phantomPulseImageId); });
+      const unsubscribe = store.subscribe((state, previous) => {
+        if (state._phantomPulseImageId && state._phantomPulseImageId !== previous._phantomPulseImageId) probe.pulses.push(state._phantomPulseImageId);
+      });
       source.searchAfter = async (...args) => {
         if (!args[0].recentUploadScope?.combined) return original(...args);
         probe.calls++;
@@ -1628,13 +1861,13 @@ test.describe("Unit B isolated continuation", () => {
     await expect(page.getByRole("button", { name: /Details panel|Browse panel|Deselect/ })).toHaveCount(0);
     const table = page.getByRole("region", { name: "Image results table", exact: true });
     await table.evaluate(element => { element.scrollTop = 650; });
-    const point = await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
-    await page.mouse.click(point.x, point.y);
-    const batchAnchor = await page.evaluate(id => {
+    await kupua.waitForHitTestedImagePoint({ view: "table", topInset: 100 });
+    const batchAnchor = await page.evaluate(() => {
+      const id: string = (window as any).__kupua_getViewportAnchorId__();
       const container = document.querySelector<HTMLElement>('[aria-label="Image results table"]')!;
       const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`)!;
       return { id, top: cell.getBoundingClientRect().top - container.getBoundingClientRect().top };
-    }, point.imageId);
+    });
     for (const density of ["Grid", "Justified", "Table"]) {
       await page.getByRole("button", { name: `${density} view`, exact: true }).click();
       await expect(page.getByRole("button", { name: `${density} view`, exact: true })).toHaveAttribute("aria-pressed", "true");
@@ -1644,7 +1877,7 @@ test.describe("Unit B isolated continuation", () => {
       const cell = container.querySelector(`[data-image-id="${CSS.escape(id)}"]`);
       return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
     }, batchAnchor)).toBeLessThan(1);
-    await page.locator(`[data-image-id="${batchAnchor.id}"]`).dblclick();
+    await page.locator(`[data-image-id="${batchAnchor.id}"]`).click();
     await expect(page.locator(`[data-detail-image-id="${batchAnchor.id}"]`)).toBeVisible();
     await page.getByRole("button", { name: "Crop image", exact: true }).click();
     const crop = page.getByRole("dialog", { name: "Crop image", exact: true });
@@ -1688,7 +1921,7 @@ test.describe("Unit B isolated continuation", () => {
       return cell ? Math.abs(cell.getBoundingClientRect().top - container.getBoundingClientRect().top - top) : null;
     }, batchAnchor)).toBeLessThan(1);
     expect(await page.evaluate(() => [...(window as any).__kupua_selection_store__.getState().selectedIds])).toEqual(departure.selected);
-    await page.locator(`[data-image-id="${batchAnchor.id}"]`).dblclick();
+    await page.locator(`[data-image-id="${batchAnchor.id}"]`).click();
     const detail = page.locator(`[data-detail-image-id="${batchAnchor.id}"]`);
     await expect(detail).toBeVisible();
     await detail.getByRole("link", { name: "Grid", exact: true }).click();

@@ -237,8 +237,7 @@ authorization. Thumbnail/full-image delivery does not change operation support.
 The actual API-mode single/multi metadata panels also expose the ordinary text/date,
 Location, People, Keywords, Photoshoot and collection-membership controls described in
 the [UI register](../gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage).
-Supported ordinary metadata, Location, People, Keywords and Labels use the connected
-command path when editing is enabled and authority is current. Collections and
+Ordinary metadata, Labels, Guardian Rights and [manual Leases](07-syndication-and-leases.md#manual-editing-in-api-backed-kupua) use the shared editing preference, pacing and per-image authority. The label matrix below describes topology support, not a separate rollout flag for each field. Hosted commands follow discovered service origins directly; the Vite Leases proxy admits only supported methods and paths on its fixed destination. Collections and
 Photoshoot preparation remains **Not sent**. Archive/unarchive, configured-domain editors and
 other workflow families retain their separately selected roadmap work.
 

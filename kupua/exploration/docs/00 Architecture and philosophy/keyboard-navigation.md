@@ -23,6 +23,8 @@ Focus is established by clicking an image. It's cleared by clicking the
 grid background (the gaps between cells, or any area not occupied by a
 cell). In table view, focus clearing is not yet implemented.
 
+**Upload is click-to-open regardless of the saved Search preference.** The image remembered for Detail return is a placement anchor, not a keyboard selection. A transient pulse identifies it on return. In Upload Form, Up/Down scroll within a card and Page Up/Down move to the adjacent measured image card, accounting for sticky section headings. Native inputs retain their editing keys; Home/End retain result-edge navigation outside them.
+
 ## Key Matrix
 
 | Key | No Effective Focus (scroll only) | Effective Explicit Focus |

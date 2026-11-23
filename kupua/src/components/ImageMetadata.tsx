@@ -35,6 +35,10 @@
  */
 
 import type { Image } from "@/types/image";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ImageActions } from "./ImageActions";
+import { MetadataBatchArrow } from "./MetadataEditing";
+import { CostBadge } from "./CostBadge";
 import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import { isPendingFormGrant } from "@/lib/image-read-freshness";
 import { isGridSessionInvalidated } from "@/lib/grid-api-instance";
@@ -51,6 +55,7 @@ import {
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { VALIDITY_DESCRIPTIONS } from "@/lib/cost/validity-map";
 import { UsageRightsEditor } from "./UsageRightsEditor";
+import { LeaseEditor, RemoveLease } from "./LeaseEditor";
 import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import type { Lease } from "@/types/image";
 import { gridConfig } from "@/lib/grid-config";
@@ -213,6 +218,8 @@ function formatDeletedTime(iso: string): { relative: string; absolute: string } 
 
 interface ImageMetadataProps {
   image: Image;
+  renderForm?: (metadata: ReactNode, status?: ReactNode) => ReactNode;
+  openUploadImage?: (id: string) => void;
   formFields?: ReadonlySet<string>;
   labelEditing?: MetadataEditContext;
   resolveLabelEditing?: () => MetadataEditContext;
@@ -221,11 +228,12 @@ interface ImageMetadataProps {
   overlay?: EnrichmentFields;
 }
 
-export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditing, editingPending, formFields }: ImageMetadataProps) {
+export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditing, editingPending, formFields, renderForm, openUploadImage }: ImageMetadataProps) {
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
   const canEditMetadata = Boolean(enriched?.resource && findLink(enriched.resource, "edits"));
+  const leaseGrant = (name: string) => canEditMetadata && !labelEditing?.pending && !editingPending && !enriched?.metadataStale && !!enriched?.actions?.some(action => action.name === name);
   const attached = formFields && !canEditMetadata && !enriched?.metadataStale ? attachedEnrichment(image) : undefined;
   const pendingForm = attached && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, attached) ? attached : undefined;
 
@@ -280,7 +288,10 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
     ? formatDeletedTime(image.softDeletedMetadata.deleteTime)
     : null;
 
-  return (
+  const reasons = formFields ? Object.entries(invalidReasons).sort(([left], [right]) => left.localeCompare(right)) : Object.entries(invalidReasons);
+  const reasonText = reasons.map(([key, desc]) => desc || VALIDITY_DESCRIPTIONS[key] || key);
+  if (showDenySyndicationBanner) reasonText.push(gridConfig.denySyndicationTextHeader);
+  const metadata = (
     <dl className="wrap-anywhere">
       {/* Deleted image banner — shown when the image has been soft-deleted.
           Trumps all other invalidity reasons; validity and restrictions banners are
@@ -305,7 +316,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
           Only shown when there are actual invalid reasons — free images get no banner.
           Negative margins break out of parent aside padding to span full width.
           Suppressed for deleted images — deletion banner takes precedence. */}
-      {showValidityBanner && !isDeleted && (
+      {!openUploadImage && showValidityBanner && !isDeleted && (
         <div
           className={`-mx-3 -mt-3 px-3 py-2 text-xs text-white text-center ${
             isStrongWarning
@@ -321,7 +332,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               : "This image can\u2019t be used"}
           </strong>
           <ul className="mt-1 list-none">
-            {(formFields ? Object.entries(invalidReasons).sort(([left], [right]) => left.localeCompare(right)) : Object.entries(invalidReasons)).map(([key, desc]) => (
+            {reasons.map(([key, desc]) => (
               <li key={key}>
                 {desc || VALIDITY_DESCRIPTIONS[key] || key}
               </li>
@@ -336,7 +347,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Restrictions banner — orange, shows the actual restriction text.
           Can appear alongside the validity banner and the deleted banner simultaneously.
           Restrictions are an independent fact — not suppressed by deletion (Kahuna parity). */}
-      {restrictions && (
+      {restrictions && !openUploadImage && (
         <div className={`-mx-3 px-3 py-2 text-xs text-white text-center bg-[orange] mb-2 ${(isDeleted || showValidityBanner) ? "" : "-mt-3"}`}>
           <strong>Restricted use:</strong> {restrictions}
         </div>
@@ -345,7 +356,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Deny-syndication warning — amber standalone banner (only when no validity issues).
           When validity issues exist, the deny-syndication message is appended as a <li>
           inside the validity banner instead (Kahuna behaviour). */}
-      {showDenySyndicationBanner && !showValidityBanner && !isDeleted && (
+      {!openUploadImage && showDenySyndicationBanner && !showValidityBanner && !isDeleted && (
         <div className={`-mx-3 px-3 py-2 text-xs text-white text-center bg-[orange] mb-2 ${(!restrictions) ? "-mt-3" : ""}`}>
           <strong>This image can be used, but has warnings:</strong>
           <ul className="mt-1 list-none">
@@ -370,11 +381,11 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Leases section — own section with heading, matching Kahuna layout.
           Counts come from enrichment (always available); individual cards only
           render when raw ES lease data is present (after SOURCE_INCLUDES fix). */}
-      {(hasLeases || formFields) && (
+      {(hasLeases || formFields || leaseGrant("add-lease")) && (
         <MetadataSection>
-          <div className="text-xs font-bold text-grid-text-dim pb-1">Leases</div>
+          <LeaseEditor ids={labelEditing?.targetIds ?? [image.id]} images={[image]} allowed={leaseGrant("add-lease")} form={!!formFields} canReplace={leaseGrant("replace-leases")} canClear={leaseGrant("delete-leases")}>
           {allLeases.length > 0 ? (
-            <ul className="space-y-1 list-none">
+            <ul className="lease-cards space-y-1 list-none">
               {[...allLeases].sort((a, b) => leaseSortKey(a, nowMs).localeCompare(leaseSortKey(b, nowMs))).map((lease) => {
                 const active = isLeaseActive(lease, nowMs);
                 const pending = isLeasePending(lease, nowMs);
@@ -407,6 +418,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                     <div className={`border-t-[5px] rounded-t-sm p-1.5 ${
                       isAllow ? "border-[teal]" : "border-[red]"
                     }`}>
+                      {leaseGrant("delete-leases") && <RemoveLease lease={lease} imageId={image.id} form={!!formFields} />}
                       <div className="font-medium">{LEASE_ACCESS_LABELS[lease.access] ?? lease.access}{pending ? " (pending)" : ""}</div>
                       {startRel && <p className="italic my-0.5">{startRel}</p>}
                       {endRel && <p className="italic my-0.5">{endRel}</p>}
@@ -416,12 +428,12 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                 );
               })}
             </ul>
-          ) : (
-            /* Enrichment-only: show count summary without expandable cards */
+          ) : hasLeases ? (
             <span className="text-xs text-grid-text">
-              {hasLeases ? <>{currentLeaseCount} current{inactiveLeaseCount > 0 ? ` · ${inactiveLeaseCount} inactive` : ""}</> : "None"}
+              {currentLeaseCount} current{inactiveLeaseCount > 0 ? ` · ${inactiveLeaseCount} inactive` : ""}
             </span>
-          )}
+          ) : null}
+          </LeaseEditor>
         </MetadataSection>
       )}
 
@@ -459,11 +471,12 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                   })}
                 </div>
               </div>;
-              if (field.isList) return <div key={field.id} data-measured-field={field.id}>
+              if (field.isList) return <div key={field.id} data-measured-field={field.id} className="form-batch-list">
                 <MetadataPillEditor form field={field} targetIds={[image.id]} onSearch={onSearch}
                   editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} readOnly={readOnly}
                   values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                   collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />
+                <MetadataBatchArrow imageId={image.id} fieldId={field.id} label={field.label} value={Array.isArray(raw) ? raw.map(String) : []} disabled={!canEditMetadata || !!enriched?.metadataStale || !!image.__availability} />
               </div>;
               const control = METADATA_EDIT_CONTROLS.get(field.id);
               if (control && (field.id !== "metadata_copyright" || hasValue)) {
@@ -521,5 +534,43 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       </MetadataSection>}
     </dl>
   );
+  if (!renderForm) return metadata;
+  if (!openUploadImage) return renderForm(metadata);
+  const displayCost = restrictions ? "conditional" : cost;
+  const costLabel = { free: "Free to use", pay: "Pay to use", overquota: "Quota exceeded for this supplier", conditional: "Restricted use" }[displayCost];
+  const unusable = !isDeleted && !isValid;
+  const statusLabel = unusable ? "Unusable" : "View image";
+  return renderForm(metadata, <div role="group" aria-label="Image status" className="upload-image-status" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>
+    {restrictions ? <UploadRestrictions key={image.id} wording={restrictions} label={costLabel} /> : <CostBadge variant={displayCost} size="md" tooltip={costLabel}><span>{costLabel}</span></CostBadge>}
+    <button type="button" data-invalid={unusable || undefined} onClick={() => openUploadImage(image.id)} title={isDeleted ? "Deleted image" : reasonText.join("\n") || "View image"}>
+      {statusLabel} {unusable || reasonText.length && !isDeleted ? <svg aria-hidden="true" width="16" height="16" viewBox="0 -960 960 960" fill="white"><path d="M478-240q21 0 35.5-14.5T528-290q0-21-14.5-35.5T478-340q-21 0-35.5 14.5T428-290q0 21 14.5 35.5T478-240Zm-36-154h74q0-33 7.5-52t42.5-52q26-26 41-49.5t15-56.5q0-56-41-86t-97-30q-57 0-92.5 30T342-618l66 26q5-18 22.5-39t53.5-21q32 0 48 17.5t16 38.5q0 20-12 37t-30 32q-44 39-54 59t-10 74Zm38 314q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z" /></svg> : <span aria-hidden="true">›</span>}
+    </button>
+    {!isDeleted && <ImageActions actions={["library"]} expanded iconOnly context={{ api: true, archive: null, targets: [{ id: image.id, image,
+      overlay: enriched && { resource: enriched.resource, actions: enriched.actions, persisted: enriched.persisted, valid: enriched.valid }, pending: !!enriched?.metadataStale }] }} />}
+  </div>);
+}
+
+function UploadRestrictions({ wording, label }: { wording: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const id = useId();
+  const text = `Restrictions: ${wording}`;
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!trigger.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation(); event.preventDefault(); setOpen(false); trigger.current?.focus();
+    };
+    document.addEventListener("pointerdown", outside, true);
+    document.addEventListener("keydown", escape, true);
+    return () => { document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", escape, true); };
+  }, [open]);
+  return <><button ref={trigger} type="button" className="upload-restrictions-toggle" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)}>
+    <CostBadge variant="conditional" size="md" tooltip={text}><span>{label}</span></CostBadge>
+  </button>{open && <div ref={panel} id={id} className="upload-restrictions-text">{text}</div>}</>;
 }
 

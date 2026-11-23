@@ -6,6 +6,7 @@ import { MockDataSource } from "@/dal/mock-data-source";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import { gridConfig } from "@/lib/grid-config";
+import { BrowsingContext } from "@/lib/browsing-context";
 import { LOCATION_COMPONENTS, MetadataLocationEditor } from "./MetadataLocationEditor";
 import type { Image } from "@/types/image";
 import { MultiImageMetadata } from "./MultiImageMetadata";
@@ -152,8 +153,8 @@ describe("metadata field preparation", () => {
       </FormBatchContext>
     </MetadataEditorContext>);
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch images" }));
-      fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 batch images" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch image" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 batch image" }));
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
       for (const label of ["Credit", "Byline"]) {
         const progress = screen.getByRole("button", { name: `Applying ${label}...` });
@@ -185,7 +186,7 @@ describe("metadata field preparation", () => {
           <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
         </FormBatchContext>
       </MetadataEditorContext>);
-      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch images" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch image" }));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       expect([...editor.getState().saves.values()][0]).toMatchObject({ state: "finished", items: [{ state: "unknown", observation: "observed" }] });
       fireEvent.click(screen.getByRole("button", { name: "Credit edit needs attention" }));
@@ -623,6 +624,28 @@ describe("metadata field preparation", () => {
     } finally { editor.getState().dispose(); queue.dispose(); vi.useRealTimers(); }
   });
 
+  it("puts Upload restrictions in the cost tooltip without repeating the banner", () => {
+    const image = { ...images[0], usageRights: { category: "pr-and-third-party", restrictions: "Print only" } };
+    const upload = (id: string) => <ImageMetadata image={{ ...image, id }} overlay={{ usageRights: image.usageRights }}
+      formFields={new Set()} openUploadImage={() => {}} renderForm={(metadata, status) => <>{status}{metadata}</>} />;
+    const mounted = render(upload(image.id));
+    expect(within(screen.getByRole("group", { name: "Image status" })).getByTitle("Restrictions: Print only").textContent).toBe("Restricted use");
+    expect(screen.queryByText("Restricted use:")).toBeNull();
+    const badge = screen.getByRole("button", { name: /Restricted use/i });
+    fireEvent.click(badge);
+    expect(screen.getByText("Restrictions: Print only")).toBeTruthy();
+    fireEvent.keyDown(badge, { key: "Escape" });
+    expect(screen.queryByText("Restrictions: Print only")).toBeNull();
+    fireEvent.click(badge);
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByText("Restrictions: Print only")).toBeNull();
+    fireEvent.click(badge);
+    mounted.rerender(upload(images[1].id));
+    expect(screen.queryByText("Restrictions: Print only")).toBeNull();
+    mounted.rerender(<ImageMetadata image={image} overlay={{ usageRights: { category: "pr-and-third-party", restrictions: "Print only" } }} />);
+    expect(screen.getByText("Restricted use:").parentElement?.textContent).toContain("Print only");
+  });
+
   it("uses Upload's editorial order and guidance without changing Details", () => {
     gridConfig.imageTypes.splice(0, gridConfig.imageTypes.length, "Photograph");
     const image: Image = { ...images[0],
@@ -650,8 +673,10 @@ describe("metadata field preparation", () => {
     expect(screen.queryByText("Dimensions", { selector: "dt" })).toBeNull();
     for (const noun of ["collection", "label", "person", "keyword"]) {
       fireEvent.click(screen.getByRole("button", { name: `Add ${noun}` }));
-      expect(screen.getByLabelText(`New ${noun}`)).toBeTruthy();
-      fireEvent.click(screen.getByRole("button", { name: `Cancel new ${noun}` }));
+      fireEvent.change(screen.getByLabelText(`New ${noun}`), { target: { value: `Another ${noun}` } });
+      fireEvent.click(screen.getByRole("button", { name: `Commit new ${noun}` }));
+      expect(screen.queryByLabelText(`New ${noun}`)).toBeNull();
+      expect(screen.getByRole("button", { name: `Add ${noun}` })).toBe(document.activeElement);
     }
     for (const label of ["Subjects", "Uploaded", "Modified", "Uploader", "Additional metadata", "Syndication rights"]) {
       expect(screen.queryByText(label)).toBeNull();
@@ -1766,8 +1791,14 @@ describe("disconnected label editing", () => {
     try {
       publish(response("Before", 1000, true));
       const held = response("Before", 1000, true);
-      const mounted = render(<ResidentForm />);
-      const arrowName = { name: /Apply Rights & restrictions/ };
+      const mounted = render(<ResidentForm />, { wrapper: ({ children }) => <BrowsingContext value={{ path: "/upload" }}>{children}</BrowsingContext> });
+      const arrowName = { name: "Clear Rights & restrictions on 1 image", exact: true };
+      const rights = await screen.findByRole("form", { name: "Image usage rights" });
+      fireEvent.click(within(rights).getByRole("button", { name: "Cancel" }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit Rights & restrictions" }));
+      fireEvent.keyDown(screen.getByLabelText("Rights category"), { key: "Escape" });
+      expect(useMetadataDrafts.getState().drafts.get(id)?.has("usageRights_category")).not.toBe(true);
+      expect(editor.getState().saves.size).toBe(0);
       expect(((await screen.findByRole("button", arrowName)) as HTMLButtonElement).disabled).toBe(false);
       const field = screen.getByRole("textbox", { name: "Description" }) as HTMLTextAreaElement;
       const date = screen.getByLabelText("Taken on") as HTMLInputElement;

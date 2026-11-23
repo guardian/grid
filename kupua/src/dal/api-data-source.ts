@@ -376,6 +376,7 @@ export class ApiDataSource implements ImageDataSource {
 
       const approximate = result.positionKind === "approximate-evidence";
       return {
+        dateInterval: interval,
         buckets: result.buckets,
         coveredCount: approximate ? stats.coveredCount ?? result.evidenceCount : result.evidenceCount,
         ...(approximate ? { bucketPositionKind: "approximate-evidence" as const, evidenceCount: result.evidenceCount } : {}),

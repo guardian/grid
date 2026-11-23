@@ -35,6 +35,10 @@ import { PanelLayout, AccordionSection } from "@/components/PanelLayout";
 import { DetailsDrafts } from "@/components/DetailsDrafts";
 import { Scrubber } from "@/components/Scrubber";
 import { UPLOAD_SECTION_LABELS } from "@/lib/upload-section-layout";
+import { otherUploadParams } from "@/dal/upload-page-reader";
+import type { SortDistribution } from "@/dal/types";
+import { descendingDateTicks, lookupSortDistribution } from "@/lib/sort-context";
+import type { PositionMap } from "@/dal/position-map";
 import { FacetFilters, AggCircuitBreaker } from "@/components/FacetFilters";
 import { CollectionTree } from "@/components/CollectionTree";
 import { useCollectionStore } from "@/stores/collection-store";
@@ -68,6 +72,15 @@ import { pushNavigateAsPopstate } from "@/lib/orchestration/search";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { useUploadJobsStore } from "@/stores/upload-jobs-store";
 import { withCurrentKupuaKey } from "@/lib/orchestration/history-key";
+
+const uploadDateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
+const bucketDayFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const bucketMonthFormat = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+function mappedUploadTime(map: PositionMap, position: number): number {
+  const tuple = map.sortValues[position];
+  if (tuple?.[0] !== 1) return NaN;
+  return typeof tuple[1] === "number" ? tuple[1] : typeof tuple[1] === "string" ? Date.parse(tuple[1]) : NaN;
+}
 
 export const searchRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -248,6 +261,29 @@ function SearchPage() {
   const results = useSearchStore((s) => s.results);
   const sortDistribution = useSearchStore((s) => s.sortDistribution);
   const nullZoneDistribution = useSearchStore((s) => s.nullZoneDistribution);
+  const sections = useSearchStore(s => s.uploadSections);
+  const lowerScope = useMemo(() => recentUploadScope?.combined && recentUploadScope.uploadedBy
+    ? otherUploadParams(recentUploadScope) : undefined, [recentUploadScope]);
+  const [requestedLower, requestLower] = useState<typeof lowerScope>();
+  const [lowerProfile, setLowerProfile] = useState<{ scope: typeof lowerScope; distribution: SortDistribution }>();
+  const lowerDistribution = lowerProfile?.scope === lowerScope ? lowerProfile?.distribution : undefined;
+  const batchSize = sections?.batch ?? 0, lowerSize = sections?.other ?? 0;
+  const lowerResident = bufferOffset <= batchSize && bufferOffset + bufferLength >= batchSize + lowerSize;
+  const lowerMap = useSearchStore(s => {
+    const map = s.positionMap;
+    return lowerScope && twoTier && map?.length === total && map.length === batchSize + lowerSize && lowerSize > 0
+      && map.sortValues[batchSize]?.[0] === 1 && (!batchSize || map.sortValues[batchSize - 1]?.[0] === 0) ? map : null;
+  });
+  const waitingForMap = useSearchStore(s => !!lowerScope && twoTier && s.positionMapLoading);
+  const needsLowerProfile = !!lowerScope && lowerSize > 0 && !lowerResident && !lowerMap && !waitingForMap;
+  useEffect(() => {
+    if (!lowerScope || !needsLowerProfile || requestedLower !== lowerScope) return;
+    const controller = new AbortController();
+    void useSearchStore.getState().dataSource.getDateDistribution?.(lowerScope, "uploadTime", "desc", controller.signal).then(distribution => {
+      if (distribution && !controller.signal.aborted) setLowerProfile({ scope: lowerScope, distribution });
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [requestedLower, lowerScope, needsLowerProfile, lowerSize]);
   const getSortLabel = useCallback(
     (globalPosition: number): string | null => {
       const store = useSearchStore.getState();
@@ -279,18 +315,19 @@ function SearchPage() {
   const submittedOrder = !!searchParams.imageScope?.submittedOrder && !orderBy;
   const hasDistributableSort = !recentUploadScope?.combined && !submittedOrder && (!!resolveKeywordSortInfo(orderBy) || !!resolveDateSortInfo(orderBy));
   const onScrubberInteraction = useCallback(() => {
-    if (hasDistributableSort) fetchSortDistribution();
-  }, [hasDistributableSort, fetchSortDistribution]);
+    if (lowerScope && !lowerResident && !lowerMap && requestedLower !== lowerScope) requestLower(lowerScope);
+    else if (hasDistributableSort) fetchSortDistribution();
+  }, [lowerScope, lowerResident, lowerMap, requestedLower, hasDistributableSort, fetchSortDistribution]);
 
   // When the primary distribution arrives and reveals a null zone
   // (coveredCount < total), automatically fetch the null-zone (uploadTime)
   // distribution. This runs once per distribution load — no user interaction needed
   // beyond the initial scrubber touch that triggered fetchSortDistribution.
   useEffect(() => {
-    if (sortDistribution && sortDistribution.coveredCount < total) {
+    if (!recentUploadScope?.combined && sortDistribution && sortDistribution.coveredCount < total) {
       fetchNullZoneDistribution();
     }
-  }, [sortDistribution, total, fetchNullZoneDistribution]);
+  }, [recentUploadScope?.combined, sortDistribution, total, fetchNullZoneDistribution]);
 
   // Track tick marks — date boundary positions for scrubber orientation.
   // In scroll mode (all data in buffer): computed from buffer data (exact).
@@ -302,11 +339,16 @@ function SearchPage() {
   const tickResults = ticksEnabled && resolveDateSortInfo(orderBy) &&
     (sortDistribution?.buckets.length ?? 0) < 2 ? results : null;
   const tickBufferOffset = tickResults ? bufferOffset : 0;
+  const lowerImages = lowerScope && !lowerMap && lowerResident && lowerSize ? results : undefined;
+  const lowerStart = lowerImages ? batchSize - bufferOffset : 0;
   const trackTicks = useMemo(
-    () => ticksEnabled
+    () => lowerScope ? (lowerMap || lowerImages ? descendingDateTicks(lowerSize, index => lowerMap
+      ? mappedUploadTime(lowerMap, batchSize + index) : Date.parse(lowerImages![lowerStart + index]?.uploadTime ?? ""))
+      : computeTrackTicksWithNullZone("-uploadTime", lowerSize, 0, [], lowerDistribution, null, "utc"))
+      .map(tick => ({ ...tick, position: batchSize + tick.position })) : ticksEnabled
       ? computeTrackTicksWithNullZone(orderBy, total, tickBufferOffset, tickResults ?? [], sortDistribution, nullZoneDistribution)
       : [],
-    [ticksEnabled, orderBy, total, tickBufferOffset, tickResults, sortDistribution, nullZoneDistribution],
+    [lowerScope, lowerSize, lowerImages, lowerMap, lowerStart, lowerDistribution, batchSize, ticksEnabled, orderBy, total, tickBufferOffset, tickResults, sortDistribution, nullZoneDistribution],
   );
 
   const scrubberElement = (
@@ -322,11 +364,24 @@ function SearchPage() {
       onBrowsePosition={(offset) => useSearchStore.getState().queueBrowsePosition(offset)}
       getSortLabel={getSortLabel}
       getPositionLabel={recentUploadScope?.combined ? (globalPosition) => {
-        const sections = useSearchStore.getState().uploadSections;
+        const store = useSearchStore.getState();
+        const sections = store.uploadSections;
         const upper = globalPosition < (sections?.batch ?? 0);
-        return `${(globalPosition - (upper ? 0 : sections?.batch ?? 0) + 1).toLocaleString("en-GB")} of ${(upper ? sections?.batch ?? 0 : sections?.other ?? 0).toLocaleString("en-GB")}`;
+        const local = globalPosition - (upper ? 0 : sections?.batch ?? 0);
+        const count = `${(local + 1).toLocaleString("en-GB")} of ${(upper ? sections?.batch ?? 0 : sections?.other ?? 0).toLocaleString("en-GB")}`;
+        if (upper || local >= (sections?.other ?? 0)) return count;
+        const resident = store.results[globalPosition - store.bufferOffset]?.uploadTime;
+        const instant = resident ? Date.parse(resident) : lowerMap ? mappedUploadTime(lowerMap, globalPosition) : NaN;
+        if (Number.isFinite(instant)) return `${count}\n${uploadDateFormat.format(instant)}`;
+        if (!lowerDistribution?.dateInterval) return count;
+        const bucket = lookupSortDistribution(lowerDistribution, local);
+        const start = bucket ? Date.parse(bucket) : NaN;
+        if (!Number.isFinite(start)) return count;
+        const approx = lowerDistribution.coveredCount !== sections?.other || lowerDistribution.bucketPositionKind === "approximate-evidence";
+        const format = lowerDistribution.dateInterval === "month" ? bucketMonthFormat : bucketDayFormat;
+        return `${count}\n${approx ? "Approx. " : ""}${format.format(start)} UTC`;
       } : undefined}
-      onFirstInteraction={hasDistributableSort ? onScrubberInteraction : undefined}
+      onFirstInteraction={hasDistributableSort || lowerScope ? onScrubberInteraction : undefined}
       trackTicks={trackTicks}
       twoTier={twoTier}
     />

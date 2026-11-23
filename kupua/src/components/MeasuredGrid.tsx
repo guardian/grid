@@ -35,18 +35,18 @@ export function MeasuredGrid(props: Pick<ImageGridProps, "handleRange">) {
   const cells = useMemo<MeasuredCells>(() => ({
     key: [...fields].sort().join(","), thumbnailHeight,
     estimate: (_image, width) => (width < 680 ? 256 : 0) + 600,
-    render: (image, thumbnail) => <div className="form-density-item">
+    render: (image, thumbnail, enterDetail) => <FormBatchContext value={scope?.ids.includes(image.id) ? scope : undefined}>
+      <ImageMetadata image={image} formFields={fields} openUploadImage={context.path === "/upload" ? enterDetail : undefined} renderForm={(metadata, status) => <div className="form-density-item">
       <div data-measured-field="image" className="min-w-0 self-start">
         {thumbnail}
+        {status}
       </div>
       <div data-form-content className="min-w-0 p-3 cursor-text select-text"
         onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
         onDragStart={event => event.stopPropagation()}>
-        <FormBatchContext value={scope?.ids.includes(image.id) ? scope : undefined}>
-          <ImageMetadata image={image} formFields={fields} />
-        </FormBatchContext>
+        {metadata}
       </div>
-    </div>,
-  }), [fields, scope]);
+    </div>} /></FormBatchContext>,
+  }), [fields, scope, context.path]);
   return <ImageGrid {...props} measuredCells={cells} />;
 }

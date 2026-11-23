@@ -1,13 +1,12 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Current implementation, 8 November 2026.** A product-facing comparison of
+**Browsing inventory, 8 November 2026; editing scope updated 23 November.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
 illustrations distinguish actual UI captures from synthetic examples and diagrams.
 
-Kupua is a read-only search-and-browse frontend. Its image-data reads go through
-media-api. This inventory describes the implemented application, not a claim that
+API-backed Kupua browses and edits images. The [editing roadmap](../gradually-growing-teeth.kupua-edits-steps.md) distinguishes connected commands, previews and remaining work. Direct-ES remains read-only. This inventory describes the implemented application, not a claim that
 it is deployed for production users. Deployment and remaining media-delivery work
 belong to the [API build plan](<../03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md>).
 
@@ -861,8 +860,7 @@ The breakdown counts images with a lease type, not every lease record, so multip
 leases of the same type on one image do not inflate that row. Activity is evaluated
 from start/end dates when rendered. Counts use the selected images whose metadata
 has resolved, not an assumption that every pending selected ID has been checked.
-This makes the selection's restrictions much easier to assess, without adding lease
-editing to Kupua.
+The summary rows are informational. Add can apply a lease to the captured selection; deleting an individual lease requires its own image card.
 
 ![Lease summary for an illustrative 48-image selection, with active and pending types, All images and N of M indicators, and an expired-leases footnote.](../feature-assets/selection-leases.png)
 
@@ -1244,17 +1242,14 @@ Sources: [StatusBar](../../../src/components/StatusBar.tsx),
 
 ## 8. Remaining gaps and boundaries
 
-Kupua remains read-only. These gaps matter when considering it as a full Kahuna
-replacement.
+Connected edits do not yet cover every Kahuna workflow. These gaps matter when considering full replacement.
 
 **New endpoints:** no dependency is assigned to an unimplemented feature; the
 routes above implement browsing reads, not these missing workflows.
 
 ### 8.1 Metadata and usage-rights editing
 
-Kahuna edits image metadata and usage rights. Kupua displays them but does not wire
-editing actions. Receiving an action descriptor or showing a rights label does not
-make it an editor or grant write permission.
+Kupua connects ordinary metadata, Labels, Guardian Rights and manual Leases. Configured-domain fields and Subjects editing remain outside that scope. Displaying a rights label does not grant write permission.
 
 Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 [Kahuna metadata editor](../../../../kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html),
@@ -1262,8 +1257,7 @@ Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 
 ### 8.2 Upload and crop/export workflows
 
-Kahuna provides upload and backend-connected crop/export workflows. Kupua does not
-upload images or create/save/export crops. Its mock crop editor (§3.7) supports
+Kupua supports file upload, local batches and post-upload editing; the [Upload workplan](../gradually-growing-teeth.upload-workplan.md#unit-status) owns its parity limits. Unlike Kahuna, Kupua does not create/save/export crops. Its mock crop editor (§3.7) supports
 desktop and touch framing, numeric precision editing and local reload recovery, but
 only displays the proposed request. Ordinary image-inspection zoom is not an editing tool.
 
@@ -1275,9 +1269,7 @@ Sources: [Kahuna upload](../../../../kahuna/public/js/upload),
 ### 8.3 Bulk actions, downloads and sharing selections
 
 Kahuna's selection toolbar provides actions including archive, delete/undelete,
-download, export and selection URL sharing. Kupua's selection work is membership,
-browsing and metadata inspection; it does not provide those corresponding action
-workflows. Downloads are a gap even though they are not themselves metadata writes.
+download, export and selection URL sharing. Kupua supports selected-image edits, but its Library, Delete, Download, Share and full-frame preparation controls do not execute those operations.
 
 Sources: [Kahuna toolbar](../../../../kahuna/public/js/search/results.html),
 [Kupua selection controls](../../../src/components/StatusBar.tsx),
