@@ -35,8 +35,14 @@ export interface TestContext {
   heldConfirm?: Dialog;
   /** The action that raised `heldConfirm`, which finishes once it is answered. */
   heldAction?: Promise<unknown>;
-  /** The add lease control's visible text while each lease write was in flight. */
-  addControlDuringWrites?: string[];
+  /** What `watchDuringWrites` showed while each lease write was in flight (see recordLeaseWrites). */
+  shownDuringWrites?: string[];
+  /** The element recordLeaseWrites reads during each lease write; the add lease control by default. */
+  watchDuringWrites?: Locator;
+  /** When the remove all leases prompt was shown, in ms since the epoch. */
+  promptShownAt?: number;
+  /** Ids of the images a scenario showed in search results or uploaded, in order. */
+  surfaceImageIds?: string[];
   /** The metadata template a `Given` chose for a later step to select or apply. */
   metadataTemplate?: string;
   fileChooser?: Promise<FileChooser>;

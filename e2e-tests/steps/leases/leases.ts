@@ -9,6 +9,7 @@ import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts
 import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
 import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
 import { KAHUNA_APP_URL, expect } from '../setup.ts';
+import { holdingConfirms } from '../utils/dialogs.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 
 type Scope = Page | Locator;
@@ -83,14 +84,14 @@ const isLeaseWrite = (method: string) => ['POST', 'PUT', 'DELETE'].includes(meth
 
 /**
  * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
- * can check nothing was saved, and what the single image view's add lease control showed
- * while each was in flight in `testContext.addControlDuringWrites`, so steps can check what
- * it showed during a save without racing it. Idempotent, so steps sharing a page can each
- * call it.
+ * can check nothing was saved, and what `testContext.watchDuringWrites` (by default the single
+ * image view's add lease control) showed while each was in flight in
+ * `testContext.shownDuringWrites`, so steps can check what it showed during a save without
+ * racing it. Idempotent, so steps sharing a page can each call it.
  */
 export async function recordLeaseWrites(page: Page, testContext: TestContext): Promise<void> {
   testContext.leaseWrites ??= [];
-  testContext.addControlDuringWrites ??= [];
+  testContext.shownDuringWrites ??= [];
   if (recording.has(page)) return;
   recording.add(page);
   // A request listener sees requests that a later route fails, too.
@@ -102,8 +103,8 @@ export async function recordLeaseWrites(page: Page, testContext: TestContext): P
   await page.route(isLeasesService, async (route) => {
     if (isLeaseWrite(route.request().method())) {
       // The request is held until the route resolves, so this is the control mid-save.
-      const control = addLeaseButton(leasesRegion(page));
-      testContext.addControlDuringWrites!.push(await control.innerText({ timeout: 1_000 }).catch(() => ''));
+      const watched = testContext.watchDuringWrites ?? addLeaseButton(leasesRegion(page));
+      testContext.shownDuringWrites!.push(await watched.innerText({ timeout: 1_000 }).catch(() => ''));
     }
     await route.fallback();
   });
@@ -133,17 +134,73 @@ export const accessOfLabel = (label: string): LeaseAccess =>
   leaseAccess(label.toLowerCase().replace(' ', '-'));
 
 /** Thrall copies saved leases into the image asynchronously, so poll media-api for them. */
-export const pollImageLeases = (testContext: TestContext) =>
-  expect.poll(async () => imageLeases(testContext.imageId!), { message: 'the leases media-api serves' });
+export const pollLeasesOf = (imageId: string) =>
+  expect.poll(async () => imageLeases(imageId), { message: `the leases media-api serves for ${imageId}` });
+
+/** pollLeasesOf the image a scenario opened. */
+export const pollImageLeases = (testContext: TestContext) => pollLeasesOf(testContext.imageId!);
 
 export const accesses = (leases: MediaLease[]) => leases.map(({ access }) => access).sort();
 
-/** The add lease control showed `text` while a lease was being saved, and stopped once it was. */
-export async function expectShownDuringSave(page: Page, testContext: TestContext, text: string): Promise<void> {
+/**
+ * `watched` (by default the single image view's add lease control) showed `text` while a lease
+ * was being saved, and stopped once it was.
+ */
+export async function expectShownDuringSave(
+  page: Page,
+  testContext: TestContext,
+  text: string,
+  watched: Locator = addLeaseButton(leasesRegion(page)),
+): Promise<void> {
   // Kahuna refreshes the image before it sends the save, so wait for the save to be sent.
   await expect
-    .poll(() => testContext.addControlDuringWrites, { message: 'the add lease control while saving' })
+    .poll(() => testContext.shownDuringWrites, { message: 'what was shown while saving' })
     .toContainEqual(expect.stringContaining(text));
-  // The control hides "Updating..." with ng-show, which leaves it in the text content.
-  await expect(addLeaseButton(leasesRegion(page))).not.toContainText(text, { useInnerText: true });
+  // Kahuna hides "Updating..." with ng-show or ng-if; innerText leaves out either.
+  await expect(watched).not.toContainText(text, { useInnerText: true });
 }
+
+export const notesField = (scope: Locator) => scope.getByPlaceholder('Notes...', { exact: true });
+
+/** Open the add lease form of the lease widget in `scope`. */
+export async function openAddLeaseForm(page: Page, testContext: TestContext, scope: Locator): Promise<void> {
+  await recordLeaseWrites(page, testContext);
+  // The lease widget fetches the image's leases on load, and closes the form when that
+  // resolves (LeasesCtrl.updateLeases), so a form opened sooner snaps shut. With no leases
+  // nothing on the page shows the fetch is done, so wait for the page's requests to settle.
+  await page.waitForLoadState('networkidle');
+  await addLeaseButton(scope).click();
+  await expect(accessSelect(scope)).toBeVisible();
+}
+
+export async function chooseAccess(testContext: TestContext, scope: Locator, access: string): Promise<void> {
+  testContext.accessChosenAt = new Date();
+  await accessSelect(scope).selectOption({ label: access });
+}
+
+/**
+ * Add a lease through the form of the lease widget in `scope`. A syndication lease on an image
+ * that has one raises a confirm, which is held for a later step to answer (see holdingConfirms).
+ */
+export async function addLease(
+  page: Page,
+  testContext: TestContext,
+  scope: Locator,
+  access: string,
+  { ticked = [], notes }: { ticked?: string[]; notes?: string } = {},
+): Promise<void> {
+  await openAddLeaseForm(page, testContext, scope);
+  await chooseAccess(testContext, scope, access);
+  testContext.watchDuringWrites = addLeaseButton(scope);
+  for (const checkbox of ticked) {
+    await scope.getByRole('checkbox', { name: checkbox, exact: true }).check();
+  }
+  if (notes !== undefined) await notesField(scope).fill(notes);
+  await holdingConfirms(page, testContext, () => saveLeaseButton(scope).click());
+}
+
+/** The label Kahuna shows for an access type, e.g. "Allow use" for "allow-use". */
+export const labelOfAccess = (access: string): string => {
+  const label = leaseAccess(access).replace('-', ' ');
+  return label[0].toUpperCase() + label.slice(1);
+};
