@@ -18,17 +18,6 @@ object Tier {
     case "administrator" => Administrator
     case _ => ReadOnly // readonly by default
   }
-  def asString(tier: Tier): String = tier match {
-    case Internal => "internal"
-    case ReadOnly => "readonly"
-    case Syndication => "syndication"
-    case Administrator => "administrator"
-  }
-
-  implicit val format: Format[Tier] = Format(
-    __.read[String].map(Tier(_)),
-    Writes(t => JsString(asString(t)))
-  )
 }
 
 case class ApiAccessor(identity: String, tier: Tier)
