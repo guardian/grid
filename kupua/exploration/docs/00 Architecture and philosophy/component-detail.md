@@ -1227,6 +1227,12 @@ the card before a subsequent downward swipe dismisses detail. Portrait and lands
 same image-first view; tapping toggles controls and zoom hides them. Browser detail requests
 native fullscreen when possible, while installed apps use their existing window presentation.
 
+During compact traversal, each buffered Details card lays out its lease controls and
+known metadata values from its own fresh image data. Until activation, the pane stays
+inert, its controls stay disabled and it does not request the usage-rights editor
+catalogue. On activation the editor can reuse resolved catalogue choices; those choices
+do not grant permission to edit the image.
+
 ## Crop Editor (`components/crop/`)
 
 `CropEditor` is lazy-loaded inside detail when `cropping=true`. Crop shows and logs the

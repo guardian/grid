@@ -132,7 +132,8 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
         if (!result) return item;
         const state = result.outcome === "acknowledged" ? "accepted-awaiting-visibility"
           : result.outcome === "blocked" ? "not-started" : result.outcome;
-        return Object.freeze({ ...item, state, result: Object.freeze({ ...result }) });
+        return Object.freeze({ ...item, state, result: Object.freeze({ ...result }),
+          ...(item.observation === "pending" && (state === "rejected" || state === "not-started") && { observation: "unavailable" as const }) });
       })) });
       outcomes.clear();
       observe();
@@ -171,9 +172,13 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
         recordObservedMetadataWitness(operationId!, image.id, behavior.metadataWitness?.(image, receipt!.intent));
       }
       for (const image of ready) if (!published.has(image.id)) verified.delete(image.id);
-      if (!settled && accepted.length && receipt && receipt.items.some(item => item.observation === "pending" && !published.has(item.imageId))) {
-        publish({ ...receipt, items: Object.freeze(receipt.items.map(item => item.observation === "pending" && published.has(item.imageId)
-          ? Object.freeze({ ...item, observation: "observed" as const }) : item)) });
+      if (!settled && receipt && (accepted.length || superseded.size) && receipt.items.some(item => item.observation === "pending" && (published.has(item.imageId) || superseded.has(item.imageId)))) {
+        publish({ ...receipt, items: Object.freeze(receipt.items.map(item => {
+          if (item.observation !== "pending") return item;
+          if (published.has(item.imageId)) return Object.freeze({ ...item, observation: "observed" as const });
+          if (superseded.has(item.imageId)) return Object.freeze({ ...item, observation: "superseded" as const });
+          return item;
+        })) });
       }
       return accepted.length < ready.length;
     }

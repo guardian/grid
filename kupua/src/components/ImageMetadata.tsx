@@ -233,7 +233,8 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
   const canEditMetadata = Boolean(enriched?.resource && findLink(enriched.resource, "edits"));
-  const leaseGrant = (name: string) => canEditMetadata && !labelEditing?.pending && !editingPending && !enriched?.metadataStale && !!enriched?.actions?.some(action => action.name === name);
+  const editDataReady = canEditMetadata && !labelEditing?.pending && !enriched?.metadataStale;
+  const leaseGrant = (name: string) => editDataReady && !!enriched?.actions?.some(action => action.name === name);
   const attached = formFields && !canEditMetadata && !enriched?.metadataStale ? attachedEnrichment(image) : undefined;
   const pendingForm = attached && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, attached) ? attached : undefined;
 
@@ -373,7 +374,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
           <dt className="text-xs font-bold text-grid-text-dim">Rights &amp; restrictions</dt>
           <dd className="text-xs text-grid-text mt-0.5">
             <UsageRightsEditor key={image.id} ids={labelEditing?.targetIds ?? [image.id]} rights={[usageRights ?? {}]} form={Boolean(formFields)} pendingGrant={!!pendingForm}
-              allowed={canEditMetadata && !labelEditing?.pending && !editingPending && !enriched?.metadataStale}>{categoryLabel(category)}</UsageRightsEditor>
+              allowed={editDataReady} inactive={editingPending}>{categoryLabel(category)}</UsageRightsEditor>
           </dd>
         </div>
       </MetadataSection>
@@ -448,7 +449,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             if (!formFields && field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing}
                 context={{ ...(labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]) }),
-                  pending: labelEditing?.pending || editingPending || enriched?.metadataStale }}
+                  pending: labelEditing?.pending || enriched?.metadataStale }}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
@@ -491,7 +492,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             if (field.id === "location" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataLocationEditor key={`location:${image.id}`} targetIds={[image.id]}
                 editable={canEditMetadata} readOnly={readOnly}
-                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                available={editDataReady}
                 fields={LOCATION_COMPONENTS.map(component => ({ ...component, value: image.metadata?.[component.key] ?? "", mixed: false }))}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
               </MetadataLocationEditor>;
@@ -499,7 +500,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
                 editable={canEditMetadata} readOnly={readOnly}
-                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}
+                available={editDataReady}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                 collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;
             }
@@ -507,7 +508,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               return <MetadataTextEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} value={typeof raw === "string" ? raw : ""}
                 editable={canEditMetadata} readOnly={readOnly}
                 furtherInstructions={field.id === "metadata_specialInstructions" && Boolean(image.metadata?.usageInstructions)}
-                available={canEditMetadata && !editingPending && !labelEditing?.pending && !enriched?.metadataStale}>
+                available={editDataReady}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
               </MetadataTextEditor>;
             }
@@ -534,6 +535,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       </MetadataSection>}
     </dl>
   );
+  if (editingPending) return <fieldset disabled className="contents">{metadata}</fieldset>;
   if (!renderForm) return metadata;
   if (!openUploadImage) return renderForm(metadata);
   const displayCost = restrictions ? "conditional" : cost;

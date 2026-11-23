@@ -931,10 +931,38 @@ test.describe("U3 isolated uploads", () => {
   test.describe("compact mixed batches", () => {
     test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+  test("buffered editable detail retains its incoming card layout in either direction", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-editing", "true"));
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, editing: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10 } });
+    await page.goto(`${origin}/__readback?density=grid`);
+    await page.locator('[data-grid-cell][data-cell-id="local-0"]').tap();
+    await page.getByRole("button", { name: "Expand Image details" }).tap();
+    const pane = (slot: string) => page.locator(`[data-detail-page="${slot}"]`);
+    const geometry = (slot: string) => pane(slot).locator("dl").first().evaluate(list => {
+      const bounds = list.getBoundingClientRect();
+      return [...list.querySelectorAll("dt, [data-editable-pill]")].map(element => {
+        const rect = element.getBoundingClientRect();
+        return [rect.left - bounds.left, rect.top - bounds.top, rect.width, rect.height].map(value => Math.round(value * 64));
+      });
+    });
+    for (const [slot, key] of [["next", "ArrowRight"], ["previous", "ArrowLeft"]]) {
+      await expect(pane(slot).locator('[aria-label="Add lease"]')).toBeDisabled();
+      await expect(pane(slot).locator('[data-editable-pill][data-coverage="all"]').first()).toBeAttached();
+      const destination = await pane(slot).getAttribute("data-detail-page-id");
+      const before = await geometry(slot);
+      await page.keyboard.press(key);
+      await expect(pane("current")).toHaveAttribute("data-detail-page-id", destination!);
+      await expect(pane("current").getByRole("button", { name: "Add lease" })).toBeEnabled();
+      expect(await geometry("current")).toEqual(before);
+    }
+  });
+
   test("U4 mixed files keep filename order, duplicate outcomes and compact detail/crop return", async ({ page }, testInfo) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
     await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, maxFileBytes: 20, status: "COMPLETED", visible: true, searchable: true } });
+    await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10_000 } });
     await page.goto(`${origin}/__continuation?density=table`);
     await new KupuaHelpers(page).waitForResults();
     await page.getByRole("button", { name: "Settings", exact: true }).click();

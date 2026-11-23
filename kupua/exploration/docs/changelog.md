@@ -24,6 +24,12 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Stabilize compact Details and show edit progress per pill
+
+Buffered neighboring Details cards lay out lease controls and metadata values from their own fresh image data before activation. The pane remains inert, its controls stay disabled, and it does not start a rights-catalogue request.
+
+Pending list edits dim and outline only the affected pills without resizing them. Newly added values appear as pending pills. The shared edit receipt stops reporting a recipient as pending on rejection, blocking, or readback proving a newer write superseded it, without waiting for slower peers. Uncertain writes retain bounded observation; no command is replayed.
+
 ### 23 November 2026 - Preserve editing intent and upload uncertainty
 
 Taken-date copies and retained autosaves preserve the source instant through a repeated local hour.

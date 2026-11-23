@@ -27,6 +27,15 @@ presentation and metadata editing remain distinct interactions:
 Preserve separate searchable value text and explicit add/remove/apply controls.
 Text replacements still need deliberate submission; Refine remains live search.
 
+A pending list edit dims only the affected pills and draws a dotted edge inside each one.
+Adding a new value shows it as pending; the indicator itself must not resize the pill
+or rewrap its neighbors. There is no field-wide saving label or border. In Form, a
+recipient stops showing pending feedback when its own outcome is known, even while
+peers are still saving. The selection panel counts confirmed edits against captured
+edits, so two edits to the same image count separately. After a save finishes, its
+issue control distinguishes **not saved** from **not confirmed** and can select just
+the affected images for inspection. Selecting them does not retry the edit.
+
 ## 2. What Already Exists
 
 | Surface | Current Behavior | Consequence |

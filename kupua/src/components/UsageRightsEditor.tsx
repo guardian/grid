@@ -20,6 +20,7 @@ const inputClass = "block w-full min-w-0 rounded-sm border border-grid-border bg
 type Values = Record<string, string>;
 type Draft = { values: Values; restricted: boolean };
 let catalogueRead: Promise<RightsEditorCategory[]> | undefined;
+let loadedCatalogue: RightsEditorCategory[] | undefined;
 
 function initialDraft(category: RightsEditorCategory | undefined, rights: readonly UsageRights[]): Draft {
   const values: Values = { category: category?.value ?? "mixed" };
@@ -32,8 +33,8 @@ function initialDraft(category: RightsEditorCategory | undefined, rights: readon
   return { values, restricted: Boolean(values.restrictions || category?.properties.some(prop => prop.name === "restrictions" && prop.required)) };
 }
 
-export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingGrant = false, children }: {
-  ids: readonly string[]; rights: readonly UsageRights[]; allowed: boolean; form?: boolean; pendingGrant?: boolean; children: ReactNode;
+export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingGrant = false, inactive = false, children }: {
+  ids: readonly string[]; rights: readonly UsageRights[]; allowed: boolean; form?: boolean; pendingGrant?: boolean; inactive?: boolean; children: ReactNode;
 }) {
   const editor = useContext(MetadataEditorContext);
   const uploadForm = useBrowsingContext().path === "/upload" && form;
@@ -41,14 +42,14 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   const tracking = useStore(editor, state => form ? state.formRightsSaves.get(ids[0]) : undefined);
   const retained = useMetadataDrafts(state => form ? state.drafts.get(ids[0])?.get(fieldId) : undefined);
   const enabled = connected && allowed && import.meta.env.VITE_USE_MEDIA_API === "true";
-  const [categories, setCategories] = useState<RightsEditorCategory[]>();
+  const [categories, setCategories] = useState<RightsEditorCategory[] | undefined>(() => loadedCatalogue);
   useEffect(() => {
-    if (!enabled && !(retained && catalogueRead)) return;
+    if (inactive || (!enabled && !(retained && catalogueRead))) return;
     let current = true;
-    catalogueRead ??= readRightsEditorCatalogue().catch(error => { catalogueRead = undefined; throw error; });
+    catalogueRead ??= readRightsEditorCatalogue().then(result => loadedCatalogue = result).catch(error => { catalogueRead = undefined; throw error; });
     void catalogueRead.then(result => { if (current) setCategories(result); }, () => { if (current) setCategories(undefined); });
     return () => { current = false; };
-  }, [enabled, !!retained]);
+  }, [enabled, !!retained, inactive]);
   const commit = useMetadataCommit(form);
   const pending = usePendingPanelIntent(labelTargetKey(ids), fieldId);
   const { restored, update } = useDetailsDraft<Draft>(fieldId);

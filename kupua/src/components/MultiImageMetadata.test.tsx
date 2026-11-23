@@ -1704,6 +1704,53 @@ describe("disconnected label editing", () => {
     expect(screen.getByRole("button", { name: "1 issue" }).textContent).toBe("1 issue");
   });
 
+  it("keeps a buffered neighbour's lease and keyword layout when it becomes current", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    const image = { ...images[0], metadata: { keywords: ["City"] }, leases: { leases: [] } };
+    const overlay = { resource: { links: [{ rel: "edits", href: "/metadata/example" }] }, actions: [{ name: "add-lease", href: "/leases/example", method: "POST" as const }] };
+    const card = (inactive: boolean) => <MetadataEditorContext value={editor}><ImageMetadata image={image} overlay={overlay} editingPending={inactive} /></MetadataEditorContext>;
+    const view = render(card(true));
+    const add = () => screen.getByRole("button", { name: "Add lease" }) as HTMLButtonElement;
+    expect(add().matches(":disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Remove City" }).matches(":disabled")).toBe(true);
+    expect(screen.queryByRole("button", { name: "Apply City to all selected images" })).toBeNull();
+    view.rerender(card(false));
+    expect(add().matches(":disabled")).toBe(false);
+    expect(screen.getByRole("button", { name: "Remove City" }).matches(":disabled")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Apply City to all selected images" })).toBeNull();
+  });
+
+  it("keeps affected pills visible through batch removal and publication beyond the disclosure limit", async () => {
+    const { visibleEditorPills } = await import("./SearchPill");
+    const values = Array.from({ length: 21 }, (_, index) => ({ value: String(index), count: 1 }));
+    const changes = [{ action: "add", value: ["20", "new"], removed: ["0"] }];
+    const busy = visibleEditorPills(values, false, changes).filter(item => item.pending);
+    expect(busy.map(item => item.value)).toEqual(["0", "20", "new"]);
+    expect(visibleEditorPills(values, false, [{ action: "overwrite", value: [] }]).every(item => item.pending)).toBe(true);
+  });
+
+  it("marks only pending pills across label queues and clears them on settlement", () => {
+    const editor = createMetadataEditorStore(), labels = createLabelEditorStore();
+    const targetIds = [images[0].id], targetKey = labelTargetKey(targetIds);
+    const save: MetadataSave = { id: 1, intent: { fieldId: "labels", targetIds, action: "add", value: "incoming" }, state: "saving", excluded: 0, items: [] };
+    editor.setState({ panelSaves: [{ id: 1, targetKey }], saves: new Map([[1, save]]) });
+    labels.setState({ receipts: [{ mode: "connected", intent: { targetIds, action: "remove", label: "outgoing" },
+      counts: { selected: 1, eligible: 1, ineligible: 0, unresolved: 0, unavailable: 0 }, items: [{ imageId: targetIds[0], state: "submitted" }] }] });
+    const { container } = render(<MetadataEditorContext value={editor}><LabelEditorContext value={labels}>
+      <LabelEditor context={{ targetIds, targets: new Map() }} values={[{ value: "outgoing", count: 1 }, { value: "untouched", count: 1 }]} onSearch={vi.fn()} />
+    </LabelEditorContext></MetadataEditorContext>);
+    const busy = () => Array.from(container.querySelectorAll('[data-editable-pill][aria-busy="true"]'), pill => pill.textContent);
+    expect(busy().sort()).toEqual(["incoming", "outgoing"]);
+    expect(screen.queryByRole("button", { name: "Apply incoming to all selected images" })).toBeNull();
+    expect(screen.queryByText("Saving…")).toBeNull();
+    act(() => labels.setState({ receipts: [] }));
+    expect(busy()).toEqual(["incoming"]);
+    act(() => editor.setState({ panelSaves: [] }));
+    expect(busy()).toEqual([]);
+    expect(screen.queryByText("incoming")).toBeNull();
+  });
+
   it("repairs the same label across queues but not a different Description append", () => {
     const editor = createMetadataEditorStore(), labels = createLabelEditorStore();
     const targetIds = [images[0].id], imageId = targetIds[0], targetKey = labelTargetKey(targetIds);

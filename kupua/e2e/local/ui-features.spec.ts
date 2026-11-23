@@ -2268,7 +2268,13 @@ test.describe("Detail close during list restoration", () => {
           if (!original) await kupua.detailNextAndWait();
           const target = (await kupua.getDetailImageId())!;
           expect(target === entry).toBe(original);
-          await page.addInitScript((target) => {
+          const detailImage = await page.evaluate(id => {
+            const state = (window as any).__kupua_store__.getState();
+            return state.results[state.imagePositions.get(id) - state.bufferOffset];
+          }, target);
+          expect(detailImage?.id).toBe(target);
+          await page.addInitScript((detailImage) => {
+            const target = detailImage.id;
             let store: any;
             const probe = (window as any).__detailReload = { ready: 0, targetReads: 0, released: false,
               pending: [] as Array<{ operation: string; stage: string; signal?: AbortSignal }>,
@@ -2278,6 +2284,12 @@ test.describe("Detail close during list restoration", () => {
               set: (value) => {
                 store = value;
                 const source = store.getState().dataSource;
+                const originalById = source.getById;
+                source.getById = function (id: string, signal?: AbortSignal) {
+                  if (id !== target) return originalById.call(this, id, signal);
+                  signal?.throwIfAborted();
+                  return Promise.resolve({ image: detailImage });
+                };
                 const original = source.searchAfter;
                 const originalCount = source.countBefore;
                 let release!: () => void;
@@ -2304,10 +2316,10 @@ test.describe("Detail close during list restoration", () => {
                   try { return await originalCount.apply(this, args); }
                   finally { probe.pending.splice(probe.pending.indexOf(read), 1); }
                 };
-                probe.cleanup = () => { probe.release(); source.searchAfter = original; source.countBefore = originalCount; };
+                probe.cleanup = () => { probe.release(); source.getById = originalById; source.searchAfter = original; source.countBefore = originalCount; };
               },
             });
-          }, target);
+          }, detailImage);
           await page.reload({ waitUntil: "commit" });
           try {
             await page.waitForFunction(target => {
@@ -2405,11 +2417,11 @@ test.describe("Detail close during list restoration", () => {
                 loading: state?.loading, results: state?.results.length,
                 cursorRestore: state?._cursorRestore ? { aborted: state._cursorRestore.signal.aborted } : null,
                 navigation: state?._browseNavigation?.phase, hasError: Boolean(state?.error) };
-            });
-            await test.info().attach("restoration-state", { body: JSON.stringify(diagnostic), contentType: "application/json" });
+            }).catch(() => undefined);
+            if (diagnostic) await test.info().attach("restoration-state", { body: JSON.stringify(diagnostic), contentType: "application/json" });
             throw error;
           } finally {
-            await page.evaluate(() => (window as any).__detailReload?.cleanup());
+            if (!page.isClosed()) await page.evaluate(() => (window as any).__detailReload?.cleanup()).catch(error => { if (!page.isClosed()) throw error; });
           }
         });
       }

@@ -58,7 +58,29 @@ export function PillActionButton({ action, label, title = label, attached = fals
   </button>;
 }
 
-export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, coverageKnown = true, disabled, addDisabled = disabled, onAdd, onRemove }: {
+export function visibleEditorPills(values: readonly { value: string; count: number }[], expanded: boolean, intents: readonly { action: string; value: unknown; removed?: readonly string[] }[]) {
+  const ordered = [...values].sort((first, second) => second.count - first.count);
+  const pending = new Set<string>();
+  const additions = new Set<string>();
+  let clearing = false;
+  for (const intent of intents) {
+    if (intent.action === "overwrite" && Array.isArray(intent.value) && !intent.value.length) clearing = true;
+    for (const removed of intent.removed ?? []) pending.add(removed);
+    for (const value of Array.isArray(intent.value) ? intent.value : [intent.value]) {
+      if (typeof value !== "string") continue;
+      pending.add(value);
+      if (intent.action === "add") additions.add(value);
+    }
+  }
+  const visible = ordered.filter((item, index) => {
+    additions.delete(item.value);
+    return expanded || index < 20 || pending.has(item.value);
+  }).map(item => ({ ...item, pending: clearing || pending.has(item.value) }));
+  for (const value of additions) visible.push({ value, count: 0, pending: true });
+  return visible;
+}
+
+export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, pending, coverageKnown = true, disabled, addDisabled = disabled, onAdd, onRemove }: {
   value: string;
   label?: ReactNode;
   cqlKey: string;
@@ -66,26 +88,28 @@ export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, cou
   accent?: boolean;
   count: number;
   total: number;
+  pending?: boolean;
   coverageKnown?: boolean;
   disabled?: boolean;
   addDisabled?: boolean;
   onAdd: () => void;
   onRemove: () => void;
 }) {
-  const partial = !coverageKnown || count < total;
+  const incoming = pending && count === 0;
+  const partial = !incoming && (!coverageKnown || count < total);
   const pillClass = partial
     ? `${PILL_BASE} bg-white ${accent ? "text-grid-accent" : "text-[#222]"}`
     : accent ? `${PILL_BASE} bg-grid-accent text-white` : PILL_DEFAULT;
-  return <span data-editable-pill data-accent={accent || undefined} data-coverage={partial ? "partial" : "all"} className={`${pillClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-[var(--mobile-edit-control-size)]`} onKeyDown={containPillActivation}>
+  return <span data-editable-pill aria-busy={pending || undefined} data-accent={accent || undefined} data-coverage={partial ? "partial" : "all"} className={`${pillClass} max-w-full p-0! items-stretch! pointer-coarse:min-h-[var(--mobile-edit-control-size)]`} onKeyDown={containPillActivation}>
     {partial && <PillActionButton action="apply-all" attached title={`Apply ${cqlKey} to all ${total} ${total === 1 ? "image" : "images"}`}
       label={`Apply ${value} to all selected images`} disabled={addDisabled} onClick={onAdd} />}
     <span className="min-w-0 flex [&>button]:rounded-none [&>button]:border-0 [&>button]:ring-0 [&>button]:bg-transparent [&>button]:text-inherit [&>button]:max-w-full [&>button]:text-left [&>button]:wrap-anywhere">
-      {coverageKnown
+      {coverageKnown && !incoming
         ? <MultiSearchPill value={value} label={label} cqlKey={cqlKey} count={count} total={total} partial={count < total} accent={accent} onSearch={onSearch} />
         : <SearchPill value={value} label={label} cqlKey={cqlKey} onSearch={onSearch} accent={accent} />}
     </span>
-    <PillActionButton action="remove" attached title={`Remove ${cqlKey} from ${coverageKnown ? `${count > 1 ? "all " : ""}${count}` : "selected"} ${coverageKnown && count === 1 ? "image" : "images"}`}
-      label={`Remove ${value}${total > 1 ? " from all selected images" : ""}`} disabled={disabled} onClick={onRemove} />
+    <PillActionButton action="remove" attached title={incoming ? `Adding ${value}` : `Remove ${cqlKey} from ${coverageKnown ? `${count > 1 ? "all " : ""}${count}` : "selected"} ${coverageKnown && count === 1 ? "image" : "images"}`}
+      label={`Remove ${value}${total > 1 ? " from all selected images" : ""}`} disabled={disabled || incoming} onClick={onRemove} />
   </span>;
 }
 

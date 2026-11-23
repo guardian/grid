@@ -102,6 +102,7 @@ export function createMetadataEditorStore(
     connected: boolean;
     latestSingle: (imageId: string, field: string) => MetadataSave | undefined;
     hasPendingField: (imageId: string, field: string) => boolean;
+    pendingFieldIds: (imageId: string, field: string) => Iterable<number>;
     saves: ReadonlyMap<number, MetadataSave>;
     derivedOwners: ReadonlyMap<string, number>;
     formRightsSaves: ReadonlyMap<string, { id: number; revision: number; superseded?: boolean }>;
@@ -126,6 +127,7 @@ export function createMetadataEditorStore(
     trackFormLease(imageId, id, revision) { set(state => ({ formLeaseSaves: new Map(state.formLeaseSaves).set(imageId, { id, revision }) })); },
     trackFormRights(imageId, id, revision) { set(state => ({ formRightsSaves: new Map(state.formRightsSaves).set(imageId, { id, revision }) })); },
     latestSingle: (imageId, field) => get().saves.get(latestSingle.get(keyFor(imageId, field)) ?? -1),
+    pendingFieldIds: (imageId, field) => pendingByField.get(keyFor(imageId, field)) ?? [],
     hasPendingField: (imageId, field) => {
       const owners = pendingByField.get(keyFor(imageId, field));
       if (owners) for (const owner of owners) if (get().saves.get(owner)?.state !== "finished") return true;

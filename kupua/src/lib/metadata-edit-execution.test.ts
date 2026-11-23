@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createLabelOperation } from "./label-operation";
 import { type MetadataEditTarget } from "./metadata-edit-execution";
 import type { LabelCommand } from "./grid-commands";
-import type { GridCommandResult } from "./grid-commands";
+import { metadataWriteFingerprint, type GridCommandResult } from "./grid-commands";
 import type { Image } from "@/types/image";
 import { acceptImageOverlay, acceptImageRead, admitLabelObservation, captureImageRead, hasImageCommandConflict, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, resolveImageOverlay, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
 import { attachEnrichment } from "@/stores/enrichment-store";
@@ -74,6 +74,30 @@ describe("metadata edit execution", () => {
       expect(operation.getSnapshot()?.items).toMatchObject([{ state: "unknown", observation: "observed" }]);
       expect(execute).toHaveBeenCalledOnce();
     } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
+  it("settles rejected and superseded recipients without waiting for an unrelated peer", async () => {
+    vi.useFakeTimers();
+    const ids = ["first", "denied", "slow"];
+    const release = watchQueuedLabelTargets(ids)!;
+    const current = { ...observedImage(), metadata: { credit: "new" }, userMetadata: { metadata: { credit: "new" } } };
+    const readImages = vi.fn().mockResolvedValue([]);
+    const older = createMetadataOperation(async command => command.imageId === "denied" ? { outcome: "rejected", status: 403, errorKey: "permission-denied" }
+      : { outcome: "acknowledged", expected: { credit: "old" }, metadataWitness: metadataWriteFingerprint({ credit: "old" }) }, { readImages, publishImages: vi.fn() });
+    const newer = createMetadataOperation(async () => ({ outcome: "acknowledged", expected: { credit: "new" }, metadataWitness: metadataWriteFingerprint({ credit: "new" }) }),
+      { readImages: async () => [current], publishImages: vi.fn() });
+    const edit = { fieldId: "metadata_credit", action: "overwrite" } as const;
+    try {
+      await older.confirm({ ...edit, value: "old", targetIds: ids }, new Map(ids.map(id => [id, { resource }])));
+      const grant = { resource: structuredClone(resource) };
+      stampImageRead(observedImage(), grant, captureImageRead(), "lean");
+      acceptImageOverlay("first", grant);
+      await newer.confirm({ ...edit, value: "new", targetIds: ["first"] }, new Map([["first", grant]]));
+      expect(newer.getSnapshot()?.items[0].observation).toBe("observed");
+      readImages.mockResolvedValue([current]);
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+      expect(older.getSnapshot()?.items.map(item => item.observation)).toEqual(["superseded", "unavailable", "pending"]);
+    } finally { older.cancelObservation(); newer.cancelObservation(); release(); vi.useRealTimers(); }
   });
 
   it.each([true, false])("sends only this image's overwrite decision (%s) and observes an uncertain lease addition without replay", async overwrite => {

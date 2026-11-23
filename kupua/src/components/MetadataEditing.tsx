@@ -169,6 +169,21 @@ export function panelSaveSucceeded(save: MetadataSave) {
   return success;
 }
 
+export function usePendingPillIntents(targetKey: string, fieldId: string, formImageId?: string) {
+  return useStore(useContext(MetadataEditorContext), useShallow(state => {
+    const intents = [];
+    const ids = formImageId ? state.pendingFieldIds(formImageId, fieldId) : state.panelSaves.filter(entry => entry.targetKey === targetKey).map(entry => entry.id);
+    for (const id of ids) {
+      const save = state.saves.get(id);
+      if (!save || save.state === "finished" || save.intent.fieldId !== fieldId) continue;
+      const item = formImageId ? derivedItem(save.items, formImageId) : undefined;
+      if (item && item.state !== "queued" && item.state !== "submitted" && item.observation !== "pending") continue;
+      if (save.intent.action === "add" || save.intent.action === "remove" || (save.intent.action === "overwrite" && Array.isArray(save.intent.value))) intents.push(save.intent);
+    }
+    return intents;
+  }));
+}
+
 export function usePendingPanelIntent(targetKey: string, fieldId?: string, reconciling = false) {
   const [held, setHeld] = useState<number>();
   const active = useStore(useContext(MetadataEditorContext), state => {

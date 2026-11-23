@@ -1374,6 +1374,15 @@ test.describe("detail metadata gestures", () => {
     const initialCard = (await panel.boundingBox())!;
     const imagePage = detail.locator('[data-detail-page="current"]');
     const initialImage = (await imagePage.boundingBox())!;
+    const layout = (slot: "current" | "next" | "previous") => detail.locator(`[data-detail-page="${slot}"] dl`).first().evaluate(list => ({
+      image: list.closest<HTMLElement>("[data-detail-page]")!.dataset.detailPageId,
+      rows: Array.from(list.querySelectorAll("dt, [data-editable-pill]"), element => {
+        const bounds = element.getBoundingClientRect();
+        return [Math.round(bounds.top - list.getBoundingClientRect().top), bounds.width, bounds.height];
+      }),
+    }));
+    const nextLayout = await layout("next");
+    expect(nextLayout.rows.length).toBeGreaterThan(1);
     await swipe(page, credit, -160, 18, async () => {
       await expect.poll(async () => (await panel.boundingBox())!.x - initialCard.x).toBeCloseTo(-160, 0);
       expect((await imagePage.boundingBox())!.x - initialImage.x).toBeCloseTo(-160, 0);
@@ -1383,8 +1392,11 @@ test.describe("detail metadata gestures", () => {
     expect(new URL(page.url()).searchParams.get("query")).toBe(query);
     await expect(panel.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
     expect(await panel.locator(":scope > div").last().evaluate(element => element.scrollTop)).toBe(0);
+    expect(await layout("current")).toEqual(nextLayout);
+    const previousLayout = await layout("previous");
     await swipe(page, credit, 160, -18);
     await expect(detail).toHaveAttribute("data-detail-image-id", first!);
+    expect(await layout("current")).toEqual(previousLayout);
 
     await body.evaluate(element => { element.scrollTop = 0; });
     await swipe(page, body, 0, -150, undefined, false, 0.5);

@@ -1,13 +1,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import type { FieldDefinition } from "@/lib/field-registry";
-import { EditableSearchPill, PillActionButton } from "./SearchPill";
+import { EditableSearchPill, PillActionButton, visibleEditorPills } from "./SearchPill";
 import { FieldAddButton } from "./FieldAddButton";
 import { FieldDisclosure } from "./FieldDisclosure";
 import { Dash, MetadataBlock } from "./metadata-primitives";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import type { MetadataEditIntent } from "./MetadataTextEditor";
-import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
+import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, usePendingPillIntents } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
 import { addressableLabel } from "@/lib/grid-mutation-policy";
 
@@ -28,7 +28,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   readOnly?: ReactNode;
 }) {
   const commit = useMetadataCommit(form);
-  const pending = usePendingPanelIntent(labelTargetKey(targetIds), field.id === "keywords" ? "metadata_keywords" : field.id === "people" ? "metadata_peopleInImage" : field.id);
+  const pending = usePendingPillIntents(labelTargetKey(targetIds), field.id === "keywords" ? "metadata_keywords" : field.id === "people" ? "metadata_peopleInImage" : field.id, form ? targetIds[0] : undefined);
   const available = dataAvailable && editable;
   const canAdd = available || allowQueuedAdd;
   const { restored, update } = useDetailsDraft<string>(field.id);
@@ -57,16 +57,15 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     const admitted = form ? submitted?.state !== "finished" : panelSaveAdmitted(submitted, message) || !submitted;
     if (admitted && action === "add" && value === draft) { setAdding(false); setDraft(""); }
   };
-  const sorted = [...values].sort((first, second) => second.count - first.count);
   if (!editable && !adding) return readOnly ?? null;
   return <MetadataBlock ref={header} tabIndex={-1} label={field.label} action={
     <span className={adding ? "invisible" : ""} aria-hidden={adding || undefined}>
       <FieldAddButton ref={addRef} iconOnly label={`Add ${noun}`} disabled={!canAdd || adding} onClick={() => { setAdding(true); setDraft(""); setNotice(""); }} />
     </span>
   }>
-      <SavingValue saving={!form && !!pending}><div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
+      <div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
         {!dataAvailable && !retainReading && <Dash />}
-        {(expanded ? sorted : sorted.slice(0, 20)).map(item => <EditableSearchPill key={item.value} value={item.value}
+        {visibleEditorPills(values, expanded, pending).map(item => <EditableSearchPill key={item.value} value={item.value} pending={item.pending}
           cqlKey={field.cqlKey!} accent={field.id === "labels"} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available} addDisabled={!canAdd} coverageKnown={dataAvailable || retainReading}
           onAdd={() => prepare("add", item.value)} onRemove={() => prepare("remove", item.value)}
           label={collection ? <span className="inline-flex max-w-full flex-wrap items-center gap-x-1">
@@ -76,7 +75,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
             </span>)}
           </span> : undefined} />)}
       </div>
-      </SavingValue><FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={id} anchorRef={header}
+      <FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={id} anchorRef={header}
         onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} />
     {adding && <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare("add", draft); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;

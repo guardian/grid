@@ -2,18 +2,19 @@ import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { LabelReceipt } from "@/lib/label-operation";
 import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import { createLabelEditorStore, labelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { useSearchStore } from "@/stores/search-store";
 import { metadataEditTargetCounts, type MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { createLabelSuggestionProvider, type TypeaheadSuggestion } from "@/lib/typeahead-fields";
 import { SUGGESTION_DEBOUNCE_MS } from "@/constants/tuning";
-import { containPillActivation, EditableSearchPill, PillActionButton } from "./SearchPill";
+import { containPillActivation, EditableSearchPill, PillActionButton, visibleEditorPills } from "./SearchPill";
 import { MetadataBlock } from "./metadata-primitives";
 import { FieldDisclosure } from "./FieldDisclosure";
 import { SuggestionDropdown } from "./SuggestionDropdown";
 import { FieldAddButton } from "./FieldAddButton";
 import { addToast } from "@/stores/toast-store";
-import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
+import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, usePendingPillIntents } from "./MetadataEditing";
 import { useSelectionStore } from "@/stores/selection-store";
 import { addressableLabel } from "@/lib/grid-mutation-policy";
 
@@ -52,9 +53,9 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const store = useContext(LabelEditorContext);
   const submit = useMetadataCommit();
   const key = labelTargetKey(context.targetIds);
-  const panelSave = usePendingPanelIntent(key, "labels");
-  const labelSave = useStore(store, state => state.receipts.some(receipt => receipt.mode === "connected" && !receipt.blocked &&
-    receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending") && labelTargetKey(receipt.intent.targetIds) === key));
+  const panelIntents = usePendingPillIntents(key, "labels");
+  const labelIntents = useStore(store, useShallow(state => state.receipts.filter(receipt => receipt.mode === "connected" && !receipt.blocked &&
+    receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending") && labelTargetKey(receipt.intent.targetIds) === key).map(receipt => receipt.intent)));
   const { restored, scoped, update } = useDetailsDraft<string>("labels");
   const storedValue = useStore(store, state => state.drafts.get(key)?.value ?? "");
   const [panelValue, setPanelValue] = useState(restored ?? "");
@@ -123,7 +124,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
   const queueAdds = allowQueuedAdd && !counts.ineligible && !counts.unavailable;
   const addDisabled = disabled && !queueAdds;
-  const chips = [...values].sort((first, second) => second.count - first.count);
+  const chips = visibleEditorPills(values, expanded, [...panelIntents, ...labelIntents.map(intent => ({ action: intent.action, value: intent.label }))]);
   const act = (action: "add" | "remove", label: string) => {
     if (!addressableLabel(action === "add" ? label.trim() : label)) {
       addToast({ category: "warning", message: "This label cannot be addressed by Grid. No change was sent." });
@@ -170,12 +171,12 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
       <FieldAddButton ref={addButtonRef} iconOnly label="Add label" disabled={addDisabled || adding} onClick={() => setAdding(true)} />
     </span>
   }>
-      <SavingValue saving={!!panelSave || labelSave}><div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
-      {(expanded ? chips : chips.slice(0, 20)).map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent
+      <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
+      {chips.map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent pending={chip.pending}
         count={chip.count} total={counts.selected} coverageKnown={queueAdds || !context.pending && counts.unresolved === 0 && counts.unavailable === 0} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
-    </SavingValue><FieldDisclosure expanded={expanded} hasMore={chips.length > 20} controlsId={valuesId} anchorRef={headerRef}
+    <FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={valuesId} anchorRef={headerRef}
       onExpand={() => setExpanded(true)} onCollapse={() => setExpanded(false)} />
     {adding && <form className="relative mt-1 max-w-full" onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;

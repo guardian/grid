@@ -340,6 +340,10 @@
 }
 .metadata-edit-form { min-width: 0; padding: 3px; }
 .metadata-field-status { display: block; margin-bottom: 2px; text-align: right; font-size: 11px; line-height: 14px; font-weight: 400; color: var(--color-grid-text-muted); }
+[data-editable-pill][aria-busy=true] { position: relative; }
+[data-editable-pill][aria-busy=true]::after { content: ""; position: absolute; inset: 0; border: 2.65px dotted #dedede; border-radius: inherit; pointer-events: none; }
+[data-editable-pill][aria-busy=true][data-coverage=partial]::after { border-color: #424242; }
+[data-editable-pill][aria-busy=true] > * { filter: grayscale(1); opacity: .55; }
 .metadata-saving > [aria-busy=true] { min-width: 0; border: 1px dashed var(--color-grid-text-dim); border-radius: 3px; padding: 3px 6px; }
 [data-field-state] { --save-edge: #eee; }
 [data-field-state="Not saved"] { --save-edge: #f07459; }
