@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.permissions.PermissionDefinition
 import play.api.libs.json.{JsError, JsSuccess, Json}
-import play.api.mvc.{RequestHeader, Result}
+import play.api.mvc.RequestHeader
 
 import java.time.Instant
 
