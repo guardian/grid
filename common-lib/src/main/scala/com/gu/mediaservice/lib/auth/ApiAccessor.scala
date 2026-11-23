@@ -2,7 +2,6 @@ package com.gu.mediaservice.lib.auth
 
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.config.Services
-import play.api.libs.json.{Format, JsString, Writes, __}
 import play.api.mvc.{RequestHeader, Result}
 
 sealed trait Tier
