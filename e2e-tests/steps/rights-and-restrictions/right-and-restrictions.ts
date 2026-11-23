@@ -17,7 +17,6 @@ import {
 import type { ImageSource } from "../../setup/image-fixtures.ts";
 import type { ImageOverrides } from "../../setup/seed-image.ts";
 import {
-  imageInformation,
   openOnSurface,
   openedImageIds,
   revealEditButton,
@@ -31,6 +30,8 @@ import { usageRightsCategories } from "../utils/api/metadata-editor.queries.ts";
 import { setTestClientConfig } from "../utils/test-config.ts";
 import { TEST_ACCOUNTS } from "../../setup/constants.ts";
 import { switchAccount } from "../utils/auth.ts";
+import { answerDialogs } from "../utils/dialogs.ts";
+import { imageInformation } from "../utils/single-image.ts";
 import {
   expectEditPermissionForImage,
   expectUsageRightsCategory,
@@ -43,7 +44,6 @@ const IMAGE_WITHOUT_RIGHTS = findSeededImage(
   "with no usage rights category",
   hasNoUsageRights,
 );
-const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
 /** The rights and restrictions section on the scenario's surface (see surfaces.ts). */
 const rightsAndRestrictions = (page: Page) => rightsSurface(page).section(page);
@@ -711,9 +711,16 @@ Then(
   },
 );
 
-Given("I have opened the single image view of an image", async ({ page }) => {
-  await openImage(page, SEEDED_IMAGE_ID);
-});
+Given(
+  "I have opened the single image view of an image",
+  async ({ page, seedImage, testContext }) => {
+    // A disposable copy, so scenarios that save rights, leases or templates don't change a
+    // shared fixture.
+    testContext.imageId = await seedImage(IMAGE_WITHOUT_RIGHTS._source);
+    answerDialogs(page, testContext);
+    await openImage(page, testContext.imageId);
+  },
+);
 
 /** The seeded fixture in a usage rights category, given by display name or code. */
 async function imageInCategory(

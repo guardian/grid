@@ -19,8 +19,12 @@ export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 export interface TestContext {
   response?: APIResponse;
   mediaApiResponse?: Promise<Response>;
-  /** Messages from alerts and confirms, in the order the page raised them. */
+  /** Messages from alerts and confirms, in the order the page raised them (see answerDialogs). */
   dialogs: string[];
+  /** How answerDialogs answers the page's alerts and confirms. Dismisses when unset. */
+  dialogAnswer?: 'accept' | 'dismiss';
+  /** The disposable image copy that "the image" steps refer to. */
+  imageId?: string;
   fileChooser?: Promise<FileChooser>;
   /** The query run on the search page before navigating to the upload page. */
   previousSearchQuery?: string;

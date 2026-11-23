@@ -2,6 +2,7 @@ import { Given, KAHUNA_APP_URL, expect } from './setup.ts';
 import type { TestAccount } from '../setup/constants.ts';
 import type { Page } from '@playwright/test';
 import { switchAccount } from './utils/auth.ts';
+import { answerDialogs } from './utils/dialogs.ts';
 
 Given('the application stack is running', async ({ request }) => {
   const response = await request.get('/management/healthcheck');
@@ -42,12 +43,6 @@ export async function openUploadPageAs(page: Page, account: TestAccount): Promis
 }
 
 Given('I have opened the image upload page', async ({ page, testContext }) => {
-  // An unhandled dialog blocks the page, so record every one and answer it. Dismissing a
-  // confirm answers "no", which keeps us on the page under test.
-  page.on('dialog', (dialog) => {
-    testContext.dialogs.push(dialog.message());
-    void dialog.dismiss();
-  });
-
+  answerDialogs(page, testContext);
   await openUploadPage(page);
 });
