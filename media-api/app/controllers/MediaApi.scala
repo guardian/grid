@@ -37,7 +37,7 @@ import java.net.URI
 import java.nio.file.{Files, Path, StandardCopyOption}
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.util.Try
+import scala.util.{Try, Using}
 
 object MediaApi {
   val InDesignIdentity = "InDesign (testing)"
@@ -69,6 +69,7 @@ class MediaApi(
                 ws: WSClient,
                 authorisation: Authorisation,
                 embedder: Embedder,
+                downloadTempFiles: DownloadTempFiles,
 )(implicit val ec: ExecutionContext) extends BaseController with MessageSubjects with ArgoHelpers with ContentDisposition {
 
   val services: Services = new Services(config.domainRoot, config.serviceHosts, Set.empty)
@@ -510,38 +511,46 @@ class MediaApi(
    *
    * ExifTool rewrites only the metadata marker segments, so the compressed pixel data is bit-for-bit
    * identical to the original - unlike a resizing proxy, which always decodes and re-encodes the image.
-   * ExifTool needs a real file path rather than a stream, hence the temp file, which is deleted once
-   * the response body has been consumed (or on failure).
+   * ExifTool needs a real file path rather than a stream, hence the temp file. It is deleted once the
+   * response body has been streamed, or if preparing it fails; `DownloadTempFiles` sweeps up any whose
+   * response is never streamed.
    */
-  private def streamWithStrippedMetadata(image: Image, contentDisposition: String)(implicit logMarker: LogMarker): Future[Result] =
-    Future(blocking {
-      val tempPath = Files.createTempFile("grid-download-", ".tmp")
-      val inputStream = s3Client.getObject(config.imageBucket, image.source.file)
-      try {
-        Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING)
-        tempPath
-      } catch {
-        case e: Throwable =>
-          deleteQuietly(tempPath)
-          throw e
-      } finally {
-        Try(inputStream.close())
+  private def streamWithStrippedMetadata(image: Image, contentDisposition: String)(implicit logMarker: LogMarker): Future[Result] = {
+    val sourceBytes = image.source.size.getOrElse(0L)
+    if (!downloadTempFiles.hasSpaceFor(sourceBytes)) {
+      logger.warn(logMarker, s"Insufficient disk space to prepare metadata-stripped download of image ${image.id} ($sourceBytes bytes)")
+      Future.successful(
+        respondError(ServiceUnavailable, "insufficient-disk-space", "Too many downloads are being prepared, please try again shortly")
+          .withHeaders(HttpHeaders.RETRY_AFTER -> "30")
+      )
+    } else {
+      Future(blocking(downloadTempFiles.create())).flatMap { tempPath =>
+        writeStrippedImage(image, tempPath).map { _ =>
+          val data = FileIO.fromPath(tempPath).watchTermination() { (_, done) =>
+            done.onComplete(_ => downloadTempFiles.delete(tempPath))
+          }
+          Result(ResponseHeader(OK), HttpEntity.Streamed(data, Some(Files.size(tempPath)), image.source.mimeType.map(_.name)))
+            .withHeaders("Content-Disposition" -> contentDisposition)
+        }.recoverWith { case e =>
+          downloadTempFiles.delete(tempPath)
+          Future.failed(e)
+        }
       }
-    }).flatMap { tempPath =>
-      ExifTool.stripMetadataRetaining(tempPath.toFile, DownloadMetadata.retainedTags(image)).map(_ => tempPath).recoverWith { case e =>
-        logger.warn(logMarker, s"ExifTool metadata strip failed for image ${image.id} download", e)
-        deleteQuietly(tempPath)
-        Future.failed(e)
-      }
-    }.map { tempPath =>
-      val data = FileIO.fromPath(tempPath).watchTermination() { (_, done) =>
-        done.onComplete(_ => deleteQuietly(tempPath))
-      }
-      Result(ResponseHeader(OK), HttpEntity.Streamed(data, Some(Files.size(tempPath)), image.source.mimeType.map(_.name)))
-        .withHeaders("Content-Disposition" -> contentDisposition)
     }
+  }
 
-  private def deleteQuietly(path: Path): Unit = Try(Files.deleteIfExists(path))
+  private def writeStrippedImage(image: Image, tempPath: Path)(implicit logMarker: LogMarker): Future[Unit] =
+    Future(blocking {
+      Using.resource(s3Client.getObject(config.imageBucket, image.source.file)) { inputStream =>
+        Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING)
+      }
+    }).flatMap { _ =>
+      ExifTool.stripMetadataRetaining(tempPath.toFile, DownloadMetadata.retainedTags(image), config.stripDownloadMetadataTimeout)
+        .recoverWith { case e =>
+          logger.warn(logMarker, s"ExifTool metadata strip failed for image ${image.id} download", e)
+          Future.failed(e)
+        }
+    }
 
   def syndicateImage(id: String, partnerName: String, startPending: String) = auth.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(

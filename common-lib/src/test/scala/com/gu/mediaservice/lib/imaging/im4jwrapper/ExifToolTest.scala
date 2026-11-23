@@ -10,7 +10,9 @@ import java.awt.color.{ColorSpace, ICC_Profile}
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.{Files, Path}
+import java.util.concurrent.TimeoutException
 import javax.imageio.ImageIO
+import scala.concurrent.duration._
 import scala.sys.process._
 
 class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with BeforeAndAfterAll {
@@ -80,9 +82,15 @@ class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with Befor
 
   private def strippedFixture(name: String, tags: Map[String, String] = retainedTags): File = {
     val file = fixture(name)
-    whenReady(ExifTool.stripMetadataRetaining(file, tags))(_ => ())
+    whenReady(ExifTool.stripMetadataRetaining(file, tags, stripTimeout))(_ => ())
     file
   }
+
+  private val stripTimeout = 30.seconds
+
+  /** Files in the fixture directory left beside `file` - e.g. ExifTool's working file or its output log. */
+  private def leftBeside(file: File): List[String] =
+    tempDir.toFile.list().toList.filter(name => name.startsWith(file.getName) && name != file.getName)
 
   describe("stripMetadataRetaining") {
     it("removes personal data embedded in the source image") {
@@ -156,9 +164,32 @@ class ExifToolTest extends AnyFunSpec with Matchers with ScalaFutures with Befor
       val original = fixture("lossless")
       val before = pixels(original)
 
-      whenReady(ExifTool.stripMetadataRetaining(original, retainedTags))(_ => ())
+      whenReady(ExifTool.stripMetadataRetaining(original, retainedTags, stripTimeout))(_ => ())
 
       pixels(original) shouldBe before
+    }
+
+    it("leaves no working files beside the image") {
+      leftBeside(strippedFixture("no-working-files")) shouldBe empty
+    }
+
+    it("fails with ExifTool's output, leaving no working files, when ExifTool rejects the file") {
+      val file = tempDir.resolve("not-an-image.jpg").toFile
+      Files.write(file.toPath, "not a jpeg".getBytes)
+
+      val error = ExifTool.stripMetadataRetaining(file, retainedTags, stripTimeout).failed.futureValue
+
+      error.getMessage should include("exited with code")
+      error.getMessage should include("Not a valid JPG")
+      leftBeside(file) shouldBe empty
+    }
+
+    it("kills ExifTool and fails, leaving no working files, when it exceeds the timeout") {
+      val file = fixture("timeout")
+
+      ExifTool.stripMetadataRetaining(file, retainedTags, 1.millisecond).failed.futureValue shouldBe a[TimeoutException]
+
+      leftBeside(file) shouldBe empty
     }
   }
 }
