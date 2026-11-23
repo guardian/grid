@@ -43,6 +43,11 @@ class Authentication(config: CommonConfig,
     Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "User authentication token has expired", loginLinks))
   }
 
+  def expired(apiAccessor: ApiAccessor): Future[Result] = {
+    logger.info(s"API key ${apiAccessor.identity} has expired, return 419")
+    Future.successful(respondError(new Status(419), errorKey = "authentication-expired", errorMessage = "API key has expired", loginLinks))
+  }
+
   // gracePeriodCountsAsAuthenticated - if true, then users with valid but recently-expired cookies are considered authenticated, and not required to refresh session for this request
   def authenticationStatus(requestHeader: RequestHeader, gracePeriodCountsAsAuthenticated: Boolean): Either[Future[Result], Principal] = {
     def flushToken(resultWhenAbsent: Result): Result = {
@@ -54,6 +59,7 @@ class Authentication(config: CommonConfig,
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
       case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
+      case ExpiredMachine(apiAccessor) => Left(expired(apiAccessor))
       case NotAuthenticated =>
         providers.userProvider.authenticateRequest(requestHeader) match {
           case NotAuthenticated => Left(unauthorised("Not authenticated"))
