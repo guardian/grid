@@ -108,7 +108,8 @@ You can always redeploy the application if impatient!
 
 API keys are considered to have different "tiers" of access. Three are currently considered:
 
-- internal - Allowed to call any endpoint
+- administrator - Allowed to call any endpoint
+- internal - Allowed to call any endpoint except delete
 - readonly - Only allows GET requests
 - syndication - Only allows GET requests on endpoints specifically required for the syndication workflows
 

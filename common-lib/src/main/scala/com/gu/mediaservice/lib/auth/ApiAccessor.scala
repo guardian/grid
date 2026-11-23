@@ -6,6 +6,7 @@ import play.api.libs.json.{Format, JsString, Writes, __}
 import play.api.mvc.{RequestHeader, Result}
 
 sealed trait Tier
+case object Administrator extends Tier
 case object Internal extends Tier
 case object ReadOnly extends Tier
 case object Syndication extends Tier
@@ -14,6 +15,7 @@ object Tier {
   def apply(value: String): Tier = value.toLowerCase match {
     case "internal" => Internal
     case "syndication" => Syndication
+    case "administrator" => Administrator
     case _ => ReadOnly // readonly by default
   }
   def asString(tier: Tier): String = tier match {
@@ -38,8 +40,9 @@ object ApiAccessor extends ArgoHelpers {
   }
 
   def hasAccess(apiKey: ApiAccessor, request: RequestHeader, services: Services): Boolean = apiKey.tier match {
-    case Internal => true
+    case Internal => request.method != "DELETE"
     case ReadOnly => request.method == "GET"
     case Syndication => request.method == "GET" && request.host == services.apiHost && request.path.startsWith("/images")
+    case Administrator => true
   }
 }
