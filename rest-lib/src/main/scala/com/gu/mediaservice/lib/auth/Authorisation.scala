@@ -80,7 +80,7 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
         // a machine principal with internal tier can always see anything
         case MachinePrincipal(ApiAccessor(_, Administrator, _), _) => true
         case MachinePrincipal(ApiAccessor(_, Internal, _), _) => !Permissions.isDeletePermission(permission)
-        case MachinePrincipal(ApiAccessor(_, PermissionTier(permissionsList), _), _) => permissionsList.exists(_.name == permission.name)
+        case MachinePrincipal(ApiAccessor(_, PermissionTier(permissionsList), _), _) => permission.definition.exists(d => permissionsList.exists(_.name == d.name))
         case InnerServicePrincipal(_, _) => true
         case _ => provider.hasPermissionTo(permission, principal)
       }
