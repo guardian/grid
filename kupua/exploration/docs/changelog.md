@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Skip unchanged upload progress updates
+
+Pending upload checks keep their usual schedule without notifying the interface or rewriting a retained batch when no progress changed. A failed save still gets another opportunity on the next check; processing completion and search visibility are still recorded separately.
+
 ### 23 November 2026 - Edit Subjects and respect per-image pill permissions
 
 Details, selections and Upload Form can edit Grid's 19 Subjects ([KUP-051](bug-backlog.md#kup-051)).

@@ -214,9 +214,10 @@ function scheduleObservation(): void {
 }
 
 async function observeAttempt(id: string): Promise<void> {
-  const attempt = attemptById(id);
+  const batch = useUploadJobsStore.getState().batches.find(batch => batch.attempts.some(attempt => attempt.id === id));
+  const attempt = batch?.attempts.find(attempt => attempt.id === id);
   const window = observation.get(id);
-  if (!attempt?.statusId || !window) return;
+  if (!batch || !attempt?.statusId || !window) return;
   observing = true;
   const controller = new AbortController();
   requests.set(id, controller);
@@ -260,7 +261,10 @@ async function observeAttempt(id: string): Promise<void> {
       observation.delete(id);
     } else {
       const processingComplete = attempt.processingComplete || completed;
-      update(id, { phase: processingComplete ? "visibility" : "processing", processingComplete });
+      const phase = processingComplete ? "visibility" : "processing";
+      if (phase !== attempt.phase || processingComplete !== !!attempt.processingComplete || useLocalPersistenceStore.getState().batchIssues[batch.id]) {
+        update(id, { phase, processingComplete });
+      }
       observation.set(id, { ...window, due: Date.now() + 2_000 });
     }
   } finally {

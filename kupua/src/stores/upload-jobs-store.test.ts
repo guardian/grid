@@ -259,6 +259,40 @@ describe("route-independent upload jobs", () => {
     }
   });
 
+  it("keeps polling without publishing or saving unchanged progress", async () => {
+    vi.useFakeTimers();
+    const imageId = "c".repeat(40);
+    vi.mocked(submitGridUpload).mockResolvedValue({ outcome: "accepted", stage: "transfer", imageId });
+    vi.mocked(observeGridUpload).mockResolvedValueOnce({ outcome: "status", status: "PROCESSING" })
+      .mockResolvedValueOnce({ outcome: "status", status: "PROCESSING" })
+      .mockResolvedValue({ outcome: "status", status: "COMPLETED" });
+    vi.mocked(observeUploadedImage).mockResolvedValueOnce({ outcome: "missing" }).mockResolvedValue({ outcome: "visible" });
+    let unavailable = true;
+    const persist = vi.fn((_key: string, _value: string) => { if (unavailable) throw new Error("Storage unavailable"); });
+    vi.stubGlobal("sessionStorage", { length: 0, setItem: persist });
+    const published = vi.fn();
+    const unsubscribe = useUploadJobsStore.subscribe(published);
+    try {
+      const batchId = submitUploadFiles([file("later.jpg")])!;
+      await Promise.resolve();
+      expect(useLocalPersistenceStore.getState().batchIssues[batchId]).toBeTruthy();
+      unavailable = false;
+      await vi.advanceTimersByTimeAsync(1);
+      expect(useLocalPersistenceStore.getState().batchIssues[batchId]).toBeUndefined();
+      expect(JSON.parse(persist.mock.lastCall![1]).attempts[0]).toMatchObject({ statusId: imageId });
+      persist.mockClear();
+      published.mockClear();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(observeGridUpload).toHaveBeenCalledTimes(2);
+      expect(published).not.toHaveBeenCalled();
+      expect(persist).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(JSON.parse(persist.mock.lastCall![1]).attempts[0]).toMatchObject({ statusId: imageId, processingComplete: true });
+      await vi.advanceTimersByTimeAsync(2_000);
+      expect(JSON.parse(persist.mock.lastCall![1]).attempts[0]).toMatchObject({ phase: "complete", imageId });
+    } finally { unsubscribe(); vi.unstubAllGlobals(); }
+  });
+
   it("finds a readable image after processing completed and its status record expired", async () => {
     vi.useFakeTimers();
     vi.mocked(submitGridUpload).mockResolvedValue({ outcome: "accepted", stage: "transfer", imageId: "c".repeat(40) });
