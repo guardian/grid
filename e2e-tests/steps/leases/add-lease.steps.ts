@@ -2,6 +2,7 @@
 import type { Page } from '@playwright/test';
 import { imageLeases } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
+import { answerHeldConfirm, holdingConfirms } from '../utils/dialogs.ts';
 import type { TestContext } from '../setup.ts';
 import {
   MONTHS,
@@ -25,8 +26,10 @@ const guDateDisplay = (date: Date) =>
 const endOfDayAfterTomorrow = (from: Date) =>
   new Date(from.getFullYear(), from.getMonth(), from.getDate() + 2, 23, 59);
 
+const notesField = (page: Page) => leasesRegion(page).getByPlaceholder('Notes...', { exact: true });
+
 async function openAddLeaseForm(page: Page, testContext: TestContext): Promise<void> {
-  recordLeaseWrites(page, testContext);
+  await recordLeaseWrites(page, testContext);
   // The lease widget fetches the image's leases on load, and closes the form when that
   // resolves (LeasesCtrl.updateLeases), so a form opened sooner snaps shut. With no leases
   // nothing on the page shows the fetch is done, so wait for the page's requests to settle.
@@ -132,7 +135,7 @@ Then('the end date defaults to the end of the day after tomorrow', async ({ page
 });
 
 Then('a notes field is shown', async ({ page }) => {
-  await expect(leasesRegion(page).getByPlaceholder('Notes...', { exact: true })).toBeVisible();
+  await expect(notesField(page)).toBeVisible();
 });
 
 // The form binds the picker to the start or end date (see leases.html); nothing on the page
@@ -167,8 +170,52 @@ Given('saving leases will fail', async ({ page }) => {
   await failLeaseRequests(page, 'POST');
 });
 
-When('I add a(n) {string} lease', async ({ page, testContext }, access: string) => {
+/**
+ * Add a lease through the form. A syndication lease on an image that has one raises a confirm,
+ * which is held for a later step to answer (see holdingConfirms).
+ */
+async function addLease(
+  page: Page,
+  testContext: TestContext,
+  access: string,
+  { ticked = [], notes }: { ticked?: string[]; notes?: string } = {},
+): Promise<void> {
   await openAddLeaseForm(page, testContext);
   await chooseAccess(page, testContext, access);
-  await saveLeaseButton(leasesRegion(page)).click();
+  const region = leasesRegion(page);
+  for (const checkbox of ticked) {
+    await region.getByRole('checkbox', { name: checkbox, exact: true }).check();
+  }
+  if (notes !== undefined) await notesField(page).fill(notes);
+  await holdingConfirms(page, testContext, () => saveLeaseButton(region).click());
+}
+
+When('I add a(n) {string} lease', async ({ page, testContext }, access: string) => {
+  await addLease(page, testContext, access);
+});
+
+When(
+  'I add a(n) {string} lease with the notes {string}',
+  async ({ page, testContext }, access: string, notes: string) => {
+    await addLease(page, testContext, access, { notes });
+  },
+);
+
+When(
+  'I add a(n) {string} lease with {string} and {string} ticked and the notes {string}',
+  async ({ page, testContext }, access: string, first: string, second: string, notes: string) => {
+    await addLease(page, testContext, access, { ticked: [first, second], notes });
+  },
+);
+
+When(
+  'I add a(n) {string} lease and decline the overwrite confirmation',
+  async ({ page, testContext }, access: string) => {
+    await addLease(page, testContext, access);
+    await answerHeldConfirm(testContext, false);
+  },
+);
+
+When('I accept the confirmation', async ({ testContext }) => {
+  await answerHeldConfirm(testContext, true);
 });

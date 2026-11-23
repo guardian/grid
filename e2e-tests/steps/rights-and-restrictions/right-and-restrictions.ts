@@ -33,6 +33,11 @@ import { switchAccount } from "../utils/auth.ts";
 import { answerDialogs } from "../utils/dialogs.ts";
 import { imageInformation } from "../utils/single-image.ts";
 import {
+  chooseMetadataTemplate,
+  expectMetadataTemplate,
+  metadataTemplates,
+} from "../utils/metadata-templates.ts";
+import {
   expectEditPermissionForImage,
   expectUsageRightsCategory,
   expectUsageRightsSaveAccepted,
@@ -830,11 +835,6 @@ Then("it is headed {string}", async ({ testContext }, heading: string) => {
 // Metadata templates driving the rights editor
 // ---------------------------------------------------------------------------
 
-const metadataTemplates = (page: Page) =>
-  page.getByRole("region", { name: "Metadata templates", exact: true });
-const metadataTemplateSelect = (page: Page) =>
-  metadataTemplates(page).getByRole("combobox", { name: "Metadata template" });
-
 /** The display name of the category `E2E_RIGHTS_TEMPLATE` sets, e.g. "Agency - subscription". */
 async function rightsTemplateCategoryName(
   request: APIRequestContext,
@@ -850,39 +850,13 @@ async function rightsTemplateCategoryName(
   return name;
 }
 
-/**
- * Kahuna applies a template's selection once it has fetched the collections tree, which it
- * only requests on the first selection after the page loads. Waiting for that response
- * means an editor that should stay closed is checked after the selection has been handled.
- */
+/** An editor that should stay closed is checked after the selection has been handled. */
 async function chooseRightsTemplate(page: Page): Promise<void> {
-  const [collections] = await Promise.all([
-    page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return (
-        url.hostname.startsWith("media-collections.") &&
-        url.pathname === "/collections"
-      );
-    }),
-    metadataTemplateSelect(page).selectOption({
-      label: E2E_RIGHTS_TEMPLATE.templateName,
-    }),
-  ]);
-  expect(
-    collections.ok(),
-    "fetching collections for the metadata template",
-  ).toBeTruthy();
+  await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
 }
 
 Given("metadata templates are configured", async ({ page }) => {
-  // Templates are baked into Kahuna's config at boot, so a stale stack won't list this one.
-  await expect(
-    metadataTemplateSelect(page).getByRole("option", {
-      name: E2E_RIGHTS_TEMPLATE.templateName,
-      exact: true,
-    }),
-    "restart the stack if the rights template is missing",
-  ).toHaveCount(1);
+  await expectMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
 });
 
 When(

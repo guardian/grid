@@ -211,6 +211,10 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 51-64, 153
   # Evidence: kahuna/public/js/leases/leases.js lines 69-71, 234-242
 
+  # Note: known bug, fails about 1 run in 15. The leases service removes the old syndication
+  # lease and then replaces the set, as two thrall messages. Kahuna's poll
+  # (kahuna/public/js/services/api/leases-helper.js) stops at the first lastModified change, so
+  # it can show the empty state between them and never refresh. Tagged @todo until it's fixed.
   @todo
   Scenario: Confirming an overwrite replaces the existing syndication lease
     Given I am signed in with edit metadata permission
@@ -314,6 +318,17 @@ Feature: Viewing and managing an image's leases in the single image view
     And I have opened the single image view of the image
     When I select that metadata template
     Then only the "Deny use" lease is shown, highlighted as a preview
+  # Evidence: kahuna/public/js/leases/leases.html lines 126-141
+  # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 600-606
+
+  @todo
+  Scenario: A non-replacing metadata template previews its own leases alongside existing leases
+    Given I am signed in with edit metadata permission
+    And the image has an active "allow-use" lease
+    And a metadata template adds leases with a "allow-syndication" lease
+    And I have opened the single image view of the image
+    When I select that metadata template
+    Then the existing lease should be shown alongside the "Deny use" lease, highlighted as a preview
   # Evidence: kahuna/public/js/leases/leases.html lines 126-141
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 600-606
 

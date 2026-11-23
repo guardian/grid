@@ -1,6 +1,6 @@
 /** Lease steps shared across the lease features' scenario groups. */
 import type { Page } from '@playwright/test';
-import { Given, Then, When, expect } from '../setup.ts';
+import { After, Given, Then, When, expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
 import { answerDialogs } from '../utils/dialogs.ts';
 import { openImage } from '../utils/single-image.ts';
@@ -22,7 +22,7 @@ Given(
 async function openSeededImage({ page, testContext }: { page: Page; testContext: TestContext }) {
   expect(testContext.imageId, 'no image was seeded by an earlier step').toBeDefined();
   answerDialogs(page, testContext);
-  recordLeaseWrites(page, testContext);
+  await recordLeaseWrites(page, testContext);
   await openImage(page, testContext.imageId!);
 }
 
@@ -57,4 +57,9 @@ Then('I do not see a(n) {string} region', async ({ page }, name: string) => {
   // Once a sibling region has rendered, a missing region is not one still loading.
   await expect(page.getByRole('region', { name: 'Rights and restrictions', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name, exact: true })).toBeHidden();
+});
+
+// A confirm left unanswered stalls the page, and with it the fixtures' teardown.
+After(async ({ testContext }) => {
+  await testContext.heldConfirm?.dismiss().catch(() => {});
 });

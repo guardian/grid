@@ -10,7 +10,6 @@ Feature: Leases across the search info panel and upload page
   # ---------------------------------------------------------------------------
   # Smoke: the lease widget works on each surface
   # ---------------------------------------------------------------------------
-  @todo
   Scenario: Adding a lease in the single image view
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases

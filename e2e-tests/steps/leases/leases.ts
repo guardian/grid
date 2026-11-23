@@ -6,9 +6,9 @@
 import type { Locator, Page } from '@playwright/test';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
-import { isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
-import type { LeaseAccess, SeedLease } from '../../setup/seed-leases.ts';
-import { KAHUNA_APP_URL } from '../setup.ts';
+import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
+import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
+import { KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 
 type Scope = Page | Locator;
@@ -79,18 +79,33 @@ const isLeasesService = (url: string | URL) => new URL(url).hostname.startsWith(
 
 const recording = new WeakSet<Page>();
 
+const isLeaseWrite = (method: string) => ['POST', 'PUT', 'DELETE'].includes(method);
+
 /**
  * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
- * can check nothing was saved. Idempotent, so steps sharing a page can each call it.
+ * can check nothing was saved, and what the single image view's add lease control showed
+ * while each was in flight in `testContext.addControlDuringWrites`, so steps can check what
+ * it showed during a save without racing it. Idempotent, so steps sharing a page can each
+ * call it.
  */
-export function recordLeaseWrites(page: Page, testContext: TestContext): void {
+export async function recordLeaseWrites(page: Page, testContext: TestContext): Promise<void> {
   testContext.leaseWrites ??= [];
+  testContext.addControlDuringWrites ??= [];
   if (recording.has(page)) return;
   recording.add(page);
+  // A request listener sees requests that a later route fails, too.
   page.on('request', (request) => {
-    if (isLeasesService(request.url()) && ['POST', 'PUT', 'DELETE'].includes(request.method())) {
+    if (isLeasesService(request.url()) && isLeaseWrite(request.method())) {
       testContext.leaseWrites!.push(`${request.method()} ${new URL(request.url()).pathname}`);
     }
+  });
+  await page.route(isLeasesService, async (route) => {
+    if (isLeaseWrite(route.request().method())) {
+      // The request is held until the route resolves, so this is the control mid-save.
+      const control = addLeaseButton(leasesRegion(page));
+      testContext.addControlDuringWrites!.push(await control.innerText({ timeout: 1_000 }).catch(() => ''));
+    }
+    await route.fallback();
   });
 }
 
@@ -112,3 +127,23 @@ export async function failLeaseRequests(page: Page, method: 'POST' | 'DELETE'): 
 
 /** Short month names, as Kahuna's moment formats show them. */
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The access type a feature file's label (e.g. "Allow use") stands for. */
+export const accessOfLabel = (label: string): LeaseAccess =>
+  leaseAccess(label.toLowerCase().replace(' ', '-'));
+
+/** Thrall copies saved leases into the image asynchronously, so poll media-api for them. */
+export const pollImageLeases = (testContext: TestContext) =>
+  expect.poll(async () => imageLeases(testContext.imageId!), { message: 'the leases media-api serves' });
+
+export const accesses = (leases: MediaLease[]) => leases.map(({ access }) => access).sort();
+
+/** The add lease control showed `text` while a lease was being saved, and stopped once it was. */
+export async function expectShownDuringSave(page: Page, testContext: TestContext, text: string): Promise<void> {
+  // Kahuna refreshes the image before it sends the save, so wait for the save to be sent.
+  await expect
+    .poll(() => testContext.addControlDuringWrites, { message: 'the add lease control while saving' })
+    .toContainEqual(expect.stringContaining(text));
+  // The control hides "Updating..." with ng-show, which leaves it in the text content.
+  await expect(addLeaseButton(leasesRegion(page))).not.toContainText(text, { useInnerText: true });
+}

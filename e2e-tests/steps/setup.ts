@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
+import type { APIResponse, Dialog, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
@@ -29,6 +29,16 @@ export interface TestContext {
   leaseWrites?: string[];
   /** When a lease access type was chosen in the add lease form. */
   accessChosenAt?: Date;
+  /** Whether answerDialogs leaves confirms unanswered (see holdingConfirms). */
+  holdingConfirms?: boolean;
+  /** A confirm left unanswered for a later step to answer. */
+  heldConfirm?: Dialog;
+  /** The action that raised `heldConfirm`, which finishes once it is answered. */
+  heldAction?: Promise<unknown>;
+  /** The add lease control's visible text while each lease write was in flight. */
+  addControlDuringWrites?: string[];
+  /** The metadata template a `Given` chose for a later step to select or apply. */
+  metadataTemplate?: string;
   fileChooser?: Promise<FileChooser>;
   /** The query run on the search page before navigating to the upload page. */
   previousSearchQuery?: string;
