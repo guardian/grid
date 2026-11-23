@@ -104,6 +104,9 @@ export function extractEnrichment(entity: { uri?: string; data?: unknown; action
     persisted: d.persisted as EnrichmentFields["persisted"],
     usageRights: d.usageRights as EnrichmentFields["usageRights"],
     actions: entity.actions as EnrichmentFields["actions"],
+    ...(Array.isArray(d.collections) && d.collections.length > 0 && { removableCollections: new Set<string>(d.collections.flatMap(member =>
+      typeof member?.data?.pathId === "string" && Array.isArray(member.actions) && member.actions.some((action: { name?: string; method?: string; href?: string } | null) =>
+        action?.name === "remove" && action.method === "DELETE" && typeof action.href === "string" && action.href.length > 0) ? [member.data.pathId] : [])) }),
     resource: {
       uri: entity.uri,
       links: entity.links?.filter((link) => link.rel === "edits" || link.rel === "crops" || link.rel === "download") ?? [],

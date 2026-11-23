@@ -423,7 +423,7 @@ follows image clear/replace/add/add-many actions and lease deletion, with some
 detached readback polling. Preserve intended state, not false completion or a
 new one-lease-per-type rule.
 
-**Connected Upload pill arrows (Labels, Keywords, People):** apply the source's current values and its explicitly removed values to the other captured batch images, retaining unrelated values on each peer. Only observed source edits contribute removals. Re-adding a value cancels its removal; successful batch application consumes the captured removal history. An empty source offers a second-click clear of that field on all captured peers. People follows the Labels/Keywords interaction by operator choice. Collection membership and Photoshoot writes are not connected; Collections must not inherit explicit removal propagation for a non-empty source.
+**Connected Upload pill arrows (Labels, Keywords, People, Subjects):** apply the source's current values and its explicitly removed values to the other captured batch images, retaining unrelated values on each peer. Only observed source edits contribute removals. Re-adding a value cancels its removal; successful batch application consumes the captured removal history. An empty source offers a second-click clear of that field on all captured peers. Subjects adds only vocabulary members; a nonempty legacy-only source is not a clear. Collection membership and Photoshoot writes are not connected; Collections must not inherit explicit removal propagation for a non-empty source.
 
 **Kahuna reference, collections/lists/photoshoot:** [collection arrow](../../../kahuna/public/js/edits/image-editor.js#L412)
 adds source paths to target memberships, not nonempty replacement; empty source
@@ -1975,7 +1975,7 @@ explicit local editing intent and share commands/publication, not Form's autosav
 draft lifecycle. Newer Form revisions survive earlier saves, and unchanged blur
 does not resubmit rejected or uncertain intent. This preserves the chosen workflows
 without claiming conflict prevention or implementing those additional interfaces.
-People/Keywords ordinary metadata is connected; Subjects, Collections, Photoshoot,
+People/Keywords ordinary metadata is connected; KUP-051 subsequently connected Subjects with the same arrow rules and bounded additions. Collections, Photoshoot,
 configured-domain editors, rights and leases remain outside U5.
 
 **Witnesses:** real single save and clear in the selected surfaces; preserved unrelated metadata; viewport
@@ -2061,8 +2061,7 @@ traversal preserve their section origin; keep fresh-entry/history behavior intac
 the authorized test setup; duplicate ownership and denied targets remain visible.
 Do not claim Upload complete while a required family is still only preparation UI.
 
-**Related follow-ups:** if label presentation is touched, check whether the observed
-[KUP-050](bug-backlog.md#kup-050) flash still occurs without concealing pending states.
+**Related coverage:** [KUP-050](bug-backlog.md#kup-050) verifies that existing single-image labels retain full coverage during readback while edit controls remain guarded.
 Crop creation belongs to Step 13, including its separately scoped
 [GRID-022](bug-backlog.md#grid-022) repeat-save and
 [GRID-023](bug-backlog.md#grid-023) unavailable-list decisions. These observations

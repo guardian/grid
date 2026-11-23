@@ -107,7 +107,7 @@ export function createMetadataOperation(
       return Object.entries(result.expected).every(([field, expected]) => {
         const actual = image.metadata[field as keyof typeof image.metadata];
         if (field === "dateTaken" && typeof expected === "string" && typeof actual === "string") return Date.parse(actual) === Date.parse(expected);
-        if (Array.isArray(expected)) return Array.isArray(actual) && expected.length === actual.length && expected.every(value => actual.includes(value));
+        if (Array.isArray(expected)) return Array.isArray(actual) && expected.length === actual.length && expected.every((value, index) => field === "subjects" ? actual[index] === value : actual.includes(value));
         return (actual ?? "") === expected;
       });
     },

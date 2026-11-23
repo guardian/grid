@@ -76,6 +76,22 @@ describe("metadata edit execution", () => {
     } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
   });
 
+  it("waits for subject order as well as membership before confirming the edit", async () => {
+    vi.useFakeTimers();
+    const stale = { ...observedImage(), metadata: { subjects: ["news", "sport"] } };
+    const current = { ...observedImage(), metadata: { subjects: ["sport", "news"] } };
+    const publishImages = vi.fn();
+    const operation = createMetadataOperation(async () => ({ outcome: "acknowledged", expected: current.metadata }), {
+      readImages: vi.fn().mockResolvedValueOnce([stale]).mockResolvedValue([current]), publishImages,
+    });
+    try {
+      await operation.confirm({ fieldId: "metadata_subjects", action: "add", value: "news", targetIds: ["first"] }, targets);
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+    } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+
   it("settles rejected and superseded recipients without waiting for an unrelated peer", async () => {
     vi.useFakeTimers();
     const ids = ["first", "denied", "slow"];

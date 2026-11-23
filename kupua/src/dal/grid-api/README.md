@@ -50,6 +50,8 @@ path. An API entity with no such links has an empty list, while absent API enric
 has no resource descriptor. Replacements do not merge in older capabilities. The
 same requested-ID-bound standalone and attached-selection ownership applies.
 
+Collection eligibility is action-specific. The image's `add-collection` POST gates additions; the extractor retains the path IDs whose membership envelopes advertise `remove` DELETE. These are replaceable display/preparation facts, not write targets. Missing or stale authority cannot authorize a removal, and metadata `edits` never substitutes for a missing collection action. A future write consumer must use fresh advertised actions, not construct a URL from these IDs.
+
 Nested metadata resources are still flattened into values. A future editing consumer
 must obtain its required nested controls from the authoritative resource; no general
 raw-envelope cache is introduced. An optional singleton URI is never manufactured from

@@ -621,10 +621,7 @@ test.describe("Post-seek scroll-up", () => {
     );
 
     // Phase 1: Small scroll to verify direction works within the deadline.
-    for (let i = 0; i < 5; i++) {
-      await kupua.page.mouse.wheel(0, -200);
-      await kupua.page.waitForTimeout(100);
-    }
+    await kupua.page.mouse.wheel(0, -200);
     await expect.poll(
       () => kupua.getScrollTop(),
       { message: "scroll-up must work within 2s of seek landing" },
@@ -633,9 +630,9 @@ test.describe("Post-seek scroll-up", () => {
     // Phase 2: Continue scrolling to trigger extendBackward past the
     // bidirectional headroom. Don't assert scrollTop — compensation expected.
     const beforeExtend = await kupua.getStoreState();
-    for (let i = 0; i < 20; i++) {
+    for (let sample = 0; sample < 24; sample++) {
       await kupua.page.mouse.wheel(0, -200);
-      await kupua.page.waitForTimeout(100);
+      if ((await kupua.getStoreState()).prependGeneration > beforeExtend.prependGeneration) break;
     }
 
     await kupua.waitForBackwardPrepend(beforeExtend);

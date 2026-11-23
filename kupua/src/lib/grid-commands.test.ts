@@ -323,7 +323,7 @@ describe("Grid command admission", () => {
   });
 
   it("preserves authoritative metadata across clear, location, list and conditional filename changes without replay", async () => {
-    const original = { description: "Embedded", city: "London", country: "UK", keywords: ["Original", "News, features"] };
+    const original = { description: "Embedded", city: "London", country: "UK", keywords: ["Original", "News, features"], subjects: ["sport", "legacy"] };
     let overrides: Record<string, unknown> = { credit: "Keep credit", domainMetadata: { desk: { reference: "keep" } } };
     let lost = false;
     const transport = vi.fn(async (url: string, init?: RequestInit) => {
@@ -351,10 +351,15 @@ describe("Grid command admission", () => {
     expect(overrides.keywords).toEqual(["Original"]);
     await edit("metadata_peopleInImage", "A person", "add");
     expect(overrides.peopleInImage).toEqual(["A person"]);
+    await edit("metadata_subjects", ["news", "sport"], "add");
+    expect(overrides.subjects).toEqual(["sport", "legacy", "news"]);
+    await edit("metadata_subjects", [], "overwrite");
+    expect(overrides.subjects).toEqual([]);
     await edit("metadata_description", "submitted.jpg", "if-empty");
     expect(overrides.description).toBe("submitted.jpg");
     const writes = () => transport.mock.calls.filter(([, init]) => init?.method === "PUT").length;
     const before = writes();
+    expect((await edit("metadata_subjects", "not in vocabulary", "add")).outcome).toBe("blocked");
     expect((await edit("metadata_description", "duplicate.jpg", "if-empty")).outcome).toBe("unchanged");
     expect((await edit("metadata_dateTaken", "")).outcome).toBe("blocked");
     expect(writes()).toBe(before);

@@ -17,11 +17,11 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
   const rightsOverrides = new Map<string, Record<string, string>>();
   const leases = new Map<string, { mediaId: string; id: string; access: string; notes?: string }[]>();
   const leaseOrigin = "https://leases.example.test";
-  const leaseActions = (id: string) => uploadEdits ? [
+  const imageActions = (id: string) => [{ name: "add-collection", method: "POST", href: `/collections/images/${id}` }, ...(uploadEdits ? [
     { name: "add-lease", method: "POST", href: `${leaseOrigin}/leases` },
     { name: "replace-leases", method: "PUT", href: `${leaseOrigin}/leases/media/${id}` },
     { name: "delete-leases", method: "DELETE", href: `${leaseOrigin}/leases/media/${id}` },
-  ] : [];
+  ] : [])];
   const presetLabels = new Map<string, string[]>();
   const metadataWrites: { id: string; method: string; data: unknown }[] = [];
   const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
@@ -88,7 +88,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const asset = ["test", "test-card-f", "embedded-metadata"][index % 3];
     const dimensions = index % 3 === 0 ? { width: 700, height: 576 } : { width: 767, height: 561 };
     return {
-      uri: `/api/images/${id}`, actions: leaseActions(id), links: [
+      uri: `/api/images/${id}`, actions: imageActions(id), links: [
         ...(uploadEdits ? [{ rel: "leases", href: `${leaseOrigin}/leases/media/${id}` }] : []),
         { rel: "optimised", href: `/__publication-media/${asset}.jpg` },
         ...(!label ? [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] : []),
@@ -125,7 +125,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const resource = entity("local-0", true);
     const file = uploaded.get(id);
     const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
-    return { ...resource, uri: `/api/images/${id}`, actions: leaseActions(id), data: { ...resource.data, id, leases: { data: { leases: leases.get(id) ?? [] } },
+    return { ...resource, uri: `/api/images/${id}`, actions: imageActions(id), data: { ...resource.data, id, leases: { data: { leases: leases.get(id) ?? [] } },
       ...(uploadEdits ? { originalMetadata,
         usageRights: rightsOverrides.get(id) ?? {},
         ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", valid: leases.get(id)?.some(item => item.access === "allow-use") ?? false, invalidReasons: { paid_image: "Fixture paid-image notice" } }),

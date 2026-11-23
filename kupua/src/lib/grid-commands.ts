@@ -1,3 +1,4 @@
+import { SUBJECTS } from "./metadata-pill-fields";
 import { z } from "zod";
 import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
 import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
@@ -21,7 +22,7 @@ const metadataCommandSchema = addLabelsSchema.omit({ operation: true, labels: tr
   operation: z.literal("edit-metadata"),
   fieldId: z.enum(["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline",
     "metadata_credit", "metadata_copyright", "metadata_dateTaken", "metadata_imageType", "metadata_keywords",
-    "metadata_peopleInImage", "location"]),
+    "metadata_peopleInImage", "metadata_subjects", "location"]),
   action: z.enum(["overwrite", "prepend", "append", "add", "remove", "if-empty"]),
   removed: z.array(z.string()).optional(),
   value: z.union([z.string(), z.array(z.string().min(1)), z.object({ subLocation: z.string().optional(), city: z.string().optional(),
@@ -103,15 +104,17 @@ function metadataChange(command: MetadataCommand, original: Record<string, unkno
   } else {
     const field = command.fieldId.slice("metadata_".length);
     const current = overrides[field] ?? original[field];
-    if (field === "keywords" || field === "peopleInImage") {
+    if (field === "keywords" || field === "peopleInImage" || field === "subjects") {
       if (!["overwrite", "add", "remove"].includes(command.action) || current !== undefined && !Array.isArray(current)) return;
       if (typeof command.value !== "string" && !Array.isArray(command.value)) return;
       const values = Array.isArray(command.value) ? command.value : command.action === "overwrite" ? [...new Set(command.value.split(",").map(value => value.trim()).filter(Boolean))]
         : command.value.trim() ? [command.value.trim()] : [];
       const existing = z.array(z.string()).safeParse(current ?? []);
       if (!existing.success) return;
+      if (field === "subjects" && command.action !== "remove" && (values.some(subject => !SUBJECTS.includes(subject)) || command.action === "overwrite" && (typeof command.value === "string" || values.length > 0))) return;
       const removed = new Set(command.removed);
-      expected[field] = command.action === "add" ? [...new Set([...existing.data.filter(value => !removed.has(value)), ...values])]
+      expected[field] = field === "subjects" && command.action === "add" ? [...existing.data.filter(value => !removed.has(value)), ...new Set(values.filter(value => !existing.data.includes(value)))]
+        : command.action === "add" ? [...new Set([...existing.data.filter(value => !removed.has(value)), ...values])]
         : command.action === "remove" ? existing.data.filter(value => !values.includes(value)) : values;
     } else {
       if (typeof command.value !== "string") return;

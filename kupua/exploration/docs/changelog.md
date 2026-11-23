@@ -24,6 +24,18 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Edit Subjects and respect per-image pill permissions
+
+Details, selections and Upload Form can edit Grid's 19 Subjects ([KUP-051](bug-backlog.md#kup-051)).
+The chooser runs down each column and stages only touched memberships until commit; Cancel or Escape discards the draft.
+Upload batch arrows preserve peer-only subjects and existing order, propagate confirmed removals, and require confirmation to clear peers. A legacy-only source is not an empty source.
+
+Collection preparation follows the image's `add-collection` action and each membership's `remove` action, not metadata permission. Only affected images need the corresponding action. A withdrawn grant disables commit without hiding an open draft or its Cancel control; reconciliation does not resurrect a previously hidden empty row. Collection writes remain disconnected.
+
+Read-only Form hides empty Keywords, People and Subjects without leaving idle batch arrows; pending operations and receipts needing attention remain inspectable. Existing labels on the same single image retain full coverage while a write awaits readback, without enabling edits or changing genuine partial selections ([KUP-050](bug-backlog.md#kup-050)).
+
+The post-seek browser test checks upward movement after the first native wheel event and stops sending input once the prepend generation advances. It retains the two-second landing wait and final buffer-offset assertion.
+
 ### 23 November 2026 - Stabilize compact Details and show edit progress per pill
 
 Buffered neighboring Details cards lay out lease controls and metadata values from their own fresh image data before activation. The pane remains inert, its controls stay disabled, and it does not start a rights-catalogue request.

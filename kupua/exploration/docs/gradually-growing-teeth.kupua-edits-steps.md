@@ -60,7 +60,7 @@ own the Upload-specific evidence and remaining work.
 | --- | --- | --- |
 | Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
 | Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions. Later families reuse this foundation; each still needs its own command. |
-| Steps 7-8 | Connected labels and U5 ordinary metadata; explicit Search/detail commits, Form autosave and shared observation/publication. | Archive and collection writes; configured-domain editors and Subjects remain separate. |
+| Steps 7-8 | Connected labels and U5 ordinary metadata; bounded Subjects added under KUP-051. Explicit Search/detail commits, Form autosave and shared observation/publication. | Archive and collection writes; configured-domain editors remain separate. |
 | Step 10 / U6a | **Done for Guardian:** save or clear Rights; confirm the override and report derived metadata separately. Uses the filtered catalogue and server notice wording. | Deployment acceptance. No category-triggered leases in Guardian scope. |
 | Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
 | Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
@@ -647,8 +647,8 @@ original label set. Temporary enablement was disabled after the trial. No backen
 shared TEST/PROD service or image deletion was changed. This is local-topology evidence,
 not deployed CSP/CORS/CSRF/login-return certification. Hosted activation and production
 batching require separate authorization.
-The brief existing-label colour flash reported during the trial is a separate
-[KUP-050 follow-up](bug-backlog.md#kup-050), not a demonstrated persistence defect.
+The brief existing-label colour flash reported during the trial was reproduced and fixed
+as [KUP-050](bug-backlog.md#kup-050); it was a presentation defect, not a persistence failure.
 
 **API-topology admission alignment:** implementing a named operation includes aligning
 the shared client and exact Vite transport guard, with focused tests,
@@ -749,7 +749,7 @@ policy change or authorize live bulk activation.
 **Operator clarification:** GRID-019 need not be repaired before a separately authorized,
 conservative operator trial. Its table/GSI risk remains relevant to general shared activation;
 client bounds are not server protection. No infrastructure repair or performance campaign
-is part of this implementation. KUP-050 remains separate.
+is part of this implementation.
 
 ### Step-6 Local Testing Addendum (10 November 2026)
 
@@ -970,7 +970,7 @@ their operation implementations or authorizing activation.
 | Step / Family | Implemented Now | Still To Do |
 | --- | --- | --- |
 | 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection membership and Library actions prepare Not sent intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
-| 8: Ordinary/configured metadata | U5 connects ordinary fields through fresh override merges, readback and publication. Changed Details drafts follow the open editor; Form autosaves per image and field. | Configured-domain schema and editors; Subjects separately scoped (KUP-051). Replacing Taken on works; clearing an embedded date remains disabled (GRID-025). |
+| 8: Ordinary/configured metadata | U5 connects ordinary fields through fresh override merges, readback and publication. KUP-051 adds bounded Subjects. Changed Details drafts follow the open editor; Form autosaves per image and field. | Configured-domain schema and editors. Replacing Taken on works; clearing an embedded date remains disabled (GRID-025). |
 | 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
 | 13: Full frame / Crop entry | Saved-export rail/preview and replace-only crop URLs; shared ratio restrictions; demand-driven mobile lists; enriched eligibility/source/notices in normal, direct and fullscreen editor. Full-frame preparation skips existing/known-ineligible targets with count feedback. All preparation remains Not sent. | Cropper submission/outcomes, returned export identity/readback/publication and canonical result delivery. |
 | 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
@@ -1111,7 +1111,7 @@ from opaque values or search aliases. Current hosted bootstrap does not supply t
 domain schema (type, options, labels and edit-mode opt-in); the local configuration
 has no specifications. Supplying that schema is separate scope, not permission to
 make arbitrary alias fields editable. Source, Byline title, supplier references,
-Subjects, file/system fields and Usage instructions remain read-only. Other workflow
+file/system fields and Usage instructions remain read-only. Other workflow
 families retain their separately selected roadmap steps. Direct-ES remains read-only;
 its projection and safeguards are unchanged by this API-mode editor work.
 
@@ -1151,11 +1151,12 @@ last-writer-wins, not a universal commutative-operation guarantee.
 **Depends on:** step 5; step 6 for batch fields; a documented concurrency choice.
 
 **Ordinary metadata connected through U5; configured-domain editors remain excluded.**
+**Collection permissions: no separate cache planned.** Consume the actions on existing image reads. There is no withdrawal poll or extra permission request; the selected panel calculates eligibility locally from current images and memberships. Keep freshness fences authoritative. Revisit only if profiling shows this calculation materially affects a representative workflow; do not cache today's server policy as an authorization shortcut.
+
 Ordinary fields use fresh original/override reads, intended-field merges and shared
 publication. Equality with an original removes that override; no separate Reset UI
 is introduced. The configured-domain schema/editors described below remain future work.
-Subjects editing is separately
-backlogged as KUP-051; its existing backend support does not imply a connected control.
+Subjects editing was selected separately under KUP-051 and now uses this shared save path.
 
 **Temporary date restriction (operator, 18 November 2026):** [GRID-025](bug-backlog.md#grid-025)
 records that the backend cannot explicitly clear an embedded Taken on date. Clearing
@@ -1164,10 +1165,7 @@ through U5. A separately authorized backend PR
 and verified deployed support must precede re-enabling it. The clear requirements
 below remain the target capability, not a claim that today's backend supports dates.
 
-**Related follow-up:** when the shared list/override boundary is selected, assess
-[KUP-051](bug-backlog.md#kup-051) against the existing Subjects presentation and proposed
-add/remove/empty-list contract; select its preparation and save scope explicitly,
-not as an automatic U5 prerequisite. The Upload plan's
+**Related scope:** [KUP-051](bug-backlog.md#kup-051) covers bounded add/remove and confirmed batch clear. The Upload plan's
 [U5 review](gradually-growing-teeth.upload-workplan.md#u5-required-metadata-saving-and-batch-propagation)
 also routes draft handoff, discard and changed-canonical-value candidates to this
 shared work without preselecting new UX or weakening the accepted GRID-020 boundary.

@@ -20,6 +20,14 @@ Hosted Kupua does not use this route.
 
 ## From Grid / Kahuna
 
+### Empty Collections in Details
+
+Kahuna renders its Collections section for a single image only. Kupua supports settled selections as well: in Details and Form, existing memberships remain readable, and an empty row is offered only when Grid advertises `add-collection` (POST) for every intended recipient. The metadata `edits` link is neither required nor sufficient. Filling a partial membership checks the missing images; removal checks the nested `remove` (DELETE) action on every affected membership. Withdrawing either action withdraws its corresponding preparation control or disables it, without hiding readable data. Direct-ES supplies no grants. Collection writes and batch execution remain disconnected. Keywords, in contrast, use metadata write authority: empty read-only Keywords stay hidden and populated values remain searchable.
+
+### Bounded Subjects editing
+
+Kahuna displays Subjects as searchable, noneditable pills. Kupua also lets authorized editors change membership in Grid's 19-value Subjects vocabulary in Details, selections and Upload Form. This is an intentional editorial capability, not free-text taxonomy creation. Partial pills keep the shared apply-to-all and remove actions; an unchecked choice on a single image is not a deletion instruction for its peers. Upload arrows merge allowed values and observed explicit removals into the other captured batch images, with confirmation for a genuinely empty source. Existing noncanonical values are readable and removable, never offered or copied as additions. The control edits membership, not ordering; writes retain existing order and readback verifies it. Uses the existing metadata-editor override and permission contract, including its cross-client concurrency limits.
+
 ### Bounded Label Dispatch Trial
 
 The local Label trial allows eight concurrent commands through Kupua's existing
@@ -103,7 +111,7 @@ and the remaining command families still belong to U5-U7, not disconnected parit
 
 Form has its own field recipe rather than inheriting Details' arrangement. It retains
 Title, Taken on, Location and People alongside the Upload editorial fields,
-omits Subjects until editing is supported, and condenses file facts into one row.
+includes bounded Subjects editing, and condenses file facts into one row.
 Date and Location use persistent direct-entry
 draft controls, not Details' pencil/commit interaction. The native Form date calendar
 shows whole seconds and follows Details' original-fraction retention/reset policy;

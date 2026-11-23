@@ -40,6 +40,7 @@ export interface EnrichmentFields {
   leasesSummary?: { currentCount: number; inactiveCount: number; hasActiveAllowLease: boolean };
   /** HATEOAS action descriptors (what this user can do with the image). */
   actions?: Action[];
+  removableCollections?: ReadonlySet<string>;
   resource?: { uri?: string; links: Link[] };
   /** Syndication status. */
   syndicationStatus?: SyndicationStatus;

@@ -36,7 +36,8 @@ import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
-import { resolveImageOverlay } from "@/lib/image-read-freshness";
+import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
+import { collectionEligibility } from "@/lib/collection-eligibility";
 import type { Cost } from "@/dal/grid-api/types";
 import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
@@ -248,7 +249,10 @@ function renderChipField(
   if (!rec || rec.kind === "pending" || rec.kind === "dirty") {
     return <MetadataRow key={field.id} label={field.label}><Dash /></MetadataRow>;
   }
-  if (rec.kind !== "chip-array" || rec.chips.length === 0) return null;
+  if (rec.kind === "all-empty" || rec.kind === "chip-array" && rec.chips.length === 0) {
+    return field.showWhenEmpty ? <MetadataRow key={field.id} label={field.label}><span className="text-grid-text-dim">Unknown</span></MetadataRow> : null;
+  }
+  if (rec.kind !== "chip-array") return null;
   return <MultiChipField key={field.id} field={field} rec={rec} onSearch={onSearch} expanded={expanded} onToggle={onToggle} />;
 }
 
@@ -604,12 +608,16 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
             if (field.visibleWhen?.() === false) return null;
             const rec = reconciledView?.get(field.id);
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              const collectionGrants = field.id === "collections" ? collectionEligibility(images, image => {
+                const stored = enrichment.get(image.id), attached = attachedEnrichment(image);
+                return !image.__availability && isImageMetadataCurrent(image, stored, attached) ? resolveImageOverlay(image, stored, attached) : undefined;
+              }) : undefined;
               return <MetadataPillEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} onSearch={onSearch}
-                editable={canEditMetadata || savingSelection || holdingSelection}
+                collectionGrants={collectionGrants} collectionPending={!!collectionGrants && (!complete || savingSelection || savingLabels)} editable={collectionGrants ? collectionGrants.editable : canEditMetadata || savingSelection || holdingSelection}
                 retainReading={(savingSelection || holdingSelection) && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
-                allowQueuedAdd={holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                allowQueuedAdd={!collectionGrants && holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 readOnly={renderChipField(field, rec, onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))}
-                available={canEditMetadata && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                available={(collectionGrants?.editable ?? canEditMetadata) && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 values={rec?.kind === "chip-array" ? rec.chips : []}
                 collectionPaths={field.id === "collections" ? collectionPaths : undefined} />;
             }

@@ -610,6 +610,7 @@ describe("apiSearchAfter canonical image normalization", () => {
     } finally { clock.mockRestore(); }
     expect(image.collections).toEqual(data.collections.map((collection) => collection.data));
     expect(result.enrichment?.get(data.id)).toEqual({
+      removableCollections: new Set(),
       cost: data.cost, valid: data.valid, invalidReasons: data.invalidReasons,
       persisted: data.persisted, usageRights: data.usageRights, actions,
       resource: { links: [] },
@@ -656,7 +657,10 @@ describe("returned media links and capabilities", () => {
   const respond = (body: unknown) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => body }));
 
   it("retains media links and resource capabilities from page, singleton and mget entities", async () => {
-    const data = makeCanonicalImage();
+    const data = { ...makeCanonicalImage(), collections: [
+      { data: { pathId: "desk" }, actions: [{ name: "remove", method: "DELETE", href: "/collections/fixture/desk" }] },
+      { data: { pathId: "read-only" } },
+    ] };
     const resource = {
       uri: "https://media.example.test/images/abc123",
       links: [
@@ -680,6 +684,7 @@ describe("returned media links and capabilities", () => {
     }
     for (const overlay of [page.enrichment?.get(data.id), single?.enrichment, attachedEnrichment(mgetImage)]) {
       expect(overlay?.resource).toEqual(resource);
+      expect(overlay?.removableCollections).toEqual(new Set(["desk"]));
     }
   });
 

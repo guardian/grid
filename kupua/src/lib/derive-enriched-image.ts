@@ -65,6 +65,7 @@ export interface EnrichedImage extends Image, ComputedBaseline {
   persisted?: EnrichmentFields["persisted"];
   /** HATEOAS action descriptors — API only. */
   actions?: EnrichmentFields["actions"];
+  removableCollections?: EnrichmentFields["removableCollections"];
   resource?: EnrichmentFields["resource"];
   /**
    * Syndication status — always present (computed from ES baseline by
@@ -129,6 +130,7 @@ export function deriveImage(
     leasesSummary,
     persisted: overlay?.persisted,
     actions: overlay?.actions,
+    removableCollections: overlay?.removableCollections,
     resource: overlay?.resource,
     syndicationStatus: overlay?.syndicationStatus ?? calculateSyndicationStatus(image, now),
     enrichedUsages: overlay?.usages ?? image.usages,

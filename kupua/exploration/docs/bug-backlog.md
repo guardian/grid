@@ -30,10 +30,12 @@ direct-to-ES parser divergence belongs to KUP-011 and does not reopen Grid work.
 The 1 November update extends KUP-044's shared capability scope and records KUP-045/046
 as source-verified shared-display findings awaiting review. The 2 November step-1
 implementation repairs KUP-044's image-level URI/edits/crops retention; nested write
-resources remain consumer-scoped. The 13 November crop UI work resolves KUP-047 at
+resources remain consumer-scoped. The 23 November local verification closes KUP-044
+for that repair, with no remaining image-level defect. The 13 November crop UI work resolves KUP-047 at
 its disconnected notices/eligibility boundary, not live crop creation.
 The 5 November validation investigation records KUP-048's reproduced table
-render-time update warning and KUP-049's unresolved Settings-click timeout.
+render-time update warning and KUP-049's one observed Settings-click timeout.
+The 23 November recheck closes KUP-049 as not reproduced; its cause remains unknown.
 These are separate from the optional obsolete-read cancellation follow-up.
 The 7 November update closes KUP-043 for the operator-accepted Step-4 simulated
 contract after integrated validation and independent review. Live activation and
@@ -42,6 +44,7 @@ The 11 November update adds GRID-021's operator-observed local index loss during
 local/TEST mode switching; the intended developer-data lifetime awaits engineer confirmation.
 It also records KUP-051's missing Subjects editing workflow: the existing backend
 supports Subjects overrides through metadata-editor, Dynamo and indexed metadata refresh.
+The 23 November implementation connects bounded Subjects editing and Upload batch propagation in Kupua; no backend change or live write trial.
 The 14 November update adds GRID-024's locally reproduced signed-upload queued-status
 rejection and production-codec explanation. Its backend repair is deferred; U3's
 Kupua-only presentation mitigation is described in the entry below.
@@ -70,11 +73,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | --- | --- | --- | --- |
 | [KUP-011](#kup-011) | Parsed intent versus automatic defaults | Defaults aligned locally in both modes; open direct-to-ES grammar divergence | Remaining cross-mode syntax scope |
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
-| [KUP-044](#kup-044) | Image-level capabilities and future nested write resources | Image URI/edits/crops retention repaired; nested controls deferred to their consumers | Shared facts available; no write activation |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
-| [KUP-049](#kup-049) | Detail Settings click stalls during browser validation | One full-run timeout; click reached menu, cause unestablished | Full browser acceptance remains unresolved; relation to scrolling unproved |
-| [KUP-050](#kup-050) | Existing label pills briefly show partial-membership colour after submission | Operator-observed local add-label flash; final labels/readback correct, cause unestablished | Independent presentation follow-up; not a Step-5 persistence blocker |
-| [KUP-051](#kup-051) | Subjects editing is absent despite existing backend support | Source-verified UI/workflow gap; no live write trial | Independent editing follow-up; no backend schema extension identified |
 | [KUP-052](#kup-052) | Incidental keys reveal unwanted focus rings on pointer-used controls | Operator-observed; UX policy/options pending, no implementation | Independent app-wide interaction polish; preserve keyboard focus visibility |
 
 KUP-011 has no closure evidence from continuity work and remains separately scoped.
@@ -138,7 +137,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-028](#grid-028) | Confirm intended per-image authorization for label writes | Open policy question; source comparison only | Resolve with metadata-editor owner before broader rollout |
 
 <details>
-<summary>Completed bounded repairs and verification: 51 IDs</summary>
+<summary>Completed bounded repairs and verification: 55 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -161,9 +160,13 @@ legacy-category expansion remains accepted lag.
 | Collection counts follow the current rights checkbox | [KUP-037](#kup-037) |
 | Globally stable fixed-grid row membership | [KUP-042](#kup-042) |
 | Accepted simulated readback, freshness and stable publication | [KUP-043](#kup-043) |
+| Per-image source URI and advertised edits/crops links retained | [KUP-044](#kup-044) |
 | Crop eligibility and notices at the disconnected UI boundary | [KUP-047](#kup-047) |
 | Server wording retained for known Detail validity reasons | [KUP-046](#kup-046) |
 | API-derived lease summary for shared cost presentation | [KUP-045](#kup-045) |
+| Detail Settings click timeout not reproduced; monitor on recurrence | [KUP-049](#kup-049) |
+| Existing single-image labels retain full coverage during write readback | [KUP-050](#kup-050) |
+| Bounded Subjects membership editing in Details, selections and Upload | [KUP-051](#kup-051) |
 | Mobile unfinished-field touch journey corrected; no product defect established | [KUP-053](#kup-053) |
 | Filtered Rights Creator disclosure and incremental mixed-value tooltip ranking | [KUP-054](#kup-054), [KUP-055](#kup-055) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
@@ -782,13 +785,15 @@ and browse-only repair direction; they do not approve wider API implementation o
   retains the source findings, UI ownership map, proposed boundary and open decisions.
   The operator selected image-level common wiring as step 1. KUP-047 can now consume
   those facts; KUP-045/046 are separate selectable repairs, not automatic prerequisites.
-- **Repair / disposition (2 November):** DONE for image-level source URI and edits/crops
-  link retention. `resource: { uri?, links }` follows existing search, standalone and
+- **DONE (repaired 2 November; verified locally and closed 23 November):** Kupua retains
+  the image-level source URI and advertised edits/crops links. `resource: { uri?, links }` follows existing search, standalone and
   attached-selection enrichment; authoritative empty links replace older capabilities.
   A failing-first extract/derive regression and amended real page/singleton/mget and
   hook-ownership tests cover retention, replacement and own-overlay priority. No transport,
-  publication or media-link behavior changes. Nested write resources remain deferred to
-  their actual consumers, not an implemented general envelope cache. The separate on-demand
+  publication or media-link behavior changes. On 23 November, five focused local tests passed:
+  [capability retention](../../src/dal/grid-api-search-adapter.test.ts#L273) and
+  [write admission with withdrawn, changed or unchanged authority](../../src/lib/grid-commands.test.ts#L139).
+  Nested write controls belong to the editor that uses them, not an open residual of this bug. The separate on-demand
   user-session helper retains only explicit permission flags and never grants image edit access.
   No writes, new endpoint, live-system verification or crop consumer activation follows.
 
@@ -892,7 +897,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 
 #### KUP-049
 **Detail Settings click times out after becoming actionable**
-- **Component / responsibility:** [detail Settings interaction](../../e2e/local/ui-features.spec.ts#L379)
+- **Component / responsibility:** [detail Settings interaction](../../e2e/local/ui-features.spec.ts#L388)
   and its browser action lifecycle; application versus automation ownership remains
   unestablished. [SettingsMenu](../../src/components/SettingsMenu.tsx) opens by toggling
   local React state. The failing action precedes entry into the crop editor.
@@ -909,14 +914,14 @@ and browse-only repair direction; they do not approve wider API implementation o
   from the repaired B8 setup-promise collection failure. The original full-run log
   and extracted trace observations were retained; subsequent normal test runs replaced
   the Playwright trace artifacts.
-- **Next discriminator:** capture input dispatch/completion, main-thread responsiveness
-  and relevant browser lifecycle events in this exact interaction. Preserve the
-  existing action, deadline and menu/history assertions; no retries, forced clicks,
-  timeout increase or passing-rerun acceptance. Do not infer causation from a coincident
-  warning or broaden into crop-editor changes without evidence.
-- **Disposition:** OPEN observed validation failure, cause unresolved. No Settings or
-  crop implementation/test change was made. The full browser gate remains unaccepted;
-  recording this item does not waive it or establish a production incident.
+- **DONE (23 November, not reproduced):** The retained full-suite report shows this
+  journey passed on its first attempt with the normal Settings click, 10-second action
+  deadline and menu/history assertions intact. The suite finished 599/600; its only
+  failure was Table restoration after reload, not Settings. This closes the validation
+  finding, not a diagnosed product defect or a claim that the whole suite passed.
+- **On recurrence:** if this same click stalls again, reopen with a trace of input
+  dispatch/completion, main-thread responsiveness and browser lifecycle events.
+  Preserve the action, deadline and assertions; the original cause is unknown.
 
 #### KUP-050
 **Existing labels briefly display partial-membership styling after label submission**
@@ -926,12 +931,8 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence limits:** operator observation, not a captured frame sequence or proven
   cause. All additions/removals had acknowledged and observed receipts; local Grid
   confirmed exact restoration of the original labels. No persistence loss was observed.
-- **Next discriminator:** reproduce one ordinary label addition while observing pill
-  count/total props through submission and grouped publication. Preserve selection
-  identity, pending-edit admission and the canonical observation contract; do not mask
-  stale capability or unavailable states merely to stabilize colour.
-- **Disposition:** OPEN, separate presentation follow-up. No implementation repair
-  attempted and no shared-system reproduction authorized by this record.
+- **23 November reproduction:** the local guarded-proxy `exerciseConnectedEditor` browser journey was temporarily seeded with one existing label before opening Search. On a single selected image, submit a second label and observe the original pill through acknowledged observation. A DOM observer and animation-frame samples recorded coverage, computed background, count/total and selection identity. The ordinary run reported partial for four sampled frames (about 48 ms between state transitions), despite unchanged 1/1 membership. Holding just the synthetic mget response for eight frames extended partial to about 123 ms: blue `rgb(0,173,238)` approached `rgb(242,251,254)` and a disabled Apply-to-all appeared. The same image remained selected. Grant link present throughout; eligible/unresolved changed 1/0 → 0/1 → 1/0. Both journeys passed canonical add/remove readback and exact original label restoration. Durations are individual samples, not benchmarks. Earlier empty-baseline trials were not evidence. Instrumentation removed; no live write.
+- **DONE (23 November, local client):** [LabelEditor](../../src/components/LabelEditor.tsx#L128) keeps full coverage for existing labels when the displayed image is the sole target and is not unavailable. Write admission is unchanged. The guarded-proxy browser test failed before the fix with `partial`; after the fix the visible pill stayed blue with Remove disabled and no Apply-to-all while the receipt awaited observation. Canonical add/remove readback and genuine multi-image partial styling passed. No live write or deployment verification.
 
 #### KUP-051
 **Subjects can be displayed and searched but cannot be edited in Kupua**
@@ -956,18 +957,7 @@ and browse-only repair direction; they do not approve wider API implementation o
   the edits through [the metadata override operation](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L242);
   [effective-metadata refresh](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L766)
   overlays the full user metadata map onto original metadata without a field whitelist.
-- **Evidence limits:** source-verified capability, not an authenticated live
-  add/remove/clear round-trip or deployment certification. No write, backend
-  change or edit activation was performed for this entry. Kahuna not exposing an
-  editor does not imply missing persistence support.
-- **Follow-up:** add the operator-approved Subjects preparation/editor workflow
-  using existing owners; any save connection remains separately authorized.
-  Preserve unrelated metadata overrides, server authorization, explicit mode
-  safeguards and partial-selection semantics. A later authorized local trial
-  should confirm add/remove/empty-list readback through the normal write path;
-  existing [GRID-020](#grid-020) whole-override concurrency limits still apply.
-- **Disposition:** OPEN Kupua editing gap. No new backend schema requirement or
-  migration-wide gate identified; recording this item authorizes no implementation.
+- **DONE (23 November, local client):** the shared pill editor and ordinary-metadata command support bounded membership editing in single/multi Details and Form. The local fixture Upload journey exercises add, propagation, removal and confirmed peer clear. Order-sensitive observation and mixed membership are covered in unit tests. The [Kahuna departure](deviations.md#bounded-subjects-editing) is intentional. No deployed round-trip or backend change; [GRID-020](#grid-020) still applies.
 
 #### KUP-052
 **Incidental keyboard input reveals focus rings after pointer interaction**

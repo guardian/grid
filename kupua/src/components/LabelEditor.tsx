@@ -43,8 +43,9 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
 }
 
 
-export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false }: {
+export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false, displayedImageId }: {
   context: MetadataEditContext;
+  displayedImageId?: string;
   allowQueuedAdd?: boolean;
   values: readonly { value: string; count: number }[];
   onSearch: (key: string, value: string, event: React.MouseEvent) => void;
@@ -124,6 +125,8 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
   const queueAdds = allowQueuedAdd && !counts.ineligible && !counts.unavailable;
   const addDisabled = disabled && !queueAdds;
+  const sameSingleImage = displayedImageId !== undefined && context.targetIds.length === 1 && context.targetIds[0] === displayedImageId;
+  const coverageKnown = queueAdds || counts.unavailable === 0 && (sameSingleImage || !context.pending && counts.unresolved === 0);
   const chips = visibleEditorPills(values, expanded, [...panelIntents, ...labelIntents.map(intent => ({ action: intent.action, value: intent.label }))]);
   const act = (action: "add" | "remove", label: string) => {
     if (!addressableLabel(action === "add" ? label.trim() : label)) {
@@ -173,7 +176,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   }>
       <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
       {chips.map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent pending={chip.pending}
-        count={chip.count} total={counts.selected} coverageKnown={queueAdds || !context.pending && counts.unresolved === 0 && counts.unavailable === 0} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
+        count={chip.count} total={counts.selected} coverageKnown={coverageKnown} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
     <FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={valuesId} anchorRef={headerRef}

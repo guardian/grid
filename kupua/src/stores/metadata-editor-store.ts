@@ -1,4 +1,5 @@
 import { createStore } from "zustand/vanilla";
+import { pillCommandField, SUBJECTS } from "@/lib/metadata-pill-fields";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
 import { createMetadataOperation, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
 import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
@@ -20,12 +21,15 @@ export interface MetadataSave {
   message?: string;
 }
 
-export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[]): MetadataIntent | undefined {
+export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[], removed?: string[]): MetadataIntent | undefined {
   if (Array.isArray(value)) {
+    if (fieldId === "subjects" && action === "add" && (value.length || removed?.length) && [...value, ...(removed ?? [])].every(subject => SUBJECTS.includes(subject)))
+      return { fieldId: "metadata_subjects", action, value, removed, targetIds };
     if (action !== "overwrite" || value.some(item => !item.trim())) return;
     if (fieldId === "labels") return { fieldId, action: value.length ? "add" : "overwrite", value, targetIds };
-    if (fieldId !== "people" && fieldId !== "keywords") return;
-    return { fieldId: fieldId === "people" ? "metadata_peopleInImage" : "metadata_keywords", action: value.length ? "add" : "overwrite", value, targetIds };
+    if (fieldId !== "people" && fieldId !== "keywords" && fieldId !== "subjects") return;
+    return { fieldId: pillCommandField(fieldId) as MetadataCommand["fieldId"], action: value.length ? "add" : "overwrite",
+      value: fieldId === "subjects" ? value.filter(subject => SUBJECTS.includes(subject)) : value, targetIds };
   }
   if (fieldId === "leases" && action === "overwrite") {
     const change = leaseChangeSchema.safeParse(value);
@@ -37,10 +41,11 @@ export function metadataIntent(fieldId: string, action: string, value: string | 
     return rights.success ? { fieldId, action, value: rights.data, targetIds } : undefined;
   }
   if (fieldId === "labels" && (action === "add" || action === "remove") && typeof value === "string" && value.trim()) return { fieldId, action, value: action === "remove" ? value : value.trim(), targetIds };
-  const field = fieldId === "keywords" ? "metadata_keywords" : fieldId === "people" ? "metadata_peopleInImage" : fieldId;
+  const field = pillCommandField(fieldId);
+  if (field === "metadata_subjects" && (typeof value !== "string" || !(action === "remove" || action === "add" && SUBJECTS.includes(value)))) return;
   if (field.startsWith("location_")) return { fieldId: "location", action: "overwrite", value: { [field.slice(9)]: value as string }, targetIds };
   if (!["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline", "metadata_credit",
-    "metadata_copyright", "metadata_dateTaken", "metadata_imageType", "metadata_keywords", "metadata_peopleInImage", "location"].includes(field)) return;
+    "metadata_copyright", "metadata_dateTaken", "metadata_imageType", "metadata_keywords", "metadata_peopleInImage", "metadata_subjects", "location"].includes(field)) return;
   if (field === "metadata_dateTaken") {
     if (typeof value !== "string" || !value || !Number.isFinite(Date.parse(value))) return;
     value = new Date(value).toISOString();
@@ -408,7 +413,12 @@ export function createMetadataEditorStore(
           if (final.excluded || final.items.length !== final.intent.targetIds.length || !final.items.every(item => item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility"))) continue;
           const history = removedPills ??= new Map(state.removedPills);
           if (applied && history.get(applied.key) === applied.captured) history.delete(applied.key);
-          if (source && typeof final.intent.value === "string") {
+          if (source && final.intent.fieldId === "metadata_subjects" && Array.isArray(final.intent.value)) {
+            const values = new Set(history.get(source));
+            for (const subject of final.intent.removed ?? []) values.add(subject);
+            for (const subject of final.intent.value) values.delete(subject);
+            if (values.size) history.set(source, [...values]); else history.delete(source);
+          } else if (source && typeof final.intent.value === "string") {
             const values = new Set(history.get(source));
             if (final.intent.action === "remove") values.add(final.intent.value); else values.delete(final.intent.value);
             if (values.size) history.set(source, [...values]); else history.delete(source);

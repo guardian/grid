@@ -64,6 +64,7 @@ import { LabelEditor } from "./LabelEditor";
 import type { MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { MetadataFormField, MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
 import { MetadataPillEditor, PILL_EDIT_FIELDS } from "./MetadataPillEditor";
+import { collectionEligibility } from "@/lib/collection-eligibility";
 import { MetadataLocationEditor, LOCATION_COMPONENTS } from "./MetadataLocationEditor";
 import { findLink } from "@/dal/grid-api/argo";
 
@@ -72,7 +73,7 @@ const SECTIONS = groupFieldsIntoSections(DETAIL_PANEL_FIELDS);
 const FORM_SECTIONS = [
   ["metadata_imageType", "metadata_title", "metadata_description", "metadata_byline", "metadata_credit", "metadata_dateTaken", "location",
     "metadata_copyright", "metadata_usageInstructions", "metadata_specialInstructions"],
-  ["collections", "labels", "people", "keywords", "photoshoot"],
+  ["collections", "labels", "people", "keywords", "subjects", "photoshoot"],
   ["uploadInfo_filename", "source_mimeType"],
 ].map(section => section.map(id => {
   const field = FIELDS_BY_ID.get(id)!;
@@ -446,15 +447,17 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             if (formFields && !formFields.has(field.id)) return null;
 
             const raw = field.accessor(image);
+            const collectionGrants = field.id === "collections" ? collectionEligibility([image], () => import.meta.env.VITE_USE_MEDIA_API === "true" ? enriched : undefined) : undefined;
+            const pillEditable = collectionGrants ? collectionGrants.editable && !image.__availability && !enriched?.metadataStale : canEditMetadata;
             if (!formFields && field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
-              return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing}
+              return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing} displayedImageId={image.id}
                 context={{ ...(labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]) }),
                   pending: labelEditing?.pending || enriched?.metadataStale }}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
             const Layout = field.detailLayout === "stacked" ? MetadataBlock : MetadataRow;
-            const readOnly = (hasValue || field.showWhenEmpty || formFields && ["collections", "labels", "keywords"].includes(field.id))
+            const readOnly = (hasValue || field.showWhenEmpty || formFields && field.id === "labels")
               && !(field.id === "metadata_specialInstructions" && !hasValue && image.metadata?.usageInstructions)
               ? <Layout key={field.id} label={field.label}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <span className="text-grid-text-dim">Unknown</span>}
@@ -474,10 +477,11 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
               </div>;
               if (field.isList) return <div key={field.id} data-measured-field={field.id} className="form-batch-list">
                 <MetadataPillEditor form field={field} targetIds={[image.id]} onSearch={onSearch}
-                  editable={canEditMetadata && !enriched?.metadataStale && !image.__availability} readOnly={readOnly}
+                  editable={pillEditable && !enriched?.metadataStale && !image.__availability} collectionGrants={collectionGrants} readOnly={readOnly}
                   values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                   collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />
-                <MetadataBatchArrow imageId={image.id} fieldId={field.id} label={field.label} value={Array.isArray(raw) ? raw.map(String) : []} disabled={!canEditMetadata || !!enriched?.metadataStale || !!image.__availability} />
+                <MetadataBatchArrow imageId={image.id} fieldId={field.id} label={field.label} value={Array.isArray(raw) ? raw.map(String) : []}
+                  hideWhenDisabled={!readOnly} disabled={!pillEditable || !!enriched?.metadataStale || !!image.__availability} />
               </div>;
               const control = METADATA_EDIT_CONTROLS.get(field.id);
               if (control && (field.id !== "metadata_copyright" || hasValue)) {
@@ -499,8 +503,8 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             }
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
-                editable={canEditMetadata} readOnly={readOnly}
-                available={editDataReady}
+                editable={pillEditable} readOnly={readOnly} collectionGrants={collectionGrants}
+                available={collectionGrants ? pillEditable && !labelEditing?.pending : editDataReady}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                 collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;
             }

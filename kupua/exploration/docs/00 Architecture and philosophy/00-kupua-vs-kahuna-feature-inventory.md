@@ -1249,7 +1249,9 @@ routes above implement browsing reads, not these missing workflows.
 
 ### 8.1 Metadata and usage-rights editing
 
-Kupua connects ordinary metadata, Labels, Guardian Rights and manual Leases. Configured-domain fields and Subjects editing remain outside that scope. Displaying a rights label does not grant write permission.
+Kupua connects ordinary metadata, Labels, Guardian Rights and manual Leases. Configured-domain fields remain outside that scope. Displaying a rights label does not grant write permission.
+
+**Subjects: editable in Kupua, display-only in Kahuna.** An editor can add the first Subject to an image, apply a partially shared Subject to the rest of a selection, or update an Upload batch without replacing a peer's unrelated Subjects. The picker offers only Grid's 19 vocabulary members and reuses the existing search and editing pills on desktop and phone. No new Grid endpoint is required. See the [compatibility decision](../deviations.md#bounded-subjects-editing).
 
 Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 [Kahuna metadata editor](../../../../kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html),

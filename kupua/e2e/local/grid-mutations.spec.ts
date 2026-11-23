@@ -492,7 +492,21 @@ test.describe("U3 isolated uploads", () => {
     await fieldArrow("keywords").click();
     await expect.poll(async () => (await peerMetadata()).keywords).toEqual(["Peer only", "Football"]);
     await expect(fieldArrow("keywords")).toHaveAttribute("title", /^Add keywords to /);
-    for (const [field, value, property] of [["keywords", "Football", "keywords"], ["people", "Illustrator, Jr.", "peopleInImage"], ["labels", "Batch label", "labels"]]) {
+    await first.getByRole("button", { name: "Choose subjects" }).click();
+    await first.getByRole("checkbox", { name: "news", exact: true }).check();
+    await first.getByRole("button", { name: "Commit subject changes" }).click();
+    await expect(first.getByRole("button", { name: "Remove news", exact: true })).toBeEnabled();
+    await fieldArrow("subjects").click();
+    await expect.poll(async () => (await peerMetadata()).subjects).toEqual(["news"]);
+    await first.getByRole("button", { name: "Choose subjects" }).click();
+    await first.getByRole("checkbox", { name: "news", exact: true }).uncheck();
+    await first.getByRole("checkbox", { name: "sport", exact: true }).check();
+    await expect(first.getByRole("button", { name: "Remove news", exact: true })).toBeEnabled();
+    await first.getByRole("button", { name: "Commit subject changes" }).click();
+    await expect(fieldArrow("subjects")).toHaveAttribute("title", /also removes “news”/);
+    await fieldArrow("subjects").click();
+    await expect.poll(async () => (await peerMetadata()).subjects).toEqual(["sport"]);
+    for (const [field, value, property] of [["keywords", "Football", "keywords"], ["people", "Illustrator, Jr.", "peopleInImage"], ["labels", "Batch label", "labels"], ["subjects", "sport", "subjects"]]) {
       await first.getByRole("button", { name: `Remove ${value}`, exact: true }).click();
       await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
       await fieldArrow(field).click();
@@ -3827,7 +3841,7 @@ function appLabelReceipts(page: Page, label: string, action = "add") {
     .filter(receipt => receipt.intent.action === action && receipt.intent.label === label), { label, action });
 }
 
-async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void) {
+async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void, checkRetainedLabel = false) {
   await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
   await expect.poll(() => page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().metadataCache.has("fixture"))).toBe(true);
   const original = await page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels);
@@ -3844,7 +3858,24 @@ async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void) {
   const input = page.getByRole("combobox", { name: "Add label", exact: true });
   await input.fill("connected fixture label");
   beforeDispatch();
-  await input.press("Enter");
+  if (checkRetainedLabel) {
+    const pattern = "**/images/mget";
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route(pattern, async route => { await held; await route.continue(); }, { times: 1 });
+    try {
+      await Promise.all([page.waitForRequest(pattern), input.press("Enter")]);
+      await expect.poll(() => appLabelReceipts(page, "connected fixture label")).toMatchObject([{
+        intent: { targetIds: ["fixture"] }, items: [{ state: "accepted-awaiting-visibility", observation: "pending" }],
+      }]);
+      const pill = page.locator("[data-editable-pill]").filter({ has: page.getByRole("button", { name: original![0], exact: true }) });
+      await expect(pill).toBeVisible();
+      await expect(page.getByRole("button", { name: `Remove ${original![0]}`, exact: true })).toBeDisabled();
+      await expect(pill).toHaveAttribute("data-coverage", "all");
+      await expect(pill).toHaveCSS("background-color", "rgb(0, 173, 238)");
+      await expect(page.getByRole("button", { name: `Apply ${original![0]} to all selected images` })).toHaveCount(0);
+    } finally { release(); }
+  } else await input.press("Enter");
   await expect.poll(() => appLabelReceipts(page, "connected fixture label")).toMatchObject([{ items: [{ observation: "observed" }] }]);
   await expect.poll(() => page.evaluate(() => (window as CommandWindow).editorFixture.readbackSnapshot().selected[0].labels)).toEqual([...original!, "connected fixture label"]);
   const remove = page.getByRole("button", { name: "Remove connected fixture label", exact: true });
@@ -4142,10 +4173,11 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
     expect(received.slice(4)).toEqual([{ method: "GET", path: "/metadata/fixture", body: "" },
       { method: "DELETE", path: "/metadata/fixture/labels/fixture+label", body: "" }]);
     expect(received).toHaveLength(6);
+    if (!fixedRoutes) labelsById.get("fixture")!.push("existing desk label");
     await discardOnNavigation(page, () => page.goto(`${localOrigin}/__connected`));
     await page.waitForFunction(() => Boolean((window as CommandWindow).editorFixture));
     let beforeConnected = received.length;
-    await exerciseConnectedEditor(page, () => { beforeConnected = received.length; });
+    await exerciseConnectedEditor(page, () => { beforeConnected = received.length; }, !fixedRoutes);
     expect(received.slice(beforeConnected).filter(request => request.path.startsWith("/metadata/") && request.method !== "GET")).toEqual([
       { method: "POST", path: "/metadata/fixture/labels", body: JSON.stringify({ data: ["connected fixture label"] }) },
       { method: "DELETE", path: "/metadata/fixture/labels/connected+fixture+label", body: "" },

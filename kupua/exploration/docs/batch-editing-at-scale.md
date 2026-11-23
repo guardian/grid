@@ -48,9 +48,7 @@ shard per stream; it matters only if shards or a bulk lane are added.
    2. then single metadata fields, always read fresh just before writing;
    3. then soft delete, with confirmation;
    4. never hard delete.
-4. **Keep the capabilities media-api already sends.** Every search, window and `mget` hit
-   carries `actions` (including `delete`) and the `edits` link. Kupua keeps the actions but drops
-   the `edits` link ([KUP-044](bug-backlog.md#kup-044)). This is a small client fix; no backend change is needed.
+4. **Use the capabilities media-api already sends.** Kupua retains the actions and links that Grid advertises for each search, window and `mget` hit, including `delete` and `edits` when granted ([KUP-044](bug-backlog.md#kup-044)). No backend change was needed.
 5. **Patch results in place after a write; do not reflow** ([KUP-043](bug-backlog.md#kup-043)).
    This is the hardest part and the most user-visible.
 6. **Confirm convergence with `POST /images/count` (`ids` plus a predicate)**, not by polling each image.
@@ -654,7 +652,7 @@ a few hundred against PROD.
 
 | Gap | Why it matters to Kupua | Smallest fix |
 |---|---|---|
-| **Kupua drops the `edits` capability link** (corrected). The new endpoints already return per-image `links`/`actions` exactly like `GET /images/:id`: `edits`, and `delete` including `canBeDeleted`. Kupua keeps `actions` in enrichment but discards the `edits` link. | Without it Kupua cannot tell which selected images the user may edit. | Client-only: retain `edits`-link presence in enrichment ([KUP-044](bug-backlog.md#kup-044)). |
+| **Resolved: per-image `edits` link retention.** Grid already returned the link when granted; Kupua now retains it. | Selected images need not all be editable. | Client repair only ([KUP-044](bug-backlog.md#kup-044)). |
 | **Metadata is whole-object replacement only.** | Read-modify-write is per image and races with concurrent editors. | First iteration: read fresh (9.0, item 2). Later: a field-level `PATCH` (`SET metadata.<field>`). |
 | **Write services have no Kupua proxy routes.** Only `/api` (media-api) is proxied. metadata-editor, collections, leases, cropper and usage are separate services. | Browser writes cannot reach them in the dev setup; hosted mode needs a CORS/origin check. | Add satellite proxy prefixes behind the existing write guard; check [deployed-via-Kahuna](00%20Architecture%20and%20philosophy/09-deployed-via-Kahuna.md) hosting. |
 | **No batch routes anywhere.** | N requests for N images. | Acceptable at prototype caps; Phase 1 later. |

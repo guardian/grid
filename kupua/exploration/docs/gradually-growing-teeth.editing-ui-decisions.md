@@ -261,8 +261,8 @@ requests with another datasource.
 
 Real on-screen-keyboard behavior and the comfort of 36px actions remain phone
 checks; desktop viewport emulation does not certify either. Backend original-timezone
-retention is deferred. Subjects editing and incidental-key focus-ring policy remain
-separate backlog items (KUP-051 and KUP-052), not implicit save-hookup prerequisites.
+retention is deferred. Bounded Subjects editing was added separately under
+[KUP-051](bug-backlog.md#kup-051); incidental-key focus-ring policy remains [KUP-052](bug-backlog.md#kup-052).
 Longer-list popup comfort remains an operator judgment, not a claim established by
 single-option visual trials. No new Kahuna phone investigation is required here.
 

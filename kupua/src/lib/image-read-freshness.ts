@@ -327,7 +327,7 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
   fact.authorityRead = stamp.issued;
   fact.editsHref = undefined;
   if (fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)) {
-    const withheld = { ...overlay, resource: { links: [] }, actions: [] };
+    const withheld = { ...overlay, resource: { links: [] }, actions: [], removableCollections: undefined };
     evidence.set(withheld, stamp);
     return withheld;
   }

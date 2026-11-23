@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
+import { pillCommandField, pillDisplayField } from "@/lib/metadata-pill-fields";
 import { metadataEditorStore, metadataIntent, metadataSaveStatus, type MetadataSave } from "@/stores/metadata-editor-store";
 import { addToast } from "@/stores/toast-store";
 import { FIELDS_BY_ID } from "@/lib/field-registry";
@@ -61,17 +62,17 @@ export function SavingValue({ saving, state = saving ? "Saving…" : undefined, 
 }
 export const FormBatchContext = createContext<{ key: string; ids: readonly string[] } | undefined>(undefined);
 
-export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }: {
-  imageId: string; fieldId: string; label: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; disabled: boolean;
+export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, hideWhenDisabled = false }: {
+  imageId: string; fieldId: string; label: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; disabled: boolean; hideWhenDisabled?: boolean;
 }) {
   const batch = useContext(FormBatchContext);
   const store = useContext(MetadataEditorContext);
   const key = JSON.stringify([batch?.key, imageId, fieldId]);
   const save = useStore(store, state => state.saves.get(state.arrowSaves.get(key) ?? -1));
   const removed = useStore(store, state => state.removedPills.get(key));
-  const sourcePending = useStore(store, state => Array.isArray(value) && state.hasPendingField(imageId, fieldId === "people" ? "metadata_peopleInImage" : fieldId === "keywords" ? "metadata_keywords" : fieldId));
+  const sourcePending = useStore(store, state => Array.isArray(value) && state.hasPendingField(imageId, pillCommandField(fieldId)));
   const [confirming, setConfirming] = useState<typeof batch>();
-  const pill = Array.isArray(value) && ["labels", "keywords", "people", "collections"].includes(fieldId);
+  const pill = Array.isArray(value) && ["labels", "keywords", "people", "subjects", "collections"].includes(fieldId);
   const emptyPills = pill && value.length === 0;
   useEffect(() => {
     if (!confirming) return;
@@ -84,11 +85,13 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
   const trigger = useRef<HTMLButtonElement>(null);
   if (!batch || !store.getState().connected) return null;
   const peerCount = batch.ids.length - Number(batch.ids.includes(imageId));
-  const valid = Boolean(metadataIntent(fieldId, "overwrite", value, batch.ids));
+  const candidate = metadataIntent(fieldId, "overwrite", value, batch.ids);
+  const valid = Boolean(candidate && !(candidate.fieldId === "metadata_subjects" && candidate.action === "add" && Array.isArray(candidate.value) && !candidate.value.length && !removed?.length));
   const busy = !!save && save.state !== "finished";
   const needsAttention = !!save && save.id !== dismissed && !busy && !panelSaveSucceeded(save);
+  if (hideWhenDisabled && disabled && !busy && !needsAttention) return null;
   const unsupported = fieldId === "collections" || fieldId === "photoshoot" ? `${label} batch editing is not connected` : undefined;
-  if (!busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && !unsupported) return null;
+  if (!busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects" && !unsupported) return null;
   const clear = value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
     fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
     fieldId === "usageRights_category" && "category" in value && value.category === ""
@@ -96,7 +99,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
   const peers = `${peerCount} ${peerCount === 1 ? "image" : "images"}`;
   const others = `${peerCount} other ${peerCount === 1 ? "image" : "images"}`;
   const removals = pill && !emptyPills ? removed?.filter(item => !value.includes(item)) : undefined;
-  const noun = fieldId === "people" ? "people" : fieldId === "keywords" ? "keywords" : "labels";
+  const noun = fieldId;
   const applyLabel = pill ? emptyPills ? `Clear ${fieldId} on ${others}` : removals?.length
     ? `Apply ${fieldId} to ${others} (also removes ${removals.length === 1 ? `“${removals[0]}”` : `${removals.length} ${noun}`})` : `Add ${fieldId} to ${others}`
     : fieldId === "leases" ? clear ? `Clear leases on ${others}` : `Replace leases on ${peerCount === 1 ? "the" : "all"} ${others}`
@@ -113,7 +116,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
     const intent = metadataIntent(fieldId, "overwrite", value, batch.ids.filter(id => id !== imageId));
     if (intent) store.getState().submitArrow(removals?.length ? { ...intent, removed: removals } : intent, key);
   };
-  return <div className="metadata-batch-tool"
+  return <><div className="metadata-batch-tool"
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setDetailsFor(undefined); setConfirming(undefined); } }}
     onKeyDown={event => {
       if (event.key !== "Escape" || (!expanded && !confirming)) return;
@@ -143,15 +146,15 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled }:
         onClick={() => { apply(); trigger.current?.focus(); }}>Apply newer value</button>}
       {!busy && <button type="button" className="underline" onClick={() => { trigger.current?.focus(); setDismissed(save.id); }}>Dismiss</button>}
     </div>}
-  </div>;
+  </div>{fieldId === "subjects" && !!removals?.length && <p className="metadata-field-status hidden pointer-coarse:block">Batch arrow also removes {removals.join(", ")} from the {others}.</p>}</>;
 }
 
 export function useMetadataCommit(form = false) {
   const store = useContext(MetadataEditorContext);
   const batch = useContext(FormBatchContext);
-  return (input: { fieldId: string; action: string; value: string | Record<string, string | undefined> | LeaseChange; targetIds: readonly string[] }, returnFocus?: HTMLElement | null) => {
-    const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds);
-    const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
+  return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[] }, returnFocus?: HTMLElement | null) => {
+    const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds, input.removed);
+    const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords", "subjects"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
     const id = intent ? store.getState().submit(intent, false, source) : undefined;
     if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
     return id === undefined ? undefined : store.getState().saves.get(id);
@@ -241,7 +244,7 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
       const items = new Map(save.items.map(item => [item.imageId, item]));
       for (const key of keys) {
         const affected = fields.get(key) ?? new Map<string, EditIssue>();
-        const field = fieldId === "location" ? "Location" : fieldId === "metadata_byline" ? "Byline" : FIELDS_BY_ID.get(fieldId === "metadata_peopleInImage" ? "people" : fieldId === "metadata_keywords" ? "keywords" : fieldId)?.label ?? "Metadata";
+        const field = fieldId === "location" ? "Location" : fieldId === "metadata_byline" ? "Byline" : FIELDS_BY_ID.get(pillDisplayField(fieldId))?.label ?? "Metadata";
         for (const id of save.intent.targetIds) {
           if (detailImageId && id !== detailImageId) continue;
           const item = items.get(id);
@@ -301,7 +304,7 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
     {desktopCount.toLocaleString()}<span className="status-control-label">&nbsp;selected</span>
   </span>);
   const fieldId = metadataTotal ? editor.getState().saves.get(saveId)?.intent.fieldId : "labels";
-  const field = fieldId === "metadata_peopleInImage" ? "people" : fieldId === "metadata_keywords" ? "keywords" : fieldId;
+  const field = fieldId && pillDisplayField(fieldId);
   const updating = metadataCount + labelCount > 1 ? `${metadataCount + labelCount} saves: ` : `Updating ${FIELDS_BY_ID.get(field ?? "")?.label ?? "selection"}: `;
   if (!compact) return renderSlot(<span role="progressbar" aria-label="Updating selected images" title={`${updating}${progressText}`}
     aria-valuemin={0} aria-valuemax={total} aria-valuenow={confirmed} aria-valuetext={progressText}
@@ -328,9 +331,14 @@ export function panelSaveAdmitted(save: MetadataSave | undefined, preparedMessag
   return false;
 }
 
+export function SubjectSaveStatus({ id }: { id: number }) {
+  const save = useStore(useContext(MetadataEditorContext), state => state.saves.get(id));
+  return <span role="status" className="sr-only">{save && (save.state !== "finished" ? "Saving subjects" : panelSaveSucceeded(save) ? "Subjects saved" : "Subjects not confirmed")}</span>;
+}
+
 export function MetadataSaveFeedback({ fieldId, targetIds, saveId }: { fieldId: string; targetIds: readonly string[]; saveId?: number }) {
   const store = useContext(MetadataEditorContext);
-  const field = fieldId === "keywords" ? "metadata_keywords" : fieldId === "people" ? "metadata_peopleInImage" : fieldId;
+  const field = pillCommandField(fieldId);
   const save = useStore(store, state => {
     const latest = saveId !== undefined ? state.saves.get(saveId) : state.latestSingle(targetIds[0], field);
     return latest?.state === "finished" && !panelSaveSucceeded(latest) ? latest : undefined;
