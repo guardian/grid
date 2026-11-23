@@ -119,8 +119,6 @@ jobs:
     - name: Run Playwright tests
       env:
         NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
-        # Coverage runs in the Features UI job instead, to keep this release-path job fast.
-        GRID_DISABLE_COVERAGE: 'true'
       run: npm test
     - name: Upload e2e reports
       uses: actions/upload-artifact@v7
