@@ -1,8 +1,41 @@
+x-grid-app: &grid-app
+  profiles: ["containers"]
+  pull_policy: never
+  environment:
+    JAVA_OPTS: >-
+      -Duser.home=/grid-home
+      -Daws.local.endpoint=http://localstack:4566
+      -Des6.url=http://elasticsearch:9200
+      -Dplay.http.secret.key=local-container-testing-only-not-a-secret-value
+    AWS_ACCESS_KEY_ID: "test"
+    AWS_SECRET_ACCESS_KEY: "test"
+    AWS_REGION: "eu-west-1"
+  volumes:
+    - "${GRID_CONFIG_DIR:-${HOME}/.grid}:/grid-home/.grid:ro"
+  depends_on:
+    elasticsearch:
+      condition: service_healthy
+    localstack:
+      condition: service_healthy
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+x-grid-healthcheck: &grid-healthcheck
+  interval: 5s
+  timeout: 5s
+  retries: 30
+  start_period: 60s
+
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
     environment:
       ES_JAVA_OPTS: "-Xms1024m -Xmx1024m"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
     volumes:
       - "./dev/elasticsearch/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml"
     ports:
@@ -52,6 +85,11 @@ services:
       - "127.0.0.1:4510-4559:4510-4559"  # external services port range
     expose:
       - 4566 # provide the imgops container with access to localstack's direct S3 endpoint
+    networks:
+      default:
+        aliases:
+          # queue URLs in the generated config use this hostname, which otherwise resolves to loopback in containers
+          - sqs.eu-west-1.localhost.localstack.cloud
     environment:
       SERVICES: cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam
       DEFAULT_REGION: eu-west-1
@@ -67,3 +105,89 @@ services:
     volumes:
       - "./dev/config/users.json:/etc/grid/users.json"
     env_file: ./dev/.env
+
+  # --- Grid application containers (profile "containers") ---
+  # Not started by a plain `docker compose up`. Build the images with `sbt Docker/publishLocal`, then run
+  # `docker compose --profile containers up --wait` (see docs/01-setup/05-running-containers.md).
+  # The apps run in the container as the DEV stage, reading the config generated into ~/.grid by dev/script/setup.sh,
+  # with the endpoints that point at localhost overridden to the other compose services.
+  auth:
+    <<: *grid-app
+    image: "auth:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9011:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  collections:
+    <<: *grid-app
+    image: "collections:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9010:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  cropper:
+    <<: *grid-app
+    image: "cropper:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9006:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  image-loader:
+    <<: *grid-app
+    image: "image-loader:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9003:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  kahuna:
+    <<: *grid-app
+    image: "kahuna:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9005:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  leases:
+    <<: *grid-app
+    image: "leases:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9012:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  media-api:
+    <<: *grid-app
+    image: "media-api:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9001:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  metadata-editor:
+    <<: *grid-app
+    image: "metadata-editor:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9007:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  thrall:
+    <<: *grid-app
+    image: "thrall:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9002:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]
+  usage:
+    <<: *grid-app
+    image: "usage:${GRID_IMAGE_VERSION:-DEV}"
+    ports:
+      - "9009:9000"
+    healthcheck:
+      <<: *grid-healthcheck
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:9000/management/healthcheck"]

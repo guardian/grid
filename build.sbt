@@ -7,6 +7,8 @@ import scala.util.control.NonFatal
 import scala.collection.JavaConverters._
 
 import com.typesafe.sbt.packager.debian.JDebPackaging
+import com.typesafe.sbt.packager.docker.{Cmd, DockerPlugin}
+import com.typesafe.sbt.packager.archetypes.scripts.AshScriptPlugin
 
 // We need to keep the timestamps to allow caching headers to work as expected on assets.
 // The below should work, but some problem in one of the plugins (possible the play plugin? or sbt-web?) causes
@@ -157,9 +159,9 @@ lazy val auth = playProject("auth", 9011)
 
 lazy val collections = playProject("collections", 9010)
 
-lazy val cropper = playProject("cropper", 9006)
+lazy val cropper = playProject("cropper", 9006, extraApkPackages = imageToolingPackages)
 
-lazy val imageLoader = playProject("image-loader", 9003).settings(
+lazy val imageLoader = playProject("image-loader", 9003, extraApkPackages = imageToolingPackages).settings(
   libraryDependencies ++= Seq(
     "org.apache.tika" % "tika-core" % "3.2.3",
     "com.drewnoakes" % "metadata-extractor" % "2.19.0"
@@ -194,7 +196,7 @@ lazy val kahuna = playProject("kahuna", 9005).settings(
 
 lazy val leases = playProject("leases", 9012)
 
-lazy val mediaApi = playProject("media-api", 9001)
+lazy val mediaApi = playProject("media-api", 9001, extraApkPackages = imageToolingPackages)
   .dependsOn(commonLib % "compile;test->test")
   .settings(
     libraryDependencies ++= Seq(
@@ -281,11 +283,33 @@ val buildInfo = Seq(
   )
 )
 
-def playProject(projectName: String, port: Int, path: Option[String] = None): Project = {
+// Image manipulation binaries used by ImageOperations (GraphicsMagick/im4java, ExifTool, libvips)
+val imageToolingPackages = Seq("graphicsmagick", "exiftool", "vips")
+
+def dockerSettings(projectName: String, extraApkPackages: Seq[String]) = Seq(
+  Docker / defaultLinuxInstallLocation := s"/usr/share/$projectName",
+  dockerBaseImage := "amazoncorretto:25-alpine",
+  dockerExposedPorts := Seq(9000),
+  Docker / version := sys.env.getOrElse("BUILD_NUMBER", "DEV"),
+  dockerCommands := {
+    // Patch vulnerabilities in the amazoncorretto image, see https://github.com/corretto/corretto-docker#security
+    val apkInstall = (s"apk -U upgrade --no-cache" +: (if (extraApkPackages.nonEmpty) Seq(s"apk add --no-cache ${extraApkPackages.mkString(" ")}") else Nil)).mkString(" && ")
+
+    dockerCommands.value.flatMap {
+      case from @ Cmd("FROM", args @ _*) if args.last.equalsIgnoreCase("mainstage") => Seq(from, Cmd("RUN", apkInstall))
+      // The final (non-root) stage: make the gc log directory writable by the app user
+      case user @ Cmd("USER", name) if name != "root" =>
+        Seq(Cmd("RUN", s"mkdir -p /var/log/$projectName && chown -R $name /var/log/$projectName"), user)
+      case command => Seq(command)
+    }
+  }
+)
+
+def playProject(projectName: String, port: Int, path: Option[String] = None, extraApkPackages: Seq[String] = Nil): Project = {
   val commonProject = project(projectName, path)
-    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin)
+    .enablePlugins(PlayScala, JDebPackaging, SystemdPlugin, BuildInfoPlugin, DockerPlugin, AshScriptPlugin)
     .dependsOn(restLib)
-    .settings(commonSettings ++ buildInfo ++ Seq(
+    .settings(commonSettings ++ buildInfo ++ dockerSettings(projectName, extraApkPackages) ++ Seq(
       playDefaultPort := port,
       debianPackageDependencies := Seq("java25-runtime-headless"),
       Linux / maintainer := "Guardian Developers <dig.dev.software@theguardian.com>",
