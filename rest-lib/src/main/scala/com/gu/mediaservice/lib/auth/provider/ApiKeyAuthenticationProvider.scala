@@ -48,7 +48,7 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
 
           case Some(apiKey) if apiKey.hasExpired =>
             logger.info(apiKeyMarkers(apiKey), s"API key ${apiKey.identity} has expired")
-            Invalid(s"API key ${apiKey.identity} has expired")
+            ExpiredMachine(apiKey)
           // api key provided
           case Some(apiKey) =>
             // valid api key
