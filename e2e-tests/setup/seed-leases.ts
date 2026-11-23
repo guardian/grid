@@ -6,11 +6,13 @@
  * The leases service records the caller as `leasedBy`, so seeded leases are leased by the
  * API key's name, SEEDED_LEASED_BY.
  */
-import { API_KEY, MEDIA_API_PORT, SERVICE_CONFIGS } from './constants.ts';
+import { ADMIN_API_KEY, API_KEY, MEDIA_API_PORT, SERVICE_CONFIGS } from './constants.ts';
 
 const LEASES_URL = `http://localhost:${SERVICE_CONFIGS.leases.port}`;
 const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
 const HEADERS = { 'X-Gu-Media-Key': API_KEY };
+/** Only the administrator tier may delete (see ADMIN_API_KEY), so cleanup uses its own key. */
+const ADMIN_HEADERS = { 'X-Gu-Media-Key': ADMIN_API_KEY };
 /** The name of the API key in the KeyBucket (see provision.ts). */
 export const SEEDED_LEASED_BY = 'DEV Key';
 
@@ -65,7 +67,7 @@ async function waitForLeaseCount(mediaId: string, count: number): Promise<MediaL
 async function leasesRequest(method: 'POST' | 'DELETE', mediaId: string, body?: unknown): Promise<void> {
   const response = await fetch(`${LEASES_URL}/leases/media/${mediaId}`, {
     method,
-    headers: { ...HEADERS, 'Content-Type': 'application/json' },
+    headers: { ...(method === 'DELETE' ? ADMIN_HEADERS : HEADERS), 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status !== 202) {
