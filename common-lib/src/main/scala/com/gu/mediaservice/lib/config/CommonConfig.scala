@@ -52,6 +52,8 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val requestMetricsEnabled: Boolean = boolean("metrics.request.enabled")
 
+  lazy val sentryConfig: SentryConfig = SentryConfig(configuration, stage)
+
   val defaultShouldBlurGraphicImages: Boolean = boolean("defaultShouldBlurGraphicImages")
 
   val staffPhotographerOrganisation: String = stringOpt("branding.staffPhotographerOrganisation").filterNot(_.isEmpty).getOrElse("GNM")
@@ -91,6 +93,7 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
     stringDefault("hosts.cropperPrefix", s"cropper.$rootAppName."),
     stringDefault("hosts.metadataPrefix", s"$rootAppName-metadata."),
     stringDefault("hosts.imgopsPrefix", s"$rootAppName-imgops."),
+    stringDefault("hosts.imgproxyPrefix", s"$rootAppName-imgproxy."),
     stringDefault("hosts.usagePrefix", s"$rootAppName-usage."),
     stringDefault("hosts.collectionsPrefix", s"$rootAppName-collections."),
     stringDefault("hosts.leasesPrefix", s"$rootAppName-leases."),
@@ -100,7 +103,17 @@ abstract class CommonConfig(resources: GridConfigResources) extends AwsClientBui
 
   val corsAllowedOrigins: Set[String] = getStringSet("security.cors.allowedOrigins")
 
-  val services = new Services(domainRoot, serviceHosts, corsAllowedOrigins, domainRootOverride)
+  val imgopsBaseUriOverride: Option[String] = stringOpt("images.imgops.baseUri").filter(_.nonEmpty)
+  val imgproxyBaseUriOverride: Option[String] = stringOpt("images.imgproxy.baseUri").filter(_.nonEmpty)
+
+  val services = new Services(
+    domainRoot,
+    serviceHosts,
+    corsAllowedOrigins,
+    domainRootOverride,
+    imgopsBaseUriOverride,
+    imgproxyBaseUriOverride
+  )
 
   /**
    * Load in a list of domain metadata specifications from configuration. For example:

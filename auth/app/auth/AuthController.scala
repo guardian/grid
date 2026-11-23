@@ -9,9 +9,11 @@ import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, Internal}
 import com.gu.mediaservice.lib.guardian.auth.PandaAuthenticationProvider
 import play.api.libs.json.Json
 import play.api.mvc.{BaseController, ControllerComponents, Result}
+import play.filters.csrf.RequireCSRFCheck
 
 import java.net.URI
 import java.time.Instant
+import java.util.Locale
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -32,6 +34,7 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
     respond(indexData, indexLinks)
   }
 
+  @RequireCSRFCheck
   def cookieMonster = auth { request =>
     providers.userProvider match {
       case panda: PandaAuthenticationProvider =>
@@ -83,22 +86,19 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
           )
         )
       )
-      case InnerServicePrincipal(identity, attributes) => respond(
-        Json.obj( "inner-service" ->
-          Json.obj(
-            "identity" -> identity,
-            providers.innerServiceProvider.uuidKey.toString -> attributes.get(providers.innerServiceProvider.uuidKey),
-            providers.innerServiceProvider.timestampKey.toString -> attributes.get(providers.innerServiceProvider.timestampKey),
-            providers.innerServiceProvider.signatureKey.toString -> attributes.get(providers.innerServiceProvider.signatureKey),
-          )
-        )
-      )
+      case _: InnerServicePrincipal =>
+        // session does not opt into allowInnerService
+        InternalServerError("Unexpected inner-service principal on session endpoint")
     }
   }
 
 
-  def isOwnDomainAndSecure(uri: URI): Boolean = {
-    uri.getHost.endsWith(config.domainRoot) && uri.getScheme == "https"
+  def isOwnDomainAndSecure(uri: URI): Boolean = (uri.getScheme, Option(uri.getHost)) match {
+    case ("https", Some(host)) =>
+      val domainRoot = config.domainRoot.toLowerCase(Locale.ROOT)
+      val normalizedHost = host.toLowerCase(Locale.ROOT)
+      normalizedHost == domainRoot || normalizedHost.endsWith(s".${domainRoot.stripPrefix(".")}")
+    case _ => false
   }
   def isValidDomain(inputUri: String): Boolean = {
     val success = Try(URI.create(inputUri)).filter(isOwnDomainAndSecure).isSuccess

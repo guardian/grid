@@ -11,6 +11,7 @@ import com.gu.mediaservice.lib.aws._
 import com.gu.mediaservice.lib.config.Services
 import com.gu.mediaservice.lib.formatting.printDateTime
 import com.gu.mediaservice.lib.imaging.im4jwrapper.ExifTool
+import com.gu.mediaservice.lib.imgproxy.ImgProxyUrlBuilder
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.lib.metadata.SoftDeletedMetadataTable
 import com.gu.mediaservice.lib.play.RequestLoggingFilter
@@ -20,7 +21,7 @@ import com.gu.mediaservice.{GridClient, JsonDiff}
 import com.sksamuel.elastic4s.requests.searches.queries.Query
 import lib._
 import lib.elasticsearch._
-import lib.querysyntax.Condition
+import lib.querysyntax.{Condition, Parser}
 import models.UsagesInContent
 import org.apache.http.entity.ContentType
 import org.apache.pekko.stream.scaladsl.{FileIO, StreamConverters}
@@ -44,6 +45,14 @@ object MediaApi {
   def shouldSkipUsageRecording(uri: String, user: String): Boolean =
     // We don't want to record usages for InDesign downloads for now
     uri.contains("download") && user == InDesignIdentity
+
+  def deletedImageUploaderScope(
+    conditions: List[Condition],
+    hasGlobalDeletePermission: Boolean,
+    identity: String
+  ): Option[String] =
+    if (!hasGlobalDeletePermission && Parser.explicitlyIncludesDeleted(conditions)) Some(identity)
+    else None
 }
 
 class MediaApi(
@@ -231,7 +240,7 @@ class MediaApi(
     }
   }
 
-  def diffProjection(id: String) = auth.async { request =>
+  def diffProjection(id: String) = auth.allowInnerService.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "diff-projection",
       "requestId" -> RequestLoggingFilter.getRequestId(request),
@@ -306,7 +315,7 @@ class MediaApi(
 
   }
 
-  def getSoftDeletedMetadata(id: String) = auth.async { request =>
+  def getSoftDeletedMetadata(id: String) = auth.allowInnerService.async { request =>
     implicit val logMarker: LogMarker = MarkerMap(
       "requestType" -> "get-soft-deleted-metadata",
       "requestId" -> RequestLoggingFilter.getRequestId(request),
@@ -390,34 +399,38 @@ class MediaApi(
       "imageId" -> id,
     ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
 
-    elasticSearch.getImageById(id) map {
+    elasticSearch.getImageById(id) flatMap {
       case Some(image) if isVisibleToAccessor(request.user, image) =>
         val imageCanBeDeleted = imageResponse.canBeDeleted(image)
         if (imageCanBeDeleted){
           val canDelete = authorisation.isUploaderOrHasPermission(request.user, image.uploadedBy, DeleteImagePermission)
           if(canDelete){
-            val imageStatusRecord = ImageStatusRecord(id, request.user.accessor.identity, DateTime.now(DateTimeZone.UTC).toString, true)
+            val deleteTime = DateTime.now(DateTimeZone.UTC)
+            val deletedBy = request.user.accessor.identity
+            val imageStatusRecord = ImageStatusRecord(id, deletedBy, deleteTime.toString, isDeleted = true)
             softDeletedMetadataTable.setStatus(imageStatusRecord)
             .map { _ =>
-              messageSender.publish(
-                UpdateMessage(
-                  subject = SoftDeleteImage,
-                  id = Some(id),
-                  softDeletedMetadata = Some(SoftDeletedMetadata(
-                    deleteTime = DateTime.now(DateTimeZone.UTC),
-                    deletedBy = request.user.accessor.identity
-                  ))
+              blocking {
+                messageSender.publish(
+                  UpdateMessage(
+                    subject = SoftDeleteImage,
+                    id = Some(id),
+                    softDeletedMetadata = Some(SoftDeletedMetadata(
+                      deleteTime = deleteTime,
+                      deletedBy = deletedBy
+                    ))
+                  )
                 )
-              )
+              }
+              Accepted
             }
-            Accepted
           } else {
-            ImageDeleteForbidden
+            Future.successful(ImageDeleteForbidden)
           }
         } else {
-          ImageCannotBeDeleted
+          Future.successful(ImageCannotBeDeleted)
         }
-      case _ => ImageNotFound(id)
+      case _ => Future.successful(ImageNotFound(id))
     }
   }
 
@@ -593,6 +606,35 @@ class MediaApi(
     }
   }
 
+  private def resolvedImageUrl(
+    id: String,
+    assetType: ImageFileType,
+    width: Int,
+    height: Int,
+    quality: Option[Int],
+    request: AuthenticatedRequest[AnyContent, Principal]
+  ): Future[Result] = {
+    implicit val logMarker: LogMarker = MarkerMap(
+      "requestType" -> "resolved-image-url",
+      "requestId" -> RequestLoggingFilter.getRequestId(request),
+      "imageId" -> id,
+    ) ++ RequestLoggingFilter.loggablePrincipal(request.user)
+
+    elasticSearch.getImageById(id) map {
+      case Some(image) if isVisibleToAccessor(request.user, image) =>
+        Found(imageResponse.imgproxyResizedUrl(image, assetType, width, height, quality))
+      case _ => ImageNotFound(id)
+    }
+  }
+
+  def getOptimisedImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, Source, width, height, quality, request)
+  }
+
+  def getOptimisedPngImageUrl(id: String, width: Int, height: Int, quality: Option[Int]) = auth.async { request =>
+    resolvedImageUrl(id, OptimisedPng, width, height, quality, request)
+  }
+
   def postToUsages(
     uri: String,
     onBehalfOfPrincipal: Authentication.OnBehalfOfPrincipal,
@@ -606,6 +648,7 @@ class MediaApi(
       Future.successful(())
     } else {
       val baseRequest = ws.url(uri)
+        .withMethod("POST")
         .withHttpHeaders(Authentication.originalServiceHeaderName -> config.appName,
           HttpHeaders.ORIGIN -> config.rootUri,
           HttpHeaders.CONTENT_TYPE -> ContentType.APPLICATION_JSON.getMimeType)
@@ -668,7 +711,13 @@ class MediaApi(
 
     val _searchParams = SearchParams(request)
     val hasDeletePermission = authorisation.isUploaderOrHasPermission(request.user, "", DeleteImagePermission)
-    val canViewDeletedImages = _searchParams.query.contains("is:deleted") && !hasDeletePermission
+    val searchParams = MediaApi.deletedImageUploaderScope(
+      _searchParams.structuredQuery,
+      hasDeletePermission,
+      Authentication.getIdentity(request.user)
+    ).fold(_searchParams) { uploader =>
+      _searchParams.copy(uploadedBy = Some(uploader))
+    }
 
     sealed trait AiSearchMode
     case object TextSearch extends AiSearchMode
@@ -841,26 +890,28 @@ class MediaApi(
       }
     }
 
-    if (_searchParams.useAISearch.contains(true) && config.aiSearchEnabled) {
-      // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
-      // Everything else is handled by performAiSearchAndRespond, which falls back to
-      // filter-pool counts when there's no query to rank by.
-      if (_searchParams.length == 0) emptyAiSearchResponse
-      else performAiSearchAndRespond(_searchParams)
-    } else {
-      val searchParams = if (canViewDeletedImages) {
-        _searchParams.copy(uploadedBy = Some(Authentication.getIdentity(request.user)))
-      } else {
-        _searchParams
+    SearchParams.validateQuerySyntax(searchParams).fold(
+      errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+        errors.map(_.message).mkString(", "))
+      ),
+      validQueryParams => {
+        if (validQueryParams.useAISearch.contains(true) && config.aiSearchEnabled) {
+          // Short-circuit polling requests (length=0) to avoid unnecessary Bedrock/KNN calls.
+          // Everything else is handled by performAiSearchAndRespond, which falls back to
+          // filter-pool counts when there's no query to rank by.
+          if (validQueryParams.length == 0) emptyAiSearchResponse
+          else performAiSearchAndRespond(validQueryParams)
+        } else {
+          SearchParams.validate(validQueryParams).fold(
+            // TODO: respondErrorCollection?
+            errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
+              errors.map(_.message).mkString(", "))
+            ),
+            params => performSearchAndRespond(params)
+          )
+        }
       }
-      SearchParams.validate(searchParams).fold(
-        // TODO: respondErrorCollection?
-        errors => Future.successful(respondError(UnprocessableEntity, InvalidUriParams.errorKey,
-          errors.map(_.message).mkString(", "))
-        ),
-        params => performSearchAndRespond(params)
-      )
-    }
+    )
   }
 
   private def getImageResponseFromES(
@@ -881,7 +932,9 @@ class MediaApi(
           deleteImagePermission,
           deleteCropsOrUsagePermission,
           include,
-          request.user.accessor.tier
+          request.user.accessor.tier,
+          // Search results don't need them: kahuna re-fetches the image for its image and crop views
+          withSignedOptimisedUrls = true
         )
 
         Some((source.instance, imageData, imageLinks, imageActions))

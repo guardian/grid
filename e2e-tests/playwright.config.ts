@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { defineBddConfig } from 'playwright-bdd';
+import { cucumberReporter, defineBddConfig } from 'playwright-bdd';
 import { AUTH_STATE_PATH, KAHUNA_PORT } from './setup/constants.ts';
 
 /* Generate Playwright test files from the Gherkin feature files and step definitions.
@@ -8,9 +8,18 @@ const testDir = defineBddConfig({
   features: './features/**/*.feature',
   steps: './steps/**/*.ts',
   /* @todo marks scenarios that are specified but not yet implemented. Excluding them keeps
-     bddgen's "undefined step" failures meaningful for the scenarios we do implement. */
-  tags: 'not @todo',
+     bddgen's "undefined step" failures meaningful for the scenarios we do implement.
+     @timing-sensitive scenarios rely on keystrokes beating Kahuna's 500ms search debounce;
+     coverage instrumentation slows the page enough to break them, so skip them when
+     collecting coverage. They still run uninstrumented in the main Playwright job. */
+  tags: process.env.GRID_ENABLE_COVERAGE === 'true'
+    ? 'not @todo and not @timing-sensitive'
+    : 'not @todo',
 });
+
+/* CI splits the suite with `--shard=n/N`. Each shard writes a blob report, which the
+   merge-reports job combines into the HTML and Cucumber reports using this config. */
+const isShardRun = process.argv.some((arg) => arg.startsWith('--shard'));
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -26,7 +35,19 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ...(process.env.CI ? [['github'] as ['github']] : []),
+    ['list', { printFailuresInline: true }],
+    ...(isShardRun
+      ? [['blob', { outputDir: 'blob-report' }] as ['blob', { outputDir: string }]]
+      : [
+          ['html', { outputFolder: 'playwright-report', open: 'never' }] as ['html', { outputFolder: string; open: 'never' }],
+          cucumberReporter('html', {
+            outputFile: 'cucumber-report/index.html',
+            externalAttachments: true,
+          }),
+        ]),
+  ],
   /* Boot the Grid stack with Testcontainers before tests, and tear it down after. */
   globalSetup: './setup/global-setup.ts',
   globalTeardown: './setup/global-teardown.ts',
@@ -40,8 +61,21 @@ export default defineConfig({
        validation so browser tests can load the https://*.media.<domain> origins. */
     ignoreHTTPSErrors: true,
 
+    video: {
+      mode: process.env.GRID_RECORD_VIDEO === 'true' ? 'on' : 'on-first-retry',
+      size: { width: 1280, height: 720 },
+      show: {
+        actions: {
+          duration: 1500,
+          position: 'top-right',
+          fontSize: 20,
+        }
+      }
+    },
+
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
 
   /* Configure projects for major browsers */
@@ -58,6 +92,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], storageState: AUTH_STATE_PATH },
     },
   ],
+  timeout: 60 * 1000,
   expect: {
     timeout: 30_000,
   },

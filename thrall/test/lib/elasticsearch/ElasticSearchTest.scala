@@ -60,6 +60,51 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           reloadedImage(id).get.fileMetadata.exif("Green TRC").length shouldBe reallyLongTRC.length
         }
 
+        "retries indexing without XMP fields that conflict with mappings" in {
+          val suffix = UUID.randomUUID().toString.replace("-", "")
+          val objectMappedField = s"objectMapped$suffix"
+          val scalarMappedField = s"scalarMapped$suffix"
+          val objectImageId = UUID.randomUUID().toString
+          val scalarImageId = UUID.randomUUID().toString
+          val scalarToObjectImageId = UUID.randomUUID().toString
+          val objectImage = createImageForSyndication(
+            id = objectImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(objectMappedField -> Json.obj("Notes" -> "details"))))
+          )
+          val scalarImage = createImageForSyndication(
+            id = scalarImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(objectMappedField -> JsString("details"))))
+          )
+          val scalarMappedImage = createImageForSyndication(
+            id = UUID.randomUUID().toString,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(scalarMappedField -> JsString("details"))))
+          )
+          val objectForScalarMappingImage = createImageForSyndication(
+            id = scalarToObjectImageId,
+            rightsAcquired = true,
+            rcsPublishDate = Some(now),
+            lease = None,
+            fileMetadata = Some(FileMetadata(xmp = Map(scalarMappedField -> Json.obj("Notes" -> "details"))))
+          )
+
+          Await.result(ES.directInsert(objectImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(scalarImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(scalarMappedImage, ES.imagesCurrentAlias), fiveSeconds)
+          Await.result(ES.directInsert(objectForScalarMappingImage, ES.imagesCurrentAlias), fiveSeconds)
+
+          reloadedImage(scalarImageId).get.fileMetadata.xmp.contains(objectMappedField) shouldBe false
+          reloadedImage(scalarToObjectImageId).get.fileMetadata.xmp.contains(scalarMappedField) shouldBe false
+        }
+
         "initial indexing does not add lastModified to the leases object" in {
           val id = UUID.randomUUID().toString
           val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
@@ -171,7 +216,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(indexedImage(id).map(_.id) shouldBe Some(image.id))
 
-          Await.result(Future.sequence(ES.deleteImage(id)), fiveSeconds)
+          Await.result(ES.deleteImage(id), fiveSeconds)
 
           reloadedImage(id).map(_.id) shouldBe None
         }
@@ -184,7 +229,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
           val unknownImage = UUID.randomUUID().toString
 
-          whenReady(ES.deleteImage(unknownImage).head.failed) { ex =>
+          whenReady(ES.deleteImage(unknownImage).failed) { ex =>
             ex shouldBe ImageNotDeletable
           }
         }
@@ -195,7 +240,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithUsages.id))
 
-          whenReady(ES.deleteImage(id).head.failed) { ex =>
+          whenReady(ES.deleteImage(id).failed) { ex =>
             ex shouldBe ImageNotDeletable
           }
         }
@@ -206,7 +251,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           Await.result(ES.migrationAwareIndexImage(id, imageWithExports, now), fiveSeconds)
           eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(imageWithExports.id))
 
-          whenReady(ES.deleteImage(id).head.failed) { ex =>
+          whenReady(ES.deleteImage(id).failed) { ex =>
             ex shouldBe ImageNotDeletable
           }
         }
@@ -226,7 +271,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val collections = List(collection, anotherCollection)
 
-        Await.result(Future.sequence(ES.setImageCollections(id, collections, now)), fiveSeconds)
+        Await.result(ES.setImageCollections(id, collections, now), fiveSeconds)
 
         reloadedImage(id).get.collections.size shouldBe 2
         reloadedImage(id).get.collections.head.description shouldEqual "A test collection"
@@ -242,7 +287,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         reloadedImage(id).get.exports.isEmpty shouldBe true
         val exports = List(crop)
 
-        Await.result(Future.sequence(ES.updateImageExports(id, exports, now)), fiveSeconds) // TODO rename to add
+        Await.result(ES.updateImageExports(id, exports, now), fiveSeconds) // TODO rename to add
 
         reloadedImage(id).get.exports.nonEmpty shouldBe true
         reloadedImage(id).get.exports.head.id shouldBe crop.id
@@ -254,15 +299,14 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(ES.migrationAwareIndexImage(id, imageWithExports, now), fiveSeconds)
         reloadedImage(id).get.exports.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.deleteImageExports(id, now)), fiveSeconds)
+        Await.result(ES.deleteImageExports(id, now), fiveSeconds)
 
         reloadedImage(id).get.exports.isEmpty shouldBe true
       }
 
       "deleting exports for a non-existant image is not an error" in {
         val id = UUID.randomUUID().toString
-        val result = Await.result(Future.sequence(ES.deleteImageExports(id, now)), fiveSeconds)
-        result should have length 1
+        Await.result(ES.deleteImageExports(id, now), fiveSeconds)
       }
     }
 
@@ -287,7 +331,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           mediaId = UUID.randomUUID().toString
         )
 
-        Await.result(Future.sequence(ES.addImageLease(id, lease, now)), fiveSeconds)
+        Await.result(ES.addImageLease(id, lease, now), fiveSeconds)
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.nonEmpty shouldBe true
@@ -302,7 +346,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        Await.result(ES.removeImageLease(id, lease.id, now), fiveSeconds)
 
         reloadedImage(id).get.leases.leases.isEmpty shouldBe true
       }
@@ -311,8 +355,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val lease = model.leases.MediaLease(id = Some(UUID.randomUUID().toString), leasedBy = None, notes = Some("A test lease"), mediaId = UUID.randomUUID().toString)
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
-        result should have length 1
+        Await.result(ES.removeImageLease(id, lease.id, now), fiveSeconds)
       }
 
       "removing a lease should update the leases last modified time" in {
@@ -329,7 +372,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
         reloadedImage(id).get.leases.leases.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.removeImageLease(id, lease.id, now)), fiveSeconds)
+        Await.result(ES.removeImageLease(id, lease.id, now), fiveSeconds)
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.isEmpty shouldBe true
@@ -354,7 +397,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
         updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)), fiveSeconds)
+        Await.result(ES.replaceImageLeases(id, updatedLeases, now), fiveSeconds)
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.size shouldBe 2
@@ -380,7 +423,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val updatedLeases = Seq(updatedLease, anotherUpdatedLease)
         updatedLeases.size shouldBe 2
 
-        Await.result(Future.sequence(ES.replaceImageLeases(id, updatedLeases, now)), fiveSeconds)
+        Await.result(ES.replaceImageLeases(id, updatedLeases, now), fiveSeconds)
 
         val newLeases = reloadedImage(id).get.leases
         newLeases.leases.size shouldBe 2
@@ -457,9 +500,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete all usages for an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.deleteAllImageUsages(id, now)), fiveSeconds)
-
-        result should have length 1
+        Await.result(ES.deleteAllImageUsages(id, now), fiveSeconds)
       }
 
       "can delete all usages for an image" in {
@@ -467,7 +508,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val imageWithUsages = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None).copy(usages = List(usage()))
         Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
 
-        Await.result(Future.sequence(ES.deleteAllImageUsages(id, now)), fiveSeconds)
+        Await.result(ES.deleteAllImageUsages(id, now), fiveSeconds)
 
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).get.usages.isEmpty shouldBe true)
       }
@@ -480,7 +521,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
 
-        Await.result(Future.sequence(ES.deleteSingleImageUsage(id, secondUsage, now)), fiveSeconds)
+        Await.result(ES.deleteSingleImageUsage(id, secondUsage, now), fiveSeconds)
 
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id)
           .get
@@ -498,7 +539,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val image = createImageForSyndication(id = UUID.randomUUID().toString, true, Some(now), None)
         Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
 
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(usage()), now)), fiveSeconds)
+        Await.result(ES.updateImageUsages(id, List(usage()), now), fiveSeconds)
 
         reloadedImage(id).get.usages.size shouldBe 1
       }
@@ -509,11 +550,11 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
 
         val existingUsage = usage(id = "existing")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(existingUsage), now)), fiveSeconds)
+        Await.result(ES.updateImageUsages(id, List(existingUsage), now), fiveSeconds)
         reloadedImage(id).get.usages.head.id shouldEqual ("existing")
 
         val moreRecentUsage = usage(id = "most-recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(moreRecentUsage), now)), fiveSeconds)
+        Await.result(ES.updateImageUsages(id, List(moreRecentUsage), now), fiveSeconds)
 
         reloadedImage(id).get.usages.size shouldBe 1
         reloadedImage(id).get.usages.head.id shouldEqual ("most-recent")
@@ -525,11 +566,11 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
 
         val mostRecentUsage = usage(id = "recent")
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(mostRecentUsage), now)), fiveSeconds)
+        Await.result(ES.updateImageUsages(id, List(mostRecentUsage), now), fiveSeconds)
 
         val staleUsage = usage(id = "stale")
         val staleLastModified = DateTime.now.minusWeeks(1)
-        Await.result(Future.sequence(ES.updateImageUsages(id, List(staleUsage), staleLastModified)), fiveSeconds)
+        Await.result(ES.updateImageUsages(id, List(staleUsage), staleLastModified), fiveSeconds)
 
         reloadedImage(id).get.usages.head.id shouldEqual ("recent")
       }
@@ -541,7 +582,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         Await.result(ES.migrationAwareIndexImage(id, imageWithUsages, now), fiveSeconds)
 
-        Await.result(Future.sequence(ES.updateUsageStatus(id, List(usageWithUpdatedUsageStatus), now)), fiveSeconds)
+        Await.result(ES.updateUsageStatus(id, List(usageWithUpdatedUsageStatus), now), fiveSeconds)
         reloadedImage(id).get.usages.head.status shouldBe (SyndicatedUsageStatus)
         reloadedImage(id).get.usages.last.status shouldBe (PublishedUsageStatus)
       }
@@ -556,7 +597,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val newSyndicationRights = SyndicationRights(published = Some(now), suppliers = List.empty, rights = List.empty)
 
-        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
+        Await.result(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now), fiveSeconds)
 
         reloadedImage(id).flatMap(_.syndicationRights) shouldEqual Some(newSyndicationRights)
       }
@@ -576,7 +617,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val newSyndicationRights = SyndicationRights(published = Some(now.minusWeeks(1)), suppliers = List.empty, rights = List.empty)
 
-        Await.result(Future.sequence(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now)), fiveSeconds)
+        Await.result(ES.updateImageSyndicationRights(id, Some(newSyndicationRights), now), fiveSeconds)
 
         reloadedImage(id).get.lastModified.get.isAfter(beforeUpdate) shouldEqual true
       }
@@ -588,7 +629,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         eventually(timeout(fiveSeconds), interval(oneHundredMilliseconds))(reloadedImage(id).map(_.id) shouldBe Some(image.id))
         reloadedImage(id).get.syndicationRights.nonEmpty shouldBe true
 
-        Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
+        Await.result(ES.deleteSyndicationRights(id, now), fiveSeconds)
 
         reloadedImage(id).get.syndicationRights.isEmpty shouldBe true
       }
@@ -596,9 +637,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       "can delete syndication rights from an image which does not exist" in {
         val id = UUID.randomUUID().toString
 
-        val result = Await.result(Future.sequence(ES.deleteSyndicationRights(id, now)), fiveSeconds)
-
-        result should have length 1
+        Await.result(ES.deleteSyndicationRights(id, now), fiveSeconds)
       }
     }
 
@@ -613,10 +652,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An interesting image")))
         val updatedLastModifiedDate = DateTime.now
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             updatedMetadata,
-            updatedLastModifiedDate)),
+            updatedLastModifiedDate),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("An interesting image")
@@ -632,10 +671,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An updated image")))
         val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             updatedMetadata,
-            updatedLastModifiedDate)),
+            updatedLastModifiedDate),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
@@ -652,10 +691,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val updatedMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("An interesting image")))
         val updatedLastModifiedDate = DateTime.now
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             updatedMetadata,
-            updatedLastModifiedDate)),
+            updatedLastModifiedDate),
           fiveSeconds)
 
         reloadedImage(id).map(_.originalMetadata) shouldEqual Some(imageWithBoringMetadata.originalMetadata)
@@ -671,10 +710,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val userMetadata = ImageMetadata(description = Some("An updated image"), subjects = Some(List("sausages")))
         val updatedLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             Edits(labels = List("foo"), metadata = userMetadata),
-            updatedLastModifiedDate)),
+            updatedLastModifiedDate),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadataLastModified) shouldEqual Some(updatedLastModifiedDate)
@@ -683,10 +722,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val furtherUpdatedMetadata = userMetadata.copy(description = Some("A further updated image"), subjects = Some(List("sausages", "chips")))
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             Edits(labels = List("foo", "bar"), metadata = furtherUpdatedMetadata),
-            updatedLastModifiedDate.plusSeconds(1))),
+            updatedLastModifiedDate.plusSeconds(1)),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldEqual Some("A further updated image")
@@ -704,19 +743,19 @@ class ElasticSearchTest extends ElasticSearchTestBase {
         val latestMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("Latest edit")))
         val latestLastModifiedDate = DateTime.now.withZone(DateTimeZone.UTC)
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             latestMetadata,
-            latestLastModifiedDate)),
+            latestLastModifiedDate),
           fiveSeconds)
 
         val staleMetadata = Edits(metadata = imageWithBoringMetadata.metadata.copy(description = Some("A stale edit")))
         val staleLastModifiedDate = latestLastModifiedDate.minusSeconds(1)
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             staleMetadata,
-            staleLastModifiedDate)),
+            staleLastModifiedDate),
           fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.metadata.description) shouldBe Some("Latest edit")
@@ -734,10 +773,10 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val metadataWithUpdatedUsageRights = Edits(usageRights = Some(newPhotographer), metadata = imageWithUsageRights.metadata)
 
-        Await.result(Future.sequence(
+        Await.result(
           ES.applyImageMetadataOverride(id,
             metadataWithUpdatedUsageRights,
-            DateTime.now.withZone(DateTimeZone.UTC))),
+            DateTime.now.withZone(DateTimeZone.UTC)),
           fiveSeconds)
 
         reloadedImage(id).get.usageRights.asInstanceOf[StaffPhotographer].photographer shouldEqual "Test Photographer"
@@ -754,7 +793,7 @@ class ElasticSearchTest extends ElasticSearchTestBase {
 
         val updatedMetadata = Edits(photoshoot = Some(newPhotoshoot), metadata = imageWithBoringMetadata.metadata.copy())
 
-        Await.result(Future.sequence(ES.applyImageMetadataOverride(id, updatedMetadata, now)), fiveSeconds)
+        Await.result(ES.applyImageMetadataOverride(id, updatedMetadata, now), fiveSeconds)
 
         reloadedImage(id).flatMap(_.userMetadata.get.photoshoot.map(_.title)) shouldEqual Some("Test photoshoot")
         // TODO how to assert that the suggestion was added?
@@ -872,6 +911,47 @@ class ElasticSearchTest extends ElasticSearchTestBase {
           requestedImageMigrationJson.as[Image].identifiers shouldEqual Map("test" -> "done")
 
           ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+        }
+      }
+
+      "deletes" - {
+        "from current index when migration is running and doc is missing from migration index" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+          try {
+            val id = UUID.randomUUID().toString
+            val image = createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"))
+            // bypass migrationAwareIndexImage so deleteImage hits a 404 on the migration index
+            Await.result(ES.directInsert(image, ES.imagesCurrentAlias), fiveSeconds)
+            ES.client.execute(refreshIndex(ES.imagesCurrentAlias)).futureValue
+
+            Await.result(ES.deleteImage(id), fiveSeconds)
+
+            ES.executeAndLog(get(ES.imagesCurrentAlias, id), "").await.result.found shouldBe false
+          } finally {
+            ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+            ES.refreshAndRetrieveMigrationStatus()
+          }
+        }
+
+        "when migration index contains doc, both are deleted" in {
+          ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
+          ES.refreshAndRetrieveMigrationStatus()
+          try {
+            val id = UUID.randomUUID().toString
+            val image = createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"))
+            Await.result(ES.migrationAwareIndexImage(id, image, now), fiveSeconds)
+            ES.client.execute(refreshIndex(ES.imagesCurrentAlias)).futureValue
+
+            Await.result(ES.deleteImage(id), fiveSeconds)
+
+            ES.executeAndLog(get(ES.imagesCurrentAlias, id), "").await.result.found shouldBe false
+            ES.executeAndLog(get(ES.imagesMigrationAlias, id), "").await.result.found shouldBe false
+          } finally {
+            ES.removeAliasFrom(migrationIndexName, ES.imagesMigrationAlias)
+            ES.refreshAndRetrieveMigrationStatus()
+          }
         }
       }
     }

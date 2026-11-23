@@ -65,6 +65,11 @@ async function createStack(
     { StackName: stackName },
   );
 
+  return describeStack(cfn, stackName);
+}
+
+/** Logical -> physical resource ids for an already-applied stack. */
+async function describeStack(cfn: CloudFormationClient, stackName: string): Promise<StackProps> {
   const { StackResources = [] } = await cfn.send(
     new DescribeStackResourcesCommand({ StackName: stackName }),
   );
@@ -83,6 +88,10 @@ export function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> 
     CORE_STACK_NAME,
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
   );
+}
+
+export function describeCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
+  return describeStack(cfn, CORE_STACK_NAME);
 }
 
 export function createAuthStack(cfn: CloudFormationClient): Promise<StackProps> {
@@ -125,7 +134,7 @@ function keyBody(pem: string): string {
   return pem.replace(/-----[^-]+-----|\s/g, '');
 }
 
-export async function seedAuthBuckets(s3: S3Client, props: StackProps): Promise<void> {
+export async function seedAuthBuckets(s3: S3Client, props: StackProps, oidcIssuer = OIDC_ISSUER): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -139,7 +148,7 @@ export async function seedAuthBuckets(s3: S3Client, props: StackProps): Promise<
     'cookieName=gutoolsAuth-assym',
     `clientId=${OIDC_CLIENT_ID}`,
     `clientSecret=${OIDC_CLIENT_SECRET}`,
-    `discoveryDocumentUrl=${OIDC_ISSUER}/.well-known/openid-configuration`,
+    `discoveryDocumentUrl=${oidcIssuer}/.well-known/openid-configuration`,
     '',
   ].join('\n');
 

@@ -5,7 +5,7 @@ import com.gu.mediaservice.lib.argo.model.Link
 import com.gu.mediaservice.lib.auth.Authentication.{InnerServicePrincipal, MachinePrincipal, OnBehalfOfPrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.provider._
 import com.gu.mediaservice.lib.config.CommonConfig
-import com.gu.mediaservice.lib.play.RequestLoggingFilter
+import com.gu.mediaservice.lib.play.{RequestLoggingFilter, SentryUserContext}
 import play.api.libs.typedmap.TypedMap
 import play.api.libs.ws.WSRequest
 import play.api.mvc.Security.AuthenticatedRequest
@@ -49,27 +49,49 @@ class Authentication(config: CommonConfig,
       providers.userProvider.flushToken.fold(resultWhenAbsent)(_(requestHeader, resultWhenAbsent))
     }
 
-    // Authenticate request. Try with inner service authenticator first, then with API authenticator, and finally with user authenticator
-    providers.innerServiceProvider.authenticateRequest(requestHeader) match {
+    // Authenticate request. Try with API authenticator first, and then with user authenticator
+    val result = providers.apiProvider.authenticateRequest(requestHeader) match {
       case Authenticated(authedUser) => Right(authedUser)
       case Invalid(message, throwable) => Left(unauthorised(message, throwable))
-      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message")) // TODO: see if we can avoid repetition
+      case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
       case NotAuthenticated =>
-        providers.apiProvider.authenticateRequest(requestHeader) match {
+        providers.userProvider.authenticateRequest(requestHeader) match {
+          case NotAuthenticated => Left(unauthorised("Not authenticated"))
+          case Expired(principal) => Left(expired(principal))
+          case GracePeriod(principal) if gracePeriodCountsAsAuthenticated => Right(principal)
+          case GracePeriod(principal) => Left(expired(principal))
           case Authenticated(authedUser) => Right(authedUser)
-          case Invalid(message, throwable) => Left(unauthorised(message, throwable))
+          case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
           case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
-          case NotAuthenticated =>
-            providers.userProvider.authenticateRequest(requestHeader) match {
-              case NotAuthenticated => Left(unauthorised("Not authenticated"))
-              case Expired(principal) => Left(expired(principal))
-              case GracePeriod(principal) if gracePeriodCountsAsAuthenticated => Right(principal)
-              case GracePeriod(principal) => Left(expired(principal))
-              case Authenticated(authedUser) => Right(authedUser)
-              case Invalid(message, throwable) => Left(unauthorised(message, throwable).map(flushToken))
-              case NotAuthorised(message) => Left(forbidden(s"Principal not authorised: $message"))
-            }
         }
+    }
+    result.foreach(principal => SentryUserContext.recordAuthenticatedPrincipal(requestHeader, principal))
+    result
+  }
+
+  def allowInnerService: ActionBuilder[Authentication.Request, AnyContent] =
+    new ActionBuilder[Authentication.Request, AnyContent] {
+      override def parser: BodyParser[AnyContent] = Authentication.this.parser
+      override protected def executionContext: ExecutionContext = Authentication.this.executionContext
+
+      override def invokeBlock[A](
+        request: Request[A],
+        block: Authentication.Request[A] => Future[Result]
+      ): Future[Result] = Authentication.this.allowInnerService(request, block)
+    }
+
+  def allowInnerService[A](
+    request: Request[A],
+    nextBlock: Authentication.Request[A] => Future[Result]
+  ) = {
+    providers.innerServiceProvider.authenticateRequest(request) match {
+      case Authenticated(authedUser) =>
+        SentryUserContext.recordAuthenticatedPrincipal(request, authedUser)
+        nextBlock(new AuthenticatedRequest(authedUser, request))
+          .map(_.addAttr(RequestLoggingFilter.requestPrincipal, authedUser))
+      case Invalid(message, throwable) => unauthorised(message, throwable)
+      case NotAuthorised(message) => forbidden(s"Principal not authorised: $message") // TODO: see if we can avoid repetition
+      case _ => invokeBlock(request, nextBlock)
     }
   }
 
@@ -112,14 +134,19 @@ object Authentication {
   case class UserPrincipal(firstName: String, lastName: String, email: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity = email, tier = Internal)
 
-    override def toString: String = s"UserPrincipal(${(firstName, lastName, email)})"
+    override def toString: String = s"UserPrincipal($firstName, $lastName, $email)"
   }
+
   /** A machine user doing work automatically for its human programmers */
-  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal
+  case class MachinePrincipal(accessor: ApiAccessor, attributes: TypedMap = TypedMap.empty) extends Principal {
+    override def toString: String = s"MachinePrincipal($accessor)"
+  }
 
   /** A different Grid microservice (e.g. a call to media-api originating from thrall) */
   case class InnerServicePrincipal(identity: String, attributes: TypedMap = TypedMap.empty) extends Principal {
     def accessor: ApiAccessor = ApiAccessor(identity, tier = Internal)
+
+    override def toString: String = s"InnerServicePrincipal($identity)"
   }
 
   type Request[A] = AuthenticatedRequest[A, Principal]

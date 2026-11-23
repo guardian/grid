@@ -164,34 +164,21 @@
                                 </select>
                         </div>
 
-                        <div class="flex-container"
-                             ng-if="property.optionsMap"
-                             ng-init="otherValue = ctrl.isOtherValue(property)">
-
-                            <select
-                                class="full-width"
+                        <gr-datalist class="ure__combobox"
+                                     ng-if="property.optionsMap"
+                                     gr-show-toggle="true"
+                                     gr-search="ctrl.optionsMapSearch(property, q)">
+                            <input type="text"
+                                class="text-input full-width ure__combobox-input"
                                 id="ure-field-{{::fieldUniqueId}}"
                                 name="{{ property.name }}"
+                                autocomplete="off"
+                                placeholder="Select from the list or type a name"
+                                gr-datalist-input
                                 ng-model="ctrl.model[property.name]"
-                                ng-required="property.required"
-                                ng-options="o for o in ctrl.getOptionsMapFor(property)"
-                                ng-if="!otherValue">
-                                <option value="">None</option>
-                            </select>
-
-                            <input type="text"
-                                class="text-input full-width"
-                                id="ure-field-{{::fieldUniqueId}}"
-                                placeholder="e.g. {{ property.examples }}"
-                                ng-model="ctrl.model[property.name]"
-                                ng-required="property.required"
-                                ng-if="otherValue" />
-
-                            <label class="flex-no-shrink">
-                                <input type="checkbox" ng-model="otherValue" />
-                                Other
-                            </label>
-                        </div>
+                                ng-model-options="{ updateOn: 'default gr-datalist:update blur' }"
+                                ng-required="property.required" />
+                        </gr-datalist>
                     </div>
 
                     <textarea

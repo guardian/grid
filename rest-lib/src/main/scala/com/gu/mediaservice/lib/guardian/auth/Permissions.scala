@@ -11,6 +11,7 @@ object Permissions {
   val DeleteImage: PermissionDefinition = PermissionDefinition("delete_image", app)
   val DeleteCropsOrUsages: PermissionDefinition = PermissionDefinition("delete_crops_or_usages", app)
   val ShowPaid: PermissionDefinition = PermissionDefinition("show_paid", app)
+  val DeveloperAdmin: PermissionDefinition = PermissionDefinition("developer_admin", app)
 
   // FIXME ideally factor this out in favour of a permission definition that can be defined at runtime (e.g. loaded from config)
   val Pinboard: PermissionDefinition = PermissionDefinition("pinboard", "pinboard")

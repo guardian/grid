@@ -36,17 +36,10 @@ loaderApi.factory('loaderApi', ['mediaApi', function(mediaApi) {
             follow('load', uploadInfo).post(imageData, options);
     }
 
-    function import_(uri, identifiersMap = {}) {
-        const identifiers = JSON.stringify(identifiersMap);
-        return getLoaderRoot().
-            follow('import', {uri, identifiers}).post();
-    }
-
     return {
         getLoaderRoot,
         prepare,
         load,
-        getUploadsByCurrentUser,
-        import: import_
+        getUploadsByCurrentUser
     };
 }]);

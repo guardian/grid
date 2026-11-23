@@ -1,18 +1,23 @@
 import com.gu.mediaservice.GridClient
 import com.gu.mediaservice.lib.aws.{Bedrock, Embedder, SimpleSqsMessageConsumer}
-import com.gu.mediaservice.lib.imaging.MagickImageOperations
+import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.logging.GridLogging
 import com.gu.mediaservice.lib.management.InnerServiceStatusCheckController
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.{ImageLoaderController, ImageLoaderManagement, UploadStatusController}
 import lib._
 import lib.storage.{ImageLoaderStore, QuarantineStore}
+import model.upload.OptimiseWithPngQuant
 import model.{Projector, QuarantineUploader, Uploader}
 import play.api.ApplicationLoader.Context
 import router.Routes
+import scala.concurrent.ExecutionContext
+import java.util.concurrent.Executors
 
 class ImageLoaderComponents(context: Context) extends GridComponents(context, new ImageLoaderConfig(_)) with GridLogging {
   final override val buildInfo = utils.buildinfo.BuildInfo
+  override implicit val ec: ExecutionContext =
+    ExecutionContext.fromExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
   private val imageProcessor = config.imageProcessor(applicationLifecycle)
   logger.info(s"Loaded ${imageProcessor.processors.size} image processors:")
@@ -25,7 +30,7 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
   val store = new ImageLoaderStore(config)
   val maybeIngestQueue = config.maybeIngestSqsQueueUrl.map(queueUrl => new SimpleSqsMessageConsumer(queueUrl, config))
   val uploadStatusTable = new UploadStatusTable(config)
-  val imageOperations = new MagickImageOperations(context.environment.rootPath.getAbsolutePath)
+  val imageOperations = ImageOperations(config, context.environment.rootPath.getAbsolutePath)
   val notifications = new Notifications(config)
   val downloader = new Downloader()(ec,wsClient)
 
@@ -35,8 +40,9 @@ class ImageLoaderComponents(context: Context) extends GridComponents(context, ne
       new Embedder(new Bedrock(config), new SimpleSqsMessageConsumer(queueUrl, config))
     }
 
-  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth)
-  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder)
+  val optimiseOps = new OptimiseWithPngQuant(config)
+  val uploader = new Uploader(store, config, imageOperations, notifications, maybeEmbedder, imageProcessor, gridClient, auth, optimiseOps)
+  val projector = Projector(config, imageOperations, imageProcessor, auth, maybeEmbedder, optimiseOps)
   val quarantineUploader: Option[QuarantineUploader] = config.maybeQuarantineBucket.map(_ =>
     new QuarantineUploader(new QuarantineStore(config), config)
   )

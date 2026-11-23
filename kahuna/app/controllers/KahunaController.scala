@@ -3,13 +3,14 @@ package controllers
 import com.gu.mediaservice.lib.argo.ArgoHelpers
 import com.gu.mediaservice.lib.auth.Authentication.Principal
 import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, BaseControllerWithLoginRedirects}
-import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig, UseCqlChips}
+import lib.{ExampleSwitch, FeatureSwitches, KahunaConfig}
 import play.api.mvc.ControllerComponents
 import play.api.libs.json._
 
 import scala.concurrent.ExecutionContext
 import com.gu.mediaservice.lib.config.FieldAlias._
 import com.gu.mediaservice.lib.config.Services
+import com.gu.mediaservice.lib.play.SentryUserContext
 import play.api.mvc.Security.AuthenticatedRequest
 import play.twirl.api.Html
 
@@ -17,7 +18,8 @@ class KahunaController(
   authentication: Authentication,
   val config: KahunaConfig,
   override val controllerComponents: ControllerComponents,
-  authorisation: Authorisation
+  authorisation: Authorisation,
+  release: String
 )(
   implicit val ec: ExecutionContext
 ) extends BaseControllerWithLoginRedirects with ArgoHelpers {
@@ -25,6 +27,29 @@ class KahunaController(
   override def auth: Authentication = authentication
 
   override def services: Services = config.services
+
+  /**
+   * Settings the browser SDK needs. The user identity is resolved here rather than in the browser so
+   * that email is supplied only for authenticated users when Sentry reporting is enabled.
+   */
+  private[controllers] def sentryClientConfig(maybeUser: Option[Principal]): String = {
+    val sentry = config.sentryConfig
+
+    val identity = maybeUser.flatMap(SentryUserContext.identityForPrincipal(sentry, _))
+
+    Json.stringify(Json.obj(
+      "enabled" -> sentry.enabled,
+      "dsn" -> sentry.dsn,
+      "environment" -> sentry.environment,
+      "release" -> release,
+      "tracesSampleRate" -> sentry.tracesSampleRate,
+      "replayOnErrorSampleRate" -> sentry.replayOnErrorSampleRate,
+      "consoleCaptureLevels" -> sentry.consoleCaptureLevels,
+      "tracePropagationTargets" -> config.services.allInternalUris,
+      "userId" -> identity.flatMap(_.id),
+      "userEmail" -> identity.flatMap(_.email)
+    ))
+  }
 
   def index(ignored: String) = withOptionalLoginRedirect { request =>
 
@@ -38,7 +63,7 @@ class KahunaController(
 
     val isIFramed = request.headers.get("Sec-Fetch-Dest").contains("iframe")
     val featureSwitches = new FeatureSwitches(
-      List(ExampleSwitch, UseCqlChips)
+      List(ExampleSwitch)
     )
     val featureSwitchesWithClientValues = featureSwitches.getClientSwitchValues(featureSwitches.getFeatureSwitchCookies(request.cookies.get))
     val featureSwitchesJson = Json.stringify(Json.toJson(featureSwitches.getFeatureSwitchesToStringify(featureSwitchesWithClientValues)))
@@ -81,7 +106,8 @@ class KahunaController(
       config,
       featureSwitchesJson,
       imageTypes,
-      agencyPicksIngredients
+      agencyPicksIngredients,
+      sentryClientConfig(maybeUser)
     ))
   }
 

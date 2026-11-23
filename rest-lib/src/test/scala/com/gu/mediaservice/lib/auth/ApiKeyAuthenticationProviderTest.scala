@@ -31,10 +31,9 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
     actorSystem,
     applicationLifecycle
   )){}
-  private val providerConfig = Configuration.empty
   private val controllerComponents: DefaultControllerComponents = DefaultControllerComponents(null, null, null, null, null, global)
   private val resources = AuthenticationProviderResources(config, actorSystem, wsClient, controllerComponents, mock[Authorisation])
-  private val provider = new ApiKeyAuthenticationProvider(providerConfig, resources) {
+  private def makeProvider(providerConfig: Configuration): ApiKeyAuthenticationProvider = new ApiKeyAuthenticationProvider(providerConfig, resources) {
     override def initialise(): Unit = { /* do nothing */ }
 
     override def shutdown(): Future[Unit] = { /* do nothing */
@@ -51,8 +50,28 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
       }
     }
   }
+  private val provider = makeProvider(Configuration.empty)
 
   "requestAuthentication" - {
+    "should authenticate a valid key when explicitly enabled" in {
+      val enabledProvider = makeProvider(Configuration("enabled" -> true))
+      val request = FakeRequest().withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-chuckle")
+      enabledProvider.authenticateRequest(request) shouldBe a[Authenticated]
+    }
+    "should reject keys without accessing the key store when disabled" in {
+      val disabledProvider = new ApiKeyAuthenticationProvider(Configuration("enabled" -> false), resources) {
+        override def keyStore: KeyStore = fail("Disabled API access must not look up keys")
+      }
+      Seq("key-chuckle", "key-banana").foreach { key =>
+        val request = FakeRequest().withHeaders(ApiKeyAuthenticationProvider.apiKeyHeaderName -> key)
+        disabledProvider.authenticateRequest(request) shouldBe NotAuthorised("API key access is disabled")
+      }
+      succeed
+    }
+    "should allow user authentication to proceed without an API key when disabled" in {
+      val disabledProvider = makeProvider(Configuration("enabled" -> false))
+      disabledProvider.authenticateRequest(FakeRequest()) shouldBe NotAuthenticated
+    }
     "should return Authenticated if the key is valid" in {
       val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-chuckle"
       val status = provider.authenticateRequest(FakeRequest().withHeaders(testHeader))

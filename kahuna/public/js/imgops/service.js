@@ -2,7 +2,7 @@ import angular from 'angular';
 
 export var imgops = angular.module('kahuna.imgops', []);
 
-imgops.factory('imgops', ['$window', function($window) {
+imgops.factory('imgops', ['$window', '$q', function($window, $q) {
     const quality = 85;
 
     const lowResMaxWidth  = 800;
@@ -22,13 +22,14 @@ imgops.factory('imgops', ['$window', function($window) {
         return getOptimisedUri(image, { w, h, q: quality });
     }
 
-    function getLowResUri(image) {
-        return getOptimisedUri(image, {
-            w: lowResMaxWidth,
-            h: lowResMaxHeight,
-            q: quality
-        });
-    }
+    // Never rendered, and no longer signed as an imgproxy size
+    // function getLowResUri(image) {
+    //     return getOptimisedUri(image, {
+    //         w: lowResMaxWidth,
+    //         h: lowResMaxHeight,
+    //         q: quality
+    //     });
+    // }
 
     function getLowResDownloadUri(image) {
         return getOptimisedDownloadUri(image, {
@@ -38,17 +39,25 @@ imgops.factory('imgops', ['$window', function($window) {
         });
     }
 
-    function getOptimisedUri(image, options) {
+    // Signed imgproxy URLs can't be templated, so the API signs one per width x height box (smallest first);
+    // use the smallest that covers the requested size, or the largest available.
+    function pickSignedUri(signedUrls, { w, h }) {
+        const covering = signedUrls.find(signed => signed.w >= w && signed.h >= h);
+        return (covering || signedUrls[signedUrls.length - 1]).url;
+    }
 
-        if (image.data.optimisedPng) {
-            return image.follow('optimisedPng', options).getUri().catch(() => {
-                return image.optimisedPng.secureUrl || image.optimisedPng.file;
-            });
-        } else {
-            return image.follow('optimised', options).getUri().catch(() => {
-                return image.source.secureUrl || image.source.file;
-            });
+    function getOptimisedUri(image, options) {
+        const signedUrls = image.data.signedOptimisedUrls;
+        if (signedUrls && signedUrls.length > 0) {
+            return $q.resolve(pickSignedUri(signedUrls, options));
         }
+
+        const rel = image.data.optimisedPng ? 'optimisedPng' : 'optimised';
+
+        return image.follow(rel, options).getUri().catch(() => {
+            const asset = image.data.optimisedPng ? image.optimisedPng : image.source;
+            return asset.secureUrl || asset.file;
+        });
     }
 
     function getOptimisedDownloadUri(image, options) {
@@ -59,7 +68,7 @@ imgops.factory('imgops', ['$window', function($window) {
 
     return {
         getFullScreenUri,
-        getLowResUri,
+        // getLowResUri,
         getLowResDownloadUri
     };
 

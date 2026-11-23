@@ -14,8 +14,8 @@ var upload = angular.module('kahuna.upload.controller', [
   'util.storage'
 ]);
 
-upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', 'storage',
-  function (uploadManager, mediaApi, scrollPosition, $scope, storage) {
+upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', '$scope', '$rootScope', 'storage',
+  function (uploadManager, mediaApi, scrollPosition, $scope, $rootScope, storage) {
     var ctrl = this;
 
     const isOngoingUploadJobs = () => {
@@ -23,12 +23,14 @@ upload.controller('UploadCtrl', ['uploadManager', 'mediaApi', 'scrollPosition', 
       const isOngoingUploads = flattenUploadsArray.some(jobItem => jobItem.status !== "uploaded");
       return isOngoingUploads;
     };
-    $scope.$on("$locationChangeStart", function(event, _, current) {
-      // handle route changes
-      if (current.indexOf("/upload") > -1) {
+    // ui-sref transitions destroy this scope before $locationChangeStart, so guard the state change.
+    const deregisterStateChangeStart = $rootScope.$on("$stateChangeStart", function(event, toState) {
+      // Starting an upload reloads this state; already-cancelled transitions are re-issued (e.g. search's deep-state redirect).
+      if (toState.name !== "upload" && !event.defaultPrevented) {
         ctrl.displayWarning(event);
       }
     });
+    $scope.$on("$destroy", deregisterStateChangeStart);
 
     window.onbeforeunload = function () {
       if (uploadManager.getJobs().size > 0 || isOngoingUploadJobs()) {

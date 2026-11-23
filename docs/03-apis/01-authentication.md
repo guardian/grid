@@ -3,14 +3,14 @@
 There are three ways to authenticate with Grid.
 
 ## Inner service
-Services can call other Grid services, typically reusing the credentials of the original using the `onBehalfOf` mechanism. However, sometimes services such as `thrall` will need to originate a call to another Grid service (e.g. during a long-running migration), in which case they can make use of the `innerServiceCall` method on instances of `Authentication` (the same place where one can call `getOnBehalfOfPrincipal`). This `innerServiceCall` method adds the following headers to the request: 
+Services can call other Grid services, typically reusing the credentials of the original using the `onBehalfOf` mechanism. However, sometimes services such as `thrall` will need to originate a call to another Grid service (e.g. during a long-running migration), in which case they can make use of the `innerServiceCall` method on instances of `Authentication` (the same place where one can call `getOnBehalfOfPrincipal`). This `innerServiceCall` method adds the following headers to the request:
 
 - `X-Inner-Service-Identity`: contains the name of the originating service, e.g. `thrall` and  possibly names of other services the request has gone via (see `onBehalfOf` section below)
 - `X-Inner-Service-UUID`: contains a unique identifier for the request
 - `X-Inner-Service-Timestamp`
-- `X-Inner-Service-Signature`: contains a checksum of the above 3 headers, encrypted using the Play secret (which is already shared between the services),
+- `X-Inner-Service-Signature`: contains a checksum of the above 3 headers, the HTTP method, and the raw request path, signed using the Play secret (which is already shared between the services),
 
-which are then verified and interpreted as an `InnerServicePrincipal` when received in the service being called.
+which are then verified (along with checking the timestamp is within 3 seconds of current UTC time) and interpreted as an `InnerServicePrincipal` on endpoints that opt in via `auth.allowInnerService`. Other authenticated endpoints accept only user or API credentials.
 
 ## Panda Auth
 This is typically used for client-server authentication.
@@ -66,7 +66,8 @@ You can always redeploy the application if impatient!
 
 API keys are considered to have different "tiers" of access. Three are currently considered:
 
-- internal - Allowed to call any endpoint
+- administrator - Allowed to call any endpoint
+- internal - Allowed to call any endpoint except delete
 - readonly - Only allows GET requests
 - syndication - Only allows GET requests on endpoints specifically required for the syndication workflows
 

@@ -8,6 +8,7 @@ export var editsApi = angular.module('kahuna.services.api.edits', [
 /**
  * @typedef {{
  *   value: string;
+ *   searchAlias?: string;
  *   name: string;
  *   cost: string;
  *   description: string;

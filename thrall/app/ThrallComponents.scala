@@ -86,9 +86,9 @@ class ThrallComponents(context: Context) extends GridComponents(context, new Thr
   val softDeletedMetadataTable = new SoftDeletedMetadataTable(config)
   val maybeCustomReapableEligibility = config.maybeReapableEligibilityClass(applicationLifecycle)
 
-  val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, auth, config.services, controllerComponents, gridClient)
+  val thrallController = new ThrallController(es, store, migrationSourceWithSender.send, messageSender, actorSystem, authorisation, auth, config.services, controllerComponents, gridClient)
   val reaperController = new ReaperController(es, store, s3Vectors, authorisation, config, actorSystem.scheduler, maybeCustomReapableEligibility, softDeletedMetadataTable, thrallMetrics, auth, config.services, controllerComponents)
-  val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents)
+  val healthCheckController = new HealthCheck(es, streamRunning.isCompleted, config, controllerComponents, auth)
   val InnerServiceStatusCheckController = new InnerServiceStatusCheckController(auth, controllerComponents, config.services, wsClient)
 
   override lazy val router = new Routes(httpErrorHandler, thrallController, reaperController, healthCheckController, management, InnerServiceStatusCheckController, assets)

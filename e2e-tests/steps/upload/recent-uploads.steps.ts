@@ -2,7 +2,7 @@ import * as path from 'node:path';
 import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
-import { expectInUploadHistory } from './media-api.assertions.ts';
+import { expectInUploadHistory } from '../utils/api/media-api.assertions.ts';
 import { holdPastUploads, uniqueImage, uploadPage } from './setup.ts';
 
 const LOADING_MESSAGE = 'Loading…';
@@ -20,8 +20,8 @@ Then('I should see a loading message', async ({ page, testContext }) => {
 });
 
 Given('I have never uploaded an image', async ({ page }) => {
-  // The full-access account's history grows as the suite runs; the restricted one never uploads.
-  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+  // Other accounts gain history from uploads or seeded fixtures; this one never uploads.
+  await openUploadPageAs(page, TEST_ACCOUNTS.noHistory);
 });
 
 Given('I have uploaded images before', async ({ page, testContext }) => {
