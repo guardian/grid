@@ -68,6 +68,7 @@ export function metadataSaveStatus(save: MetadataSave): string {
     + (unknown ? `; ${unknown} uncertain` : "") + (rejected ? `; ${rejected} not saved` : "")
     + (superseded ? `; ${superseded} superseded` : "")
     + (save.excluded ? `; ${save.excluded} excluded` : "")
+    + (save.items.some(item => item.result?.outcome === "blocked" && item.result.reason === "unaddressable-label") ? "; An existing label cannot be removed by Grid's member URL" : "")
     + (stepSummary ? `; Interrupted label steps: ${stepSummary}` : "")
     + (notSaved || notConfirmed ? `; Metadata from rights: ${[notSaved && `${notSaved} not saved`, notConfirmed && `${notConfirmed} not confirmed`].filter(Boolean).join(" · ")}` : "");
 }
@@ -212,7 +213,7 @@ export function createMetadataEditorStore(
       const draft = useMetadataDrafts.getState().drafts.get(imageId)?.get(fieldId);
       if (!draft) return;
       if (submittedDrafts.get(key) === draft.revision) return;
-      const intent = metadataIntent(fieldId, "overwrite", draft.value, [imageId]);
+      const intent = metadataIntent(fieldId, "overwrite", draft.dateInstant ?? draft.value, [imageId]);
       if (!intent) return;
       for (const [id, captured] of capturedDrafts) {
         const save = get().saves.get(id);
@@ -268,7 +269,7 @@ export function createMetadataEditorStore(
     if (!execute || !observation) return;
     const save = store.getState().saves.get(id)!;
     const group = [save];
-    const progress = new Map<number, { items: MetadataReceipt["items"]; excluded: number }>();
+    const progress = new Map<number, { items: MetadataReceipt["items"][number][]; excluded: number }>();
     let dispatchReleased = false;
     const releaseDispatch = () => {
       if (dispatchReleased) return;
@@ -362,7 +363,7 @@ export function createMetadataEditorStore(
         const receipt = operation.getSnapshot()!;
         for (const item of receipt.items) {
           const own = progress.get(owners.get(item.imageId)!.id)!;
-          own.items = [...own.items, item];
+          own.items.push(item);
         }
         if (receipt.blocked || receipt.items.some(item => item.result?.outcome === "blocked" || item.state === "stopped" && !stopped.has(owners.get(item.imageId)!.id)
           || sessionStopReason(item.result))) break;

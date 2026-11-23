@@ -744,14 +744,25 @@ describe("metadata field preparation", () => {
   });
 
   it("keeps the Form calendar at whole seconds while preserving original fractions and typed wall-clock values", () => {
+    vi.stubEnv("TZ", "Europe/London");
     const field = RECONCILE_FIELDS.find(field => field.id === "metadata_dateTaken")!;
-    const original = "2026-11-10T11:22:33.123Z";
-    render(<MetadataFormField imageId="first" field={field} value={original} editable />);
+    const original = "2026-10-25T01:30:33.123Z";
+    const editor = createMetadataEditorStore();
+    const submitArrow = vi.fn();
+    editor.setState({ connected: true, submitArrow, schedule: vi.fn() });
+    render(<MetadataEditorContext value={editor}><FormBatchContext value={{ key: "batch", ids: ["first", "peer"] }}>
+      <MetadataFormField imageId="first" field={field} value={original} editable />
+    </FormBatchContext></MetadataEditorContext>);
     const input = screen.getByLabelText("Taken on") as HTMLInputElement;
+    const arrow = screen.getByRole("button", { name: "Apply Taken on to 1 batch image" });
+    fireEvent.click(arrow);
+    expect(submitArrow.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["peer"] });
     const originalSecond = input.value.slice(0, 19);
     expect(input.step).toBe("1");
     expect(input.getAttribute("value")).toBe(originalSecond);
     fireEvent.change(input, { target: { value: "2026-11-12T10:20:30" } });
+    fireEvent.click(arrow);
+    expect(submitArrow.mock.lastCall?.[0]).toMatchObject({ value: "2026-11-12T10:20:30.000Z", targetIds: ["peer"] });
     expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-11-12T10:20:30.000");
     fireEvent.change(input, { target: { value: originalSecond } });
     expect(useMetadataDrafts.getState().drafts.size).toBe(0);
@@ -761,8 +772,14 @@ describe("metadata field preparation", () => {
     fireEvent.change(input, { target: { value: "" } });
     expect(useMetadataDrafts.getState().drafts.get("first")?.get(field.id)?.value).toBe("2026-03-29T01:30:00.000");
     expect(input.value).toBe("2026-03-29T01:30");
+    const submit = vi.fn();
+    editor.setState({ hasPendingField: () => true, submit });
     fireEvent.change(input, { target: { value: originalSecond } });
-    expect(useMetadataDrafts.getState().drafts.size).toBe(0);
+    fireEvent.click(arrow);
+    editor.getState().flush("first", field.id);
+    expect(submitArrow.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["peer"] });
+    expect(submit.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["first"] });
+    editor.getState().dispose();
   });
 
   it("retains sparse form drafts across unmount and canonical changes without changing canonical metadata", () => {

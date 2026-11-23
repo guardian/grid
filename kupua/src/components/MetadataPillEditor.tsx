@@ -9,6 +9,7 @@ import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import type { MetadataEditIntent } from "./MetadataTextEditor";
 import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
+import { addressableLabel } from "@/lib/grid-mutation-policy";
 
 export const PILL_EDIT_FIELDS = new Set(["keywords", "collections", "people"]);
 
@@ -45,6 +46,9 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     : field.id === "subjects" ? "subject" : field.id === "labels" ? "label" : "keyword";
   const hasAll = (value: string) => values.some(item => item.value === value.trim() && item.count === targetIds.length);
   const prepare = (action: "add" | "remove", value: string) => {
+    if (field.id === "labels" && !addressableLabel(action === "add" ? value.trim() : value)) {
+      setNotice("This label cannot be addressed by Grid. No change was sent."); return;
+    }
     if (!(action === "add" ? canAdd : available) || !value.trim() || !targetIds.length || action === "add" && hasAll(value)) return;
     const intent: MetadataEditIntent = { fieldId: field.id, action, value: action === "remove" ? value : value.trim(), targetIds: [...targetIds] };
     const submitted = onPrepare ? (onPrepare(intent), undefined) : commit(intent, addRef.current);

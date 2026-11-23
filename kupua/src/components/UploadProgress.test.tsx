@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react/pure";
 import { UploadNotices, UploadProgress } from "./UploadProgress";
-import { UploadDropzone, UploadEntry } from "./UploadActivity";
-import { checkUploadAttempt, useUploadJobsStore, type UploadAttempt } from "@/stores/upload-jobs-store";
+import { UploadActivity, UploadDropzone, UploadEntry } from "./UploadActivity";
+import { checkUploadAttempt, stopUploadTransfer, useUploadJobsStore, type UploadAttempt } from "@/stores/upload-jobs-store";
 import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 import { useToastStore } from "@/stores/toast-store";
 import { getGridSessionPermissions } from "@/lib/grid-api-instance";
@@ -29,7 +29,7 @@ vi.mock("@/lib/site-settings", async original => ({
   siteSettings: () => ({ upload: { transport: "direct" } }),
 }));
 vi.mock("@/stores/upload-jobs-store", async original => ({
-  ...await original<typeof import("@/stores/upload-jobs-store")>(), checkUploadAttempt: vi.fn(),
+  ...await original<typeof import("@/stores/upload-jobs-store")>(), checkUploadAttempt: vi.fn(), stopUploadTransfer: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -73,6 +73,15 @@ it("preserves the page input and focus when delayed upload permission resolves",
   expect(screen.getByRole("textbox", { name: "Search draft" })).toBe(input);
   expect((input as HTMLInputElement).value).toBe("Uncommitted search");
   expect(document.activeElement).toBe(input);
+});
+
+it("can stop an active transfer when new uploads are no longer admitted", async () => {
+  load([{ id: "active", name: "active.jpg", size: 1, phase: "transferring" }]);
+  render(<><UploadActivity /><UploadEntry /></>);
+  await act(async () => {});
+  expect(screen.queryByRole("button", { name: "Upload files" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Stop transfer for active.jpg" }));
+  expect(stopUploadTransfer).toHaveBeenCalledExactlyOnceWith("active");
 });
 
 it.each([false, true])("opens an activity image only while its list navigation remains current (superseded=%s)", async superseded => {
@@ -151,9 +160,13 @@ it("uses approved copy, keeps uncheckable outcomes honest and expands redacted s
     { id: "server", name: "server.jpg", size: 1, phase: "blocked", message: "Upload permission is unavailable." },
     { id: "large", name: "large.tif", size: 742_000_000, phase: "failed", submission: { outcome: "failed", stage: "preparation", failureKind: "size", maxFileBytes: 666_000_000 } },
     { id: "no-id", name: "unknown.jpg", size: 1, phase: "uncertain" },
+    { id: "existing", name: "existing.jpg", size: 1, phase: "complete", imageId: "f".repeat(40), statusId: "f".repeat(40),
+      submission: { outcome: "uncertain", stage: "transfer" } },
   ]);
   render(<UploadProgress split />);
-  fireEvent.click(screen.getByRole("button", { name: "Upload activity: 4 need attention" }));
+  fireEvent.click(screen.getByRole("button", { name: "Upload activity: 5 need attention" }));
+  expect(screen.getByText("Image available; transfer not confirmed")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "existing.jpg" })).toBeTruthy();
   expect(screen.getByText("Server error")).toBeTruthy();
   expect(screen.queryByText("Upload permission is unavailable.")).toBeNull();
   expect(screen.getByText("Filesize exceeds max 666MB")).toBeTruthy();

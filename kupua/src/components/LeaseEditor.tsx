@@ -87,10 +87,13 @@ export function LeaseEditor({ ids, images, allowed, form = false, canReplace = f
     event.preventDefault();
     if (!ready || submitted.locked || !draft.access) return;
     const syndication = draft.access.endsWith("-syndication");
-    const overwriteOn = syndication ? images.filter(image => image.leases?.leases?.some(item => item.access.endsWith("-syndication"))).map(image => image.id) : [];
-    if (overwriteOn.length && !window.confirm(`Replace existing syndication leases on ${overwriteOn.length} ${overwriteOn.length === 1 ? "image" : "images"}?`)) return;
+    const replacements = syndication ? images.flatMap(image => {
+      const existing = image.leases?.leases?.find(item => item.access.endsWith("-syndication"));
+      return existing ? [[image.id, existing.id] as const] : [];
+    }) : [];
+    if (replacements.length && !window.confirm(`Replace existing syndication leases on ${replacements.length} ${replacements.length === 1 ? "image" : "images"}?`)) return;
     const notes = [draft.call && "CALL AGENCY", draft.premium && "PREMIUM", draft.notes.trim()].filter(Boolean).join(", ");
-    const save = commit({ fieldId: "leases", action: "overwrite", targetIds: ids, value: { kind: "add", overwriteOn, lease: { access: draft.access,
+    const save = commit({ fieldId: "leases", action: "overwrite", targetIds: ids, value: { kind: "add", approvedLeaseIds: Object.fromEntries(replacements), lease: { access: draft.access,
       ...(draft.start && { startDate: new Date(draft.start).toISOString() }), ...(draft.end && { endDate: new Date(draft.end).toISOString() }), ...(notes && { notes }) } } });
     if (!save) return;
     if (event.currentTarget.contains(document.activeElement)) focus.current = "add";

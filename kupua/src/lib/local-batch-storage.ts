@@ -24,6 +24,7 @@ const descriptorSchema = z.object({
     statusId: imageId.optional(), imageId: imageId.optional(), processingComplete: z.boolean().optional(),
     message: z.string().optional(),
     notificationDismissed: z.boolean().optional(),
+    metadataNeedsAttention: z.literal(true).optional(),
     serverError: z.string().optional(),
     submission: z.object({
       outcome: z.enum(["accepted", "blocked", "failed", "uncertain"]),
@@ -50,7 +51,8 @@ export function loadUploadBatches(): Array<UploadBatch & { revision: number }> {
         useLocalPersistenceStore.setState({ descriptorIssue: "Some retained local batches are unavailable because their records could not be read." });
         continue;
       }
-      batches.push({ ...parsed.data, restored: true, attempts: parsed.data.attempts.map(attempt => ({ ...attempt,
+      batches.push({ ...parsed.data, restored: true, attempts: parsed.data.attempts.map(({ metadataNeedsAttention, ...attempt }) => ({ ...attempt,
+        ...(metadataNeedsAttention && { followups: [{ label: "Metadata", summary: "Check the image: one or more edits were not confirmed before reload.", pending: false, attention: true }] }),
         phase: interruptedPhases.has(attempt.phase) ? "interrupted" : attempt.phase,
         ...(attempt.phase === "interrupted" || interruptedPhases.has(attempt.phase)
           ? { message: "This page was interrupted. Nothing was resumed or resubmitted. Check status explicitly when an identity is known." } : {}),
@@ -66,6 +68,7 @@ export function saveUploadBatch(batch: UploadBatch, revision: number): void {
   try {
     const descriptor = descriptorSchema.parse({ version: 1, ...batch, revision,
       attempts: batch.attempts.map(attempt => ({ ...attempt,
+        ...(attempt.followups?.some(item => item.attention || item.pending) && { metadataNeedsAttention: true }),
         phase: attempt.interrupted || interruptedPhases.has(attempt.phase) ? "interrupted" : attempt.phase,
       })),
     });

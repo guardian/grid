@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { uploadPending, uploadAttention, checkUploadAttempt, dismissUploadAttempt, useUploadJobsStore, type UploadAttempt, type UploadBatch } from "@/stores/upload-jobs-store";
+import { uploadPending, uploadAttention, unconfirmedTransfer, checkUploadAttempt, dismissUploadAttempt, stopUploadTransfer, useUploadJobsStore, type UploadAttempt, type UploadBatch } from "@/stores/upload-jobs-store";
 import { redactUploadError, uploadFailureLabel } from "@/lib/upload-error";
 import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 import { pushNavigate } from "@/lib/orchestration/search";
@@ -38,7 +38,8 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   const failed = uploadAttention(attempt);
   const followupIssues = attempt.phase === "complete" ? attempt.followups?.filter(result => result.attention) : undefined;
   const hasFollowupIssues = Boolean(followupIssues?.length);
-  const label = hasFollowupIssues ? "Uploaded; metadata needs attention" : failed ? uploadFailureLabel(attempt) : null;
+  const uncertainTransfer = unconfirmedTransfer(attempt);
+  const label = hasFollowupIssues ? uncertainTransfer ? "Metadata needs attention" : "Uploaded; metadata needs attention" : failed && !uncertainTransfer ? uploadFailureLabel(attempt) : null;
   const recheckable = Boolean(attempt.statusId && (attempt.phase === "uncertain" || attempt.phase === "interrupted"));
   const serverError = attempt.serverError ? redactUploadError(attempt.serverError) : undefined;
   const batchDate = formatRecentGridDate(batch.createdAt);
@@ -71,9 +72,11 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
       {attempt.phase === "complete" && attempt.imageId
         ? <button type="button" className="upload-filename upload-link" title={attempt.name} onClick={openImage}>{attempt.name}</button>
         : <span className="upload-filename" title={attempt.name}>{attempt.name}</span>}
+      {uncertainTransfer && <span className="upload-row-label">Image available; transfer not confirmed</span>}
       {serverError || hasFollowupIssues ? <button type="button" className="upload-link upload-row-action" aria-expanded={details} onClick={() => setDetails(value => !value)}>{label}</button>
         : label && <span className="upload-row-label">{label}</span>}
       {recheckable && <button type="button" className="upload-link upload-row-action" onClick={() => checkUploadAttempt(attempt.id)}>Recheck</button>}
+      {attempt.phase === "transferring" && <button type="button" className="upload-link upload-row-action" aria-label={`Stop transfer for ${attempt.name}`} onClick={() => stopUploadTransfer(attempt.id)}>Stop transfer</button>}
       {showBatch && <span className="upload-row-batch">{batchLabel}</span>}
       {failed && <button type="button" className="upload-dismiss" title="Acknowledge error" aria-label={`Acknowledge error for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
     </div>

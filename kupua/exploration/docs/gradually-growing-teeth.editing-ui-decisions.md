@@ -238,6 +238,8 @@ owns remaining command and deletion-compaction work.
 
 ## 6. Remaining Design Limits
 
+**Open: leaving with an unresolved label receipt.** Grid has acknowledged a label but Kupua never observed it in search. The work has ended, yet closing the tab loses the receipt. Keep the current departure warning until we decide whether inspecting the issue is enough to acknowledge that loss or the editor must explicitly dismiss it. This decision is separate from protecting an unsaved draft or an in-flight request.
+
 The earlier focused-field-task recommendation is superseded by the operator's
 inline choice. A sheet-wide Edit mode is not requested either. The real desktop/mobile
 metadata panels now implement these controls, including collection picking; only Labels

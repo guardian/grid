@@ -70,6 +70,14 @@ own the Upload-specific evidence and remaining work.
 | Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
 | Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
 
+### What editing guarantees today
+
+For bounded work in one tab, a save captures its target IDs; changing selection does not retarget it. A completed autosave clears only its own draft revision. Kupua distinguishes an acknowledged write from a change observed in search and does not automatically replay an uncertain write.
+
+These are client guarantees, not transactions. Two editors changing different fields on one image can still lose an edit ([GRID-020](bug-backlog.md#grid-020)). Syndication replacement checks the lease UUID the user approved, but cannot make the subsequent server replacement atomic ([GRID-027](bug-backlog.md#grid-027)). Label authorization remains a service-owner decision ([GRID-028](bug-backlog.md#grid-028)). Image deletion stays disconnected: a 202 can precede persistence, absence from search is not proof, and restore has a separate ordering risk ([GRID-012](bug-backlog.md#grid-012), [GRID-010](bug-backlog.md#grid-010)).
+
+For the dated review and its companion ledgers, see the [23 November editing audit](zz%20Archive/2026-11-23-editing-audit/editing-trust-assessment.md). The [changelog](changelog.md) records the client repairs.
+
 ### Cross-workflow performance evidence
 
 The [performance plan](editing-performance-plan.md) and [evidence ledger](editing-performance-evidence.md)

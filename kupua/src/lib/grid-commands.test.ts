@@ -22,6 +22,22 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("refuses label additions that cannot be addressed as members", async () => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    const { executeGridCommand } = await import("./grid-commands");
+    for (const input of [{ ...command, labels: ["."] }, { imageId: command.imageId, resource: command.resource,
+      operation: "edit-label-list", add: [".."], remove: ["old"], clear: false }]) {
+      expect(await executeGridCommand(input)).toEqual({ outcome: "blocked", reason: "invalid-command" });
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    const uri = `${metadataOrigin}/metadata/fixture/labels`;
+    fetch.mockResolvedValueOnce(root()).mockResolvedValueOnce(session()).mockResolvedValueOnce(Response.json({ data: { labels: { uri,
+      data: ["desk", "."].map(data => ({ uri: `${uri}/${data}`, data })) } } }));
+    expect(await executeGridCommand({ imageId: command.imageId, resource: command.resource,
+      operation: "edit-label-list", add: [], remove: [], clear: true })).toEqual({ outcome: "blocked", reason: "unaddressable-label" });
+    expect(fetch.mock.calls.every(([, options]) => !options?.method || options.method === "GET")).toBe(true);
+  });
   it.each([401, 419, 403, 429, "network"])("retains label substeps after a later failure (%s)", async status => {
     const labels = `${metadataOrigin}/metadata/fixture/labels`;
     const writes: string[] = [];
@@ -47,23 +63,27 @@ describe("Grid command admission", () => {
     const origin = "https://leases.example.test", path = "/leases/media/fixture";
     vi.stubEnv("VITE_HOSTED", "true");
     vi.stubGlobal("window", { __KUPUA_CONFIG__: { mediaApiUri: "https://api.example.test" } });
+    const approvedId = "23a47def-4fea-44bb-b706-30bd5e145f31";
+    let currentId = "399931dd-7069-40ef-b26c-30567b5341a1";
     let writes = 0;
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       if (url === "https://api.example.test") return Response.json({ links: [{ rel: "leases", href: origin }, { rel: "session", href: `${authOrigin}/session` }] });
       if (url === `${authOrigin}/session`) return session();
       if (url === "https://api.example.test/images/fixture") return Response.json({ data: { id: "fixture" },
         links: [...command.resource.links, { rel: "leases", href: origin + path }], actions: [{ name: "add-lease", method: "POST", href: `${origin}/leases` }] });
-      if (url === origin + path) return Response.json({ data: { leases: [{ mediaId: "fixture", id: "23a47def-4fea-44bb-b706-30bd5e145f31", access: "allow-syndication" }] } });
+      if (url === origin + path) return Response.json({ data: { leases: [{ mediaId: "fixture", id: currentId, access: "allow-syndication" }] } });
       expect(url).toBe(`${origin}/leases`); expect(init?.method).toBe("POST"); writes++;
       if (failure === "network") throw Error("lost response");
       return new Response(null, { status: 429 });
     }));
     const { executeGridCommand } = await import("./grid-commands");
     const { leaseSetKey } = await import("./lease-change");
-    const edit = (overwrite: boolean) => executeGridCommand({ imageId: "fixture", resource: command.resource, operation: "edit-leases", value: { kind: "add", lease: { access: "deny-syndication" }, overwrite } });
-    expect(await edit(false)).toEqual({ outcome: "blocked", reason: "unavailable" });
+    const edit = (approvedLeaseId?: string) => executeGridCommand({ imageId: "fixture", resource: command.resource, operation: "edit-leases", value: { kind: "add", lease: { access: "deny-syndication" }, approvedLeaseId } });
+    expect(await edit()).toEqual({ outcome: "blocked", reason: "unavailable" });
+    expect(await edit(approvedId)).toEqual({ outcome: "blocked", reason: "unavailable" });
     expect(writes).toBe(0);
-    expect(await edit(true)).toEqual({ outcome: "unknown", expectedLeases: leaseSetKey([{ access: "deny-syndication" }]), ...(failure === "429" && { status: 429 }) });
+    currentId = approvedId;
+    expect(await edit(approvedId)).toEqual({ outcome: "unknown", expectedLeases: leaseSetKey([{ access: "deny-syndication" }]), ...(failure === "429" && { status: 429 }) });
     expect(writes).toBe(1);
   });
   it("groups rights reads but releases each matching image independently", async () => {

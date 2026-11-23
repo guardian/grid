@@ -24,6 +24,17 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Preserve editing intent and upload uncertainty
+
+Taken-date copies and retained autosaves preserve the source instant through a repeated local hour.
+Syndication replacement now checks the specific lease the editor approved before sending.
+Label additions reject unaddressable members; clearing an existing one refuses before any deletion.
+
+Upload Activity distinguishes image availability from transfer acknowledgement and retains an unresolved
+metadata warning across reload without replaying edits. An active transfer can be stopped without blocking
+later files, even after submission permission is lost. Follow-up progress with unchanged recovery state no
+longer rewrites the batch descriptor. Settling bulk edits appends privately without recopying earlier outcomes.
+
 ### 23 November 2026 - Manual leases and batch editing in Upload
 
 Editors can add manual leases in Search, Detail and Upload, remove an individual lease, and copy or clear a whole lease set across an open upload batch. Paid images remain marked as paid when leased. Upload opens missing Rights for editing and shows cost, usability and Library status below the image. Labels, Keywords and People batch arrows propagate additions and explicit removals without overwriting unrelated pills. Returning from Detail highlights the image briefly; Form paging moves one image at a time, and the My other uploads scrubber shows upload dates. See the [editing roadmap](gradually-growing-teeth.kupua-edits-steps.md#step-15-upload-import-and-post-upload-editing) for scope and remaining work.

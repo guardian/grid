@@ -2916,6 +2916,14 @@ Recheck may resume previously captured unsent follow-ups through existing owners
 and gates; it is not a blanket promise of zero writes. Reuse existing observation
 owners if selected; no new scheduler, retry framework or backend work is authorized.
 
+If Recheck finds an available image but the original submission was not acknowledged,
+Activity keeps the image link and reports the transfer as unconfirmed. Stop transfer
+aborts only the current byte transfer and discards its unsent follow-ups; the file is
+not retransmitted and later files can proceed. Stopping remains possible after upload
+admission is lost. Reload retains only an attention marker for unresolved metadata,
+not editable presets, drafts or a replayable follow-up. Status-only changes that leave
+this marker unchanged do not require another descriptor write.
+
 ### Plain-Language Activity Follow-up Outcomes
 
 **Done.** [Upload Activity](../../src/components/UploadProgress.tsx) keeps successful

@@ -134,6 +134,8 @@ legacy-category expansion remains accepted lag.
 | [GRID-024](#grid-024) | Signed-upload QUEUED condition compares incompatible DynamoDB types | Reproduced locally; [upstream fix #5259](https://github.com/guardian/grid/pull/5259) opened 21 November | Kupua reconciles availability independently; upstream deployment not verified |
 | [GRID-025](#grid-025) | Date overrides cannot explicitly clear an embedded Taken on value | Source-confirmed contract limitation; no live write trial | Date clearing temporarily disabled in Kupua; setting/replacement and other U5 metadata work can proceed |
 | [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
+| [GRID-027](#grid-027) | Lease replacement clears existing restrictions before storing their replacements | Open; source-confirmed, no observed outage | Client preflight cannot make replacement atomic |
+| [GRID-028](#grid-028) | Confirm intended per-image authorization for label writes | Open policy question; source comparison only | Resolve with metadata-editor owner before broader rollout |
 
 <details>
 <summary>Completed bounded repairs and verification: 51 IDs</summary>
@@ -1217,6 +1219,17 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Evidence:** [ingestion receive and completion handler](../../../image-loader/app/controllers/ImageLoaderController.scala#L112), [once-scheduled consumer loop](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/SqsViaSnsMessageConsumer.scala#L26), and [receive call](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/SimpleSqsMessageConsumer.scala#L13). Local R020 supplied terminal502/504 traces with100stored uploads not indexed; normal Grid restart followed by Recheck recovered100. Source-supported failure mechanism, not a production-frequency or underlying gateway-cause claim.
 - **Smallest discriminator / future direction:** isolated consumer test with one exhausted receive failure followed by a recoverable queue/message; check whether consumption resumes. Assess bounded backoff/supervision and consumer health reporting without hiding permanent failure or replaying writes. Proposed, not implemented or run.
 - **Disposition:** OPEN, backend-only and deferred. No backend changes during this tuning effort; not permission for a new recovery framework or wider local failure investigation.
+
+#### GRID-027
+**Replacing leases can discard restrictions and change attribution on retained leases**
+- **Owner:** Grid leases service. [Syndication add](../../../leases/app/controllers/MediaLeaseController.scala#L71) also takes the replacement path, even for a single image.
+- **Consequence:** [replacement](../../../leases/app/controllers/MediaLeaseController.scala#L93) assigns new identities and `leasedBy`, clears existing leases, then stores the new set. Failure between clear and put can leave prior restrictions missing; successful replacement can reattribute ordinary leases whose terms did not change. Source finding, not a reproduced outage.
+- **Next check:** fail the owning store after clear and inspect the durable set; on success compare identity and author of an untouched ordinary lease. Kupua checking the approved syndication UUID before POST narrows the race, but neither protects the interval after that check nor makes a rollback safe.
+
+#### GRID-028
+**Decide whether label changes require the same per-image authority as metadata changes**
+- **Owner:** Grid metadata-editor. [Label handlers](../../../metadata-editor/app/controllers/EditsController.scala#L123) authenticate; the [metadata setter](../../../metadata-editor/app/controllers/EditsController.scala#L155) also applies the uploader-or-editor check. Kupua gates its controls on an image grant; that is not server enforcement.
+- **Decision:** should a signed-in user who cannot edit an image's credit be able to add or remove its labels? Confirm the intended policy and cover it at the receiving handler before broader rollout. This is not a confirmed policy violation or a live access test.
 
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**

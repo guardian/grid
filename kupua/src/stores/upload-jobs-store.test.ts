@@ -18,6 +18,23 @@ afterEach(async () => {
 });
 
 describe("route-independent upload jobs", () => {
+  it("stops only the active transfer and continues the queue without replay", async () => {
+    vi.useFakeTimers();
+    vi.mocked(submitGridUpload).mockImplementationOnce(async (_file, progress, signal) => {
+      progress("transfer", "a".repeat(40));
+      await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
+      return { outcome: "uncertain", stage: "transfer", imageId: "a".repeat(40) };
+    }).mockResolvedValue({ outcome: "accepted", stage: "transfer", imageId: "b".repeat(40) });
+    vi.mocked(observeGridUpload).mockResolvedValue({ outcome: "visible" });
+    submitUploadFiles([file("a.jpg"), file("b.jpg")]);
+    const { stopUploadTransfer } = await import("./upload-jobs-store");
+    stopUploadTransfer(useUploadJobsStore.getState().batches[0].attempts[0].id);
+    await vi.advanceTimersByTimeAsync(1);
+    const [stopped, next] = useUploadJobsStore.getState().batches[0].attempts;
+    expect(stopped).toMatchObject({ phase: "uncertain", statusId: "a".repeat(40) });
+    expect(next.phase).toBe("complete");
+    expect(submitGridUpload).toHaveBeenCalledTimes(2);
+  });
   it("starts uploads in current batch filename order even when the picker returns them out of order", async () => {
     vi.useFakeTimers();
     vi.mocked(submitGridUpload).mockImplementation(async input => ({
@@ -54,11 +71,12 @@ describe("route-independent upload jobs", () => {
       const saving = { label: "Filename description", summary: "Saving", pending: true, attention: false };
       report([saving]);
       report([{ ...saving }]);
+      report([{ ...saving, summary: "Saving: 0/1 visible" }]);
       expect(persist).toHaveBeenCalledTimes(1);
       acknowledgeUploadNavigation();
       expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(1);
       report([{ ...saving, summary: "Uncertain", pending: false, attention: true }]);
-      expect(persist).toHaveBeenCalledTimes(2);
+      expect(persist).toHaveBeenCalledTimes(1);
     } finally { vi.unstubAllGlobals(); }
     acknowledgeUploadNavigation();
     expect(useUploadJobsStore.getState().activityAttemptIds.size).toBe(1);
@@ -203,6 +221,10 @@ describe("route-independent upload jobs", () => {
     });
     vi.mocked(observeGridUpload).mockImplementation(async id => ({ outcome: "status", status: id === readyId ? "COMPLETED" : "QUEUED" }));
     vi.mocked(observeUploadedImage).mockResolvedValue({ outcome: "visible" });
+    const followup = vi.fn((_id: string, name: string | undefined, _labels: readonly string[], report: (items: readonly { label: string; summary: string; pending: boolean; attention: boolean }[]) => void) => {
+      report([{ label: "private preset", summary: "Not saved", pending: false, attention: name === "z.jpg" }]);
+    });
+    configureUploadFollowups(followup);
     const batchId = submitUploadFiles([file("z.jpg"), file("a.jpg"), file("pending.jpg"), file("too-large.jpg")])!;
     await vi.advanceTimersByTimeAsync(2_100);
     dismissUploadAttempt(useUploadJobsStore.getState().batches.find(batch => batch.id === batchId)!.attempts.find(attempt => attempt.name === "too-large.jpg")!.id);
@@ -219,6 +241,11 @@ describe("route-independent upload jobs", () => {
       expect(dismissed?.notificationDismissed).toBe(true);
       expect(restored.useUploadJobsStore.getState().activityAttemptIds.has(dismissed!.id)).toBe(false);
       expect(batch?.attempts.find(attempt => attempt.name === "z.jpg")?.submission?.queued).toBe("rejected");
+      const affected = batch!.attempts.find(attempt => attempt.name === "z.jpg")!;
+      expect(restored.useUploadJobsStore.getState().activityAttemptIds.has(affected.id)).toBe(true);
+      expect(restored.uploadAttention(affected)).toBe(true);
+      expect([...stored.values()].join("")).not.toContain("private preset");
+      expect(followup).toHaveBeenCalledTimes(2);
       const membership = (await import("@/lib/browsing-context")).uploadBatchMembership.getState().batches.get(batchId);
       expect(membership?.ids).toEqual([readyId]);
       expect(membership?.revision).toBe(revision);
@@ -226,6 +253,7 @@ describe("route-independent upload jobs", () => {
       expect(submitGridUpload).toHaveBeenCalledTimes(4);
     } finally {
       restored.disposeUploadJobs();
+      configureUploadFollowups(undefined);
       restored.useUploadJobsStore.setState({ batches: [] });
       vi.unstubAllGlobals();
     }

@@ -1,13 +1,14 @@
 import { useContext, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { gridUploadsEnabled } from "@/lib/upload-commands";
+import { addressableLabel } from "@/lib/grid-mutation-policy";
 import { getGridSessionPermissions, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import { siteSettings } from "@/lib/site-settings";
 import { pushNavigate } from "@/lib/orchestration/search";
 import { setPrevParamsSerialized } from "@/lib/orchestration/search";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { withFreshKupuaKey } from "@/lib/orchestration/history-key";
-import { uploadPending, uploadAttention, submitUploadFiles, useUploadJobsStore, useUploadPresets, type UploadBatch } from "@/stores/upload-jobs-store";
+import { uploadPending, uploadAttention, stopUploadTransfer, submitUploadFiles, useUploadJobsStore, useUploadPresets, type UploadBatch } from "@/stores/upload-jobs-store";
 import { MetadataEditorContext } from "./MetadataEditing";
 import { UploadProgress } from "./UploadProgress";
 import { formatRecentGridDate } from "@/lib/format-grid-date";
@@ -187,7 +188,7 @@ export function UploadFilePrompt() {
   const editor = useContext(MetadataEditorContext);
   const add = () => {
     const value = draft.trim();
-    if (!value || !editor.getState().connected) return;
+    if (!addressableLabel(value) || !editor.getState().connected) return;
     useUploadPresets.setState({ labels: [...new Set([...labels, value])] });
     setDraft("");
   };
@@ -199,7 +200,7 @@ export function UploadFilePrompt() {
       <input aria-label="Preset label" placeholder="Label" value={draft} disabled={!editor.getState().connected}
         className="min-w-0 max-w-48 bg-grid-bg border border-grid-border px-1" onChange={event => setDraft(event.target.value)}
         onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); add(); } }} />
-      <button type="button" disabled={!draft.trim() || !editor.getState().connected} onClick={add} aria-label="Add label to all uploads" title="Add preset label" className="upload-preset-add">
+      <button type="button" disabled={!addressableLabel(draft.trim()) || !editor.getState().connected} onClick={add} aria-label="Add label to all uploads" title={draft.trim() && !addressableLabel(draft.trim()) ? "Enter a label other than . or .." : "Add preset label"} className="upload-preset-add">
         <svg viewBox="0 0 24 24" fill="currentColor" className="size-5" aria-hidden="true">
           <path fillRule="evenodd" d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5Zm6 4v4H7v2h4v4h2v-4h4v-2h-4V7h-2Z" clipRule="evenodd" />
         </svg>
@@ -243,12 +244,22 @@ export function UploadBatchSelector({ batch }: { batch?: string }) {
   </div>;
 }
 
+function UnadmittedTransferControl() {
+  const active = useUploadJobsStore(state => {
+    for (const batch of state.batches) {
+      const transfer = batch.attempts.find(attempt => attempt.phase === "transferring");
+      if (transfer) return transfer;
+    }
+  });
+  return active ? <div className="upload-activity upload-activity-global"><button type="button" className="upload-link" aria-label={`Stop transfer for ${active.name}`} onClick={() => stopUploadTransfer(active.id)}>Stop transfer</button></div> : null;
+}
+
 export function UploadActivity({ toolbar = false, split = false }: { toolbar?: boolean; split?: boolean }) {
   const navigate = useNavigate();
   const available = useUploadAvailable();
   const showBatchControls = useRouterState({ select: state => state.location.pathname === "/search"
     && !state.location.search.image && !state.location.search.cropping });
-  if (!available) return null;
+  if (!available) return !toolbar && !split ? <UnadmittedTransferControl /> : null;
   return <UploadProgress toolbar={toolbar} split={split} renderBatchControls={!showBatchControls ? undefined : () => <div className="upload-popup-header">
     <button type="button" className="upload-link" onClick={() => enterUploads(navigate)}>Go to recent uploads</button>
   </div>} />;

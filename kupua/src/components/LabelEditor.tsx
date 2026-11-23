@@ -15,6 +15,7 @@ import { FieldAddButton } from "./FieldAddButton";
 import { addToast } from "@/stores/toast-store";
 import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, SavingValue, usePendingPanelIntent } from "./MetadataEditing";
 import { useSelectionStore } from "@/stores/selection-store";
+import { addressableLabel } from "@/lib/grid-mutation-policy";
 
 export const LabelEditorContext = createContext<ReturnType<typeof createLabelEditorStore>>(labelEditorStore);
 
@@ -124,6 +125,10 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const addDisabled = disabled && !queueAdds;
   const chips = [...values].sort((first, second) => second.count - first.count);
   const act = (action: "add" | "remove", label: string) => {
+    if (!addressableLabel(action === "add" ? label.trim() : label)) {
+      addToast({ category: "warning", message: "This label cannot be addressed by Grid. No change was sent." });
+      return false;
+    }
     const current = resolveContext?.() ?? context;
     if (labelTargetKey(current.targetIds) !== key) return false;
     if (action === "add" && queueAdds) return panelSaveAdmitted(submit({ fieldId: "labels", action, value: label, targetIds: current.targetIds }, addButtonRef.current), "Label change not sent");
@@ -137,7 +142,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   };
   const commit = () => {
     const labels = [...new Set(value.split(",").map(label => label.trim()).filter(Boolean))];
-    setInvalid(!labels.length);
+    if (!labels.length || !labels.every(addressableLabel)) { setInvalid(true); return; }
     const current = resolveContext?.() ?? context;
     if (addDisabled || !labels.length || (!queueAdds && current.pending) || labelTargetKey(current.targetIds) !== key) return;
     const admitted = queueAdds && labels.length === 1 ? act("add", labels[0]) : store.getState().prepareLabels(labels, current);
@@ -218,6 +223,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
         className="h-6 pointer-coarse:h-[var(--mobile-edit-control-size)] min-w-0 w-full rounded-sm border border-grid-border bg-[#444] px-1.25 py-0 text-xs text-grid-text placeholder:text-[#888] aria-invalid:border-grid-error focus:outline-2 focus:-outline-offset-2 focus:outline-grid-accent"
         autoComplete="off" />
       <div className="flex justify-end gap-1.25">
+      {invalid && <span role="status">Enter a label other than . or ..</span>}
       {value.trim() && <DetailsTargetCount count={counts.selected} />}
       <PillActionButton action="cancel" label="Close label entry" title="Close" onClick={cancel} />
       <PillActionButton action="confirm" label="Add label to images" title="Save new label" disabled={addDisabled || !value.split(",").some(label => label.trim())} onClick={commit} />

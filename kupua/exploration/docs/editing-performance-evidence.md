@@ -17,6 +17,14 @@ new runner or a promise that all operation families are implemented.
 
 ## Current Decisions and Open Questions
 
+**23 November: receipt history, settlement and Upload persistence (local checks).**
+
+| Question | Result | Interpretation |
+|---|---|---|
+| Does prior history make new submissions costlier? | With dispatch held, 100 new-revision submissions to one image took 2.47 ms with no prior settled saves, 4.50 ms with 500, and 32.55 ms with 5,000. Each history grew by 100. | Single Node observations of the metadata store, not browser latency or heap measurements. Do not evict unresolved receipts on this evidence. |
+| Did settlement copy millions of receipts? | At 10,000 targets the old append expression would copy 49,995,000 earlier item references. At 499 targets a counting iterator measured 124,251 earlier references copied before the fix and zero after, with the same output order. | **Fixed for the private settlement accumulator.** These were browser-memory copies, not Grid reads. Progress snapshots still copy prefixes; no end-to-end speedup was measured. |
+| Does every follow-up update need a descriptor write? | The jobs test counted two writes when only progress wording changed, versus one after the fix. Going from pending to uncertain also retains the same recovery marker. | Presentation-only updates skip membership rebuilding and persistence if the last write succeeded. Changed recovery facts still persist, and a prior storage failure can retry on a changed report. No frame-time claim. |
+
 **22 November: post-review verification.** The production and hosted builds,
 E2E typecheck and all 4,010 unit/component tests passed. The full synthetic
 E2E wrapper then passed all 599 tests in 10.6 minutes. These checks cover the

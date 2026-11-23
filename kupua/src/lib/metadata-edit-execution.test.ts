@@ -86,8 +86,9 @@ describe("metadata edit execution", () => {
       readImages: vi.fn().mockResolvedValueOnce([{ ...current, leases: { leases: [] } }]).mockResolvedValue([current]), publishImages,
     });
     try {
-      await operation.confirm({ fieldId: "leases", action: "overwrite", value: { kind: "add", lease, overwriteOn: overwrite ? ["first"] : ["other"] }, targetIds: ["first"] }, targets);
-      expect(execute).toHaveBeenCalledExactlyOnceWith({ operation: "edit-leases", resource, imageId: "first", value: { kind: "add", lease, overwrite } });
+      const leaseId = "23a47def-4fea-44bb-b706-30bd5e145f31";
+      await operation.confirm({ fieldId: "leases", action: "overwrite", value: { kind: "add", lease, approvedLeaseIds: { [overwrite ? "first" : "other"]: leaseId } }, targetIds: ["first"] }, targets);
+      expect(execute).toHaveBeenCalledExactlyOnceWith({ operation: "edit-leases", resource, imageId: "first", value: { kind: "add", lease, approvedLeaseId: overwrite ? leaseId : undefined } });
       expect(publishImages).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(1_000);
       expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);

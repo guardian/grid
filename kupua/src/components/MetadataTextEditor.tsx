@@ -126,11 +126,14 @@ export const MetadataFormField = memo(function MetadataFormField({ imageId, fiel
         const nextValue = field.id !== "metadata_dateTaken" || !next ? next
           : next === baseline.slice(0, 19) ? baseline : `${next}.000`;
         const pending = editor.getState().hasPendingField(imageId, field.id);
-        useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue, pending);
+        const dateInstant = field.id === "metadata_dateTaken" && nextValue
+          ? nextValue === baseline ? value : dateTimeIntent(nextValue, baseline ? new Date(value).getTimezoneOffset() : null)
+          : undefined;
+        useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue, pending, dateInstant);
         if (!editable && pendingGrant) editor.getState().deferDraft(imageId, field.id);
         if (!composing.current && editable) editor.getState().schedule(imageId, field.id);
       }} />
-    <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={displayed} disabled={!editable || composing.current} />
+    <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={draft?.dateInstant ?? draft?.value ?? value} disabled={!editable || composing.current} />
     </div>
     <MetadataSaveFeedback fieldId={field.id} targetIds={[imageId]} />
     {shortDescription && <p className="text-xs text-grid-warning">Your description is too short! Ideally, please state who, what, where, when and why.</p>}

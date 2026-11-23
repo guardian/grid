@@ -1,9 +1,13 @@
+export function addressableLabel(label: string): boolean {
+  return label.trim().length > 0 && label !== "." && label !== "..";
+}
+
 export function isLabelRemovalRequest(method: string | undefined, path: string | undefined): boolean {
   const match = /^\/metadata\/[a-zA-Z0-9_-]+\/labels\/([a-zA-Z0-9_*.+%-]+)$/.exec(path ?? "");
   if (method !== "DELETE" || !match) return false;
   try {
     const label = decodeURIComponent(match[1].replace(/\+/g, " "));
-    return label.trim().length > 0 && label !== "." && label !== "..";
+    return addressableLabel(label);
   } catch { return false; }
 }
 

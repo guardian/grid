@@ -2,7 +2,7 @@ import { z } from "zod";
 import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
 import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
 import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated } from "./grid-api-instance";
-import { isLabelRemovalRequest } from "./grid-mutation-policy";
+import { addressableLabel, isLabelRemovalRequest } from "./grid-mutation-policy";
 import { leaseCommandValueSchema, leaseSetKey, storedLeases } from "./lease-change";
 import { editingAllowedAtStartup } from "./editing-preference";
 import { BATCH_POLICY } from "./batch-execution";
@@ -12,7 +12,7 @@ const addLabelsSchema = z.object({
   operation: z.literal("add-labels"),
   imageId: z.string().regex(/^[a-zA-Z0-9_-]+$/),
   resource: z.object({ links: z.array(z.object({ rel: z.string(), href: z.string() })) }),
-  labels: z.array(z.string().refine((value) => value.trim().length > 0)).min(1),
+  labels: z.array(z.string().refine(addressableLabel)).min(1),
 }).strict();
 const removeLabelSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({
   operation: z.literal("remove-label"), label: z.string().refine(value => value.trim().length > 0),
@@ -43,7 +43,7 @@ export type DerivedDispatch = (imageId: string, fields: readonly string[]) => vo
 const leaseCommandSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-leases"), value: leaseCommandValueSchema }).strict();
 export type LeaseCommand = z.infer<typeof leaseCommandSchema>;
 const labelListSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-label-list"),
-  add: z.array(nonempty), remove: z.array(nonempty), clear: z.boolean() }).strict();
+  add: z.array(z.string().refine(addressableLabel)), remove: z.array(nonempty), clear: z.boolean() }).strict();
 export type LabelListCommand = z.infer<typeof labelListSchema>;
 const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
@@ -67,7 +67,7 @@ export type MetadataExpected = Readonly<Record<string, string | string[]>>;
 
 type LabelSteps = Readonly<{ acknowledged: number; rejected: number; notSent: number; uncertain: number }>;
 export type GridCommandResult =
-  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required"; labelSteps?: LabelSteps }
+  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" | "unaddressable-label"; labelSteps?: LabelSteps }
   | { outcome: "acknowledged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number }
   | { outcome: "unchanged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string }
   | { outcome: "partial"; expected: MetadataExpected; labelSteps: LabelSteps; status?: number; errorKey?: string; reason?: "reload-required" | "unavailable" }
@@ -182,7 +182,10 @@ async function executeLeaseChange(command: LeaseCommand): Promise<GridCommandRes
       expectedLeases = leaseSetKey(before.filter(item => item.id !== value.id));
     } else if (value.kind === "add") {
       const syndication = value.lease.access.endsWith("-syndication");
-      if (syndication && before.some(item => item.access.endsWith("-syndication")) && !value.overwrite) return blocked;
+      if (syndication) {
+        const existing = before.filter(item => item.access.endsWith("-syndication"));
+        if (existing.length > 1 || existing[0]?.id !== value.approvedLeaseId) return blocked;
+      }
       expectedLeases = leaseSetKey([...before.filter(item => !syndication || !item.access.endsWith("-syndication")), value.lease]);
       body = forImage(value.lease);
     } else {
@@ -317,6 +320,7 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
         const memberPath = `${path}/labels/${suffix}`;
         return { label: member.data, url: isLabelRemovalRequest("DELETE", memberPath) ? gridServiceUrl("metadata", member.uri, memberPath, origin) : undefined };
       });
+      if (deletions.some(step => !addressableLabel(step.label))) return { outcome: "blocked", reason: "unaddressable-label" };
       if (deletions.some(step => !step.url)) return { outcome: "blocked", reason: "unavailable" };
       const additions = [...add].filter(value => !current.has(value));
       expected = { labels: command.clear ? [] : [...new Set([...current].filter(value => !remove.has(value)).concat([...add]))] };

@@ -33,7 +33,8 @@ let runFollowups: ((imageId: string, filename: string | undefined, labels: reado
 
 export function configureUploadFollowups(run: typeof runFollowups): void { runFollowups = run; }
 export const uploadPending = (attempt: UploadAttempt) => activeUploadPhases.has(attempt.phase) || attempt.followups?.some(result => result.pending) === true;
-export const uploadAttention = (attempt: UploadAttempt) => attentionUploadPhases.has(attempt.phase) || attempt.followups?.some(result => result.attention) === true;
+export const unconfirmedTransfer = (attempt: UploadAttempt) => attempt.phase === "complete" && !!attempt.statusId && attempt.submission?.outcome !== "accepted";
+export const uploadAttention = (attempt: UploadAttempt) => attentionUploadPhases.has(attempt.phase) || unconfirmedTransfer(attempt) || attempt.followups?.some(result => result.attention) === true;
 const files = new Map<string, File>();
 const requests = new Map<string, AbortController>();
 const observation = new Map<string, { due: number; deadline: number }>();
@@ -47,9 +48,14 @@ function attemptById(id: string): UploadAttempt | undefined {
   return useUploadJobsStore.getState().batches.flatMap(batch => batch.attempts).find(attempt => attempt.id === id);
 }
 
-function update(id: string, patch: Partial<UploadAttempt>): void {
-  useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => batch.attempts.some(attempt => attempt.id === id)
-    ? { ...batch, attempts: batch.attempts.map(attempt => attempt.id === id ? { ...attempt, ...patch } : attempt) } : batch) }));
+const presentationOnly = new WeakSet<UploadBatch>();
+function update(id: string, patch: Partial<UploadAttempt>, unchangedDescriptor = false): void {
+  useUploadJobsStore.setState(state => ({ batches: state.batches.map(batch => {
+    if (!batch.attempts.some(attempt => attempt.id === id)) return batch;
+    const next = { ...batch, attempts: batch.attempts.map(attempt => attempt.id === id ? { ...attempt, ...patch } : attempt) };
+    if (unchangedDescriptor) presentationOnly.add(next);
+    return next;
+  }) }));
   const attempt = attemptById(id);
   if (attempt) reportProblem(attempt);
   refreshLifecycle();
@@ -64,7 +70,8 @@ function updateFollowups(id: string, followups: readonly UploadFollowup[]): void
     return result.label === prior.label && result.summary === prior.summary
       && result.pending === prior.pending && result.attention === prior.attention;
   })) return;
-  update(id, { followups });
+  const needsAttentionOnReload = (items?: readonly UploadFollowup[]) => items?.some(item => item.pending || item.attention) ?? false;
+  update(id, { followups }, needsAttentionOnReload(previous) === needsAttentionOnReload(followups));
 }
 
 function reportProblem(attempt: UploadAttempt): void {
@@ -176,7 +183,7 @@ async function transferNext(): Promise<void> {
             ...(statusId ? { statusId } : {}) });
         }, controller.signal);
         update(id, { submission, statusId: submission.imageId ?? attemptById(id)?.statusId,
-          message: controller.signal.aborted ? "This page was interrupted. Check status before taking further action." : submission.reason,
+          message: controller.signal.reason === "stop-transfer" ? "Transfer stopped; its outcome is not confirmed. No automatic retry." : controller.signal.aborted ? "This page was interrupted. Check status before taking further action." : submission.reason,
           phase: controller.signal.aborted ? "uncertain" : submission.outcome === "accepted" ? "processing" : submission.outcome });
         if (submission.outcome === "accepted" && submission.imageId && !controller.signal.aborted) {
           observation.set(id, { due: Date.now(), deadline: Date.now() + OBSERVE_FOR });
@@ -190,6 +197,12 @@ async function transferNext(): Promise<void> {
       }
     }
   } finally { transferring = false; }
+}
+
+export function stopUploadTransfer(id: string): void {
+  if (attemptById(id)?.phase !== "transferring" || !files.has(id)) return;
+  followupIntents.delete(id);
+  requests.get(id)?.abort("stop-transfer");
 }
 
 function scheduleObservation(): void {
@@ -291,11 +304,12 @@ for (const batch of retainedBatches) {
   uploadBatchMembership.getState().set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []), batch.revision, true);
 }
 useUploadJobsStore.setState({ batches: retainedBatches,
-  activityAttemptIds: new Set(retainedBatches.flatMap(batch => batch.attempts.filter(attempt => attentionUploadPhases.has(attempt.phase) && !attempt.notificationDismissed).map(attempt => attempt.id))) });
+  activityAttemptIds: new Set(retainedBatches.flatMap(batch => batch.attempts.filter(attempt => uploadAttention(attempt) && !attempt.notificationDismissed).map(attempt => attempt.id))) });
 useUploadJobsStore.subscribe((state, previous) => {
   if (state.batches === previous.batches) return;
   for (const batch of state.batches) {
     if (previous.batches.includes(batch)) continue;
+    if (presentationOnly.has(batch) && !useLocalPersistenceStore.getState().batchIssues[batch.id]) continue;
     const membership = uploadBatchMembership.getState();
     membership.set(batch.id, batch.attempts.flatMap(attempt => attempt.imageId ? [attempt.imageId] : []), undefined, true);
     saveUploadBatch(batch, uploadBatchMembership.getState().batches.get(batch.id)!.revision);
