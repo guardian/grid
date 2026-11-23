@@ -916,12 +916,13 @@ class ElasticSearchTest extends ElasticSearchTestBase {
       }
 
       "deletes" - {
-        "when migration alias exists, but does not contain doc to be deleted" in {
+        "from current index when migration is running and doc is missing from migration index" in {
           ES.assignAliasTo(migrationIndexName, ES.imagesMigrationAlias)
           ES.refreshAndRetrieveMigrationStatus()
           try {
             val id = UUID.randomUUID().toString
             val image = createImage(id, StaffPhotographer("Tom Jenkins", "The Guardian"))
+            // bypass migrationAwareIndexImage so deleteImage hits a 404 on the migration index
             Await.result(ES.directInsert(image, ES.imagesCurrentAlias), fiveSeconds)
             ES.client.execute(refreshIndex(ES.imagesCurrentAlias)).futureValue
 
