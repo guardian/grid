@@ -1,9 +1,11 @@
 /** Lease steps shared across the lease features' scenario groups. */
 import { After, Before, Given } from '../setup.ts';
-import { leaseAccess, recordLeaseWrites, seedLeasedImage } from './leases.ts';
+import { leaseAccess, recordLeaseWrites, seedLeasedImage, trackImageReads } from './leases.ts';
 
-// Before any step loads a page, so lease steps can check what was (not) saved on any surface.
+// Before any step loads a page, so lease steps can check what was (not) saved on any surface,
+// and wait for the lease widget's fetch before opening its form.
 Before({ tags: '@leases' }, async ({ page, testContext }) => {
+  trackImageReads(page);
   await recordLeaseWrites(page, testContext);
 });
 
