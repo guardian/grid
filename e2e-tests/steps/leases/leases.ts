@@ -12,12 +12,17 @@ import { failRequests, holdRequests } from '../utils/routes.ts';
 import type { RequestMatch } from '../utils/routes.ts';
 import { PLAIN_IMAGE } from '../utils/single-image.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
+import type { ImageOverrides } from '../../setup/seed-image.ts';
 
 type Scope = Page | Locator;
 
-/** Index a disposable copy of an image with `leases`, and return its id. */
-export async function seedLeasedImage(seedImage: SeedImage, leases: SeedLease[] = []): Promise<string> {
-  const id = await seedImage(PLAIN_IMAGE._source);
+/** Index a disposable copy of an image, with `overrides` applied and `leases`, and return its id. */
+export async function seedLeasedImage(
+  seedImage: SeedImage,
+  leases: SeedLease[] = [],
+  overrides?: ImageOverrides,
+): Promise<string> {
+  const id = await seedImage(PLAIN_IMAGE._source, overrides);
   await seedLeases(id, leases);
   return id;
 }

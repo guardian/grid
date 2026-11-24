@@ -1,6 +1,6 @@
 /** Lease steps shared across the lease features' scenario groups. */
 import type { Page } from '@playwright/test';
-import { API_KEY_NAME } from '../../setup/constants.ts';
+import { API_KEY_NAME, TEST_ACCOUNTS } from '../../setup/constants.ts';
 import type { SeedLease } from '../../setup/seed-leases.ts';
 import { imageLeases } from '../../setup/seed-leases.ts';
 import { After, Before, Given, Then, When, expect } from '../setup.ts';
@@ -74,6 +74,16 @@ Given(
   'the image has a(n) (active ){string} lease',
   async ({ seedImage, testContext }, access: string) => {
     testContext.imageId = await seedLeasedImage(seedImage, [{ access: leaseAccess(access) }]);
+  },
+);
+
+// Media-api lets the uploader edit their own image, with or without edit metadata permission.
+Given(
+  'an image I have added has a(n) (active ){string} lease',
+  async ({ seedImage, testContext }, access: string) => {
+    testContext.imageId = await seedLeasedImage(seedImage, [{ access: leaseAccess(access) }], {
+      uploadedBy: TEST_ACCOUNTS.restricted,
+    });
   },
 );
 
