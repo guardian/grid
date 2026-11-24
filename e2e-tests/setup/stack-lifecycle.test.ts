@@ -7,25 +7,25 @@ const reporter = {
   step<T>(_name: string, run: () => Promise<T>) { return run(); },
 };
 
-test('startup failure preserves the first error and cleans up a late container', async () => {
+test('startup failure keeps the first error and cleans up successful and failed starts', async () => {
   const resources = createStackResources(reporter);
-  let stopped = false;
+  const stops: string[] = [];
   const failure = new Error('failed to build image');
   const startup = settleAll([
     () => resources.startContainer('slow', async () => {
       await setImmediate();
-      return { async stop() { stopped = true; } };
-    }),
-    async () => {
+      return { async stop() { stops.push('slow'); } };
+    }, async () => { stops.push('unexpected fallback'); }),
+    () => resources.startContainer('partial', async () => {
       await setImmediate();
-      throw new Error('another build failed');
-    },
+      throw new Error('failed to copy a file');
+    }, async () => { stops.push('partial'); }),
     async () => { throw failure; },
   ]).finally(resources.stopAll);
 
   await assert.rejects(startup, (error) => error === failure);
 
-  assert.ok(stopped);
+  assert.deepEqual(stops.sort(), ['partial', 'slow']);
 });
 
 test('interruption preserves the reason when an in-flight check throws AbortError', async () => {
@@ -44,16 +44,17 @@ test('stopAll waits for containers before removing the network and counts each f
   const resources = createStackResources(reporter);
   const stops: string[] = [];
   const finishSlow = Promise.withResolvers<void>();
+  const removeFailedStart = async () => { assert.fail('the container started successfully'); };
 
   await resources.startNetwork(async () => ({
     async stop() { stops.push('network'); throw new Error('network is still attached'); },
   }));
   await resources.startContainer('broken', async () => ({
     async stop() { stops.push('broken'); throw new Error('container failed to stop'); },
-  }));
+  }), removeFailedStart);
   await resources.startContainer('slow', async () => ({
     async stop() { stops.push('slow'); await finishSlow.promise; },
-  }));
+  }), removeFailedStart);
 
   const stopped = Promise.all([resources.stopAll(), resources.stopAll()]);
 

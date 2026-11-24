@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Network, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
@@ -24,11 +24,65 @@ import { formatDuration, type StackDiagnostics } from './stack-diagnostics.ts';
 import { createStackResources, settleAll } from './stack-lifecycle.ts';
 import type { GridEnvironment } from './state.ts';
 
+const START_ATTEMPT_LABEL = 'uk.co.guardian.grid.e2e.start-attempt';
+
 export interface StartStackOptions {
   /** Start the bundled Chekov proxy. Defaults to true unless GRID_PROXY=false. */
   proxy?: boolean;
   /** Load Elasticsearch, S3 image and collection fixtures. Defaults to true. */
   seed?: boolean;
+}
+
+async function removeFailedContainer(attempt: string): Promise<void> {
+  const { container } = await getContainerRuntimeClient();
+  // Include containers that Docker created but never started.
+  const [match] = await container.dockerode.listContainers({
+    all: true,
+    filters: { label: [`${START_ATTEMPT_LABEL}=${attempt}`] },
+  });
+  if (!match) return;
+
+  try {
+    await container.getById(match.Id).remove({ force: true, v: true });
+  } catch (error) {
+    const alreadyRemoved = error instanceof Error && 'statusCode' in error && error.statusCode === 404;
+    if (!alreadyRemoved) throw error;
+  }
+}
+
+export async function buildImage(
+  name: string,
+  context: string,
+  tag: string,
+  diagnostics: StackDiagnostics,
+  signal: AbortSignal,
+): Promise<GenericContainer> {
+  signal.throwIfAborted();
+  return diagnostics.step(`build:${name}`, async () => {
+    const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      signal,
+    });
+
+    diagnostics.capture('builds', name, build.stdout);
+    diagnostics.capture('builds', name, build.stderr);
+
+    // Aborting emits an error before the process and its output streams close.
+    let processError: Error | undefined;
+    build.on('error', (error) => { processError ??= error; });
+    await new Promise<void>((resolve) => {
+      build.once('close', () => resolve());
+    });
+
+    signal.throwIfAborted();
+    if (processError) throw processError;
+    if (build.exitCode !== 0) {
+      const logFile = `${diagnostics.directory}/builds/${name}.log`;
+      throw new Error(`Docker build for ${name} exited with ${build.signalCode ?? build.exitCode}. See ${logFile}`);
+    }
+
+    return new GenericContainer(tag);
+  });
 }
 
 async function waitForHealthy(
@@ -101,8 +155,13 @@ export async function startStack(
       }
     }
     const duration = formatDuration((performance.now() - started) / 1000);
-    diagnostics.log(`${label} ${'DONE'.padEnd(7)} [${duration}] failures=${failures}`);
+    const status = failures ? 'FAILED' : 'DONE';
+    diagnostics.log(`${label} ${status.padEnd(7)} [${duration}] failures=${failures}`);
     diagnostics.log(`diagnostics retained: ${diagnostics.directory}`);
+
+    if (failures) {
+      throw new Error(`Grid e2e cleanup failed. See ${diagnostics.directory}/stack.log`);
+    }
   }
 
   function stop(): Promise<void> {
@@ -124,32 +183,14 @@ export async function startStack(
 
   function startContainer<T extends StartedTestContainer>(
     name: string,
-    definition: Pick<GenericContainer, 'withLogConsumer'> & { start(): Promise<T> },
+    definition: Pick<GenericContainer, 'withLabels' | 'withLogConsumer'> & { start(): Promise<T> },
   ): Promise<T> {
     signal.throwIfAborted();
+    const attempt = randomUUID();
+    definition.withLabels({ [START_ATTEMPT_LABEL]: attempt });
     definition.withLogConsumer((stream) => diagnostics.capture('containers', name, stream));
 
-    return resources.startContainer(name, () => definition.start());
-  }
-
-  function buildImage(name: string, context: string, tag: string): Promise<GenericContainer> {
-    return step(`build:${name}`, async () => {
-      const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-
-      diagnostics.capture('builds', name, build.stdout);
-      diagnostics.capture('builds', name, build.stderr);
-
-      const [exitCode, exitSignal] = await once(build, 'close');
-
-      if (exitCode !== 0) {
-        const logFile = `${diagnostics.directory}/builds/${name}.log`;
-        throw new Error(`Docker build for ${name} exited with ${exitSignal ?? exitCode}. See ${logFile}`);
-      }
-
-      return new GenericContainer(tag);
-    });
+    return resources.startContainer(name, () => definition.start(), () => removeFailedContainer(attempt));
   }
 
   async function prepareGrid(network: StartedNetwork) {
@@ -220,11 +261,11 @@ export async function startStack(
       const [gridConfig] = await settleAll([
         () => startGrid(network),
         async () => {
-          const image = await buildImage('imgops', IMGOPS_CONTEXT, IMGOPS_IMAGE);
+          const image = await buildImage('imgops', IMGOPS_CONTEXT, IMGOPS_IMAGE, diagnostics, signal);
           await startContainer('imgops', imgopsContainer(image, network, proxy));
         },
         async () => {
-          const image = await buildImage('oidc', OIDC_CONTEXT, OIDC_IMAGE);
+          const image = await buildImage('oidc', OIDC_CONTEXT, OIDC_IMAGE, diagnostics, signal);
           await startContainer('oidc', oidcContainer(image, network, proxy));
         },
       ], startup);
@@ -243,7 +284,11 @@ export async function startStack(
   } catch (error) {
     // An interrupted retry may throw a generic AbortError. Keep the original crash or signal.
     const cause = signal.aborted ? signal.reason : error;
-    await stop();
+    try {
+      await stop();
+    } catch (cleanupError) {
+      diagnostics.error('cleanup:stack', cleanupError);
+    }
     throw cause;
   } finally {
     shutdownSignal?.removeEventListener('abort', interrupt);

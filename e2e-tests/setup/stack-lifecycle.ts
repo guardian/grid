@@ -25,9 +25,9 @@ interface StackReporter {
   step<T>(name: string, run: () => Promise<T>): Promise<T>;
 }
 
-/** Settle outstanding starts before calling stopAll, so every started container is recorded. */
+/** Settle outstanding starts before calling stopAll, so each attempt has the right cleanup. */
 export function createStackResources(reporter: StackReporter) {
-  const containers: { name: string; container: Stoppable }[] = [];
+  const containers: { name: string; stop: () => Promise<unknown> }[] = [];
   let network: Stoppable | undefined;
   let cleanup: Promise<number> | undefined;
 
@@ -40,10 +40,16 @@ export function createStackResources(reporter: StackReporter) {
     });
   }
 
-  function startContainer<Container extends Stoppable>(name: string, start: () => Promise<Container>): Promise<Container> {
+  function startContainer<Container extends Stoppable>(
+    name: string,
+    start: () => Promise<Container>,
+    removeFailedStart: () => Promise<unknown>,
+  ): Promise<Container> {
     return reporter.step(`start:${name}`, async () => {
+      const resource = { name, stop: removeFailedStart };
+      containers.push(resource);
       const container = await start();
-      containers.push({ name, container });
+      resource.stop = () => container.stop();
 
       return container;
     });
@@ -61,7 +67,7 @@ export function createStackResources(reporter: StackReporter) {
       }
     }
 
-    await Promise.all(containers.map(({ name, container }) => attempt(`stop:${name}`, () => container.stop())));
+    await Promise.all(containers.map(({ name, stop }) => attempt(`stop:${name}`, stop)));
 
     const ownedNetwork = network;
     if (ownedNetwork) await attempt('remove:network', () => ownedNetwork.stop());
