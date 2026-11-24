@@ -1,9 +1,7 @@
 /** Steps for the add lease form in the single image view. */
-import type { Page } from '@playwright/test';
 import { imageLeases } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import { answerHeldConfirm } from '../utils/dialogs.ts';
-import type { TestContext } from '../setup.ts';
 import {
   MONTHS,
   accessSelect,
@@ -28,18 +26,7 @@ const guDateDisplay = (date: Date) =>
 const endOfDayAfterTomorrow = (from: Date) =>
   new Date(from.getFullYear(), from.getMonth(), from.getDate() + 2, 23, 59);
 
-/** The image has only the leases it was opened with (none), and nothing tried to change them. */
-async function expectNoLeasesSaved(page: Page, testContext: TestContext): Promise<void> {
-  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
-  await expect(leaseItems(leasesRegion(page))).toHaveCount(0);
-  expect(await imageLeases(testContext.imageId!), 'the leases media-api serves').toEqual([]);
-}
-
-When('I choose to add a lease', async ({ page, testContext }) => {
-  await openAddLeaseForm(page, testContext, leasesRegion(page));
-});
-
-Given('the add lease form is open', async ({ page, testContext }) => {
+Given('I( have) open(ed) the add lease form', async ({ page, testContext }) => {
   await openAddLeaseForm(page, testContext, leasesRegion(page));
 });
 
@@ -78,12 +65,10 @@ Then('the add lease form is hidden', async ({ page }) => {
   await expect(accessSelect(leasesRegion(page))).toBeHidden();
 });
 
-Then("the image's leases are unchanged", async ({ page, testContext }) => {
-  await expectNoLeasesSaved(page, testContext);
-});
-
 Then('no lease is added to the image', async ({ page, testContext }) => {
-  await expectNoLeasesSaved(page, testContext);
+  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
+  await expect(leaseItems(leasesRegion(page))).toHaveCount(0);
+  expect(await imageLeases(testContext.imageId!), 'the leases media-api serves').toEqual([]);
 });
 
 When('I save the lease without choosing an access type', async ({ page }) => {

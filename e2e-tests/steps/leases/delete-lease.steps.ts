@@ -30,11 +30,7 @@ When('I click delete on the lease and wait five seconds', async ({ page }) => {
   expect(Date.now() - clickedAt, 'how long the confirmation lasted').toBeGreaterThanOrEqual(CONFIRM_WINDOW_MS);
 });
 
-Then('the delete control changes to {string}', async ({ page }, label: string) => {
-  await expect(deleteControlLabel(page, label)).toBeVisible();
-});
-
-Then('the delete control shows {string} again', async ({ page }, label: string) => {
+Then('the delete control shows {string}( again)', async ({ page }, label: string) => {
   await expect(deleteControlLabel(page, label)).toBeVisible();
 });
 

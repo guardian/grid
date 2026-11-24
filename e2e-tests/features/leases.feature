@@ -116,7 +116,7 @@ Feature: Viewing and managing an image's leases in the single image view
   Scenario: Opening the add lease form
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    When I choose to add a lease
+    When I open the add lease form
     Then the add lease form is shown with "Please select access" selected
     And the access options are grouped as Usage "Allow use", "Deny use" and Syndication "Allow syndication", "Deny syndication"
     And the form has "Close" and "Save new lease" buttons
@@ -126,17 +126,17 @@ Feature: Viewing and managing an image's leases in the single image view
   Scenario: Cancelling the add lease form closes it without saving
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    And the add lease form is open
+    And I have opened the add lease form
     When I cancel the form
     Then the add lease form is hidden
-    And the image's leases are unchanged
+    And no lease is added to the image
   # Evidence: kahuna/public/js/leases/leases.html lines 34-35, 104-106
   # Evidence: kahuna/public/js/leases/leases.js lines 54-57, 185-195
 
   Scenario Outline: Choosing a use lease offers a date range that defaults to expiring in two days
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    And the add lease form is open
+    And I have opened the add lease form
     When I choose "<access>" access
     Then a start and end date range is shown
     And the end date defaults to the end of the day after tomorrow
@@ -153,7 +153,7 @@ Feature: Viewing and managing an image's leases in the single image view
   Scenario: Choosing deny syndication offers an optional expiry date
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    And the add lease form is open
+    And I have opened the add lease form
     When I choose "Deny syndication" access and tick "Expire"
     Then an "after" date picker is shown for the end date
     And dates before tomorrow cannot be chosen
@@ -163,7 +163,7 @@ Feature: Viewing and managing an image's leases in the single image view
   Scenario: Choosing allow syndication offers an optional delay and agency clauses
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    And the add lease form is open
+    And I have opened the add lease form
     When I choose "Allow syndication" access and tick "Delay"
     Then an "after" date picker is shown for the start date
     And dates before tomorrow cannot be chosen
@@ -174,7 +174,7 @@ Feature: Viewing and managing an image's leases in the single image view
   Scenario: Saving without choosing an access type is rejected
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
-    And the add lease form is open
+    And I have opened the add lease form
     When I save the lease without choosing an access type
     Then I am alerted "Please select an access type (Allow or Deny)"
     And no lease is added to the image
@@ -259,7 +259,7 @@ Feature: Viewing and managing an image's leases in the single image view
     And the image has an active "allow-use" lease
     And I have opened the single image view of the image
     When I click delete on the lease
-    Then the delete control changes to "Confirm delete"
+    Then the delete control shows "Confirm delete"
     And the lease is still on the image
   # Evidence: kahuna/public/js/leases/leases.html lines 157-159
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 11-32

@@ -92,15 +92,7 @@ Given(
   },
 );
 
-Given('I have selected the image', async ({ page, testContext }) => {
-  await selectImages(page, searchImageIds(testContext));
-});
-
-Given('I have selected both images', async ({ page, testContext }) => {
-  await selectImages(page, searchImageIds(testContext));
-});
-
-When('I select both images', async ({ page, testContext }) => {
+Given('I( have) select(ed) the/both image(s)', async ({ page, testContext }) => {
   await selectImages(page, searchImageIds(testContext));
 });
 

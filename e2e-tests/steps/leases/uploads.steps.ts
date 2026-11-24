@@ -40,32 +40,19 @@ const nthUploadLeases = (page: Page, word: string) => uploadLeases(nthUpload(pag
 /** The "Remove ALL leases in job?" prompt, labelled "Remove all leases" for assistive tech. */
 const removeAllPrompt = (scope: Locator) => removeAllLeasesButton(scope);
 
-/** Upload `paths` and wait for each to become an editable image, recording their ids. */
-async function upload(page: Page, testContext: TestContext, paths: string[]): Promise<void> {
-  testContext.surfaceImageIds = await uploadImages(page, paths);
-}
-
 const uploadIds = (testContext: TestContext): string[] => {
   expect(testContext.surfaceImageIds, 'no images were uploaded by an earlier step').toBeDefined();
   return testContext.surfaceImageIds!;
 };
 
-async function uploadImageCopies(page: Page, testContext: TestContext, count: number): Promise<void> {
-  await upload(page, testContext, Array.from({ length: count }, () => uniqueImage().path));
-}
-
-Given('I have uploaded {int} image(s)', async ({ page, testContext }, count: number) => {
-  await uploadImageCopies(page, testContext, count);
-});
-
-When('I upload {int} image(s)', async ({ page, testContext }, count: number) => {
-  await uploadImageCopies(page, testContext, count);
+Given('I( have) upload(ed) {int} image(s)', async ({ page, testContext }, count: number) => {
+  testContext.surfaceImageIds = await uploadImages(page, Array.from({ length: count }, () => uniqueImage().path));
 });
 
 When('I upload an image that another user has already uploaded', async ({ page, testContext }) => {
   const { path } = uniqueImage();
   await uploadAsAnotherUser(page, path);
-  await upload(page, testContext, [path]);
+  testContext.surfaceImageIds = await uploadImages(page, [path]);
 });
 
 When('I add a(n) {string} lease to the upload', async ({ page, testContext }, access: string) => {

@@ -36,12 +36,8 @@ async function selectTemplate(page: Page, testContext: TestContext): Promise<voi
 }
 
 Given(
-  'a metadata template adds a {string} lease without replacing existing leases',
+  'a metadata template adds a {string} lease( without replacing existing leases)',
   ({ testContext }, access: string) => chooseTemplate(testContext, access, false),
-);
-
-Given('a metadata template adds a {string} lease', ({ testContext }, access: string) =>
-  chooseTemplate(testContext, access, false),
 );
 
 Given(
