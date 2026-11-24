@@ -87,7 +87,7 @@ Feature: Leases across the search info panel and upload page
     Given I am signed in without edit metadata permission
     And I have opened the image upload page
     When I upload an image that another user has already uploaded
-    Then the upload's metadata is read-only
+    Then the metadata fields should be disabled
     And the upload's leases have an "Add lease to image" button
   # Evidence: kahuna/public/js/leases/leases.html lines 4-9
   # Evidence: kahuna/public/js/edits/image-editor.html lines 187-194, 200

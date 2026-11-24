@@ -4,7 +4,8 @@ import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { KAHUNA_PORT } from '../../setup/constants.ts';
+import { KAHUNA_PORT, TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { openUploadPageAs } from '../common.steps.ts';
 import type { TestImage } from '../setup.ts';
 
 
@@ -189,4 +190,31 @@ export async function batchJobs(page: Page): Promise<Locator[]> {
   const jobs = uploadPage(page).imageEditorJob;
   await expect(jobs).toHaveCount(BATCH_SIZE);
   return jobs.all();
+}
+
+/** The id of the image a finished upload became, read from its "View image" link. */
+export async function uploadedImageId(job: Locator): Promise<string> {
+  const href = await job.getByRole('link', { name: 'View image' }).first().getAttribute('href');
+  const id = href?.split('/').pop();
+  if (!id) throw new Error(`no image link on the upload (href: ${href})`);
+  return id;
+}
+
+/** Upload `paths`, wait for each to become an editable image, and return their ids in page order. */
+export async function uploadImages(page: Page, paths: string[]): Promise<string[]> {
+  await uploadPage(page).fileInput.setInputFiles(paths);
+  const jobs = uploadPage(page).imageEditorJob;
+  await expect(jobs).toHaveCount(paths.length);
+  return Promise.all((await jobs.all()).map(uploadedImageId));
+}
+
+/**
+ * Upload `path` as the full-access account, then return to the upload page as the restricted
+ * one. Uploading the same bytes again surfaces the existing image, which keeps its first
+ * uploader, so the restricted account sees an image it did not upload.
+ */
+export async function uploadAsAnotherUser(page: Page, path: string): Promise<void> {
+  await openUploadPageAs(page, TEST_ACCOUNTS.fullAccess);
+  await uploadImages(page, [path]);
+  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
 }

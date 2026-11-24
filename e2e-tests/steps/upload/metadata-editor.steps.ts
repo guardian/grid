@@ -4,16 +4,16 @@ import type { Locator, Page } from '@playwright/test';
 import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '../../setup/config.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
-import { openUploadPageAs } from '../common.steps.ts';
 import { expectNoEditPermission, waitForMetadataSave } from '../utils/api/media-api.assertions.ts';
 import {
-  BATCH_SIZE,
   batchJobs,
   grouping,
   metadataFields,
   testImages,
   uniqueBatch,
   uniqueImage,
+  uploadAsAnotherUser,
+  uploadImages,
   uploadPage,
 } from './setup.ts';
 
@@ -36,7 +36,6 @@ interface BatchField {
 }
 
 const metadataEditorOf = (job: Locator) => job.getByRole('region', { name: 'Image metadata' });
-const usageRights = (job: Locator) => job.getByRole('region', { name: 'Image usage rights' });
 
 const requiredMetadataField = (
   name: Exclude<keyof ReturnType<typeof metadataFields>, 'imageType'>,
@@ -89,22 +88,6 @@ const BATCH_FIELDS: Record<string, BatchField> = {
     'Apply these instructions to all your current uploads',
     'Batch instructions',
   ),
-  Leases: {
-    value: 'e2e batch lease',
-    set: async (job, value) => {
-      await usageRights(job).getByRole('button', { name: 'Add lease to image' }).click();
-      // Deny syndication needs no dates, so the form is just access type and notes.
-      await usageRights(job)
-        .getByRole('combobox')
-        .filter({ hasText: 'Please select access' })
-        .selectOption('deny-syndication');
-      await usageRights(job).getByPlaceholder('Notes...').fill(value);
-      await usageRights(job).getByTitle('Save new lease').click();
-    },
-    applyButton: (job) =>
-      usageRights(job).getByRole('button', { name: 'Apply these leases to all current uploads' }),
-    expectOn: (job, value) => expect(usageRights(job).getByText(value)).toBeVisible(),
-  },
   Collections: {
     value: E2E_COLLECTION,
     set: async (job, value) => {
@@ -296,9 +279,7 @@ Given(
   async ({ page, testContext }) => {
     const imagePath = uniqueImage().path;
     testContext.uploadedImagePath = imagePath;
-    await uploadAndOpenEditor(page, imagePath);
-
-    await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+    await uploadAsAnotherUser(page, imagePath);
 
     // The fields start disabled until canUserEdit resolves, so prove the API really denies edits.
     await expectNoEditPermission(page, imagePath, TEST_ACCOUNTS.fullAccess);
@@ -320,8 +301,7 @@ Then('the metadata fields should be disabled', async ({ page }) => {
 });
 
 Given('I am uploading more than one image', async ({ page }) => {
-  await uploadPage(page).fileInput.setInputFiles(uniqueBatch());
-  await expect(uploadPage(page).metadataEditor).toHaveCount(BATCH_SIZE);
+  await uploadImages(page, uniqueBatch());
 });
 
 // Precondition satisfied by the default e2e permissions (edit is granted).

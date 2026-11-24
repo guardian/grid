@@ -6,13 +6,13 @@ import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { expectNoUploadPermission, expectUploadPermission } from '../utils/api/media-api.assertions.ts';
 import {
-  BATCH_SIZE,
   batchJobs,
   filesToUpload,
   grouping,
   holdIngest,
   testImages,
   uniqueBatch,
+  uploadImages,
   uploadPage,
 } from './setup.ts';
 import { setTestClientConfig } from '../utils/test-config.ts';
@@ -190,8 +190,7 @@ When(
 
 When('I upload more than one image', async ({ page }) => {
   // Embedded descriptions skip the filename-description save, which races the preset labels.
-  await uploadPage(page).fileInput.setInputFiles(uniqueBatch(testImages.withMetadata));
-  await expect(uploadPage(page).imageEditorJob).toHaveCount(BATCH_SIZE);
+  await uploadImages(page, uniqueBatch(testImages.withMetadata));
 });
 
 Then('that label should be applied to all my uploads', async ({ page, testContext }) => {

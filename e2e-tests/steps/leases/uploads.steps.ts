@@ -1,11 +1,9 @@
 /** Steps for the lease widget on the upload page, and copying or clearing leases across uploads. */
 import type { Locator, Page } from '@playwright/test';
 import { E2E_LEASE_TEMPLATES } from '../../setup/config.ts';
-import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { openUploadPageAs } from '../common.steps.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
-import { uniqueImage, uploadPage } from '../upload/setup.ts';
+import { uniqueImage, uploadAsAnotherUser, uploadImages, uploadPage } from '../upload/setup.ts';
 import {
   accessOfLabel,
   addLease,
@@ -42,11 +40,10 @@ const nthUploadLeases = (page: Page, word: string) => uploadLeases(nthUpload(pag
 /** The "Remove ALL leases in job?" prompt, labelled "Remove all leases" for assistive tech. */
 const removeAllPrompt = (scope: Locator) => removeAllLeasesButton(scope);
 
-async function uploadedImageId(job: Locator): Promise<string> {
-  const href = await job.getByRole('link', { name: 'View image' }).first().getAttribute('href');
-  const id = href?.split('/').pop();
-  if (!id) throw new Error(`no image link on the upload (href: ${href})`);
-  return id;
+/** Upload `paths` and wait for each to become an editable image, recording their ids. */
+async function upload(page: Page, testContext: TestContext, paths: string[]): Promise<void> {
+  await recordLeaseWrites(page, testContext);
+  testContext.surfaceImageIds = await uploadImages(page, paths);
 }
 
 const uploadIds = (testContext: TestContext): string[] => {
@@ -54,33 +51,21 @@ const uploadIds = (testContext: TestContext): string[] => {
   return testContext.surfaceImageIds!;
 };
 
-/** Upload `paths` and wait for each to become an editable image, recording their ids. */
-async function upload(page: Page, testContext: TestContext, paths: string[]): Promise<void> {
-  await recordLeaseWrites(page, testContext);
-  await uploadPage(page).fileInput.setInputFiles(paths);
-  const jobs = uploadPage(page).imageEditorJob;
-  await expect(jobs).toHaveCount(paths.length);
-  testContext.surfaceImageIds = await Promise.all((await jobs.all()).map(uploadedImageId));
-}
-
-async function uploadImages(page: Page, testContext: TestContext, count: number): Promise<void> {
+async function uploadImageCopies(page: Page, testContext: TestContext, count: number): Promise<void> {
   await upload(page, testContext, Array.from({ length: count }, () => uniqueImage().path));
 }
 
 Given('I have uploaded {int} image(s)', async ({ page, testContext }, count: number) => {
-  await uploadImages(page, testContext, count);
+  await uploadImageCopies(page, testContext, count);
 });
 
 When('I upload {int} image(s)', async ({ page, testContext }, count: number) => {
-  await uploadImages(page, testContext, count);
+  await uploadImageCopies(page, testContext, count);
 });
 
 When('I upload an image that another user has already uploaded', async ({ page, testContext }) => {
-  // Uploading the same bytes again surfaces the existing image, which keeps its first uploader.
   const { path } = uniqueImage();
-  await openUploadPageAs(page, TEST_ACCOUNTS.fullAccess);
-  await upload(page, testContext, [path]);
-  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
+  await uploadAsAnotherUser(page, path);
   await upload(page, testContext, [path]);
 });
 
@@ -93,13 +78,6 @@ Then('the upload shows a(n) {string} lease', async ({ page, testContext }, label
   await pollLeasesOf(uploadIds(testContext)[0]).toContainEqual(
     expect.objectContaining({ access: accessOfLabel(label) }),
   );
-});
-
-Then("the upload's metadata is read-only", async ({ page }) => {
-  const { description, byline, credit, imageType, specialInstructions } = uploadPage(page).metadataField;
-  for (const [name, field] of Object.entries({ description, byline, credit, imageType, specialInstructions })) {
-    await expect(field, `field "${name}"`).toBeDisabled();
-  }
 });
 
 Then("the upload's leases have a(n) {string} button", async ({ page }, name: string) => {
