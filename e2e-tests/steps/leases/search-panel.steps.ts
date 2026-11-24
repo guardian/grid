@@ -16,12 +16,15 @@ import {
 const results = (page: Page) => page.getByRole('region', { name: 'Matched image search results' });
 
 /**
- * A search result's card. Results are absolutely positioned cells of a lazy table rather than
- * list items, so find the card by its select checkbox, whose id embeds the image id and which is
- * always in the DOM (results.html).
+ * Search results' cards: the list items holding a thumbnail. The pop-out link each holds,
+ * shown on hover, sits in a list item of its own, which has none.
  */
+const resultCards = (page: Page) =>
+  results(page).getByRole('listitem').filter({ has: page.getByRole('img') });
+
+/** The card of `imageId`, found by its pop-out link, which is there even while selecting. */
 const resultCard = (page: Page, imageId: string) =>
-  results(page).locator('.result').filter({ has: page.locator(`[id^="id-${imageId}-result__select"]`) });
+  resultCards(page).filter({ has: page.locator(`a[href="/images/${imageId}"]`) });
 
 const infoPanel = (page: Page) => page.getByRole('region', { name: 'Image information' });
 
@@ -45,7 +48,7 @@ async function showInSearch(
   answerDialogs(page, testContext);
   // The copies have no usage rights, which the default free-only search leaves out.
   await page.goto(`${KAHUNA_APP_URL}/search?ids=${ids.join(',')}&nonFree=true`);
-  await expect(results(page).locator('.result')).toHaveCount(ids.length);
+  await expect(resultCards(page)).toHaveCount(ids.length);
 }
 
 /**
@@ -63,7 +66,8 @@ async function selectImages(page: Page, ids: string[]): Promise<void> {
       // Once an image is selected, clicking another image toggles its selection.
       await card.click();
     }
-    await expect(card).toContainClass('result--selected');
+    // The checkbox only shows while the card is hovered.
+    await expect(card.getByRole('checkbox', { includeHidden: true })).toBeChecked();
   }
   // The info panel starts collapsed off-screen, so open it to work with the selection.
   await page.getByRole('button', { name: 'Show info panel', exact: true }).click();
