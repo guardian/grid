@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 24 November 2026 - Keep edit feedback with the affected field, batch or file
+
+Form and Details show delayed save spinners without adding a status row, including for Location, Rights and Leases. Field and batch notices share keyboard and focus handling but report separate outcomes: autosave feedback follows the submitted draft revision, and a batch warning applies only to the other images targeted at submission. Dismissing an unconfirmed Details edit keeps the draft without resending it. Upload Description reserves space for required or short-caption guidance.
+
+Single-image Details keeps pill fills stable while edit permission refreshes; removal still waits for permission. Partly shared neutral pills highlight the hovered segment in dark grey with white text. Partial Labels keep their dark blue highlight, and pills shared by all images keep their existing hover colours.
+
+Upload Activity reports file transfers and automatic metadata follow-ups, not manual edits. A file warning takes priority over pending work; expanding it shows both the issue and outstanding work. Check again reads status without resubmitting the file, and Dismiss hides only that file's notice.
+
 ### 24 November 2026 - Offer single-image Details commits a turn between bulk metadata groups
 
 A newly committed ordinary scalar field on one image can use the next eligible settled group boundary. An overlapping recipient must already have its preceding bulk change observed. Form autosave retains its separate draft and release rules; repeating an existing receipt cannot promote it. Read-side session loss preserves acknowledged writes as unconfirmed, distinguishes unsent targets, and prevents further dispatch until reload. See the [paired local measurements and bulk-tail trade-off](editing-performance-evidence.md#current-decisions-and-open-questions).

@@ -101,7 +101,7 @@ export function LeaseEditor({ ids, images, allowed, form = false, canReplace = f
     else if (scoped && !form && panelSaveAdmitted(save, "Lease not sent")) change(undefined);
     else submitted.track(save.id);
   }}>
-    <FieldSaveNote state={submitted.state} />
+    {submitted.state !== "Saving…" && <FieldSaveNote state={submitted.state} />}
     <fieldset className="grid min-w-0 gap-2.5" disabled={submitted.locked}>
     <label>Access<select ref={accessInput} value={draft.access} onChange={event => { const access = event.target.value as LeaseAccess;
       const delay = !!access && access !== "deny-syndication" && draft.delay;
@@ -118,6 +118,6 @@ export function LeaseEditor({ ids, images, allowed, form = false, canReplace = f
     {draft.access === "allow-syndication" && <div className="flex flex-wrap gap-x-5"><label className="lease-option"><input type="checkbox" checked={draft.call} onChange={event => change({ ...draft, call: event.target.checked })} /> Call agency</label><label className="lease-option"><input type="checkbox" checked={draft.premium} onChange={event => change({ ...draft, premium: event.target.checked })} /> Premium</label></div>}
     <label>Notes<input type="text" placeholder="Optional notes" value={draft.notes} onChange={event => change({ ...draft, notes: event.target.value })} /></label></>}
     </fieldset>
-    <MetadataFormActions count={ids.length} cancel={close} cancelDisabled={submitted.state === "Saving…"} cancelLabel={submitted.state ? "Discard draft" : "Cancel"} saveLabel="Save lease" disabled={!ready || submitted.locked || !draft.access || draft.delay && !draft.start || draft.expires && !draft.end || !!draft.start && !!draft.end && Date.parse(draft.start) >= Date.parse(draft.end)} />
+    <MetadataFormActions count={ids.length} cancel={close} saving={submitted.state === "Saving…" ? "lease" : undefined} cancelDisabled={submitted.state === "Saving…"} cancelLabel={submitted.state ? "Discard draft" : "Cancel"} saveLabel="Save lease" disabled={!ready || submitted.locked || !draft.access || draft.delay && !draft.start || draft.expires && !draft.end || !!draft.start && !!draft.end && Date.parse(draft.start) >= Date.parse(draft.end)} />
   </form>}{children}</div>;
 }

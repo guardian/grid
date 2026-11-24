@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { pillCommandField, pillDisplayField } from "@/lib/metadata-pill-fields";
 import { metadataEditorStore, metadataIntent, metadataSaveStatus, type MetadataSave } from "@/stores/metadata-editor-store";
@@ -12,6 +12,7 @@ import { useShallow } from "zustand/react/shallow";
 import { editIssue, EditIssueDisclosure, type EditIssue } from "./EditIssueDisclosure";
 import type { LabelReceipt } from "@/lib/label-operation";
 import type { LeaseChange } from "@/lib/lease-change";
+import { ProgressGlyph } from "./ProgressGlyph";
 
 export const MetadataEditorContext = createContext(metadataEditorStore);
 export type FieldSaveState = "Saving…" | "Not saved" | "Not confirmed" | "Partially saved";
@@ -51,10 +52,75 @@ export function useSubmittedField(onConfirmed: () => void, retainedId?: number) 
     : save.items.some(item => item.state === "partial") && !save.items.some(item => item.state === "unknown") ? "Partially saved"
     : save.items.every(item => editIssue(item.imageId, "", item).notSaved) ? "Not saved" : "Not confirmed";
   useEffect(() => { if (confirmed) { track(undefined); onConfirmed(); } }, [confirmed, onConfirmed]);
-  return { track, state, locked: state === "Saving…" || state === "Not confirmed" };
+  const reload = !!save && save.items.some(item => editIssue(item.imageId, "", item).reload);
+  return { track, state, reload, locked: state === "Saving…" || state === "Not confirmed" || reload };
 }
-export function FieldSaveNote({ state }: { state?: FieldSaveState }) {
+export function FieldSaveNote({ state, label = "changes" }: { state?: FieldSaveState; label?: string }) {
+  const visible = useDelayedBusy(state === "Saving…" ? label : undefined);
+  if (state === "Saving…") return visible ? <span role="status" aria-label={`Saving ${label}`} title={`Saving ${label}`} className="metadata-pending-glyph"><ProgressGlyph size={16}/></span> : null;
   return state ? <span role="status" className="metadata-field-status" data-save-state={state}>{state}</span> : null;
+}
+function useDelayedBusy(key?: number | string) {
+  const [visible, setVisible] = useState<typeof key>();
+  useEffect(() => {
+    setVisible(undefined);
+    if (key === undefined) return;
+    const timer = setTimeout(() => setVisible(key), 150);
+    return () => clearTimeout(timer);
+  }, [key]);
+  return key !== undefined && visible === key;
+}
+
+function useEditDisclosure() {
+  const [openFor, setOpenFor] = useState<string>();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const popId = useId();
+  const close = () => setOpenFor(undefined);
+  const focusTrigger = () => trigger.current?.focus();
+  return { trigger, popId, openFor, close, focusTrigger,
+    toggle: (key: string) => setOpenFor(current => current === key ? undefined : key),
+    attributes: (expanded: boolean | undefined) => ({ "aria-expanded": expanded, "aria-controls": expanded ? popId : undefined }),
+    events: (expanded: boolean, cancelConfirmation?: () => void) => ({
+      onBlur(event: React.FocusEvent<HTMLElement>) {
+        if (!event.currentTarget.contains(event.relatedTarget)) { close(); cancelConfirmation?.(); }
+      },
+      onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+        if (event.key !== "Escape" || !expanded) return;
+        if (!cancelConfirmation) event.preventDefault();
+        event.stopPropagation(); close(); cancelConfirmation?.(); focusTrigger();
+      },
+    }),
+  };
+}
+
+function SaveGlyph({ busy }: { busy: boolean }) {
+  return busy ? <ProgressGlyph />
+    : <svg aria-hidden="true" width="24" height="24" viewBox="0 -960 960 960" fill="#e3e3e3"><path d="m40-120 440-760 440 760H40Zm138-80h604L480-720 178-200Zm302-40q17 0 28.5-11.5T520-280q0-17-11.5-28.5T480-320q-17 0-28.5 11.5T440-280q0 17 11.5 28.5T480-240Zm-40-120h80v-200h-80v200Z"/></svg>;
+}
+
+export function FieldSignal({ state, label, detail, onDismiss }: { state: FieldSaveState; label: string; detail?: string; onDismiss?: () => void }) {
+  const disclosure = useEditDisclosure();
+  const open = disclosure.openFor === "field";
+  const busy = state === "Saving…";
+  const visible = useDelayedBusy(busy ? label : undefined);
+  const name = busy ? `Saving ${label}` : `${label} ${state.toLowerCase()}`;
+  if (busy && !visible) return <span aria-hidden="true" className="metadata-edit-tool invisible" />;
+  return <span className="metadata-field-signal" {...disclosure.events(open)}><span className="sr-only" role="status">{name}</span><button ref={disclosure.trigger} type="button" className="metadata-edit-tool" aria-label={name} title={name} {...disclosure.attributes(open)} onClick={() => disclosure.toggle("field")}><SaveGlyph busy={busy}/></button>
+    {open && <span id={disclosure.popId} role="group" aria-label={name} className="metadata-batch-popover text-xs"><strong>{name}</strong>{detail && <span className="block">{detail}</span>}{state === "Not confirmed" && <span className="block">Couldn’t verify the change. It may have saved.</span>}<button type="button" className="block underline" onClick={() => { disclosure.close(); disclosure.focusTrigger(); if (!busy) onDismiss?.(); }}>{!busy && onDismiss ? "Dismiss" : "Close"}</button></span>}
+  </span>;
+}
+
+function batchIssueSummary(save: MetadataSave, label: string) {
+  if (save.message || save.excluded || save.items.length !== save.intent.targetIds.length) return metadataSaveStatus(save);
+  const groups = new Map<string, number>();
+  for (const item of save.items) {
+    const issue = editIssue(item.imageId, label, item);
+    if (issue.steps || issue.reload || derivedIssue(item) || item.state === "partial" || item.observation === "superseded") return metadataSaveStatus(save);
+    if (item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")) continue;
+    const reason = item.result?.outcome === "rejected" && item.result.status === 403 ? "No permission to edit" : `${label} ${issue.notSaved ? "not saved" : "not confirmed"} on`;
+    groups.set(reason, (groups.get(reason) ?? 0) + 1);
+  }
+  return [...groups].map(([reason, count]) => `${reason} ${count} other ${count === 1 ? "image" : "images"}.`).join(" ") || metadataSaveStatus(save);
 }
 export function SavingValue({ saving, state = saving ? "Saving…" : undefined, children }: { saving?: boolean; state?: FieldSaveState; children: React.ReactNode }) {
   if (!state) return <>{children}</>;
@@ -62,8 +128,9 @@ export function SavingValue({ saving, state = saving ? "Saving…" : undefined, 
 }
 export const FormBatchContext = createContext<{ key: string; ids: readonly string[] } | undefined>(undefined);
 
-export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, hideWhenDisabled = false }: {
+export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, hideWhenDisabled = false, source }: {
   imageId: string; fieldId: string; label: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; disabled: boolean; hideWhenDisabled?: boolean;
+  source?: { id: number; state: FieldSaveState; detail?: string; dismiss?: () => void };
 }) {
   const batch = useContext(FormBatchContext);
   const store = useContext(MetadataEditorContext);
@@ -80,10 +147,11 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
     const timer = setTimeout(() => setConfirming(undefined), 5000);
     return () => clearTimeout(timer);
   }, [confirming, batch, emptyPills, disabled, sourcePending]);
-  const [detailsFor, setDetailsFor] = useState<number>();
+  const disclosure = useEditDisclosure();
   const [dismissed, setDismissed] = useState<number>();
-  const trigger = useRef<HTMLButtonElement>(null);
-  if (!batch || !store.getState().connected) return null;
+  const showBusy = useDelayedBusy(save && save.state !== "finished" ? save.id : undefined);
+  const showSourceBusy = useDelayedBusy(source?.state === "Saving…" ? source.id : undefined);
+  if (!batch || !store.getState().connected) return source ? <div className="metadata-batch-tool"><FieldSignal key={source.id} label={label} state={source.state} detail={source.detail} onDismiss={source.dismiss}/></div> : null;
   const peerCount = batch.ids.length - Number(batch.ids.includes(imageId));
   const candidate = metadataIntent(fieldId, "overwrite", value, batch.ids);
   const valid = Boolean(candidate && !(candidate.fieldId === "metadata_subjects" && candidate.action === "add" && Array.isArray(candidate.value) && !candidate.value.length && !removed?.length));
@@ -91,7 +159,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const needsAttention = !!save && save.id !== dismissed && !busy && !panelSaveSucceeded(save);
   if (hideWhenDisabled && disabled && !busy && !needsAttention) return null;
   const unsupported = fieldId === "collections" || fieldId === "photoshoot" ? `${label} batch editing is not connected` : undefined;
-  if (!busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects" && !unsupported) return null;
+  if (!source && !busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects" && !unsupported) return null;
   const clear = value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
     fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
     fieldId === "usageRights_category" && "category" in value && value.category === ""
@@ -103,12 +171,19 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const applyLabel = pill ? emptyPills ? `Clear ${fieldId} on ${others}` : removals?.length
     ? `Apply ${fieldId} to ${others} (also removes ${removals.length === 1 ? `“${removals[0]}”` : `${removals.length} ${noun}`})` : `Add ${fieldId} to ${others}`
     : fieldId === "leases" ? clear ? `Clear leases on ${others}` : `Replace leases on ${peerCount === 1 ? "the" : "all"} ${others}`
-    : clear ? `Clear ${label} on ${peers}` : `Apply ${label} to ${peerCount} batch ${peerCount === 1 ? "image" : "images"}`;
+    : clear ? `Clear ${label} on ${others}` : `Apply ${label} to ${others}`;
   const question = `Remove ALL ${fieldId} from the ${others}?`;
-  const tooltip = busy ? `Applying ${label}...` : needsAttention ? `${label} edit needs attention`
+  const sourceIssue = !!source && source.state !== "Saving…";
+  const sourceText = sourceIssue ? `${label} ${source.state.toLowerCase()}` : `Saving ${label}`;
+  const captured = save?.intent.targetIds.length ?? peerCount;
+  const batchText = `Applying ${label} to ${captured} other ${captured === 1 ? "image" : "images"}`;
+  const reload = needsAttention && save.items.some(item => editIssue(item.imageId, label, item).reload);
+  const tooltip = needsAttention ? `${label} edit needs attention` : sourceIssue ? sourceText : busy ? batchText : showSourceBusy ? sourceText
     : unsupported ? `${applyLabel} (${unsupported})` : !valid && fieldId === "metadata_dateTaken" ? `${label} cannot be cleared` : applyLabel;
-  const hasDetails = busy || needsAttention;
-  const expanded = hasDetails && save?.id === detailsFor;
+  const hasDetails = busy || needsAttention || sourceIssue || showSourceBusy;
+  const receiptKey = busy || needsAttention ? `batch:${save.id}` : `source:${source?.id}`;
+  const expanded = hasDetails && receiptKey === disclosure.openFor;
+  const showConfirmation = confirming === batch && emptyPills && !disabled && !sourcePending && !busy;
   const apply = (confirmed = false) => {
     if (emptyPills && !confirmed) { setConfirming(batch); return; }
     if (clear && !emptyPills && !window.confirm(`${applyLabel}?`)) return;
@@ -116,35 +191,26 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
     const intent = metadataIntent(fieldId, "overwrite", value, batch.ids.filter(id => id !== imageId));
     if (intent) store.getState().submitArrow(removals?.length ? { ...intent, removed: removals } : intent, key);
   };
-  return <><div className="metadata-batch-tool"
-    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setDetailsFor(undefined); setConfirming(undefined); } }}
-    onKeyDown={event => {
-      if (event.key !== "Escape" || (!expanded && !confirming)) return;
-      setConfirming(undefined);
-      event.stopPropagation();
-      setDetailsFor(undefined);
-      trigger.current?.focus();
-    }}>
-    <button ref={trigger} type="button" disabled={!hasDetails && (disabled || pill && sourcePending || !valid || !peerCount)} className="metadata-edit-tool"
-      aria-label={tooltip} title={tooltip} aria-expanded={hasDetails ? expanded : undefined}
+  return <><div className="metadata-batch-tool" {...disclosure.events(expanded || !!confirming, () => setConfirming(undefined))}>
+    <button ref={disclosure.trigger} type="button" disabled={!hasDetails && (disabled || pill && sourcePending || !valid || !peerCount)} className="metadata-edit-tool"
+      aria-label={tooltip} title={tooltip} {...disclosure.attributes(showConfirmation || (hasDetails ? expanded : emptyPills ? false : undefined))}
       onClick={() => {
-        if (hasDetails) { setDetailsFor(expanded ? undefined : save?.id); return; }
+        if (hasDetails) { disclosure.toggle(receiptKey); return; }
         apply();
       }}>
-      {busy ? <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <circle className="upload-progress-arc" r="9" pathLength="100" transform="translate(12 12) rotate(-95) scale(1 -1)" />
-      </svg> : needsAttention ? <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-grid-warning" aria-hidden="true">
-        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
-      </svg> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      {showBusy || needsAttention || showSourceBusy || sourceIssue ? <SaveGlyph busy={!needsAttention && !sourceIssue}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M7,21L2,16l5-5l1.43,1.4L5.83,15H21v2H5.83l2.6,2.6L7,21Zm10-8l-1.42-1.4L18.18,9H3V7H18.18l-2.6-2.6L17,3l5,5l-5,5Z" />
       </svg>}
     </button>
-    {confirming === batch && emptyPills && !disabled && !sourcePending && !busy && <div className="metadata-batch-popover text-xs"><button type="button" className="bg-grid-error text-white p-1" onClick={() => { setConfirming(undefined); apply(true); trigger.current?.focus(); }}>{question}</button></div>}
-    {expanded && save && <div className="metadata-batch-popover text-xs">
-      <p>{metadataSaveStatus(save)}</p>
-      {busy && !disabled && valid && save.intent.value !== value && <button type="button" className="mr-2 underline"
-        onClick={() => { apply(); trigger.current?.focus(); }}>Apply newer value</button>}
-      {!busy && <button type="button" className="underline" onClick={() => { trigger.current?.focus(); setDismissed(save.id); }}>Dismiss</button>}
+    {showConfirmation && <div id={disclosure.popId} role="group" aria-label={question} className="metadata-batch-popover text-xs"><button type="button" className="bg-grid-error text-white p-1" onClick={() => { setConfirming(undefined); apply(true); disclosure.focusTrigger(); }}>{question}</button></div>}
+    <span className="sr-only" role="status">{needsAttention || sourceIssue || showBusy || showSourceBusy ? tooltip : ""}</span>
+    {expanded && <div id={disclosure.popId} role="group" aria-label={`${label} update`} className="metadata-batch-popover text-xs">
+      {source && <p>{sourceText} on this image.{source.detail && ` ${source.detail}`}{source.state === "Not confirmed" && " It may have saved."}</p>}
+      {save && (busy || needsAttention) && <p>{busy ? metadataSaveStatus(save) : batchIssueSummary(save, label)}{reload && " Reload before saving again."}</p>}
+      {!needsAttention && !busy && source && !disabled && valid && peerCount > 0 && <button type="button" className="mr-2 underline" onClick={() => { disclosure.close(); apply(); }}>{applyLabel}</button>}
+      {busy && !disabled && valid && save?.intent.value !== value && <button type="button" className="mr-2 underline"
+        onClick={() => { apply(); disclosure.focusTrigger(); }}>Apply newer value</button>}
+      <button type="button" className="underline" onClick={() => { disclosure.focusTrigger(); disclosure.close(); if (needsAttention && !reload && save) setDismissed(save.id); if (sourceIssue) source.dismiss?.(); }}>{sourceIssue && source.dismiss || needsAttention && !reload ? "Dismiss" : "Close"}</button>
     </div>}
   </div>{fieldId === "subjects" && !!removals?.length && <p className="metadata-field-status hidden pointer-coarse:block">Batch arrow also removes {removals.join(", ")} from the {others}.</p>}</>;
 }
@@ -310,14 +376,14 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
     aria-valuemin={0} aria-valuemax={total} aria-valuenow={confirmed} aria-valuetext={progressText}
     className="isolate relative inline-flex self-stretch shrink-0 items-center gap-1.5 px-2 overflow-hidden text-white whitespace-nowrap tabular-nums @min-[800px]:w-[184px]">
     <span aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 bg-grid-accent" style={{ width: `${percent}%` }} />
-    <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><circle className="upload-progress-arc" r="9" pathLength="100" transform="translate(12 12) rotate(-95) scale(1 -1)" /></svg>
+    <ProgressGlyph className="size-4 shrink-0" />
     <span className="status-control-label truncate">{updating}</span><span className="inline-block" style={{ minWidth: `${2 * String(total).length + 1}ch` }}>{confirmed}/{total}</span>
   </span>);
   return renderSlot(<span data-selection-title-state="saving" className="pointer-events-none inline-flex shrink-0 items-center w-[90px] h-11">
     <span role="progressbar" aria-label="Updating selected images" title={progressText}
       aria-valuemin={0} aria-valuemax={total} aria-valuenow={confirmed} aria-valuetext={progressText}
       className="inline-flex h-full w-full items-center gap-[5px] text-grid-text-bright">
-      <svg className="size-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><circle className="upload-progress-arc" r="9" pathLength="100" transform="translate(12 12) rotate(-95) scale(1 -1)" /></svg>
+      <ProgressGlyph className="size-4 shrink-0" />
       <span className="relative isolate grid h-5 min-w-0 flex-1 place-items-center overflow-hidden rounded-xs bg-[#303030] text-xs text-white tabular-nums">
         <span aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 bg-[#116787]" style={{ width: `${percent}%` }} /><span className={total >= 10000 ? "text-[9px]" : total >= 1000 ? "text-[10px]" : undefined}>{confirmed}/{total}</span>
       </span>

@@ -10,7 +10,7 @@ import { useDetailsDraft } from "./DetailsDrafts";
 import { MetadataEditButton } from "./MetadataTextEditor";
 import { RightsCreatorInput } from "./RightsCreatorInput";
 import { MetadataFormActions } from "./MetadataFormActions";
-import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, useMetadataCommit, SavingValue, usePendingPanelIntent, FieldSaveNote, useSubmittedField } from "./MetadataEditing";
+import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, useMetadataCommit, usePendingPanelIntent, FieldSaveNote, useSubmittedField } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
 
 const fieldId = "usageRights_category";
@@ -81,7 +81,7 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   const submitted = useSubmittedField(form ? () => {} : close, retained && tracking?.revision === retained.revision ? tracking.id : undefined);
   const guide = siteSettings().usageRightsHelpLink;
   const feedback = form && tracking && !tracking.superseded && <MetadataSaveFeedback fieldId={fieldId} targetIds={ids} saveId={tracking.id} />;
-  if (!draft || !modern) return <><SavingValue saving={!form && !!pending}>{children}</SavingValue>{(enabled || (connected && form && pendingGrant)) && modern && <span className="absolute right-0 top-2 inline-flex items-center gap-1">
+  if (!draft || !modern) return <>{!form && pending ? <><div className="metadata-saving" data-field-state="Saving…"><div aria-busy="true">{children}</div></div><span className={`metadata-edit-tool absolute top-2 ${enabled && modern ? "right-10" : "right-0"}`}><FieldSaveNote label="rights" state="Saving…" /></span></> : children}{(enabled || (connected && form && pendingGrant)) && modern && <span className="absolute right-0 top-2 inline-flex items-center gap-1">
     <span className="inline-flex text-grid-text-dim"><MetadataEditButton label={label} editing={false} disabled={!enabled} onClick={() => setDraft(initial)} /></span>
     {form && choices.some(category => category.value === common) && <MetadataBatchArrow fieldId={fieldId} imageId={ids[0]} label={label} value={initial.values} disabled={!allowed} />}
   </span>}{feedback}</>;
@@ -108,7 +108,7 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
     }
   }}>
     {guide && <a className="underline" href={guide} target="_blank" rel="noopener noreferrer">Having trouble picking rights?</a>}
-    <FieldSaveNote state={submitted.state} />
+    {submitted.state !== "Saving…" && <FieldSaveNote state={submitted.state} />}
     <select className={inputClass} aria-label="Rights category" aria-describedby={selected?.caution ? `${unique}-caution` : undefined} value={values.category} onChange={event => {
       const category = choices.find(item => item.value === event.target.value);
       const next = initialDraft(category, []);
@@ -146,6 +146,6 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
       </select> : <input className={inputClass} value={value} required={property.required} autoComplete="off"
         placeholder={property.examples ? `e.g. ${property.examples}` : undefined} onChange={event => setField(name, event.target.value)} />}</label>;
     })}
-    <MetadataFormActions count={ids.length} cancel={close} disabled={!enabled || !selected || !rightsValueSchema.safeParse(values).success || !!(draft.restricted && !values.restrictions?.trim())} />
+    <MetadataFormActions count={ids.length} cancel={close} saving={submitted.state === "Saving…" ? "rights" : undefined} disabled={!enabled || !selected || !rightsValueSchema.safeParse(values).success || !!(draft.restricted && !values.restrictions?.trim())} />
   </form></fieldset>{submitted.state === "Not confirmed" && <button type="button" onClick={close}>Cancel</button>}</>;
 }

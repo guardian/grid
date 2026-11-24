@@ -198,7 +198,8 @@ test.describe("U3 isolated uploads", () => {
         publishImage(membership, attachedEnrichment(membership));
       }, ids[0]);
       await expect(first.locator('[data-measured-field="metadata_description"] [data-grant-pending]')).toBeVisible();
-      await expect(first.getByRole("button", { name: /^Apply Description/ })).toBeDisabled();
+      await expect(first.getByRole("button", { name: "Saving Description", exact: true })).toBeVisible();
+      await expect(first.getByRole("button", { name: /^Apply Description/ }).and(page.locator(":enabled"))).toHaveCount(0);
       await expect(creditInput).toHaveCSS("border-top-color", requiredBorder);
       await expect(dateInput).toHaveCSS("background-image", dateIcon);
       await expect(description).toBeFocused();
@@ -362,7 +363,7 @@ test.describe("U3 isolated uploads", () => {
     const beforeArrow = (await results()).metadataWrites.length;
     await first.getByLabel("Credit", { exact: true }).fill("Shared batch credit");
     try {
-      await first.getByRole("button", { name: "Apply Credit to 2 batch images", exact: true }).click();
+      await first.getByRole("button", { name: "Apply Credit to 2 other images", exact: true }).click();
       await expect.poll(() => heldWrite).toBe(true);
       await page.getByRole("combobox", { name: "Upload batch", exact: true }).selectOption(newerBatch);
       await page.evaluate(async ({ batch, laterId }) => {
@@ -374,7 +375,7 @@ test.describe("U3 isolated uploads", () => {
       }, { batch, laterId });
       await page.getByRole("combobox", { name: "Upload batch", exact: true }).selectOption(batch);
       const creditField = first.locator('[data-measured-field="metadata_credit"]');
-      const progress = creditField.getByRole("button", { name: "Applying Credit...", exact: true });
+      const progress = creditField.getByRole("button", { name: "Applying Credit to 2 other images", exact: true });
       await expect(progress.locator("circle")).toBeVisible();
       await expect(creditField.getByText(/Saving: \d\/2 visible/)).toHaveCount(0);
       await progress.click();
@@ -386,6 +387,13 @@ test.describe("U3 isolated uploads", () => {
     expect((await results()).metadataWrites.filter(write => write.id === laterId).map(write => write.method)).toEqual(["POST"]);
     expect((await results()).metadataReads[laterId]).toBe(1);
     expect(Object.values((await results()).metadata).every(value => JSON.stringify(value.domainMetadata) === JSON.stringify({ desk: { reference: "retained" } }))).toBe(true);
+    const rightsGeometry = () => first.getByRole("form", { name: "Image usage rights" }).evaluate(form => {
+      const top = form.getBoundingClientRect().top;
+      return [...form.querySelectorAll('[aria-label="Rights category"], [aria-label="Creator"], .rights-actions')].map(element => {
+        const { y, width, height } = element.getBoundingClientRect();
+        return [y - top, width, height];
+      });
+    });
     const editRights = async (category: string, creator: string) => {
       if (category !== "publisher-illustration") await first.getByRole("button", { name: "Edit Rights & restrictions" }).click();
       const rights = first.getByRole("form", { name: "Image usage rights" });
@@ -410,7 +418,9 @@ test.describe("U3 isolated uploads", () => {
         await expect(rights.getByRole("listbox")).toHaveCount(0);
       }
       if (creator) await rights.getByLabel("Creator").fill(creator);
+      const before = category === "publisher-illustration" ? await rightsGeometry() : undefined;
       await rights.getByRole("button", { name: "Save", exact: true }).click();
+      return before;
     };
     const derivedPath = `**/metadata/${ids[0]}/metadata/set-from-usage-rights`;
     let releaseDerived!: () => void;
@@ -418,10 +428,12 @@ test.describe("U3 isolated uploads", () => {
     await page.route(derivedPath, async route => { await heldDerived; await route.continue(); });
     try {
       const dispatched = page.waitForRequest(request => request.method() === "POST" && request.url().endsWith(`/metadata/${ids[0]}/metadata/set-from-usage-rights`));
-      await editRights("publisher-illustration", "Unlisted illustrator");
+      const before = await editRights("publisher-illustration", "Unlisted illustrator");
       await dispatched;
-      for (const field of ["byline", "credit"]) await expect(first.locator(`[data-measured-field="metadata_${field}"]`).getByText("Saving…", { exact: true })).toBeVisible();
-      await expect(first.locator('[data-measured-field="metadata_description"]').getByText("Saving…", { exact: true })).toHaveCount(0);
+      await expect(first.getByRole("status", { name: "Saving rights" })).toBeVisible();
+      expect(await rightsGeometry()).toEqual(before);
+      for (const field of ["Byline", "Credit"]) await expect(first.getByRole("button", { name: `Saving ${field}`, exact: true })).toBeVisible();
+      await expect(first.getByRole("button", { name: "Saving Description", exact: true })).toHaveCount(0);
       await creditInput.fill("Temporary credit");
       await creditInput.fill("Shared batch credit");
       await (await getDensityChangeButton(page, "grid"))?.click();
@@ -429,6 +441,8 @@ test.describe("U3 isolated uploads", () => {
       await (await getDensityChangeButton(page, "form"))?.click();
       const restoredRights = first.getByRole("form", { name: "Image usage rights" });
       await expect(restoredRights).toHaveAttribute("data-field-state", "Saving…");
+      await expect(restoredRights.getByRole("status", { name: "Saving rights" }).locator("svg")).toBeVisible();
+      await expect(restoredRights.getByText("Saving…", { exact: true })).toHaveCount(0);
       await expect(restoredRights.getByLabel("Creator")).toHaveValue("Unlisted illustrator");
       await expect(restoredRights.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
       await (await getDensityChangeButton(page, "grid"))?.click();
@@ -510,6 +524,14 @@ test.describe("U3 isolated uploads", () => {
       await first.getByRole("button", { name: `Remove ${value}`, exact: true }).click();
       await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
       await fieldArrow(field).click();
+      if (field === "keywords") {
+        const confirmation = first.getByRole("group", { name: /^Remove ALL keywords/ });
+        await confirmation.getByRole("button").press("Escape");
+        await expect(confirmation).toHaveCount(0);
+        await expect(fieldArrow(field)).toBeFocused();
+        expect((await peerMetadata()).keywords).toContain(value);
+        await fieldArrow(field).click();
+      }
       await first.getByRole("button", { name: new RegExp(`Remove ALL ${field} from the .* other images`) }).click();
       await expect.poll(async () => field === "labels" ? (await results()).labels[ids[1]] : (await peerMetadata())[property]).toEqual([]);
       await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
@@ -540,7 +562,7 @@ test.describe("U3 isolated uploads", () => {
     await page.getByRole("textbox", { name: "Description", exact: true }).fill("");
     await page.getByRole("button", { name: "Commit Description", exact: true }).click();
     await expect.poll(async () => (await (await page.request.get(`${origin}/api/images/${ids[0]}`)).json()).data.metadata.description).toBe("");
-    await expect(page.getByRole("button", { name: /Apply .* batch images/ })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Apply .* other images/ })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Edit Description", exact: true })).toBeEnabled();
     const rejectWrite = `**/metadata/${ids[0]}/metadata`;
     let settle!: () => void;
@@ -1206,14 +1228,14 @@ test.describe("U3 isolated uploads", () => {
     page.on("dialog", acceptUnload);
     try { await page.reload(); } finally { page.off("dialog", acceptUnload); }
     await page.getByRole("button", { name: /^Upload activity:/ }).click();
-    await expect(page.getByRole("button", { name: "Recheck", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Check again", exact: true })).toBeVisible();
     const afterReload = (await (await page.request.get(`${origin}/__upload-control`)).json()).statusReads;
     await page.waitForTimeout(2_200);
     const idle = await (await page.request.get(`${origin}/__upload-control`)).json();
     expect(idle.statusReads).toBe(afterReload);
     expect(idle.writes).toBe(1);
     await page.request.post(`${origin}/__upload-control`, { data: { status: "COMPLETED", visible: true, searchable: true } });
-    await page.getByRole("button", { name: "Recheck", exact: true }).click();
+    await page.getByRole("button", { name: "Check again", exact: true }).click();
     await expect(page.getByRole("button", { name: "pending.jpg", exact: true })).toBeVisible();
     const restore = await page.evaluateHandle(() => {
       const original = Storage.prototype.setItem;
@@ -3859,6 +3881,9 @@ async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void, c
   await input.fill("connected fixture label");
   beforeDispatch();
   if (checkRetainedLabel) {
+    const keyword = page.locator("[data-editable-pill]").filter({ has: page.getByRole("button", { name: "untouched keyword", exact: true }) });
+    await expect(keyword).toHaveAttribute("data-coverage", "all");
+    const background = await keyword.evaluate(element => getComputedStyle(element).backgroundColor);
     const pattern = "**/images/mget";
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
@@ -3873,6 +3898,8 @@ async function exerciseConnectedEditor(page: Page, beforeDispatch: () => void, c
       await expect(page.getByRole("button", { name: `Remove ${original![0]}`, exact: true })).toBeDisabled();
       await expect(pill).toHaveAttribute("data-coverage", "all");
       await expect(pill).toHaveCSS("background-color", "rgb(0, 173, 238)");
+      await expect(keyword).toHaveCSS("background-color", background);
+      await expect(keyword).toHaveAttribute("data-coverage", "all");
       await expect(page.getByRole("button", { name: `Apply ${original![0]} to all selected images` })).toHaveCount(0);
     } finally { release(); }
   } else await input.press("Enter");
@@ -4053,7 +4080,7 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
   let version = 0;
   const imageEntity = (imageId: string) => ({
     uri: `${origin}/images/${imageId}`, links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${imageId}` }], actions: [],
-    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", metadata: {},
+    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", metadata: { keywords: ["untouched keyword"] },
       source: { dimensions: { width: 800, height: 600 } },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + version * 1000).toISOString(),
         labels: { data: labelsById.get(imageId)!.map(data => ({ data })) }, archived: { data: false },

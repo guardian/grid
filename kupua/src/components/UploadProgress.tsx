@@ -10,11 +10,10 @@ import { Chevron } from "./Chevron";
 import { containPillActivation } from "./SearchPill";
 import { getCurrentKupuaKey } from "@/lib/orchestration/history-key";
 import { formatRecentGridDate } from "@/lib/format-grid-date";
+import { ProgressGlyph } from "./ProgressGlyph";
 
 export function StatusIcon({ status }: { status: "complete" | "active" | "error" }) {
-  if (status === "active") return <svg className="upload-status-icon" viewBox="0 0 24 24" aria-hidden="true">
-    <circle className="upload-progress-arc" r="9" pathLength="100" transform="translate(12 12) rotate(-95) scale(1 -1)" />
-  </svg>;
+  if (status === "active") return <ProgressGlyph className="upload-status-icon" />;
   return <svg className="upload-status-icon" data-upload-status={status} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d={status === "complete"
     ? "m424-296 282-282-56-56-226 226-114-114-56 56 170 170Zm56 216q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"
     : "M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q88 0 166.5 36T782-742L480-440v-360q-134 0-227 93t-93 227q0 134 93 227t227 93q69 0 132-28.5T720-270v110q-53 38-114 59T480-80Zm320-160v-320h80v320h-80Zm11.5 148.5Q800-103 800-120t11.5-28.5Q823-160 840-160t28.5 11.5Q880-137 880-120t-11.5 28.5Q857-80 840-80t-28.5-11.5Z"} /></svg>;
@@ -68,19 +67,19 @@ function ActivityRow({ attempt, batch, showBatch, onDismiss }: {
   };
   return <li className="upload-activity-row" data-upload-attempt={attempt.id}>
     <div className="upload-row-line">
-      <StatusIcon status={active ? "active" : failed ? "error" : "complete"} />
+      <StatusIcon status={failed ? "error" : active ? "active" : "complete"} />
       {attempt.phase === "complete" && attempt.imageId
         ? <button type="button" className="upload-filename upload-link" title={attempt.name} onClick={openImage}>{attempt.name}</button>
         : <span className="upload-filename" title={attempt.name}>{attempt.name}</span>}
       {uncertainTransfer && <span className="upload-row-label">Image available; transfer not confirmed</span>}
       {serverError || hasFollowupIssues ? <button type="button" className="upload-link upload-row-action" aria-expanded={details} onClick={() => setDetails(value => !value)}>{label}</button>
         : label && <span className="upload-row-label">{label}</span>}
-      {recheckable && <button type="button" className="upload-link upload-row-action" onClick={() => checkUploadAttempt(attempt.id)}>Recheck</button>}
+      {recheckable && <button type="button" className="upload-link upload-row-action" onClick={() => checkUploadAttempt(attempt.id)}>Check again</button>}
       {attempt.phase === "transferring" && <button type="button" className="upload-link upload-row-action" aria-label={`Stop transfer for ${attempt.name}`} onClick={() => stopUploadTransfer(attempt.id)}>Stop transfer</button>}
       {showBatch && <span className="upload-row-batch">{batchLabel}</span>}
-      {failed && <button type="button" className="upload-dismiss" title="Acknowledge error" aria-label={`Acknowledge error for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
+      {failed && <button type="button" className="upload-dismiss" title="Dismiss" aria-label={`Dismiss notice for ${attempt.name}`} onClick={() => onDismiss(attempt.id)}><ToolIcon /></button>}
     </div>
-    {details && followupIssues?.map((result, index) => <p key={index} className="text-xs text-grid-text-muted wrap-anywhere">{result.label}: {result.summary}</p>)}
+    {details && hasFollowupIssues && attempt.followups?.filter(result => result.attention || result.pending).map((result, index) => <p key={index} className="text-xs text-grid-text-muted wrap-anywhere">{result.label}: {result.summary}</p>)}
     {details && serverError && <section className="upload-error-detail" role="region" aria-label={`Upload error for ${attempt.name}`}>
       <div className="flex items-center gap-2"><span className="text-xs text-grid-text-muted">Server response</span>
         {copied && <span role="status" className="ml-auto text-xs">Copied</span>}

@@ -126,12 +126,12 @@ it("shows one priority status, orders errors before running and complete files, 
     .toEqual(["unknown", "older-error", "running", "done"]);
   expect(screen.queryByText("Image available")).toBeNull();
   expect(screen.queryByText("Processing")).toBeNull();
-  fireEvent.click(within(panel).getByRole("button", { name: "Recheck" }));
+  fireEvent.click(within(panel).getByRole("button", { name: "Check again" }));
   expect(checkUploadAttempt).toHaveBeenCalledWith("unknown");
-  fireEvent.click(within(panel).getByRole("button", { name: "Acknowledge error for older.jpg" }));
+  fireEvent.click(within(panel).getByRole("button", { name: "Dismiss notice for older.jpg" }));
   expect(screen.getByRole("button", { name: "Upload activity: 1 need attention" })).toBeTruthy();
   expect(useUploadJobsStore.getState().batches[1].attempts[0].notificationDismissed).toBe(true);
-  fireEvent.click(within(panel).getByRole("button", { name: "Acknowledge error for unknown.jpg" }));
+  fireEvent.click(within(panel).getByRole("button", { name: "Dismiss notice for unknown.jpg" }));
   expect(screen.getByRole("button", { name: "Upload activity: 1 in progress" })).toBeTruthy();
   expect(useUploadJobsStore.getState().batches[0].attempts.find(attempt => attempt.id === "unknown")?.notificationDismissed).toBe(true);
   expect(screen.queryByRole("button", { name: /Dismiss all/i })).toBeNull();
@@ -143,12 +143,16 @@ it("keeps routine follow-ups quiet and only reveals problem details on demand", 
     { id: "done", name: "done.jpg", size: 1, phase: "complete", followups: [preserved] },
     { id: "running", name: "running.jpg", size: 1, phase: "complete", followups: [{ ...preserved, summary: "Saving: 0/1 visible", pending: true }] },
     { id: "partial", name: "partial.jpg", size: 1, phase: "complete", followups: [preserved,
+      { label: "Preset label: Next", summary: "Saving: 0/1 visible", pending: true, attention: false },
       { label: "Preset label: Example", summary: "Not sent", pending: false, attention: true }] },
   ]);
   render(<UploadProgress split />);
   fireEvent.click(screen.getByRole("button", { name: "Upload activity: 1 need attention" }));
   expect(screen.queryByText(/Existing description preserved|Saving: 0\/1 visible|Preset label: Example/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Uploaded; metadata needs attention" }));
+  const row = screen.getByText("partial.jpg").closest("li")!;
+  expect(row.querySelector('[data-upload-status="error"]')).toBeTruthy();
+  expect(within(row).getByText("Preset label: Next: Saving: 0/1 visible")).toBeTruthy();
   expect(screen.getByText("Preset label: Example: Not sent")).toBeTruthy();
   expect(screen.queryByText(/Existing description preserved/)).toBeNull();
 });
@@ -171,7 +175,7 @@ it("uses approved copy, keeps uncheckable outcomes honest and expands redacted s
   expect(screen.queryByText("Upload permission is unavailable.")).toBeNull();
   expect(screen.getByText("Filesize exceeds max 666MB")).toBeTruthy();
   expect(screen.getByText("Not confirmed")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Recheck" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Image corrupted" }));
   const detail = screen.getByRole("region", { name: "Upload error for broken.jpg" });
   expect(detail.textContent).toContain("ImageProcessingException");

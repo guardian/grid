@@ -7,7 +7,9 @@ import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import { MetadataDateInput } from "./MetadataDateInput";
 import { gridConfig } from "@/lib/grid-config";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
-import { MetadataBatchArrow, MetadataEditorContext, MetadataSaveFeedback, SavingValue, FieldSaveNote, useSubmittedField, useDerivedFieldState, panelSaveAdmitted, useMetadataCommit, usePendingPanelIntent } from "./MetadataEditing";
+import { useStore } from "zustand";
+import { editIssue } from "./EditIssueDisclosure";
+import { MetadataBatchArrow, MetadataEditorContext, FieldSignal, useSubmittedField, useDerivedFieldState, panelSaveAdmitted, panelSaveSucceeded, useMetadataCommit, usePendingPanelIntent, type FieldSaveState } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
 
 export type MetadataLocationChange = Partial<Record<"subLocation" | "city" | "state" | "country", string>>;
@@ -65,13 +67,13 @@ function dateTimeDraft(value: string): string {
 }
 
 export function MetadataTextInput({ field, value, onChange, placeholder, autoFocus = true, natural = false,
-  required = false, readOnly = false, textareaRef }: {
+  required = false, readOnly = false, textareaRef, describedBy }: {
   field: FieldDefinition; value: string; onChange: (value: string) => void; placeholder?: string;
   autoFocus?: boolean; natural?: boolean; required?: boolean; readOnly?: boolean;
-  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  textareaRef?: React.Ref<HTMLTextAreaElement>; describedBy?: string;
 }) {
   return METADATA_EDIT_CONTROLS.get(field.id) === "textarea"
-    ? <textarea ref={textareaRef} autoFocus={autoFocus} aria-label={field.label} rows={natural ? 1 : 4}
+    ? <textarea ref={textareaRef} autoFocus={autoFocus} aria-label={field.label} aria-describedby={describedBy} rows={natural ? 1 : 4}
       value={value} placeholder={placeholder} required={required} readOnly={readOnly}
       style={natural ? { fieldSizing: "content" } : undefined} onChange={event => onChange(event.target.value)} />
     : METADATA_EDIT_CONTROLS.get(field.id) === "image-type"
@@ -103,24 +105,38 @@ export const MetadataFormField = memo(function MetadataFormField({ imageId, fiel
   const draft = useMetadataDrafts(state => state.drafts.get(imageId)?.get(field.id));
   const baseline = field.id === "metadata_dateTaken" ? dateTimeDraft(value) : value;
   const derived = useDerivedFieldState([imageId], field.id);
+  const owner = useStore(editor, state => state.derivedOwners.get(JSON.stringify([imageId, field.id])));
+  const save = useStore(editor, state => state.latestSingle(imageId, field.id));
+  const [dismissed, dismiss] = useState<number>();
+  const fromRights = !draft && derived && owner !== undefined;
+  const reload = !!save?.items[0] && editIssue(imageId, field.label, save.items[0]).reload;
+  const current = save && (reload || (draft ? save.draftRevision === draft.revision : save.draftRevision === undefined) && (!fromRights || save.id > owner)) ? save : undefined;
+  const id = current?.id ?? (fromRights ? owner : undefined);
+  const item = current?.items[0];
+  const issue = item && editIssue(imageId, field.label, item);
+  const state: FieldSaveState | undefined = id === undefined || id === dismissed && !reload ? undefined : current ? current.state !== "finished" ? "Saving…" : panelSaveSucceeded(current) ? undefined : item?.state === "partial" ? "Partially saved" : issue?.notSaved || current.message?.startsWith("Not sent") ? "Not saved" : "Not confirmed" : derived;
+  const fieldRef = useRef<HTMLDivElement>(null);
+  const detail = current ? current.message ?? (issue?.reload ? "Reload before saving again." : item?.result?.outcome === "rejected" && item.result.status === 403 ? "No permission to edit this image." : undefined) : `${field.label} update from Rights.`;
   const displayed = draft?.value ?? baseline;
   const placeholder = !editorialGuidance ? undefined : field.id === "metadata_description"
     ? "Give some context about the image including who, what, where, when and why"
     : field.id === "metadata_byline" ? "Author’s name ONLY, leave empty if unknown"
     : field.id === "metadata_credit" ? "Source, agency or institution which owns the image" : undefined;
-  const shortDescription = editorialGuidance && field.id === "metadata_description"
-    && (displayed.length < 30 || displayed.split(" ").length < 5);
-  return <div data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field"
+  const hintId = useId();
+  const showGuidance = editorialGuidance && field.id === "metadata_description";
+  const shortHint = "Add context: who, what, where and when.";
+  const caption = displayed.trim();
+  const guidance = !caption && required ? "Description is required." : caption.length < 30 || caption.split(/\s+/).length < 5 ? shortHint : "";
+  return <div ref={fieldRef} data-measured-field={field.id} data-metadata-field="" data-suggestion-width="" className="metadata-form-field"
     onFocus={event => { if (editable && event.target.matches("input,textarea,select")) setEditingHere(true); }}
     onCompositionStart={() => { composing.current = true; editor.getState().pause(imageId, field.id); }}
     onCompositionEnd={() => { composing.current = false; if (editable) editor.getState().schedule(imageId, field.id); else if (pendingGrant) editor.getState().deferDraft(imageId, field.id); }}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setEditingHere(false); if (!composing.current && editable) editor.getState().flush(imageId, field.id); } }}>
     <div className="flex items-baseline justify-between gap-2 text-xs text-grid-text-dim">
       <span>{field.label}{required && <span className="text-grid-error"> *</span>}</span>
-      {derived && !draft && <FieldSaveNote state={derived} />}
     </div>
-    <div className="metadata-form-input" data-field-state={!draft ? derived : undefined} data-grant-pending={pendingGrant || undefined}>
-    <MetadataTextInput field={field} value={displayed} placeholder={placeholder} autoFocus={false} natural required={required} readOnly={!editable && !(editingHere && pendingGrant)}
+    <div className="metadata-form-input" data-tool-slot={editor.getState().connected || undefined} data-field-state={state} data-grant-pending={pendingGrant || undefined}>
+    <MetadataTextInput field={field} value={displayed} placeholder={placeholder} describedBy={showGuidance && guidance ? hintId : undefined} autoFocus={false} natural required={required} readOnly={!editable && !(editingHere && pendingGrant)}
       onChange={next => {
       if (!editable && !(editingHere && pendingGrant)) return;
         const nextValue = field.id !== "metadata_dateTaken" || !next ? next
@@ -133,10 +149,10 @@ export const MetadataFormField = memo(function MetadataFormField({ imageId, fiel
         if (!editable && pendingGrant) editor.getState().deferDraft(imageId, field.id);
         if (!composing.current && editable) editor.getState().schedule(imageId, field.id);
       }} />
-    <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={draft?.dateInstant ?? draft?.value ?? value} disabled={!editable || composing.current} />
+    <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={draft?.dateInstant ?? draft?.value ?? value} disabled={!editable || composing.current}
+      source={state && id !== undefined ? { id, state, detail, dismiss: reload ? undefined : () => { dismiss(id); fieldRef.current?.querySelector<HTMLElement>("input,textarea,select")?.focus(); } } : undefined} />
     </div>
-    <MetadataSaveFeedback fieldId={field.id} targetIds={[imageId]} />
-    {shortDescription && <p className="text-xs text-grid-warning">Your description is too short! Ideally, please state who, what, where, when and why.</p>}
+    {showGuidance && <p className="grid text-xs"><span aria-hidden="true" className="invisible col-start-1 row-start-1">{shortHint}</span><span id={hintId} className="col-start-1 row-start-1 text-grid-warning">{guidance}</span></p>}
   </div>;
 });
 
@@ -176,6 +192,10 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
   const [drafts, setDrafts] = useState(restored?.drafts ?? { overwrite: "", prepend: "", append: "" });
   const [mode, setMode] = useState<Mode>(restored?.mode ?? "overwrite");
   const editRef = useRef<HTMLButtonElement>(null);
+  const focusAfterCancel = useRef(false);
+  useLayoutEffect(() => {
+    if (!editing && focusAfterCancel.current) { focusAfterCancel.current = false; editRef.current?.focus(); }
+  }, [editing]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const [inputValid, setInputValid] = useState(restored?.inputValid ?? true);
@@ -196,7 +216,6 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
       ? { initial, initialMixed, drafts, mode, overwriteEdited, inputValid, dateParts, typeTouched, originalOffset } : undefined);
   });
   const validationId = useId();
-  useEffect(() => { if (editing) return () => { editRef.current?.focus(); }; }, [editing]);
   useLayoutEffect(() => {
     const input = textareaRef.current;
     if (editing && input) input.setSelectionRange(input.value.length, input.value.length);
@@ -233,6 +252,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
     setEditing(true);
   };
   const cancelEditing = () => {
+    focusAfterCancel.current = true;
     submitted.track(undefined);
     setEditing(false);
   };
@@ -255,11 +275,12 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
   };
   const stacked = field.detailLayout === "stacked" || editing && control === "datetime-local";
   const Layout = stacked ? MetadataBlock : MetadataRow;
+  const signal = editing ? submitted.state : pending ? "Saving…" : derived;
   if (!editable && !editing && !pending) return readOnly ?? null;
   return <Layout label={field.label} {...(stacked ? {} : { fill: true })} action={
-    <MetadataEditButton ref={editRef} label={field.label} editing={editing} disabled={!available} onClick={beginEditing} />
+    signal ? <FieldSignal label={field.label} state={signal} detail={submitted.reload ? "Reload before saving again." : !editing && derived && !pending ? `${field.label} update from Rights.` : undefined} onDismiss={editing && !submitted.reload ? () => { submitted.track(undefined); requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>("input,textarea,select")?.focus()); } : undefined} /> : <MetadataEditButton ref={editRef} label={field.label} editing={editing} disabled={!available} onClick={beginEditing} />
   }>
-    {!editing && (pending || derived) ? <SavingValue saving={!!pending} state={pending ? "Saving…" : derived}>{pending?.action === "overwrite" && typeof pending.value === "string" ? <span className="whitespace-pre-wrap">{pending.value || "Unknown"}</span> : children}</SavingValue> : !editing ?
+    {!editing && signal ? <div className="metadata-saving" data-field-state={signal}><div aria-busy={signal === "Saving…"}>{pending?.action === "overwrite" && typeof pending.value === "string" ? <span className="whitespace-pre-wrap">{pending.value || "Unknown"}</span> : children}</div></div> : !editing ?
       (available || retainHint) && (mixed || !value) ? <MetadataEditHint label={field.label} mixed={mixed} disabled={!available}
       furtherInstructions={furtherInstructions} onClick={beginEditing}>{children}</MetadataEditHint>
       : children : <fieldset disabled={submitted.locked} className="min-w-0"><form ref={formRef} data-field-state={submitted.state} className={`metadata-edit-form${multiline ? "" : " metadata-scalar-edit-form"}`} onSubmit={event => { event.preventDefault(); prepare(); }} onKeyDown={event => {
@@ -268,7 +289,6 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
       else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); event.stopPropagation(); prepare(); }
       else if (event.key === "Enter") event.stopPropagation();
     }}>
-      <FieldSaveNote state={submitted.state} />
       {multiline ? <MetadataTextInput field={field} textareaRef={textareaRef} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />
         : control === "datetime-local" ? <MetadataDateInput initialValue={initial} restoredParts={dateParts} mixed={editingMixed} validationId={validationId}
           onChange={(value, valid, parts) => { updateDraft(value); setInputValid(valid); setDateParts(parts); }} />
@@ -306,6 +326,5 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
         </div>
       </div>
     </form></fieldset>}
-    {editing && submitted.state === "Not confirmed" && <PillActionButton action="cancel" label={`Dismiss ${field.label} edit`} onClick={cancelEditing} />}
   </Layout>;
 }

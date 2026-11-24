@@ -21,6 +21,7 @@ function sessionReadFailure(error: unknown): boolean {
 export interface MetadataSave {
   id: number;
   sequence?: number;
+  draftRevision?: number;
   intent: MetadataIntent;
   state: "queued" | "saving" | "finished";
   items: MetadataReceipt["items"];
@@ -126,7 +127,7 @@ export function createMetadataEditorStore(
     arrowSaves: ReadonlyMap<string, number>;
     removedPills: ReadonlyMap<string, readonly string[]>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
-    submit: (intent: MetadataIntent, newRevision?: boolean, pillSource?: string, origin?: "details-scalar") => number | undefined;
+    submit: (intent: MetadataIntent, newRevision?: boolean | number, pillSource?: string, origin?: "details-scalar") => number | undefined;
     schedule: (imageId: string, fieldId: string) => void;
     deferDraft: (imageId: string, fieldId: string) => void;
     settleDraftGrant: (imageId: string, fieldId: string, granted: boolean) => void;
@@ -165,10 +166,11 @@ export function createMetadataEditorStore(
       }
       const id = ++nextId;
       const sequence = nextEditSequence();
+      const draftRevision = typeof newRevision === "number" ? newRevision : undefined;
       if (targetIds.length === 1) for (const key of keysFor(intent)) latestSingle.set(key, id);
       const release = watchQueuedLabelTargets(intent.targetIds);
       if (!release) {
-        set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "finished", items: [], excluded: 0,
+        set({ saves: new Map(get().saves).set(id, { id, intent, sequence, draftRevision, state: "finished", items: [], excluded: 0,
           message: "Not sent: session editing capacity reached. Reload before starting this action." }) });
         return id;
       }
@@ -194,7 +196,7 @@ export function createMetadataEditorStore(
         const affected = targetIds.flatMap(imageId => keys.map(field => keyFor(imageId, field))).filter(key => get().derivedOwners.has(key));
         if (affected.length) { const owners = new Map(get().derivedOwners); affected.forEach(key => owners.delete(key)); set({ derivedOwners: owners }); }
       }
-      set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "queued", items: [], excluded: 0 }) });
+      set({ saves: new Map(get().saves).set(id, { id, intent, sequence, draftRevision, state: "queued", items: [], excluded: 0 }) });
       pending.push(id);
       if (origin === "details-scalar" && targetIds.length === 1 && scalarFields.has(intent.fieldId)) detailsSingles.add(intent);
       queueMicrotask(() => void pump());
@@ -236,7 +238,7 @@ export function createMetadataEditorStore(
         const unsent = save?.state === "queued" || save?.state === "saving" && save.items.every(item => item.state === "queued");
         if (captured.imageId === imageId && captured.fieldId === fieldId && unsent) get().stop(id);
       }
-      const id = get().submit(intent, true);
+      const id = get().submit(intent, draft.revision);
       if (id !== undefined) {
         capturedDrafts.set(id, { imageId, fieldId, revision: draft.revision });
         submittedDrafts.set(key, draft.revision);

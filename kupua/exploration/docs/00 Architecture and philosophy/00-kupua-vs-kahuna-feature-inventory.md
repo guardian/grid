@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Browsing inventory, 8 November 2026; editing scope updated 23 November.** A product-facing comparison of
+**Browsing inventory, 8 November 2026; editing scope updated 24 November.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -1237,6 +1237,45 @@ Sources: [StatusBar](../../../src/components/StatusBar.tsx),
 [Scrubber](../../../src/components/Scrubber.tsx),
 [styles](../../../src/index.css),
 [Kahuna loading/arrival UI](../../../../kahuna/public/js/search/results.html).
+
+### 7.7 Edit feedback tells you which image needs attention
+
+**Both:** Kahuna and Kupua signal when a metadata edit is being saved. Kupua's
+scalar fields in Details and Form share a distinction that matters when editing:
+**not saved** means the change wasn't applied; **not confirmed** means it may have
+saved. A quick save doesn't flash a spinner. A longer one shows progress beside
+the field without inserting a line of text above the next field.
+
+**Before saving:** an empty required Description asks for a value. A short caption
+gets an editorial hint instead. Upload reserves space for that guidance so the
+next field stays in place when the hint clears.
+
+<img src="../feature-assets/edit-description.png" width="308" alt="Empty Upload Description with a required star and the guidance ‘Description is required.’">
+
+**When the outcome is uncertain:** open the warning on Credit to learn what is
+unknown. In Details, **Dismiss** keeps the typed value as an editable draft; it
+doesn't undo the change or send it again.
+
+<img src="../feature-assets/edit-uncertain.png" width="226" alt="Credit contains Evening desk. The warning reads ‘Credit not confirmed. Couldn’t verify the change. It may have saved.’ and offers Dismiss.">
+
+**When another image couldn't be updated:** the batch arrow explains which part
+of the action failed. Here the source Credit stays intact; permission was denied
+on one **other** image. This doesn't create an Upload Activity error. Activity
+is for the file transfer and automatic follow-ups, such as a preset label that
+couldn't be applied after a successful upload.
+
+<img src="../feature-assets/edit-other-image.png" width="336" alt="The Credit batch arrow reports ‘No permission to edit 1 other image.’ The source value is Evening picture desk.">
+
+*Cropped Chromium screenshots of implemented Kupua controls with synthetic values
+and save outcomes. These are not live editorial records or proposed screens.*
+
+**New endpoints:** **none** for this feedback. It presents outcomes from existing
+editing and upload operations; inspecting or dismissing a warning is not a retry.
+
+Sources: [scalar fields](../../../src/components/MetadataTextEditor.tsx),
+[field and batch feedback](../../../src/components/MetadataEditing.tsx),
+[Upload Activity](../../../src/components/UploadProgress.tsx),
+[Kahuna metadata save states](../../../../kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html).
 
 ---
 

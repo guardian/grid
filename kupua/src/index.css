@@ -303,6 +303,8 @@
   [data-metadata-field]:hover .metadata-pencil, [data-metadata-field] .metadata-pencil:focus-visible { opacity: 1; }
   [data-search-pill]:not([data-accent]):hover,
   [data-editable-pill]:not([data-accent]) button:enabled:hover { background: white; color: #717171; --tw-ring-color: #717171; }
+  [data-search-pill][data-partial="true"]:not([data-accent]):hover,
+  [data-editable-pill][data-coverage="partial"]:not([data-accent]) button:enabled:hover { background: #555; color: white; }
   [data-editable-pill][data-accent] button:enabled:hover { background: white; color: var(--color-grid-accent-dark); }
   [data-editable-pill][data-accent][data-coverage="partial"] button:enabled:hover { background: var(--color-grid-accent-dark); color: white; }
 }
@@ -330,13 +332,13 @@
 .metadata-form-input, .lease-editor { --batch-tool-size: 24px; }
 .metadata-batch-tool { position: absolute; inset-block-start: 2px; inset-inline-end: 2px; }
 .metadata-batch-tool > .metadata-edit-tool { color: var(--color-grid-text); }
-.metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { padding-inline-end: calc(var(--batch-tool-size) + 8px); }
-.metadata-form-input:has(.metadata-batch-tool) > :is(select, input[type="datetime-local"]) { width: calc(100% - var(--batch-tool-size) - 4px); padding-inline-end: 7px; }
-.metadata-form-input:has(.metadata-batch-tool) > input[type="datetime-local"] { padding-inline-end: 28px; }
+.metadata-form-input:is([data-tool-slot], :has(.metadata-batch-tool)) > :is(input, textarea, select) { padding-inline-end: calc(var(--batch-tool-size) + 8px); }
+.metadata-form-input:is([data-tool-slot], :has(.metadata-batch-tool)) > :is(select, input[type="datetime-local"]) { width: calc(100% - var(--batch-tool-size) - 4px); padding-inline-end: 7px; }
+.metadata-form-input:is([data-tool-slot], :has(.metadata-batch-tool)) > input[type="datetime-local"] { padding-inline-end: 28px; }
 .metadata-batch-popover { position: absolute; z-index: 2; inset-inline-end: 0; width: max-content; max-width: min(210px, 50vw); padding: 6px 8px; border: 1px solid var(--color-grid-border); border-radius: 4px; background: var(--color-grid-bg); }
 @media (pointer: coarse) {
   .metadata-form-input, .lease-editor { --batch-tool-size: var(--mobile-edit-control-size); }
-  .metadata-form-input:has(.metadata-batch-tool) > :is(input, textarea, select) { min-height: calc(var(--batch-tool-size) + 4px); }
+  .metadata-form-input:is([data-tool-slot], :has(.metadata-batch-tool)) > :is(input, textarea, select) { min-height: calc(var(--batch-tool-size) + 4px); }
 }
 .metadata-edit-form { min-width: 0; padding: 3px; }
 .metadata-field-status { display: block; margin-bottom: 2px; text-align: right; font-size: 11px; line-height: 14px; font-weight: 400; color: var(--color-grid-text-muted); }
@@ -344,13 +346,18 @@
 [data-editable-pill][aria-busy=true]::after { content: ""; position: absolute; inset: 0; border: 2.65px dotted #dedede; border-radius: inherit; pointer-events: none; }
 [data-editable-pill][aria-busy=true][data-coverage=partial]::after { border-color: #424242; }
 [data-editable-pill][aria-busy=true] > * { filter: grayscale(1); opacity: .55; }
-.metadata-saving > [aria-busy=true] { min-width: 0; border: 1px dashed var(--color-grid-text-dim); border-radius: 3px; padding: 3px 6px; }
+.metadata-saving > [aria-busy=true] { min-width: 0; }
+.metadata-saving { position: relative; }
+.metadata-pending-glyph { position: absolute; inset-inline-end: 0; inset-block-start: 50%; transform: translateY(-50%); pointer-events: none; }
+.metadata-field-signal { position: relative; display: inline-flex; }
+.metadata-field-signal .metadata-batch-popover { top: 100%; text-align: start; font-weight: normal; }
 [data-field-state] { --save-edge: #eee; }
 [data-field-state="Not saved"] { --save-edge: #f07459; }
 [data-field-state="Not confirmed"] { --save-edge: #aaa; }
 .metadata-field-status[data-save-state="Not saved"] { color: #ffa493; }
 .metadata-form-input[data-field-state] :is(input,select,textarea), .metadata-saving > [aria-busy], .metadata-edit-form[data-field-state] > :is(input,textarea,select), .metadata-location-row[data-field-state] input,
 .usage-rights-form[data-field-state] > select, .metadata-edit-form[data-field-state] .metadata-date-entry { outline: 1px dashed var(--save-edge); outline-offset: -1px; }
+.metadata-form-input[data-field-state] :is(input,select,textarea):focus-visible { outline: 2px solid var(--color-grid-accent); outline-offset: 1px; box-shadow: inset 0 0 0 1px var(--save-edge); }
 .usage-rights-form { display: grid; gap: 10px; min-width: 0; margin-top: 4px; padding: 10px; border: 1px solid transparent; border-radius: 3px; line-height: 1.45; }
 .usage-rights-form[data-unknown],
 .usage-rights-form :is(input, textarea, select):required:invalid { border-color: #f07459; }

@@ -1,0 +1,61 @@
+import React,{useLayoutEffect,useEffect,useRef,useState} from 'react';
+import {createRoot} from 'react-dom/client';
+import {createPortal} from 'react-dom';
+import '@/index.css';
+import {MetadataPillEditor} from '@/components/MetadataPillEditor';
+import {LabelEditor,LabelEditorContext} from '@/components/LabelEditor';
+import {MetadataEditorContext,FormBatchContext,MetadataBatchArrow,SelectionSaveIndicator as ToolbarIndicator} from '@/components/MetadataEditing';
+import {MetadataBlock,MetadataRow,MetadataSection,ValueLink} from '@/components/metadata-primitives';
+import {SearchPill,MultiSearchPill} from '@/components/SearchPill';
+import {createLabelEditorStore,labelTargetKey} from '@/stores/label-editor-store';
+import {createMetadataEditorStore,type MetadataSave} from '@/stores/metadata-editor-store';
+import {FIELDS_BY_ID} from '@/lib/field-registry';
+import {pillCommandField} from '@/lib/metadata-pill-fields';
+import './pills.css';
+
+const words={keywords:['Railway','Station platform','Evening departure','Commuters'],people:['Alex Reed','Sam Malik','Jo Chen','Robin Evans'],labels:['Desk pick','For review','Weekend','Shortlist'],subjects:['news','politics','sport','weather'],collections:['News/Transport','News/Weekend desk','Archive/City transport','Archive/Stations']};
+type Field=keyof typeof words;
+const sequences={
+ 'Remove one':['Idle','Removing','Removed'], 'Add one':['Idle','Adding','Added'], 'Remove and add':['Idle','Removing + adding','Changed'],
+ 'Mixed selection / fill':['Idle','Filling','Filled'], 'Failure / uncertain':['Idle','Removing','Not saved','Removing','Not confirmed','Idle'],
+ 'Batch apply / clear':['Idle','Applying to peers','Peer issue','Empty','Clear confirmation'], 'Long list':['Collapsed','Expanded','Collapsed'],
+ 'Empty / read only':['Empty','Read only empty','Read only populated','Idle'], 'Choose subjects':['Idle','Chooser open','Removing + adding','Changed'],
+ 'Partial label write':['Idle','Applying to peers','Partially saved'], 'Collection permissions':['Idle','Removal withheld','Read only populated']
+};
+type Sequence=keyof typeof sequences;
+const noop=()=>{};const batch={key:'study',ids:['source','peer-one','peer-two']};const single=['source'];
+function SelectionSaveIndicator(props:React.ComponentProps<typeof ToolbarIndicator>){return createPortal(<ToolbarIndicator {...props}/>,document.getElementById('toolbar-slot')!)}
+const grants={resource:{links:[{rel:'edits',href:'https://metadata.example.invalid/metadata/source'}]}};
+function available(field:Field){return (Object.keys(sequences) as Sequence[]).filter(seq=>field==='collections'?seq==='Collection permissions'||seq==='Empty / read only':seq!=='Collection permissions'&&(seq!=='Choose subjects'||field==='subjects')&&(seq!=='Partial label write'||field==='labels')&&(seq!=='Long list'||field!=='subjects'));}
+function PillField({fieldKey,seq,phase,form,multiple}:{fieldKey:Field;seq:Sequence;phase:string;form:boolean;multiple:boolean}){
+ const ids=!form&&multiple?batch.ids:single;const total=ids.length;const [stable,affected,last,incoming]=words[fieldKey];const command=pillCommandField(fieldKey);const field=FIELDS_BY_ID.get(fieldKey)!;const key=labelTargetKey(ids);
+ const [editor]=useState(()=>{const store=createMetadataEditorStore();store.setState({connected:true,submit:()=>undefined,submitArrow:noop});return store});
+ const [labels]=useState(()=>{const store=createLabelEditorStore(undefined,undefined,'connected');store.setState({prepare:()=>false,prepareLabels:()=>false});return store});
+ const root=useRef<HTMLDivElement>(null); const isBatch=seq==='Batch apply / clear'||seq==='Partial label write';const absent=!form&&isBatch||form&&seq==='Mixed selection / fill';
+ const readonly=phase.startsWith('Read only');const empty=phase==='Empty'||phase==='Clear confirmation'||phase==='Read only empty';
+ const values=(empty?[]:seq==='Long list'?Array.from({length:24},(_,i)=>`${stable} ${i+1}`):[stable,affected,last,...(['Changed','Added'].includes(phase)?[incoming]:[])].filter(v=>!(v===affected&&['Removed','Changed'].includes(phase)))).map(value=>({value,count:multiple&&!form&&value===affected&&phase!=='Filled'?1:total}));
+ const pending=['Adding','Removing','Removing + adding','Filling'].includes(phase),issue=['Not saved','Not confirmed','Peer issue','Partially saved'].includes(phase),arrowBusy=phase==='Applying to peers';
+ useLayoutEffect(()=>{const targetIds=isBatch?batch.ids.slice(1):ids;const remove=phase==='Removing'||issue;const value=phase==='Removing + adding'?[incoming]:phase==='Filling'||remove?affected:incoming;
+ const intent={fieldId:command,action:remove?'remove':'add',value, ...(phase==='Removing + adding'&&{removed:[affected]}),targetIds};
+ const save={id:1,sequence:1,intent,state:issue?'finished':'saving',excluded:0,items:targetIds.map(imageId=>({imageId,state:phase==='Not confirmed'?'unknown':phase==='Partially saved'?'partial':issue?'rejected':'submitted',observation:issue?'unavailable':'pending',result:issue?phase==='Partially saved'?{outcome:'partial',labelSteps:{acknowledged:1,rejected:1,uncertain:0,notSent:0}}:{outcome:phase==='Not confirmed'?'unknown':'rejected'}:undefined}))} as MetadataSave;
+ const active=(pending||issue||arrowBusy)&&!absent;
+ const saves=new Map<number,MetadataSave>(active?[[1,save]]:[]);
+ if(phase==='Removing + adding'&&fieldKey!=='subjects'){
+	 saves.set(1,{...save,intent:{...save.intent,action:'remove',value:affected,removed:undefined}} as MetadataSave);
+	 saves.set(2,{...save,id:2,intent:{...save.intent,action:'add',value:incoming,removed:undefined}} as MetadataSave);
+ }
+ editor.setState({saves,panelSaves:!form?[...saves.keys()].map(id=>({id,targetKey:key})):[],pendingFieldIds:()=>form&&pending&&!isBatch?[...saves.keys()]:[],hasPendingField:()=>form&&pending&&!isBatch,latestSingle:()=>form&&issue&&!isBatch?save:undefined,arrowSaves:new Map(form&&isBatch&&active?[[JSON.stringify([batch.key,'source',fieldKey]),1]]:[])});
+ const selector=phase==='Chooser open'?'[aria-label="Choose subjects"]':phase==='Expanded'?'[aria-expanded="false"][aria-controls]':phase==='Clear confirmation'||phase==='Peer issue'||phase==='Partially saved'?'.metadata-batch-tool button':null;
+ if(selector&&!absent){const timer=requestAnimationFrame(()=>{const el=phase==='Expanded'?[...root.current!.querySelectorAll('button')].find(b=>/show more/i.test(b.textContent||b.ariaLabel||'')):root.current?.querySelector<HTMLButtonElement>(selector);el?.click()});return()=>cancelAnimationFrame(timer)}
+ },[fieldKey,seq,phase,form,multiple]);
+ const Layout=multiple&&!form||field.detailLayout!=='stacked'?MetadataRow:MetadataBlock;
+ const readOnly=values.length?<Layout label={field.label}>{field.detailListStyle==='links'&&total===1?<div className="flex flex-col gap-0.5 pt-0.5">{values.map(v=><ValueLink key={v.value} cqlKey={field.cqlKey!} value={v.value} onSearch={noop}/>)}</div>:<div className="flex flex-wrap gap-1 pt-0.5">{values.map(v=>total>1?<MultiSearchPill key={v.value} value={v.value} count={v.count} total={total} partial={v.count<total} cqlKey={field.cqlKey!} accent={field.pillVariant==='accent'} onSearch={noop}/>:<SearchPill key={v.value} value={v.value} cqlKey={field.cqlKey!} accent={field.pillVariant==='accent'} onSearch={noop}/>)}</div>}</Layout>:field.showWhenEmpty||form&&fieldKey==='labels'?<Layout label={field.label}><span className="text-grid-text-dim">Unknown</span></Layout>:null;
+ const element=fieldKey==='labels'&&!form?<LabelEditor context={{targetIds:ids,targets:new Map(ids.map(id=>[id,readonly?{}:grants]))}} values={values} displayedImageId={total===1?'source':undefined} onSearch={noop}/>:<MetadataPillEditor key={`${seq}:${phase==='Expanded'?'Collapsed':phase}`} form={form} field={field} values={values} targetIds={ids} editable={!readonly} readOnly={readOnly} onSearch={noop} collectionGrants={fieldKey==='collections'?{add:true,editable:true,removable:new Set(values.filter(v=>v.value!==affected||phase!=='Removal withheld').map(v=>v.value)),canFill:()=>true,affectedIds:()=>[]}:undefined}/>;
+ return <MetadataEditorContext value={editor}><LabelEditorContext value={labels}><FormBatchContext value={form?batch:undefined}><div ref={root} className="pill-render"><dl className="wrap-anywhere"><MetadataSection>{absent?<small className="study-only">{form?'An Upload row represents one image, not mixed selection coverage.':'Applying to batch peers is an Upload action.'}</small>:form?<div className="form-batch-list" data-measured-field={fieldKey}>{element}<MetadataBatchArrow imageId="source" fieldId={fieldKey} label={field.label} value={values.map(v=>v.value)} disabled={readonly} hideWhenDisabled={!readOnly}/></div>:element}</MetadataSection></dl></div>{!form&&!absent&&<div className="study-toolbar" aria-label="Search toolbar specimen"><SelectionSaveIndicator targetKey={key} desktopCount={total}/></div>}</FormBatchContext></LabelEditorContext></MetadataEditorContext>;
+}
+function App(){const [field,setField]=useState<Field>('keywords'),[seq,setSeq]=useState<Sequence>('Remove one'),[step,setStep]=useState(1),[multiple,setMultiple]=useState(true),[narrow,setNarrow]=useState(false),[play,setPlay]=useState(false);const states=sequences[seq],phase=states[step];const [delta,setDelta]=useState([0,0]);const previous=useRef<{key:string;heights:number[]}|null>(null);
+ useEffect(()=>{if(!play)return;const t=setInterval(()=>setStep(n=>(n+1)%states.length),1600);return()=>clearInterval(t)},[play,states]);
+ useLayoutEffect(()=>{let frame=requestAnimationFrame(()=>{frame=requestAnimationFrame(()=>{const heights=[...document.querySelectorAll('.pill-render')].map(e=>e.getBoundingClientRect().height),key=[field,seq,multiple,narrow].join(':');setDelta(heights.map((h,i)=>previous.current?.key===key?Math.round(h-previous.current.heights[i]):0));previous.current={key,heights}})});return()=>cancelAnimationFrame(frame)},[field,seq,step,multiple,narrow]);
+ const change=(f:Field,s:Sequence)=>{setField(f);setSeq(s);setStep(0);setPlay(false);if(s==='Mixed selection / fill')setMultiple(true)};
+ return <><header><a href="./index.html?review=3">Editing feedback</a><h1>Pill fields</h1></header><nav><label>Field <select value={field} onChange={e=>{const f=e.target.value as Field;change(f,available(f).includes(seq)?seq:available(f)[0])}}>{Object.keys(words).map(k=><option key={k} value={k}>{FIELDS_BY_ID.get(k)!.label}</option>)}</select></label><label>Transition <select value={seq} onChange={e=>change(field,e.target.value as Sequence)}>{available(field).map(s=><option key={s}>{s}</option>)}</select></label><label><input type="checkbox" checked={multiple} disabled={seq==='Mixed selection / fill'} onChange={e=>setMultiple(e.target.checked)}/> Details: 3 selected</label><label><input type="checkbox" checked={narrow} onChange={e=>setNarrow(e.target.checked)}/> Narrow</label><button onClick={()=>setPlay(!play)}>{play?'Pause':'Replay'}</button></nav><div className="phase-list">{states.map((s,i)=><button key={i} aria-pressed={i===step} onClick={()=>{setPlay(false);setStep(i)}}>{s}</button>)}</div><p className="study-note">{field==='collections'?'Collection membership is preparation only. No save or pending state is simulated.':`Watch “${words[field][1]}” and compare “${words[field][0]}”. Incoming value: “${words[field][3]}”.`}</p><section className="pair">{[false,true].map((form,i)=><article key={i}><h2>{form?'Upload Form':multiple?'Details · selection':'Details · single image'}</h2><div className={form?'form-stage':'detail-stage'} style={{width:form?(narrow?356:880):(narrow?240:300)}}><div className={form?'form-density-item':'detail-body'}>{form&&<div className="min-w-0 self-start" aria-hidden="true"/>}<div {...(form?{'data-form-content':'',className:'min-w-0 p-3 cursor-text select-text'}:{})}><PillField fieldKey={field} seq={seq} phase={phase} form={form} multiple={multiple}/><div className="witness">Following field</div></div></div></div><output>Field height change: {delta[i]>0?'+':''}{delta[i]} px</output></article>)}</section></>}
+createRoot(document.getElementById('pill-study')!).render(<App/>);

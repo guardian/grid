@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { MetadataBlock, MetadataRow } from "./metadata-primitives";
 import { MetadataEditButton, MetadataEditHint, type MetadataEditIntent, type MetadataLocationChange } from "./MetadataTextEditor";
 import { PillActionButton } from "./SearchPill";
-import { panelSaveAdmitted, useMetadataCommit, SavingValue, usePendingPanelIntent, FieldSaveNote, useSubmittedField } from "./MetadataEditing";
+import { panelSaveAdmitted, useMetadataCommit, usePendingPanelIntent, FieldSaveNote, useSubmittedField } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
 import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 
@@ -73,8 +73,8 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
   };
   const Layout = editing ? MetadataBlock : MetadataRow;
   if (!editable && !editing) return readOnly ?? null;
-  return <Layout label="Location" {...(editing ? {} : { fill: true })} action={<MetadataEditButton ref={editRef} label="Location" editing={editing} disabled={!available} onClick={beginEditing} />}>
-    {!editing && pending ? <SavingValue saving>{children}</SavingValue> : !editing ? (available || retainReading) && fields.some(field => field.mixed)
+  return <Layout label="Location" {...(editing ? {} : { fill: true })} action={<span className="relative inline-flex"><MetadataEditButton ref={editRef} label="Location" editing={editing} disabled={!available} onClick={beginEditing} />{(editing ? submission.state === "Saving…" : pending) && <FieldSaveNote label="location" state="Saving…" />}</span>}>
+    {!editing && pending ? <div className="metadata-saving" data-field-state="Saving…"><div aria-busy="true">{children}</div></div> : !editing ? (available || retainReading) && fields.some(field => field.mixed)
       ? <>{children} <MetadataEditHint label="Location" mixed onClick={beginEditing} disabled={!available} /></>
       : (available || retainReading) && fields.every(field => !field.value && !field.mixed)
       ? <MetadataEditHint label="Location" onClick={beginEditing} disabled={!available} /> : children
@@ -89,7 +89,7 @@ export function MetadataLocationEditor({ fields, targetIds, available: dataAvail
       <div className="metadata-location-fields">
         {fields.map((field, index) => <div key={field.key} data-field-state={changes[field.key] !== undefined ? submission.state : undefined} className="metadata-location-row min-w-0">
           <label htmlFor={`${id}-${field.key}`} className="text-xs text-grid-text-dim">{field.label}</label>
-          {changes[field.key] !== undefined && <FieldSaveNote state={submission.state} />}
+          {changes[field.key] !== undefined && submission.state !== "Saving…" && <FieldSaveNote state={submission.state} />}
           <div className="flex min-w-0 items-center gap-1">
             <input id={`${id}-${field.key}`} disabled={submission.locked} ref={index === 0 ? inputRef : undefined} autoFocus={index === 0} type="text" value={changes[field.key] ?? initial[field.key]}
               data-mixed={mixed.has(field.key) && changes[field.key] === undefined || undefined}

@@ -503,7 +503,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             }
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
-                editable={pillEditable} readOnly={readOnly} collectionGrants={collectionGrants}
+                editable={pillEditable} readOnly={readOnly} collectionGrants={collectionGrants} retainReading={!image.__availability}
                 available={collectionGrants ? pillEditable && !labelEditing?.pending : editDataReady}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                 collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;

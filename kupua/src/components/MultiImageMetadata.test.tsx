@@ -119,13 +119,14 @@ describe("metadata field preparation", () => {
       fireEvent.click(screen.getByRole("button", { name: "Commit Credit" }));
       expect([...editor.getState().saves.values()].map(save => save.intent.targetIds)).toEqual([targets]);
       expect((screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement).value).toBe("Desk");
-      expect(within(fieldRow("Credit")).getByText("Saving…")).toBeTruthy();
+      expect(within(fieldRow("Credit")).queryByRole("button", { name: "Saving Credit" })).toBeNull();
       expect(screen.getByRole("button", { name: "Commit Credit" }).matches(":disabled")).toBe(true);
       expect(within(fieldRow("Credit")).queryByText(/Queued:|Saving:|Finished:/)).toBeNull();
       expect(screen.queryByRole("complementary", { name: "Image activity" })).toBeNull();
       expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
       act(() => vi.advanceTimersByTime(1500));
+      expect(within(fieldRow("Credit")).getByRole("button", { name: "Saving Credit" })).toBeTruthy();
       const meter = screen.getByRole("progressbar", { name: "Updating selected images" });
       expect(meter.textContent).toBe("Updating Credit: 0/2");
       const save = [...editor.getState().saves.values()][0];
@@ -141,7 +142,12 @@ describe("metadata field preparation", () => {
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(true);
       expect(screen.queryByRole("progressbar", { name: "Updating selected images" })).toBeNull();
       expect((screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement).value).toBe("Desk");
-      expect(within(fieldRow("Credit")).getByText("Not confirmed")).toBeTruthy();
+      fireEvent.click(within(fieldRow("Credit")).getByRole("button", { name: "Credit not confirmed" }));
+      fireEvent.click(within(fieldRow("Credit")).getByRole("button", { name: "Dismiss" }));
+      const retained = screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement;
+      expect(retained.matches(":disabled")).toBe(false);
+      expect(retained.value).toBe("Desk");
+      expect(editor.getState().saves.size).toBe(1);
     } finally { editor.getState().dispose(); vi.useRealTimers(); }
   });
 
@@ -155,18 +161,18 @@ describe("metadata field preparation", () => {
       </FormBatchContext>
     </MetadataEditorContext>);
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch image" }));
-      fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 batch image" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 other image" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 other image" }));
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
       for (const label of ["Credit", "Byline"]) {
-        const progress = screen.getByRole("button", { name: `Applying ${label}...` });
-        expect(progress.querySelector("circle")).not.toBeNull();
-        expect(progress.getAttribute("title")).toBe(`Applying ${label}...`);
+        const progress = screen.getByRole("button", { name: `Applying ${label} to 1 other image` });
+        expect(progress.querySelector("circle")).toBeNull();
+        expect(progress.getAttribute("title")).toBe(`Applying ${label} to 1 other image`);
       }
       expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
-      fireEvent.click(screen.getByRole("button", { name: "Applying Credit..." }));
+      fireEvent.click(screen.getByRole("button", { name: "Applying Credit to 1 other image" }));
       expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
-      expect(screen.getByRole("button", { name: "Applying Credit..." }).getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("button", { name: "Applying Credit to 1 other image" }).getAttribute("aria-expanded")).toBe("true");
     } finally { editor.getState().dispose(); }
   });
 
@@ -188,11 +194,11 @@ describe("metadata field preparation", () => {
           <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
         </FormBatchContext>
       </MetadataEditorContext>);
-      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 batch image" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 other image" }));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       expect([...editor.getState().saves.values()][0]).toMatchObject({ state: "finished", items: [{ state: "unknown", observation: "observed" }] });
       fireEvent.click(screen.getByRole("button", { name: "Credit edit needs attention" }));
-      expect(screen.getByText(/1\/1 visible; 1 uncertain/)).toBeTruthy();
+      expect(screen.getByText("Credit not confirmed on 1 other image.")).toBeTruthy();
       expect(editor.getState().saves.size).toBe(1);
       expect(execute).toHaveBeenCalledOnce();
     } finally { editor.getState().dispose(); vi.useRealTimers(); }
@@ -734,7 +740,7 @@ describe("metadata field preparation", () => {
       "collections", "labels", "people", "keywords", "subjects", "photoshoot", "uploadInfo_filename", "form_fileInfo",
     ]);
     expect(screen.getByLabelText("Byline").getAttribute("placeholder")).toBe("Author’s name ONLY, leave empty if unknown");
-    expect(screen.getByText(/Your description is too short/).className).toContain("text-grid-warning");
+    expect(screen.getByRole("textbox", { name: "Description", description: "Add context: who, what, where and when." })).toBeTruthy();
     expect(screen.getByRole("option", { name: /choose type/ }).textContent).toBe("───  choose type  ───");
     expect(fieldRow("File info").textContent).toContain("jpeg, 700 × 500, 1 KB");
     expect(screen.queryByText("File type", { selector: "dt" })).toBeNull();
@@ -759,7 +765,8 @@ describe("metadata field preparation", () => {
       const input = screen.getByLabelText(label) as HTMLInputElement | HTMLTextAreaElement;
       fireEvent.change(input, { target: { value: "" } });
       expect(input.checkValidity()).toBe(false);
-      expect(screen.queryByText(`${label} is required.`)).toBeNull();
+      if (label === "Description") expect(screen.getByRole("textbox", { name: label, description: "Description is required." })).toBe(input);
+      else expect(screen.queryByText(`${label} is required.`)).toBeNull();
     }
     fireEvent.click(screen.getByRole("button", { name: "Add label" }));
     act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
@@ -825,7 +832,7 @@ describe("metadata field preparation", () => {
       <MetadataFormField imageId="first" field={field} value={original} editable />
     </FormBatchContext></MetadataEditorContext>);
     const input = screen.getByLabelText("Taken on") as HTMLInputElement;
-    const arrow = screen.getByRole("button", { name: "Apply Taken on to 1 batch image" });
+    const arrow = screen.getByRole("button", { name: "Apply Taken on to 1 other image" });
     fireEvent.click(arrow);
     expect(submitArrow.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["peer"] });
     const originalSecond = input.value.slice(0, 19);
@@ -851,6 +858,26 @@ describe("metadata field preparation", () => {
     expect(submitArrow.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["peer"] });
     expect(submit.mock.lastCall?.[0]).toMatchObject({ value: original, targetIds: ["first"] });
     editor.getState().dispose();
+  });
+
+  it("does not attach an earlier Upload receipt to a newer Credit draft", () => {
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
+    const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+    try {
+      render(<MetadataEditorContext value={editor}><MetadataFormField imageId="source" field={field} value="First" editable /></MetadataEditorContext>);
+      const input = screen.getByLabelText("Credit");
+      fireEvent.change(input, { target: { value: "Desk" } });
+      fireEvent.blur(input);
+      act(() => vi.advanceTimersByTime(150));
+      expect(screen.getByRole("button", { name: "Saving Credit" })).toBeTruthy();
+      fireEvent.change(input, { target: { value: "New caption credit" } });
+      const save = [...editor.getState().saves.values()][0];
+      act(() => editor.setState({ saves: new Map([[save.id, { ...save, state: "finished", items: [{ imageId: "source", state: "rejected" }] }]]) }));
+      expect(screen.queryByRole("button", { name: "Credit not saved" })).toBeNull();
+      expect(screen.queryByText("Not saved")).toBeNull();
+      expect((input as HTMLInputElement).value).toBe("New caption credit");
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
   });
 
   it("retains sparse form drafts across unmount and canonical changes without changing canonical metadata", () => {
@@ -1060,7 +1087,7 @@ describe("metadata field preparation", () => {
       act(() => useEnrichmentStore.getState().setEnrichment(new Map()));
       rerender(view(true));
       expect(headings()).toEqual(before);
-      expect(screen.getByText("Saving…").closest("dd")).toBe(fieldRow("Credit").querySelector("dd"));
+      expect(fieldRow("Credit").querySelector('form[data-field-state="Saving…"]')).toBeTruthy();
       const submitted = screen.getByLabelText("Credit", { selector: "input" }) as HTMLInputElement;
       expect(submitted.value).toBe("New");
       expect(submitted.matches(":disabled")).toBe(true);
@@ -2009,7 +2036,7 @@ describe("disconnected label editing", () => {
       publish(response("Before", 1000, true));
       const held = response("Before", 1000, true);
       const mounted = render(<ResidentForm />, { wrapper: ({ children }) => <BrowsingContext value={{ path: "/upload" }}>{children}</BrowsingContext> });
-      const arrowName = { name: "Clear Rights & restrictions on 1 image", exact: true };
+      const arrowName = { name: "Clear Rights & restrictions on 1 other image", exact: true };
       const rights = await screen.findByRole("form", { name: "Image usage rights" });
       fireEvent.click(within(rights).getByRole("button", { name: "Cancel" }));
       fireEvent.click(screen.getByRole("button", { name: "Edit Rights & restrictions" }));
@@ -2090,6 +2117,23 @@ describe("disconnected label editing", () => {
     fireEvent.submit(input.closest("form")!);
     expect(executor).not.toHaveBeenCalled();
     expect(store.getState().receipts).toEqual([]);
+  });
+
+  it("keeps a single image's keyword fill while its edit grant refreshes", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const image = { ...images[0], metadata: { keywords: ["unchanged keyword"] } };
+    const overlay = { resource: { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/img-0" }] } };
+    const view = (pending: boolean) => <ImageMetadata image={image} overlay={overlay} labelEditing={{ targetIds: [image.id], targets: new Map([[image.id, overlay]]), pending }} />;
+    const { rerender } = render(view(false));
+    const remove = screen.getByRole("button", { name: "Remove unchanged keyword" });
+    const pill = remove.closest("[data-editable-pill]")!;
+    expect(pill.getAttribute("data-coverage")).toBe("all");
+    rerender(view(true));
+    expect(remove.matches(":disabled")).toBe(true);
+    expect(pill.getAttribute("data-coverage")).toBe("all");
+    rerender(view(false));
+    expect(remove.matches(":enabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "Remove unchanged keyword" })).toBe(remove);
   });
 
   it("does not admit editing a stale displayed body using a newer explicit context", () => {
