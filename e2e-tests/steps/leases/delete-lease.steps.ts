@@ -2,6 +2,7 @@
 import type { Page } from '@playwright/test';
 import { imageLeases } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
+import { pauseClock } from '../utils/clock.ts';
 import { deleteLeaseControl, failLeaseRequests, leaseItems, leasesRegion } from './leases.ts';
 
 /** gr-confirm-delete reverts to "Delete" this long after the first click. */
@@ -23,11 +24,13 @@ When('I delete the lease and confirm', async ({ page }) => {
 });
 
 When('I click delete on the lease and wait five seconds', async ({ page }) => {
-  const clickedAt = Date.now();
+  await pauseClock(page);
   await deleteLeaseControl(leasesRegion(page)).click();
-  await expect(deleteControlLabel(page, 'Confirm delete')).toBeVisible();
-  await expect(deleteControlLabel(page, 'Confirm delete')).toBeHidden({ timeout: CONFIRM_WINDOW_MS + 5_000 });
-  expect(Date.now() - clickedAt, 'how long the confirmation lasted').toBeGreaterThanOrEqual(CONFIRM_WINDOW_MS);
+  const confirm = deleteControlLabel(page, 'Confirm delete');
+  await expect(confirm).toBeVisible();
+  await page.clock.runFor(CONFIRM_WINDOW_MS - 1);
+  await expect(confirm, 'the confirmation just before it lapses').toBeVisible();
+  await page.clock.runFor(1);
 });
 
 Then('the delete control shows {string}( again)', async ({ page }, label: string) => {

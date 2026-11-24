@@ -127,6 +127,7 @@ Feature: Leases across the search info panel and upload page
   # Evidence: kahuna/public/js/leases/leases.html lines 17-30
   # Evidence: kahuna/public/js/leases/leases.js lines 167-176
 
+  @fake-clock
   Scenario: The remove all leases prompt lapses after five seconds
     Given I am signed in with edit metadata permission
     And I have opened the image upload page

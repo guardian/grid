@@ -1,9 +1,15 @@
-import { Given, KAHUNA_APP_URL, Then, expect } from './setup.ts';
+import { Before, Given, KAHUNA_APP_URL, Then, expect } from './setup.ts';
 import { TEST_ACCOUNTS } from '../setup/constants.ts';
 import type { TestAccount } from '../setup/constants.ts';
 import type { Page } from '@playwright/test';
 import { switchAccount } from './utils/auth.ts';
 import { answerDialogs, expectDialog } from './utils/dialogs.ts';
+
+// Before any page loads, so steps can pause the clock and run on Kahuna's timers (see pauseClock)
+// instead of waiting for them. Time passes as normal until a step pauses it.
+Before({ tags: '@fake-clock' }, async ({ page }) => {
+  await page.clock.install();
+});
 
 Given('the application stack is running', async ({ request }) => {
   const response = await request.get('/management/healthcheck');

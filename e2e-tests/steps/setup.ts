@@ -39,8 +39,6 @@ export interface TestContext {
   shownDuringWrites?: string[];
   /** The element recordLeaseWrites reads during each lease write; the add lease control by default. */
   watchDuringWrites?: Locator;
-  /** When the remove all leases prompt was shown, in ms since the epoch. */
-  promptShownAt?: number;
   /** Ids of the images a scenario showed in search results or uploaded, in order. */
   surfaceImageIds?: string[];
   /** The metadata template a `Given` chose for a later step to select or apply. */

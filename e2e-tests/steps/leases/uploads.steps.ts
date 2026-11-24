@@ -4,6 +4,7 @@ import { E2E_LEASE_TEMPLATES } from '../../setup/config.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
 import { uniqueImage, uploadAsAnotherUser, uploadImages, uploadPage } from '../upload/setup.ts';
+import { pauseClock } from '../utils/clock.ts';
 import { chooseMetadataTemplate } from '../utils/metadata-templates.ts';
 import {
   accessOfLabel,
@@ -119,20 +120,18 @@ Then(
 
 Given(
   'the {string} prompt is shown on the first upload',
-  async ({ page, testContext }, text: string) => {
+  async ({ page }, text: string) => {
     const leases = nthUploadLeases(page, 'first');
     await expect(leaseItems(leases), 'the prompt is only offered with no leases').toHaveCount(0);
     await applyLeasesToAllButton(leases).click();
     await expect(removeAllPrompt(leases)).toContainText(text);
-    testContext.promptShownAt = Date.now();
   },
 );
 
-When('I wait five seconds', async ({ page, testContext }) => {
-  expect(testContext.promptShownAt, 'no prompt was shown by an earlier step').toBeDefined();
+When('I wait five seconds', async ({ page }) => {
+  await pauseClock(page);
   await expect(removeAllPrompt(nthUploadLeases(page, 'first'))).toBeVisible();
-  // The scenario is about the passage of time itself, so wait it out from when the prompt showed.
-  await page.waitForTimeout(Math.max(0, testContext.promptShownAt! + PROMPT_WINDOW_MS - Date.now()));
+  await page.clock.runFor(PROMPT_WINDOW_MS);
 });
 
 Then('the apply-to-all button is shown again', async ({ page }) => {

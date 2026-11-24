@@ -276,6 +276,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/services/api/leases.js lines 125-134, 140-170
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 21, 26-27
 
+  @fake-clock
   Scenario: The delete confirmation lapses after five seconds
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
