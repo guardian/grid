@@ -10,8 +10,16 @@ permissions:
   packages: write
 jobs:
   test:
+    name: test (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    # Playwright's native sharding: each shard boots its own stack and runs a quarter
+    # of the scenarios. The merge-reports job combines their blob reports.
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
     defaults:
       run:
         working-directory: e2e-tests
@@ -21,13 +29,16 @@ jobs:
       with:
         node-version: lts/*
         # Cache downloads for both the host-side e2e install and the Kahuna install
-        # performed inside grid-e2e-ci. stack.ts mounts this cache into the container.
+        # performed inside grid-e2e-ci, which mounts this cache from the host.
         cache: npm
         cache-dependency-path: |
           e2e-tests/package-lock.json
           kahuna/package-lock.json
     - name: Install dependencies
       run: npm ci
+    - name: Check stack lifecycle and diagnostics
+      if: ${{ matrix.shardIndex == 1 }}
+      run: npm run test:stack
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
     # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
     # e2e-tests/setup/stack/containers.ts, bind-mounts these host dirs into the container.
@@ -106,11 +117,10 @@ jobs:
         load: true
         # Share layers across branches via a single stable cache ref. Every run
         # reads from :main; only pushes to main write it back (mode=max caches
-        # intermediate layers too, so the mise toolchain layer is reused).
+        # intermediate layers too, so the mise toolchain layer is reused). Only the
+        # first shard writes, so parallel shards don't race to push the same ref.
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
-        cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
-    - name: Check stack lifecycle and diagnostics
-      run: npm run test:stack
+        cache-to: ${{ github.event_name == 'push' && matrix.shardIndex == 1 && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
     - name: Set up local CA for devcontainer-nginx
       id: local-ca
       run: |
@@ -122,23 +132,80 @@ jobs:
     - name: Run Playwright tests
       env:
         NODE_EXTRA_CA_CERTS: ${{ steps.local-ca.outputs.certificate }}
-        # Coverage runs in the Features UI job instead, to keep this release-path job fast.
-        GRID_DISABLE_COVERAGE: 'true'
-      run: npm test
-    - name: Upload e2e reports and stack logs
-      id: e2e-report
+      run: npm test -- --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+    # Blob reports hold the shard's results and attachments; merge-reports turns
+    # them into the HTML and Cucumber reports.
+    - name: Upload blob report
       uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
+      with:
+        name: blob-report-${{ matrix.shardIndex }}
+        path: e2e-tests/blob-report/
+        retention-days: 1
+        if-no-files-found: ignore
+    - name: Upload stack logs
+      id: stack-logs
+      uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: stack-logs-${{ matrix.shardIndex }}
+        path: e2e-tests/target/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    - name: Link failure diagnostics
+      if: ${{ failure() && steps.stack-logs.outputs.artifact-url != '' }}
+      env:
+        ARTIFACT_URL: ${{ steps.stack-logs.outputs.artifact-url }}
+      run: echo "::error title=Grid e2e diagnostics::See the stack logs at $ARTIFACT_URL"
+
+  merge-reports:
+    # Merge even when shards fail, so failures appear in the combined reports.
+    if: ${{ !cancelled() }}
+    needs: test
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e-tests
+    steps:
+    - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+    - uses: actions/setup-node@v7
+      with:
+        node-version: lts/*
+        cache: npm
+        cache-dependency-path: e2e-tests/package-lock.json
+    - name: Install dependencies
+      run: npm ci
+    - name: Download blob reports
+      uses: actions/download-artifact@v7
+      with:
+        path: e2e-tests/all-blob-reports
+        pattern: blob-report-*
+        merge-multiple: true
+    # The Cucumber reporter needs the generated BDD files and the config, so run
+    # bddgen and pass --config. The reporters come from playwright.config.ts.
+    - name: Merge reports
+      run: npx bddgen && npx playwright merge-reports --config playwright.config.ts ./all-blob-reports
+    - name: Upload e2e reports
+      uses: actions/upload-artifact@v7
       with:
         name: e2e-report
         path: |
           e2e-tests/playwright-report/
           e2e-tests/cucumber-report/
-          e2e-tests/target/logs/
         retention-days: 14
         if-no-files-found: ignore
-    - name: Link failure diagnostics
-      if: ${{ failure() && steps.e2e-report.outputs.artifact-url != '' }}
+
+  # A single, stable check name for branch protection, independent of the shard count.
+  playwright-result:
+    if: ${{ always() }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check all shards passed
+      if: ${{ needs.test.result != 'success' }}
       env:
-        ARTIFACT_URL: ${{ steps.e2e-report.outputs.artifact-url }}
-      run: echo "::error title=Grid e2e diagnostics::See the stack logs and test reports at $ARTIFACT_URL"
+        RESULT: ${{ needs.test.result }}
+      run: |
+        echo "::error::One or more Playwright shards did not pass (result: $RESULT)"
+        exit 1

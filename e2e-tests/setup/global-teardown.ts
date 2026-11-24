@@ -42,7 +42,7 @@ async function globalTeardown(): Promise<void> {
   let failedStage: 'coverage' | 'cleanup' | undefined;
 
   try {
-    if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
+    if (process.env.GRID_ENABLE_COVERAGE === 'true') {
       const results = await MCR(coverageOptions).generate();
       if (!results || !results.files.length) {
         throw new Error('No browser coverage generated: check fixtures and source scope');

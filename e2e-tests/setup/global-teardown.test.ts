@@ -58,20 +58,20 @@ test('teardown waits for interrupted setup', async () => {
 test('keeps the coverage error when cleanup also fails', async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'grid-coverage-'));
   const originalCwd = process.cwd();
-  const disableCoverage = process.env.GRID_DISABLE_COVERAGE;
+  const enableCoverage = process.env.GRID_ENABLE_COVERAGE;
   const diagnostics = createStackDiagnostics(directory);
 
   t.after(() => {
     setEnvironment(undefined);
     process.chdir(originalCwd);
-    if (disableCoverage === undefined) delete process.env.GRID_DISABLE_COVERAGE;
-    else process.env.GRID_DISABLE_COVERAGE = disableCoverage;
+    if (enableCoverage === undefined) delete process.env.GRID_ENABLE_COVERAGE;
+    else process.env.GRID_ENABLE_COVERAGE = enableCoverage;
     rmSync(directory, { recursive: true, force: true });
   });
 
   // Run the coverage reporter from an empty directory so it has no data to report.
   process.chdir(directory);
-  delete process.env.GRID_DISABLE_COVERAGE;
+  process.env.GRID_ENABLE_COVERAGE = 'true';
   const stop = t.mock.fn(async () => {
     throw new Error('container stop failed');
   });

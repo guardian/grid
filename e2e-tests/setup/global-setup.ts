@@ -16,7 +16,7 @@ async function prepareEnvironment(): Promise<void> {
   process.on('SIGTERM', interrupt);
 
   try {
-    if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
+    if (process.env.GRID_ENABLE_COVERAGE === 'true') {
       // Only global setup may clear the caches shared by coverage workers.
       await rm(coverageOptions.outputDir, { recursive: true, force: true });
     }

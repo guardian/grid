@@ -90,7 +90,7 @@ export const test = base.extend<{ testContext: TestContext; seedImage: SeedImage
     });
   },
   coverage: [async ({ page, browserName }, use, testInfo) => {
-    if (process.env.GRID_DISABLE_COVERAGE === 'true') {
+    if (process.env.GRID_ENABLE_COVERAGE !== 'true') {
       await use();
       return;
     }

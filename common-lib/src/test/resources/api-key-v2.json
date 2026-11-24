@@ -1,0 +1,9 @@
+{
+  "name": "name",
+  "principalType": "Developer",
+  "permissions": [
+    "edit_metadata",
+    "grid_access"
+  ],
+  "expiresAt": "2027-02-01T00:00:00Z"
+}

@@ -130,9 +130,18 @@ progress messages as the terminal, with timestamps. For more detail, look in
 `builds/<name>.log` or `containers/<name>.log`. Set `E2E_DEBUG=1` to see build and
 container output in the terminal too.
 
-CI retains the Playwright and Cucumber reports and the stack logs in `e2e-report`
-for 14 days. A failure annotation links to the artifact. The Features UI workflow
-retains its Playwright and coverage reports and uploads the stack logs separately.
+CI runs four Playwright shards. Each shard starts its own stack and writes a
+blob report. The `merge-reports` job combines them into the Playwright and
+Cucumber reports in the `e2e-report` artifact. To run one shard locally, use
+`CI=true npm test -- --shard=2/4` from `e2e-tests`. The `playwright-result`
+check passes only when all shards pass.
+
+Each shard uploads `stack-logs-<shard>`. If a shard fails, its job annotation
+links to those logs. CI keeps the reports and stack logs for 14 days.
+
+Browser coverage is opt-in. From `e2e-tests`, use `GRID_ENABLE_COVERAGE=true npm test`
+to collect it locally. The Features UI job uses `npm run test:video:coverage`
+and uploads its Playwright report, coverage reports, and stack logs separately.
 
 ### Feature library
 
