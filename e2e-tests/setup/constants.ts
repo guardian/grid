@@ -85,6 +85,8 @@ export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';
+/** The API_KEY's name, which services record as the author of what it changes (e.g. `leasedBy`). */
+export const API_KEY_NAME = 'DEV Key';
 
 /**
  * A second key, in the administrator tier, which may also delete. Only cleanup uses it, so a
@@ -93,3 +95,6 @@ export const API_KEY = 'e2e-dev';
 export const ADMIN_API_KEY = 'e2e-admin';
 /** The ADMIN_API_KEY's name, as services log it. */
 export const ADMIN_API_KEY_NAME = 'E2E Cleanup Key';
+
+/** Headers that authenticate a request to a Grid service with `key`. */
+export const mediaKeyHeaders = (key: string = API_KEY) => ({ 'X-Gu-Media-Key': key });

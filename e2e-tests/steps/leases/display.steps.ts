@@ -1,6 +1,6 @@
 /** Steps for how the single image view shows an image's leases. */
 import type { Page } from '@playwright/test';
-import { SEEDED_LEASED_BY } from '../../setup/seed-leases.ts';
+import { API_KEY_NAME } from '../../setup/constants.ts';
 import type { SeedLease } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
@@ -45,7 +45,7 @@ Given(
   'the image has a lease created by {string} on {int} {word} {int} at {int}:{int}',
   async ({ seedImage, testContext }, leasedBy: string, day: number, month: string, year: number, hours: number, minutes: number) => {
     // The leases service records whoever adds a lease, which for seeding is the API key.
-    expect(leasedBy, 'seeded leases are leased by the API key').toBe(SEEDED_LEASED_BY);
+    expect(leasedBy, 'seeded leases are leased by the API key').toBe(API_KEY_NAME);
     const monthIndex = MONTHS.indexOf(month);
     expect(monthIndex, `"${month}" is not a short month name`).toBeGreaterThanOrEqual(0);
     // Local time, as Kahuna formats it in the browser, which shares this machine's time zone.

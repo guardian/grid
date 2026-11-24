@@ -20,6 +20,7 @@ import {
   ADMIN_API_KEY,
   ADMIN_API_KEY_NAME,
   API_KEY as API_KEY_PATH,
+  API_KEY_NAME,
   AUTH_STACK_NAME,
   CORE_STACK_NAME,
   DOMAIN,
@@ -118,7 +119,7 @@ export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void
 
   await Promise.all([
     // API key used by the machine authentication provider.
-    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key'),
+    putObject(s3, props.KeyBucket, API_KEY_PATH, API_KEY_NAME),
     // Administrator-tier key for cleanup (see ADMIN_API_KEY): the key's name, then its tier.
     putObject(s3, props.KeyBucket, ADMIN_API_KEY, `${ADMIN_API_KEY_NAME}\nadministrator`),
     // Static config consumed by the services.

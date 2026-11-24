@@ -4,17 +4,16 @@
  * the image's Elasticsearch document for media-api to serve, so each call waits for media-api.
  *
  * The leases service records the caller as `leasedBy`, so seeded leases are leased by the
- * API key's name, SEEDED_LEASED_BY.
+ * API key's name, API_KEY_NAME.
  */
-import { ADMIN_API_KEY, API_KEY, MEDIA_API_PORT, SERVICE_CONFIGS } from './constants.ts';
+import { ADMIN_API_KEY, MEDIA_API_PORT, SERVICE_CONFIGS, mediaKeyHeaders } from './constants.ts';
+import { pollUntil } from './poll.ts';
 
 const LEASES_URL = `http://localhost:${SERVICE_CONFIGS.leases.port}`;
 const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
-const HEADERS = { 'X-Gu-Media-Key': API_KEY };
+const HEADERS = mediaKeyHeaders();
 /** Only the administrator tier may delete (see ADMIN_API_KEY), so cleanup uses its own key. */
-const ADMIN_HEADERS = { 'X-Gu-Media-Key': ADMIN_API_KEY };
-/** The name of the API key in the KeyBucket (see provision.ts). */
-export const SEEDED_LEASED_BY = 'DEV Key';
+const ADMIN_HEADERS = mediaKeyHeaders(ADMIN_API_KEY);
 
 export const LEASE_ACCESS = ['allow-use', 'deny-use', 'allow-syndication', 'deny-syndication'] as const;
 export type LeaseAccess = (typeof LEASE_ACCESS)[number];
@@ -52,16 +51,12 @@ export async function imageLeases(mediaId: string): Promise<MediaLease[]> {
 }
 
 /** Poll media-api until thrall has given `mediaId` `count` leases. */
-async function waitForLeaseCount(mediaId: string, count: number): Promise<MediaLease[]> {
-  const deadline = Date.now() + 10_000;
-  for (;;) {
-    const leases = await imageLeases(mediaId);
-    if (leases.length === count) return leases;
-    if (Date.now() > deadline) {
-      throw new Error(`Image ${mediaId} has ${leases.length} leases after 10s, expected ${count}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
+function waitForLeaseCount(mediaId: string, count: number): Promise<MediaLease[]> {
+  return pollUntil(() => imageLeases(mediaId), (leases) => leases.length === count, {
+    timeoutMs: 10_000,
+    intervalMs: 100,
+    failure: (leases) => `Image ${mediaId} has ${leases.length} leases after 10s, expected ${count}`,
+  });
 }
 
 async function leasesRequest(method: 'POST' | 'DELETE', mediaId: string, body?: unknown): Promise<void> {
