@@ -52,16 +52,9 @@ class PermissionsAuthorisationProvider(configuration: Configuration, resources: 
       }
     }
     permissionContext match {
-      case GridAccess => hasPermission(Permissions.GridAccess)
-      case EditMetadata => hasPermission(Permissions.EditMetadata)
-      case DeleteImage => hasPermission(Permissions.DeleteImage)
-      case DeleteCropsOrUsages => hasPermission(Permissions.DeleteCropsOrUsages)
-      case ShowPaid => hasPermission(Permissions.ShowPaid)
-      case Pinboard => hasPermission(Permissions.Pinboard)
-      case UploadImages if config.enforceUploadImagesPermission => hasPermission(Permissions.UploadImages)
-      case DeveloperAdmin => hasPermission(Permissions.DeveloperAdmin)
-      case UploadImages => true
+      case UploadImages if !config.enforceUploadImagesPermission => true
       case ArchiveImages => true
+      case p => p.definition.exists(hasPermission)
     }
   }
 
