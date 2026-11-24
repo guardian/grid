@@ -545,15 +545,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                       skip: () => !proxy && 'using direct LocalStack endpoints',
                       task: (ctx) => registerLocalstackAliases(ctx.chekov!, ctx.coreStackProps!),
                     },
-                    {
-                      title: 'Register Chekov routes',
-                      skip: () => !proxy && 'using external dev-nginx',
-                      task: async (ctx) => {
-                        await registerChekovAliases(ctx.chekov!);
-                      },
-                    },
                   ],
-                  { concurrent: false })
+                    { concurrent: false })
                 }
               ];
 
@@ -561,6 +554,13 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
           },
         ]),
+    },
+    {
+      title: 'Register Chekov routes',
+      skip: () => !proxy && 'using external dev-nginx',
+      task: async (ctx) => {
+        await registerChekovAliases(ctx.chekov!);
+      },
     },
   ];
 
