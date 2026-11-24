@@ -37,6 +37,13 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 541
   # Evidence: kahuna/public/js/edits/service.js lines 245-248
 
+  Scenario: A user without edit permission can edit their own leases
+    Given I am signed in without edit metadata permission
+    And an image I have added has an active "allow-use" lease
+    When I open the single image view of the image
+    Then I see a "Leases" region
+    And I see an "Add lease to image" button
+
   Scenario: The Leases section is hidden from a user without edit permission when there are no leases
     Given I am signed in without edit metadata permission
     And the image has no leases
@@ -318,7 +325,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 126-141
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 600-606
 
-  @todo
   Scenario: A non-replacing metadata template previews its own leases alongside existing leases
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease

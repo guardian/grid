@@ -92,12 +92,13 @@ export const E2E_RIGHTS_TEMPLATE = {
 };
 
 /**
- * Templates that only set leases, for the lease preview and apply scenarios. One adds its lease
- * to an image's existing leases; the other replaces them.
+ * Templates that only set leases, for the lease preview and apply scenarios. Those with
+ * `replace: false` add their lease to an image's existing leases; the other replaces them.
  */
 export const E2E_LEASE_TEMPLATES = [
   { templateName: "E2E Add deny syndication lease", replace: false, leaseType: "deny-syndication" },
   { templateName: "E2E Replace with deny use lease", replace: true, leaseType: "deny-use" },
+  { templateName: "E2E Add allow syndication lease", replace: false, leaseType: "allow-syndication" },
 ] as const;
 
 /**

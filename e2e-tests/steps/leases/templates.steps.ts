@@ -11,6 +11,7 @@ import {
 import {
   deleteLeaseControl,
   expectShownDuringSave,
+  labelOfAccess,
   LEASE_PREVIEW_CLASS,
   leaseAccess,
   leaseItem,
@@ -34,7 +35,7 @@ async function selectTemplate(page: Page, testContext: TestContext): Promise<voi
 }
 
 Given(
-  'a metadata template adds a {string} lease( without replacing existing leases)',
+  'a metadata template adds (leases with )a {string} lease( without replacing existing leases)',
   ({ testContext }, access: string) => chooseTemplate(testContext, access, false),
 );
 
@@ -73,6 +74,19 @@ Then('only the {string} lease is shown, highlighted as a preview', async ({ page
   await expect(leaseItem(region, label)).toContainClass(LEASE_PREVIEW_CLASS);
   await expect(leaseItems(region)).toHaveCount(1);
 });
+
+Then(
+  'the existing lease should be shown alongside the {string} lease, highlighted as a preview',
+  async ({ page, testContext }, existing: string) => {
+    const region = leasesRegion(page);
+    const { leaseType } = E2E_LEASE_TEMPLATES.find((t) => t.templateName === testContext.metadataTemplate)!;
+    await expect(leaseItem(region, labelOfAccess(leaseType))).toContainClass(LEASE_PREVIEW_CLASS);
+    const existingLease = leaseItem(region, labelOfAccess(existing));
+    await expect(existingLease).toBeVisible();
+    await expect(existingLease).not.toContainClass(LEASE_PREVIEW_CLASS);
+    await expect(leaseItems(region)).toHaveCount(2);
+  },
+);
 
 Then(
   'the add lease control shows {string} until the leases are saved',
