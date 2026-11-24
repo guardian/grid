@@ -34,8 +34,8 @@ const ordinal = (word: string): number => {
 /** The nth current upload's image editor, in the order the page lists them. */
 const nthUpload = (page: Page, index: number) => uploadPage(page).imageEditorJob.nth(index);
 
-/** An upload's lease widget. It has no accessible name of its own, so find it by its element. */
-const uploadLeases = (job: Locator) => job.locator('gr-leases');
+/** An upload's lease widget. */
+const uploadLeases = (job: Locator) => job.getByRole('region', { name: 'Leases', exact: true });
 
 const nthUploadLeases = (page: Page, word: string) => uploadLeases(nthUpload(page, ordinal(word)));
 
