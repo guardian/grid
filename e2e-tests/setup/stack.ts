@@ -478,19 +478,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       },
     },
     {
-      title: 'Start Chekov reverse proxy',
-      skip: () => !proxy && 'using external dev-nginx',
-      task: async (ctx) => {
-        ctx.chekov = await startChekov(ctx.network!, ctx.caRoot!);
-        ctx.containers.push(ctx.chekov);
-      },
-    },
-    {
-      title: 'Register LocalStack routes',
-      skip: () => !proxy && 'using direct LocalStack endpoints',
-      task: (ctx) => registerLocalstackAliases(ctx.chekov!, ctx.coreStackProps!),
-    },
-    {
       title: 'Start Grid services',
       task: (_, task) =>
         task.newListr([
@@ -498,12 +485,12 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             title: 'Start container',
             task: async (ctx) => {
               const proxyHosts = proxy ? [...CHEKOV_HOSTS, ...s3BucketHosts(ctx.coreStackProps!)] : [];
-              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, proxyHosts).start();
+              const started = await gridContainer(ctx.network!, ctx.configDir!, proxyHosts).start();
               ctx.containers.push(started);
               // A clean boot never awaits this, so sink it to avoid an unhandled rejection
               // when the container finally stops during teardown.
               ctx.gridCrashed = rejectWhenExited(started);
-              ctx.gridCrashed.catch(() => {});
+              ctx.gridCrashed.catch(() => { });
             },
           },
           {
@@ -542,6 +529,32 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     );
                   },
                 },
+                {
+                  title: 'Start Chekov reverse proxy',
+                  task: (_, task) => task.newListr([
+                    {
+                      title: 'Start Chekov reverse proxy',
+                      skip: () => !proxy && 'using external dev-nginx',
+                      task: async (ctx) => {
+                        ctx.chekov = await startChekov(ctx.network!, ctx.caRoot!);
+                        ctx.containers.push(ctx.chekov);
+                      },
+                    },
+                    {
+                      title: 'Register LocalStack routes',
+                      skip: () => !proxy && 'using direct LocalStack endpoints',
+                      task: (ctx) => registerLocalstackAliases(ctx.chekov!, ctx.coreStackProps!),
+                    },
+                    {
+                      title: 'Register Chekov routes',
+                      skip: () => !proxy && 'using external dev-nginx',
+                      task: async (ctx) => {
+                        await registerChekovAliases(ctx.chekov!);
+                      },
+                    },
+                  ],
+                  { concurrent: false })
+                }
               ];
 
               return services.newListr(readiness, { concurrent: true });
@@ -597,13 +610,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           ],
           { concurrent: true },
         ),
-    },
-    {
-      title: 'Register Chekov routes',
-      skip: () => !proxy && 'using external dev-nginx',
-      task: async (ctx) => {
-        await registerChekovAliases(ctx.chekov!);
-      },
     },
   ];
 
