@@ -40,7 +40,8 @@ Then(
   'the access options are grouped as Usage {string}, {string} and Syndication {string}, {string}',
   async ({ page }, allowUse: string, denyUse: string, allowSyndication: string, denySyndication: string) => {
     const select = accessSelect(leasesRegion(page));
-    // Playwright gives <optgroup> no role, so find each group by its label.
+    // Playwright's accessibility tree lists a <select>'s options without their <optgroup>s, so
+    // getByRole can't find a group; find each by its label instead.
     const group = (label: string) => select.locator(`optgroup[label="${label}"]`).getByRole('option');
     await expect(group('Usage')).toHaveText([allowUse, denyUse]);
     await expect(group('Syndication')).toHaveText([
