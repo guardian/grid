@@ -815,11 +815,6 @@ async function rightsTemplateCategoryName(
   return name;
 }
 
-/** An editor that should stay closed is checked after the selection has been handled. */
-async function chooseRightsTemplate(page: Page): Promise<void> {
-  await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
-}
-
 Given("metadata templates are configured", async ({ page }) => {
   await expectMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
 });
@@ -827,7 +822,7 @@ Given("metadata templates are configured", async ({ page }) => {
 When(
   "I choose a metadata template that sets a usage rights category",
   async ({ page }) => {
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
   },
 );
 
@@ -837,14 +832,14 @@ When(
     expect(await usageRightsCategoryCode(request, category)).toBe(
       E2E_RIGHTS_TEMPLATE.usageRights.category,
     );
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
   },
 );
 
 Given(
   "a metadata template's usage rights are being previewed on the image",
   async ({ page }) => {
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
     await expect(rightsEditor(page)).toBeVisible();
   },
 );

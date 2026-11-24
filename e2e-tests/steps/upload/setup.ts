@@ -8,6 +8,7 @@ import { KAHUNA_PORT, TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
 import type { TestImage } from '../setup.ts';
 import { failRequests, holdRequests, holdRequestsUntilReleased } from '../utils/routes.ts';
+import { metadataTemplateSelect } from '../utils/metadata-templates.ts';
 import type { RequestMatch } from '../utils/routes.ts';
 
 
@@ -156,7 +157,7 @@ export const uploadPage = (page: Page) => {
     creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
-    metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
+    metadataTemplateSelect: metadataTemplateSelect(currentUploads),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /** The deleted-image notice on a re-uploaded image, holding its undelete control and message. */

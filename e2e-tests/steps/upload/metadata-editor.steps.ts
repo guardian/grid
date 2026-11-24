@@ -5,6 +5,7 @@ import { E2E_IMAGE_TYPES, E2E_METADATA_TEMPLATE, E2E_USAGE_INSTRUCTIONS } from '
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_COLLECTION } from '../../setup/seed-collections.ts';
 import { expectNoEditPermission, waitForMetadataSave } from '../utils/api/media-api.assertions.ts';
+import { chooseMetadataTemplate } from '../utils/metadata-templates.ts';
 import {
   batchJobs,
   grouping,
@@ -230,9 +231,7 @@ Then('I should see suggestions matching existing credits', async ({ page }) => {
 });
 
 When('a metadata template is selected', async ({ page }) => {
-  await uploadPage(page).metadataTemplateSelect.selectOption({
-    label: E2E_METADATA_TEMPLATE.templateName,
-  });
+  await chooseMetadataTemplate(uploadPage(page).currentUploads, E2E_METADATA_TEMPLATE.templateName);
 });
 
 Then('the affected fields should be populated and made read-only', async ({ page }) => {
@@ -252,10 +251,9 @@ Given('a field is edited', async ({ page, testContext }) => {
 });
 
 When('a metadata template is selected and then removed', async ({ page }) => {
-  const select = uploadPage(page).metadataTemplateSelect;
-  await select.selectOption({ label: E2E_METADATA_TEMPLATE.templateName });
+  await chooseMetadataTemplate(uploadPage(page).currentUploads, E2E_METADATA_TEMPLATE.templateName);
   await expect(uploadPage(page).metadataField.byline).toHaveJSProperty('readOnly', true);
-  await select.selectOption('');
+  await uploadPage(page).metadataTemplateSelect.selectOption('');
 });
 
 Then('the previously overridden fields are restored', async ({ page, testContext }) => {

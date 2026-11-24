@@ -4,6 +4,7 @@ import { E2E_LEASE_TEMPLATES } from '../../setup/config.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
 import { uniqueImage, uploadAsAnotherUser, uploadImages, uploadPage } from '../upload/setup.ts';
+import { chooseMetadataTemplate } from '../utils/metadata-templates.ts';
 import {
   accessOfLabel,
   addLease,
@@ -167,7 +168,7 @@ Then('neither upload has any leases', async ({ page, testContext }) => {
 When('I select a metadata template with leases for the first upload', async ({ page }) => {
   const [template] = E2E_LEASE_TEMPLATES;
   const job = nthUpload(page, 0);
-  await job.getByRole('combobox', { name: 'Metadata template' }).selectOption({ label: template.templateName });
+  await chooseMetadataTemplate(job, template.templateName);
   // The preview lists the template's lease, marked as a preview (leases.html).
   await expect(leaseItem(uploadLeases(job), labelOfAccess(template.leaseType))).toHaveClass(
     /(?:^|\s)lease__item-preview(?:\s|$)/,

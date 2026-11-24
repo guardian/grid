@@ -1,32 +1,43 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '../setup.ts';
 
 export const metadataTemplates = (page: Page) =>
   page.getByRole('region', { name: 'Metadata templates', exact: true });
 
-export const metadataTemplateSelect = (page: Page) =>
-  metadataTemplates(page).getByRole('combobox', { name: 'Metadata template' });
+/**
+ * The metadata template select in `scope`: the single image view's "Metadata templates" region
+ * for a page, or an upload's own select for an upload job.
+ */
+export const metadataTemplateSelect = (scope: Page | Locator) =>
+  ('page' in scope ? scope : metadataTemplates(scope)).getByRole('combobox', { name: 'Metadata template' });
 
 /** Templates are baked into Kahuna's config at boot, so a stale stack won't list a new one. */
-export async function expectMetadataTemplate(page: Page, templateName: string): Promise<void> {
+export async function expectMetadataTemplate(scope: Page | Locator, templateName: string): Promise<void> {
   await expect(
-    metadataTemplateSelect(page).getByRole('option', { name: templateName, exact: true }),
+    metadataTemplateSelect(scope).getByRole('option', { name: templateName, exact: true }),
     `restart the stack if the "${templateName}" template is missing`,
   ).toHaveCount(1);
 }
 
 /**
- * Kahuna applies a template's selection once it has fetched the collections tree, which it
- * only requests on the first selection after the page loads. Waiting for that response
- * means what the selection changes is checked after the selection has been handled.
+ * Select `templateName` in `scope` (see metadataTemplateSelect). Kahuna applies a template's
+ * selection once it has fetched the collections tree, which it fetches only once per page
+ * load. The single image view fetches it on the first selection, so waiting for that response
+ * means what the selection changes is checked after the selection has been handled. The
+ * upload page fetches it as it loads, so a selection there is handled straight away.
  */
-export async function chooseMetadataTemplate(page: Page, templateName: string): Promise<void> {
+export async function chooseMetadataTemplate(scope: Page | Locator, templateName: string): Promise<void> {
+  const select = metadataTemplateSelect(scope);
+  if ('page' in scope) {
+    await select.selectOption({ label: templateName });
+    return;
+  }
   const [collections] = await Promise.all([
-    page.waitForResponse((response) => {
+    scope.waitForResponse((response) => {
       const url = new URL(response.url());
       return url.hostname.startsWith('media-collections.') && url.pathname === '/collections';
     }),
-    metadataTemplateSelect(page).selectOption({ label: templateName }),
+    select.selectOption({ label: templateName }),
   ]);
   expect(collections.ok(), 'fetching collections for the metadata template').toBeTruthy();
 }
