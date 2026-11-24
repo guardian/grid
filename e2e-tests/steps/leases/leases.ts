@@ -48,6 +48,9 @@ export const closeLeaseFormButton = (scope: Scope) => scope.getByTitle('Close', 
 
 export const leaseItems = (scope: Scope) => scope.getByRole('listitem');
 
+/** leases.html marks a lease a template would add with this class, which leases.css outlines. */
+export const LEASE_PREVIEW_CLASS = 'lease__item-preview';
+
 /** The lease whose access is labelled `label`, e.g. "Allow use". */
 export const leaseItem = (scope: Scope, label: string) =>
   leaseItems(scope).filter({ has: pageOf(scope).getByText(label, { exact: true }) });

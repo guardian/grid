@@ -63,7 +63,7 @@ async function selectImages(page: Page, ids: string[]): Promise<void> {
       // Once an image is selected, clicking another image toggles its selection.
       await card.click();
     }
-    await expect(card).toHaveClass(/(?:^|\s)result--selected(?:\s|$)/);
+    await expect(card).toContainClass('result--selected');
   }
   // The info panel starts collapsed off-screen, so open it to work with the selection.
   await page.getByRole('button', { name: 'Show info panel', exact: true }).click();

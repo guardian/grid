@@ -11,15 +11,13 @@ import {
 import {
   deleteLeaseControl,
   expectShownDuringSave,
+  LEASE_PREVIEW_CLASS,
   leaseAccess,
   leaseItem,
   leaseItems,
   leasesRegion,
   pollImageLeases,
 } from './leases.ts';
-
-/** leases.html marks a lease a template would add with this class, which leases.css outlines. */
-const PREVIEW = /(?:^|\s)lease__item-preview(?:\s|$)/;
 
 function chooseTemplate(testContext: TestContext, access: string, replace: boolean): void {
   const template = E2E_LEASE_TEMPLATES.find(
@@ -55,13 +53,13 @@ When('I apply that metadata template', async ({ page, testContext }) => {
 });
 
 Then('the {string} lease is shown highlighted as a preview', async ({ page }, label: string) => {
-  await expect(leaseItem(leasesRegion(page), label)).toHaveClass(PREVIEW);
+  await expect(leaseItem(leasesRegion(page), label)).toContainClass(LEASE_PREVIEW_CLASS);
 });
 
 Then('the existing {string} lease is still shown', async ({ page }, label: string) => {
   const lease = leaseItem(leasesRegion(page), label);
   await expect(lease).toBeVisible();
-  await expect(lease).not.toHaveClass(PREVIEW);
+  await expect(lease).not.toContainClass(LEASE_PREVIEW_CLASS);
 });
 
 Then('no delete controls are shown on the leases', async ({ page }) => {
@@ -72,7 +70,7 @@ Then('no delete controls are shown on the leases', async ({ page }) => {
 
 Then('only the {string} lease is shown, highlighted as a preview', async ({ page }, label: string) => {
   const region = leasesRegion(page);
-  await expect(leaseItem(region, label)).toHaveClass(PREVIEW);
+  await expect(leaseItem(region, label)).toContainClass(LEASE_PREVIEW_CLASS);
   await expect(leaseItems(region)).toHaveCount(1);
 });
 

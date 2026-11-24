@@ -705,7 +705,7 @@ Then(
   async ({ page }, uploader: string) => {
     await expect(
       usageSummary(page).getByTitle(uploader, { exact: true }),
-    ).toHaveClass(new RegExp(`(?:^|\\s)supplier-${uploader}(?:\\s|$)`));
+    ).toContainClass(`supplier-${uploader}`);
   },
 );
 
