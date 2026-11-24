@@ -11,7 +11,6 @@ import type { SeedImage } from "../setup.ts";
 import {
   findSeededImage,
   findSeededImageId,
-  hasNoUsageRights,
   loadImageFixtures,
 } from "../../setup/image-fixtures.ts";
 import type { ImageSource } from "../../setup/image-fixtures.ts";
@@ -29,8 +28,11 @@ import type { OpenedImage, RightsSurfaceName } from "./surfaces.ts";
 import { usageRightsCategories } from "../utils/api/metadata-editor.queries.ts";
 import { setTestClientConfig } from "../utils/test-config.ts";
 import { TEST_ACCOUNTS } from "../../setup/constants.ts";
-import { answerDialogs } from "../utils/dialogs.ts";
-import { imageInformation } from "../utils/single-image.ts";
+import {
+  PLAIN_IMAGE,
+  imageInformation,
+  openImage,
+} from "../utils/single-image.ts";
 import {
   chooseMetadataTemplate,
   expectMetadataTemplate,
@@ -708,30 +710,6 @@ Then(
 );
 
 Given(
-  "I have opened the single image view of an image",
-  async ({ page, seedImage, testContext }) => {
-    // A disposable copy, so scenarios that save rights, leases or templates don't change a
-    // shared fixture.
-    testContext.imageId = await seedImage(IMAGE_WITHOUT_RIGHTS._source);
-    answerDialogs(page, testContext);
-    await openImage(page, testContext.imageId);
-  },
-);
-
-/** The seeded fixture in a usage rights category, given by display name or code. */
-async function imageInCategory(
-  request: APIRequestContext,
-  category: string,
-): Promise<{ code: string; source: ImageSource }> {
-  const code = await usageRightsCategoryCode(request, category);
-  const { _source } = findSeededImage(
-    `in the "${category}" usage rights category`,
-    (source) => source.usageRights?.category === code,
-  );
-  return { code, source: _source };
-}
-
-Given(
   "the image has the {string} usage rights category",
   async ({ page, request, seedImage, testContext }, category: string) => {
     const { code, source } = await imageInCategory(request, category);
@@ -761,9 +739,10 @@ Given(
 
 Given("the image has no usage rights category", async ({ page, seedImage }) => {
   // A disposable copy, so scenarios that save rights don't change a shared fixture.
-  await openCopies(page, seedImage, [
-    { source: IMAGE_WITHOUT_RIGHTS._source, overrides: { usageRights: {} } },
-  ]);
+  await openImage(
+    page,
+    await seedImage(PLAIN_IMAGE._source, { usageRights: {} }),
+  );
 });
 
 Given(

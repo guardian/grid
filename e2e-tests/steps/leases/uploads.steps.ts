@@ -14,7 +14,6 @@ import {
   leaseItem,
   leaseItems,
   pollLeasesOf,
-  recordLeaseWrites,
   removeAllLeasesButton,
 } from './leases.ts';
 
@@ -42,7 +41,6 @@ const removeAllPrompt = (scope: Locator) => removeAllLeasesButton(scope);
 
 /** Upload `paths` and wait for each to become an editable image, recording their ids. */
 async function upload(page: Page, testContext: TestContext, paths: string[]): Promise<void> {
-  await recordLeaseWrites(page, testContext);
   testContext.surfaceImageIds = await uploadImages(page, paths);
 }
 
@@ -102,7 +100,6 @@ Given('the {word} upload has no leases', async ({ page }, word: string) => {
 When(
   "I apply the first upload's leases to all current uploads",
   async ({ page, testContext }) => {
-    await recordLeaseWrites(page, testContext);
     // The other upload's widget is what shows the leases being replaced.
     testContext.watchDuringWrites = nthUploadLeases(page, 'other');
     await applyLeasesToAllButton(nthUploadLeases(page, 'first')).click();

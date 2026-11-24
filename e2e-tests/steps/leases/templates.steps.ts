@@ -16,7 +16,6 @@ import {
   leaseItems,
   leasesRegion,
   pollImageLeases,
-  recordLeaseWrites,
 } from './leases.ts';
 
 /** leases.html marks a lease a template would add with this class, which leases.css outlines. */
@@ -55,7 +54,6 @@ When('I select that metadata template', async ({ page, testContext }) => {
 });
 
 When('I apply that metadata template', async ({ page, testContext }) => {
-  await recordLeaseWrites(page, testContext);
   await selectTemplate(page, testContext);
   await metadataTemplates(page).getByTitle('Apply template', { exact: true }).click();
 });

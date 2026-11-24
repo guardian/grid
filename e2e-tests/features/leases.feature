@@ -1,3 +1,4 @@
+@leases
 Feature: Viewing and managing an image's leases in the single image view
   This lets a user see the use and syndication leases on an image, and lets users who
   may edit the image add or delete leases and preview leases a metadata template would

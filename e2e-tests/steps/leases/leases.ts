@@ -4,29 +4,20 @@
  * "Leases" region, an info panel or an upload job.
  */
 import type { Locator, Page } from '@playwright/test';
-import { TEST_ACCOUNTS } from '../../setup/constants.ts';
-import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
 import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
 import { expect } from '../setup.ts';
 import { holdingConfirms } from '../utils/dialogs.ts';
 import { failRequests, holdRequests } from '../utils/routes.ts';
 import type { RequestMatch } from '../utils/routes.ts';
+import { PLAIN_IMAGE } from '../utils/single-image.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 
 type Scope = Page | Locator;
 
-/** Not uploaded by a test account, so only edit_metadata grants editing its leases. */
-const LEASE_IMAGE = findSeededImage(
-  'with no usage rights, not uploaded by a test account',
-  (source) =>
-    hasNoUsageRights(source) &&
-    !(Object.values(TEST_ACCOUNTS) as unknown[]).includes(source.uploadedBy),
-);
-
 /** Index a disposable copy of an image with `leases`, and return its id. */
 export async function seedLeasedImage(seedImage: SeedImage, leases: SeedLease[] = []): Promise<string> {
-  const id = await seedImage(LEASE_IMAGE._source);
+  const id = await seedImage(PLAIN_IMAGE._source);
   await seedLeases(id, leases);
   return id;
 }
@@ -85,20 +76,16 @@ const leasesService = (methods?: string[]): RequestMatch => ({
 
 const LEASE_WRITES = ['POST', 'PUT', 'DELETE'];
 
-const recording = new WeakSet<Page>();
-
 /**
  * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
  * can check nothing was saved, and what `testContext.watchDuringWrites` (by default the single
  * image view's add lease control) showed while each was in flight in
  * `testContext.shownDuringWrites`, so steps can check what it showed during a save without
- * racing it. Idempotent, so steps sharing a page can each call it.
+ * racing it. The lease features' Before hook calls this for every scenario.
  */
 export async function recordLeaseWrites(page: Page, testContext: TestContext): Promise<void> {
-  testContext.leaseWrites ??= [];
-  testContext.shownDuringWrites ??= [];
-  if (recording.has(page)) return;
-  recording.add(page);
+  testContext.leaseWrites = [];
+  testContext.shownDuringWrites = [];
   const writes = leasesService(LEASE_WRITES);
   // A request listener sees requests that a later route fails, too.
   page.on('request', (request) => {
@@ -161,7 +148,6 @@ export const notesField = (scope: Locator) => scope.getByPlaceholder('Notes...',
 
 /** Open the add lease form of the lease widget in `scope`. */
 export async function openAddLeaseForm(page: Page, testContext: TestContext, scope: Locator): Promise<void> {
-  await recordLeaseWrites(page, testContext);
   // The lease widget fetches the image's leases on load, and closes the form when that
   // resolves (LeasesCtrl.updateLeases), so a form opened sooner snaps shut. With no leases
   // nothing on the page shows the fetch is done, so wait for the page's requests to settle.

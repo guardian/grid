@@ -10,7 +10,6 @@ import {
   leaseItem,
   leaseItems,
   pollLeasesOf,
-  recordLeaseWrites,
   seedLeasedImage,
 } from './leases.ts';
 
@@ -44,7 +43,6 @@ async function showInSearch(
   const ids = await Promise.all(leasesPerImage.map((leases) => seedLeasedImage(seedImage, leases)));
   testContext.surfaceImageIds = ids;
   answerDialogs(page, testContext);
-  await recordLeaseWrites(page, testContext);
   // The copies have no usage rights, which the default free-only search leaves out.
   await page.goto(`${KAHUNA_APP_URL}/search?ids=${ids.join(',')}&nonFree=true`);
   await expect(results(page).locator('.result')).toHaveCount(ids.length);

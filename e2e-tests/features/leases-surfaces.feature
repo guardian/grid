@@ -1,3 +1,4 @@
+@leases
 Feature: Leases across the search info panel and upload page
   Smoke tests that the lease widget works on every surface that hosts it, plus the lease
   behaviour only those surfaces have: managing leases on several selected images at once,
