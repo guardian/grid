@@ -239,7 +239,6 @@ function dependencyCacheBindMounts(): { source: string; target: string; mode: 'r
 function gridContainer(
   network: StartedNetwork,
   configDir: string,
-  startupTimeoutMs: number,
   proxyHosts: string[],
 ): GenericContainer {
   const container = new GenericContainer(GRID_IMAGE)
@@ -416,8 +415,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
 
   const gridTasks: ListrTask<BootContext>[] = [
     {
-      // These three share only the network, and Elasticsearch is by far the slowest to come
-      // up, so provisioning LocalStack costs nothing beyond it.
       title: 'Start infrastructure',
       task: (_, task) =>
         task.newListr(
