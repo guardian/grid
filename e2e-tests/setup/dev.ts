@@ -1,8 +1,5 @@
 /**
  * Boots the Grid stack outside Playwright and holds it open until Ctrl-C.
- *
- * Chekov serves the https://*.media.<domain> domains by default.
- * Set `GRID_PROXY=false` to use an external dev-nginx instead.
  */
 import {
   CONFIG_DIR,
@@ -78,7 +75,7 @@ async function dev(): Promise<void> {
   }
 
   const startedAt = Date.now();
-  environment = await startStack({ proxy: process.env.GRID_PROXY !== 'false' });
+  environment = await startStack();
   stopContainerLogCapture();
   console.log(banner(Date.now() - startedAt));
 

@@ -43,7 +43,7 @@ import {
   REGION,
   REPO_ROOT,
   SERVICE_CONFIGS,
-  getOidcIssuer,
+  OIDC_ISSUER,
 } from './constants.ts';
 import { generateServiceConfig } from './config.ts';
 import { DEBUG_LOG_PATH } from './debug-log.ts';
@@ -78,10 +78,6 @@ const LOCALSTACK_SERVICES = [
 ].join(",");
 
 export interface StartStackOptions {
-  /**
-  * Start Chekov instead of relying on the developer's dev-nginx. Defaults to true.
-   */
-  proxy?: boolean;
   /** Seed Elasticsearch with the image fixtures (and S3 with their files). Defaults to true. */
   seed?: boolean;
 }
@@ -178,24 +174,22 @@ function localstackContainer(network: StartedNetwork): LocalstackContainer {
  * imgops: standalone nginx image resizer, built from dev/imgops. Its nginx.conf proxies to
  * the `localstack` alias on 4566, so it shares the stack network.
  */
-function imgopsContainer(image: GenericContainer, network: StartedNetwork, proxy: boolean): GenericContainer {
+function imgopsContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
   const container = image
     .withNetwork(network)
     .withLabels({
       [ROLE_LABEL]: 'imgops',
-      ...(proxy ? {
-        'devcontainer.metadata': JSON.stringify({
-          forwardPorts: [80],
-          portsAttributes: { '80': { label: 'media-imgops' } },
-        }),
-      } : {}),
+      'devcontainer.metadata': JSON.stringify({
+        forwardPorts: [80],
+        portsAttributes: { '80': { label: 'media-imgops' } },
+      }),
     })
     .withCopyFilesToContainer([{ source: IMGOPS_NGINX_CONF, target: '/etc/nginx/nginx.conf' }])
     .withExposedPorts({ container: 80, host: IMGOPS_PORT })
     .withWaitStrategy(Wait.forHttp('/_', 80).forStatusCode(200))
     .withStartupTimeout(120_000);
 
-  return proxy ? container : container.withNetworkAliases(IMGOPS_ALIAS);
+  return container;
 }
 
 /**
@@ -299,20 +293,19 @@ function failFastOnCrash<T>(work: Promise<T>, crashed: Promise<never>): Promise<
   return Promise.race([work, crashed]);
 }
 
-function oidcContainer(image: GenericContainer, network: StartedNetwork, proxy: boolean): GenericContainer {
-  const container = image
+function oidcContainer(image: GenericContainer, network: StartedNetwork): GenericContainer {
+  return image
     .withNetwork(network)
     .withLabels({
       [ROLE_LABEL]: 'the local OIDC provider',
-      ...(proxy ? { 'devcontainer.hostname': 'oidc', 'devcontainer.application.port': String(OIDC_PORT) } : {}),
+      'devcontainer.hostname': 'oidc', 'devcontainer.application.port': String(OIDC_PORT)
     })
     .withEnvironment({
       DOMAIN,
       EMAIL_DOMAIN,
       OIDC_CLIENT_ID,
       OIDC_CLIENT_SECRET,
-      OIDC_ISSUER: getOidcIssuer(proxy),
-      OIDC_TRUST_PROXY: String(proxy),
+      OIDC_ISSUER,
     })
     .withCopyFilesToContainer([
       {
@@ -323,8 +316,6 @@ function oidcContainer(image: GenericContainer, network: StartedNetwork, proxy: 
     .withExposedPorts({ container: OIDC_PORT, host: OIDC_PORT })
     .withWaitStrategy(Wait.forLogMessage(/local oidc provider listening/))
     .withStartupTimeout(60_000);
-
-  return proxy ? container : container.withNetworkAliases(OIDC_LOCAL_HOST);
 }
 
 /** Poll a fixed host port until its healthcheck passes, reporting how long it has waited. */
@@ -355,7 +346,7 @@ async function waitForHealthy(
  * Start LocalStack and provision everything held in it. Sequential: each step needs the
  * resources the one before it created.
  */
-function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[] {
+function localstackTasks(seed: boolean): ListrTask<BootContext>[] {
   let clients: ReturnType<typeof provisioningClients>;
 
   return [
@@ -385,7 +376,7 @@ function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[
     },
     {
       title: 'Seed auth buckets',
-      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!, getOidcIssuer(proxy)),
+      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!, OIDC_ISSUER),
     },
     {
       title: 'Seed image files',
@@ -408,7 +399,7 @@ function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[
 
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
-  const { proxy = process.env.GRID_PROXY !== 'false', seed = true } = options;
+  const { seed = true } = options;
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
   const context: BootContext = { containers: [] };
@@ -445,7 +436,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await imgopsContainer(image, ctx.network!, proxy).start());
+                        ctx.containers.push(await imgopsContainer(image, ctx.network!).start());
                       },
                     },
                   ],
@@ -455,7 +446,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             },
             {
               title: 'LocalStack',
-              task: (_, task) => task.newListr(localstackTasks(seed, proxy), { concurrent: false }),
+              task: (_, task) => task.newListr(localstackTasks(seed), { concurrent: false }),
             },
           ],
           { concurrent: true },
@@ -470,11 +461,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
         fs.mkdirSync(CONFIG_DIR, { recursive: true });
         ctx.configDir = CONFIG_DIR;
         ownedConfigDir = CONFIG_DIR;
-        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!, ctx.authStackProps!, proxy);
-
-        if (proxy) {
-          ctx.caRoot = prepareChekov(CONFIG_DIR);
-        }
+        generateServiceConfig(CONFIG_DIR, ctx.coreStackProps!, ctx.authStackProps!);
+        ctx.caRoot = prepareChekov(CONFIG_DIR);
       },
     },
     {
@@ -484,7 +472,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           {
             title: 'Start container',
             task: async (ctx) => {
-              const proxyHosts = proxy ? [...CHEKOV_HOSTS, ...s3BucketHosts(ctx.coreStackProps!)] : [];
+              const proxyHosts = [...CHEKOV_HOSTS, ...s3BucketHosts(ctx.coreStackProps!)];
               const started = await gridContainer(ctx.network!, ctx.configDir!, proxyHosts).start();
               ctx.containers.push(started);
               // A clean boot never awaits this, so sink it to avoid an unhandled rejection
@@ -534,7 +522,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                   task: (_, task) => task.newListr([
                     {
                       title: 'Start Chekov reverse proxy',
-                      skip: () => !proxy && 'using external dev-nginx',
                       task: async (ctx) => {
                         ctx.chekov = await startChekov(ctx.network!, ctx.caRoot!);
                         ctx.containers.push(ctx.chekov);
@@ -542,7 +529,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     },
                     {
                       title: 'Register LocalStack routes',
-                      skip: () => !proxy && 'using direct LocalStack endpoints',
                       task: (ctx) => registerLocalstackAliases(ctx.chekov!, ctx.coreStackProps!),
                     },
                   ],
@@ -557,7 +543,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
     },
     {
       title: 'Register Chekov routes',
-      skip: () => !proxy && 'using external dev-nginx',
       task: async (ctx) => {
         await registerChekovAliases(ctx.chekov!);
       },
@@ -595,7 +580,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await oidcContainer(image, ctx.network!, proxy).start());
+                        ctx.containers.push(await oidcContainer(image, ctx.network!).start());
                       },
                     },
                   ],

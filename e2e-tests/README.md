@@ -48,7 +48,7 @@ configured SQS queue URLs use `https://localstack.media.<domain>` through Chekov
 The LocalStack and S3 bucket aliases are registered and checked over verified HTTPS
 before Grid starts. Bootstrap provisioning and seeding still connect directly to
 LocalStack; imgops retains its direct `http://localstack:4566` upstream.
-With `GRID_PROXY=false`, Grid's runtime AWS calls retain their direct LocalStack endpoints.
+
 Chekov uses the local mkcert CA; its public certificate is installed into the Grid
 container's JVM and OS trust stores. Only Chekov receives the CA private-key directory.
 The proxy also mounts the Docker socket for discovery, so run only a trusted image
@@ -63,8 +63,7 @@ test asserts this network isolation; no Chekov source changes are needed.
 
 Imgops is discovered directly at `https://media-imgops.local.dev-gutools.co.uk`
 from its port label, without a Chekov alias or Docker network alias. Stack startup
-checks its health endpoint over verified HTTPS. With `GRID_PROXY=false`, its `imgops`
-network alias and port 9008 remain available. The shared local-development nginx
+checks its health endpoint over verified HTTPS. The shared local-development nginx
 configuration and imgops-to-LocalStack upstream are unchanged.
 
 The harness applies both development CloudFormation templates to LocalStack, seeds Panda
@@ -74,13 +73,7 @@ OIDC as `grid-e2e-account@guardian.co.uk`; authentication is not bypassed. The p
 is served through Chekov at `https://oidc.local.dev-gutools.co.uk`, which forwards to
 the provider's HTTP port 9014. Chekov discovers the `oidc` hostname directly, without
 an extra alias. Grid resolves the issuer through `host-gateway`, not a provider network
-alias. Stack startup checks OIDC discovery over verified HTTPS,
-and only Chekov mode sets `OIDC_TRUST_PROXY=true` for secure cookies and redirects.
-With `GRID_PROXY=false`, OIDC retains its direct `http://oidc.localhost:9014` issuer
-and container network alias; no OIDC dev-nginx mapping is needed. Use the same
-`GRID_PROXY=false` setting when running tests against that stack. Normal local
-development retains the provider's `http://localhost:9014` default and does not
-enable proxy trust.
+alias. Stack startup checks OIDC discovery over verified HTTPS.
 
 Sign-in happens once per run, in the `auth` setup project
 ([`setup/auth.setup.ts`](setup/auth.setup.ts)), which saves the session to
@@ -206,8 +199,7 @@ sensitive data and use an appropriately restricted host before sharing them.
 holds it open until you press Ctrl-C, which tears it all down.
 
 ```bash
-npm run dev:e2e                   # starts Chekov for HTTPS routing
-GRID_PROXY=false npm run dev:e2e  # use an existing external dev-nginx instead
+npm run dev:e2e
 ```
 
 The stack binds fixed host ports, so two stacks cannot run

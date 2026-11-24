@@ -15,10 +15,7 @@ export const OIDC_CLIENT_SECRET = 'grid-local-secret';
 export const OIDC_PORT = 9014;
 export const OIDC_HOST = `oidc.${DOMAIN}`;
 export const OIDC_LOCAL_HOST = 'oidc.localhost';
-export function getOidcIssuer(proxy: boolean): string {
-  return proxy ? `https://${OIDC_HOST}` : `http://${OIDC_LOCAL_HOST}:${OIDC_PORT}`;
-}
-export const OIDC_ISSUER = getOidcIssuer(process.env.GRID_PROXY !== 'false');
+export const OIDC_ISSUER = `http://${OIDC_LOCAL_HOST}:${OIDC_PORT}`;
 export const OIDC_CONTEXT = path.join(REPO_ROOT, 'dev', 'oidc-provider');
 export const OIDC_IMAGE = 'grid-e2e-oidc-provider';
 export const TEST_ACCOUNTS = {

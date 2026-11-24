@@ -118,20 +118,18 @@ function mediaApiE2eConfig(): string {
 /**
  * Route runtime AWS endpoints and queue URLs through Chekov when enabled.
  */
-export function rewriteEndpoints(conf: string, coreStackProps: StackProps, proxy: boolean): string {
+export function rewriteEndpoints(conf: string, coreStackProps: StackProps): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = "http://localhost:4576";
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
-  const runtimeEndpoint = proxy ? guardianLocalstackUrl : localstackUrl;
+  const runtimeEndpoint = guardianLocalstackUrl;
 
-  const imageOrigins = proxy
-    ? conf
-      .split(`images.media.${DOMAIN}`)
-      .join(`${coreStackProps.ImageBucket}.s3.${DOMAIN}`)
-      .split(`public.media.${DOMAIN}`)
-      .join(`${coreStackProps.ImageOriginBucket}.s3.${DOMAIN}`)
-    : conf;
+  const imageOrigins = conf
+    .split(`images.media.${DOMAIN}`)
+    .join(`${coreStackProps.ImageBucket}.s3.${DOMAIN}`)
+    .split(`public.media.${DOMAIN}`)
+    .join(`${coreStackProps.ImageOriginBucket}.s3.${DOMAIN}`)
 
   const rewrittenConf = [guardianLocalstackUrl, legacyLocalstackUrl, localLocalstackUrl, localstackUrl]
     .reduce((rewritten, endpoint) => rewritten.split(endpoint).join(runtimeEndpoint), imageOrigins);
@@ -146,7 +144,6 @@ export function generateServiceConfig(
   configDir: string,
   coreStackProps: StackProps,
   authStackProps: StackProps,
-  proxy = true,
 ): void {
   const ServiceConfig = require(
     path.join(GENERATE_CONFIG_DIR, "service-config.js"),
@@ -211,7 +208,7 @@ export function generateServiceConfig(
       );
     }
 
-    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps, proxy);
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps);
     const extras = extraConfig[service];
     const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
     fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);
