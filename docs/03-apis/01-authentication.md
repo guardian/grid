@@ -45,7 +45,7 @@ API_KEY_BUCKET=<bucket> sbt "scripts/runMain com.gu.mediaservice.scripts.key.Cre
   --name=<name> \
   --type=developer \
   --permissions=grid_access \
-  --expiry=7"
+  --expiry=day"
 ```
 
 Because the script uploads the key directly, you don't need to copy anything by hand or
@@ -58,7 +58,7 @@ delete a local key file afterwards.
 | `--name=<name>` | yes | – | Name of the user or application that will use the key |
 | `--type=<type>` | no | `developer` | `developer` or `machine` |
 | `--permissions=<csv>` | no | none | Comma-separated list of permissions (see below), case-insensitive |
-| `--expiry=<days>` | no | 1 day for developer keys; none for machine keys | Days until the key expires (positive whole number) |
+| `--expiry=<expiry>` | no | 1 day for developer keys; none for machine keys | 'day', 'week', or 'month' (default is 'day' for developer keys, no expiry for machine keys) |
 | `--help` | no | – | Print usage, including the list of available permissions |
 
 Run with `--help` to see the authoritative list of permissions, which is derived from

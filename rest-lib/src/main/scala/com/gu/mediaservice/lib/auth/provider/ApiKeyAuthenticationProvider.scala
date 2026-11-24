@@ -45,6 +45,10 @@ class ApiKeyAuthenticationProvider(configuration: Configuration, resources: Auth
       case Some(_) if !enabled => NotAuthorised("API key access is disabled")
       case Some(key) =>
         keyStore.lookupIdentity(key) match {
+
+          case Some(apiKey) if apiKey.hasExpired =>
+            logger.info(apiKeyMarkers(apiKey), s"API key ${apiKey.identity} has expired")
+            ExpiredMachine(apiKey)
           // api key provided
           case Some(apiKey) =>
             // valid api key

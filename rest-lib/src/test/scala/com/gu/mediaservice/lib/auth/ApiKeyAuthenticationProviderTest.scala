@@ -2,7 +2,7 @@ package com.gu.mediaservice.lib.auth
 
 import org.apache.pekko.actor.ActorSystem
 import com.gu.mediaservice.lib.auth.Authentication.MachinePrincipal
-import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, Invalid, NotAuthenticated, NotAuthorised}
+import com.gu.mediaservice.lib.auth.provider.{ApiKeyAuthenticationProvider, Authenticated, AuthenticationProviderResources, ExpiredMachine, Invalid, NotAuthenticated, NotAuthorised}
 import com.gu.mediaservice.lib.config.{CommonConfig, GridConfigResources}
 import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
@@ -14,6 +14,7 @@ import play.api.mvc.DefaultControllerComponents
 import play.api.test.{FakeRequest, WsTestClient}
 import play.api.{Configuration, Environment}
 
+import java.time.Instant
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.Future
 
@@ -45,6 +46,8 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
         key match {
           case "key-chuckle" => Some(ApiAccessor("brothers", Internal))
           case "key-limited" => Some(ApiAccessor("locked-down", ReadOnly))
+          case "key-expired" => Some(ApiAccessor("old-timer", Internal, Some(Instant.now().minusSeconds(60))))
+          case "key-valid-future" => Some(ApiAccessor("future-timer", Internal, Some(Instant.now().plusSeconds(60))))
           case _ => None
         }
       }
@@ -101,6 +104,18 @@ class ApiKeyAuthenticationProviderTest extends AsyncFreeSpec with Matchers with 
         case NotAuthorised(message) =>
           message shouldBe "API key locked-down valid but not authorised for this request"
       }
+    }
+    "should return Invalid if the key has expired" in {
+      val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-expired"
+      val status = provider.authenticateRequest(FakeRequest().withHeaders(testHeader))
+      inside(status) {
+        case ExpiredMachine(apiAccessor) =>
+          apiAccessor.identity shouldBe "old-timer"
+      }
+    }
+    "should authenticate a key whose expiry is in the future" in {
+      val testHeader = ApiKeyAuthenticationProvider.apiKeyHeaderName -> "key-valid-future"
+      provider.authenticateRequest(FakeRequest().withHeaders(testHeader)) shouldBe a[Authenticated]
     }
   }
 }

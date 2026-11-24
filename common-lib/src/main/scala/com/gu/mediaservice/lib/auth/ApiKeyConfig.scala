@@ -1,14 +1,38 @@
 package com.gu.mediaservice.lib.auth
 
-import com.gu.permissions.PermissionDefinition
 import com.gu.mediaservice.auth.Permissions
-import play.api.libs.json.{Format, JsString, Json, OFormat, Writes, __}
-
+import com.gu.permissions.PermissionDefinition
+import play.api.libs.json.{Format, JsString, OFormat, Writes, __}
 import java.time.Instant
+
+sealed trait Expiry {
+  val days: Int
+}
+
+case object Day extends Expiry {
+  val days: Int = 1
+}
+case object Week extends Expiry {
+  val days: Int = 7
+}
+case object Month extends Expiry {
+  val days: Int = 30
+}
+
+object Expiry {
+  def fromString(s: String): Option[Int] = s.toLowerCase match {
+    case "day" => Some(1)
+    case "week" => Some(7)
+    case "month" => Some(30)
+    case _ => None
+  }
+}
+
 
 sealed trait PrincipalType
 case object Developer extends PrincipalType
 case object Machine extends PrincipalType
+
 
 object PrincipalType {
   def fromString(s: String): PrincipalType = s.toLowerCase match {
@@ -29,16 +53,18 @@ case class ApiKeyConfig(name: String, permissions: Seq[PermissionDefinition], ex
 
 object ApiKeyConfig {
 
-  val defaultExpiryDays = 1
+  val defaultExpiry: Expiry= Day
 
-  def expiry(expiryDays: Option[Int], principalType: PrincipalType): Option[Instant] = {
-    val days = expiryDays
-      .filter(_ >= 1)
-      .orElse(Option.when(principalType == Developer)(defaultExpiryDays))
-    days.map(d => Instant.now().plusSeconds(60 * 60 * 24 * d))
-  }
-  def apply(name: String, permissions: Seq[PermissionDefinition], principalType: PrincipalType, expiryDays: Option[Int]): ApiKeyConfig = {
-    ApiKeyConfig(name, permissions, expiry(expiryDays, principalType), principalType)
+  def resolveExpiry(requested: Option[Expiry], principalType: PrincipalType): Option[Expiry] =
+    requested.orElse(Option.when(principalType == Developer)(defaultExpiry))
+
+  private def expiresAt(expiry: Option[Expiry]): Option[Instant] =
+    expiry.map(e => Instant.now().plusSeconds(60L * 60 * 24 * e.days))
+
+  def apply(name: String, permissions: Seq[PermissionDefinition],
+            principalType: PrincipalType, requestedExpiry: Option[Expiry]): ApiKeyConfig = {
+    val resolved = resolveExpiry(requestedExpiry, principalType)
+    ApiKeyConfig(name, permissions, expiresAt(resolved), principalType)
   }
 
   private val byName: Map[String, PermissionDefinition] =
