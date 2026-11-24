@@ -1,7 +1,15 @@
 import type { Page } from '@playwright/test';
+import { expect } from '../setup.ts';
 import type { TestContext } from '../setup.ts';
 
 const answering = new WeakSet<Page>();
+
+/** The page raised an alert or confirm whose message contains `text` (see answerDialogs). */
+export async function expectDialog(testContext: TestContext, text: string): Promise<void> {
+  await expect
+    .poll(() => testContext.dialogs.join('\n'), { message: 'the alerts and confirms the page raised' })
+    .toContain(text);
+}
 
 /**
  * Record every alert and confirm the page raises in `testContext.dialogs`, and answer it with

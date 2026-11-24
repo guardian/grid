@@ -29,7 +29,6 @@ import type { OpenedImage, RightsSurfaceName } from "./surfaces.ts";
 import { usageRightsCategories } from "../utils/api/metadata-editor.queries.ts";
 import { setTestClientConfig } from "../utils/test-config.ts";
 import { TEST_ACCOUNTS } from "../../setup/constants.ts";
-import { switchAccount } from "../utils/auth.ts";
 import { answerDialogs } from "../utils/dialogs.ts";
 import { imageInformation } from "../utils/single-image.ts";
 import {
@@ -257,14 +256,6 @@ Given(
     );
   },
 );
-
-Given("I am signed in without edit metadata permission", async ({ page }) => {
-  await switchAccount(page, TEST_ACCOUNTS.restricted);
-});
-
-Given("I am signed in with edit metadata permission", async ({ page }) => {
-  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
-});
 
 Given("the image was uploaded by me", async ({ page, testContext }) => {
   const imageId = findSeededImageId(
@@ -814,11 +805,6 @@ Then("the Metadata tab is selected", async ({ page }) => {
     includeHidden: true,
   });
   await expect(metadataTab).toBeChecked();
-});
-
-Then("I see a {string} region", async ({ page, testContext }, name: string) => {
-  testContext.region = page.getByRole("region", { name, exact: true });
-  await expect(testContext.region).toBeVisible();
 });
 
 Then("it is headed {string}", async ({ testContext }, heading: string) => {

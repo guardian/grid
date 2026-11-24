@@ -5,6 +5,7 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { expectNoUploadPermission, expectUploadPermission } from '../utils/api/media-api.assertions.ts';
+import { expectDialog } from '../utils/dialogs.ts';
 import {
   batchJobs,
   filesToUpload,
@@ -255,7 +256,7 @@ When('I select a file that is larger than the size limit', async ({ page }) => {
 });
 
 Then('I should be warned that the oversized file will be skipped', async ({ testContext }) => {
-  await expect.poll(() => testContext.dialogs.join('\n')).toContain('are above the size limit');
+  await expectDialog(testContext, 'are above the size limit');
   expect(testContext.dialogs.join('\n')).toContain(testImages.larger.fileName);
 });
 
