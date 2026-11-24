@@ -26,7 +26,7 @@ async function uploadAndOpenEditor(page: Page, imagePath = uniqueImage().path): 
 
 // AngularJS ng-options encodes <select> values (e.g. "string:Photograph"), so check the label.
 const expectSelectedOption = (select: Locator, label: string) =>
-  expect(select.locator('option:checked')).toHaveText(label);
+  expect(select.getByRole('option', { selected: true })).toHaveText(label);
 
 /** A field that can be batch-applied; `job` is one current upload's whole image-editor. */
 interface BatchField {

@@ -431,7 +431,7 @@ async function expectProperty(
     ).toBeChecked();
   } else if (control.kind === "select") {
     // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
-    await expect(control.field.locator("option:checked")).toHaveText(value);
+    await expect(control.field.getByRole("option", { selected: true })).toHaveText(value);
   } else {
     await expect(control.field).toHaveValue(value);
   }

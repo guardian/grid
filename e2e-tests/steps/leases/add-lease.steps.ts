@@ -33,7 +33,7 @@ Given('I( have) open(ed) the add lease form', async ({ page }) => {
 Then('the add lease form is shown with {string} selected', async ({ page }, option: string) => {
   const select = accessSelect(leasesRegion(page));
   await expect(select).toBeVisible();
-  await expect(select.locator('option:checked')).toHaveText(option);
+  await expect(select.getByRole('option', { selected: true })).toHaveText(option);
 });
 
 Then(
