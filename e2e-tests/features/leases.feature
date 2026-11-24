@@ -297,7 +297,7 @@ Feature: Viewing and managing an image's leases in the single image view
 
   # ---------------------------------------------------------------------------
 
-  @todo # Metadata template preview
+  # Metadata template preview
   # ---------------------------------------------------------------------------
   Scenario: Selecting a metadata template previews its leases alongside existing ones
     Given I am signed in with edit metadata permission
