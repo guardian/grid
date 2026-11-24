@@ -175,12 +175,14 @@ async function transferNext(): Promise<void> {
     for (const [id, file] of files) {
       const controller = new AbortController();
       requests.set(id, controller);
-      update(id, { phase: "preparing" });
+      update(id, { phase: "preparing" }, true);
       try {
+        let reportedStatusId: string | undefined;
         const submission = await submitGridUpload(file, (stage, statusId) => {
           if (controller.signal.aborted) return;
           update(id, { phase: stage === "preparation" ? "preparing" : stage === "transfer" ? "transferring" : "processing",
-            ...(statusId ? { statusId } : {}) });
+            ...(statusId ? { statusId } : {}) }, !statusId || statusId === reportedStatusId);
+          if (statusId) reportedStatusId = statusId;
         }, controller.signal);
         update(id, { submission, statusId: submission.imageId ?? attemptById(id)?.statusId,
           message: controller.signal.reason === "stop-transfer" ? "Transfer stopped; its outcome is not confirmed. No automatic retry." : controller.signal.aborted ? "This page was interrupted. Check status before taking further action." : submission.reason,

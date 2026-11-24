@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 23 November 2026 - Keep live transfer progress without rewriting unchanged recovery records
+
+Preparation, transfer and queue notifications still update the Upload interface. They share the same interrupted state on reload, so they no longer rewrite the batch unless a new status ID is learned or the previous save failed. Submission receipts and outcomes still save immediately.
+
 ### 23 November 2026 - Avoid recounting the filename-ordered upload batch
 
 When composing an Upload page in submitted filename order, the batch reader reuses the section count already obtained for that page instead of sending an identical media-api request. Filtered-ID and positive-offset section reads retain their own counts. No count is shared between page reads or with upload visibility or navigation checks.

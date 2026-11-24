@@ -259,6 +259,44 @@ describe("route-independent upload jobs", () => {
     }
   });
 
+  it.each([false, true])("publishes transfer progress but saves only new recovery facts (first ID save fails: %s)", async failIdSave => {
+    const imageId = "d".repeat(40);
+    const persist = vi.fn((_key: string, _value: string) => {});
+    vi.stubGlobal("sessionStorage", { length: 0, setItem: persist });
+    let finish!: () => void;
+    const submission = new Promise<Awaited<ReturnType<typeof submitGridUpload>>>(resolve => {
+      finish = () => resolve({ outcome: "accepted", stage: "queued", imageId, queued: "acknowledged" });
+    });
+    vi.mocked(submitGridUpload).mockReturnValue(submission);
+    try {
+      const batchId = submitUploadFiles([file("progress.jpg")])!;
+      const progress = vi.mocked(submitGridUpload).mock.calls[0][1];
+      const phase = () => useUploadJobsStore.getState().batches[0].attempts[0].phase;
+      const record = () => JSON.parse(persist.mock.lastCall![1]).attempts[0];
+      progress("preparation");
+      expect(phase()).toBe("preparing");
+      expect(persist).toHaveBeenCalledTimes(1);
+      expect(record()).toMatchObject({ phase: "interrupted" });
+      if (failIdSave) persist.mockImplementationOnce(() => { throw new Error("Storage unavailable"); });
+      progress("preparation", imageId);
+      if (failIdSave) expect(useLocalPersistenceStore.getState().batchIssues[batchId]).toBeTruthy();
+      else expect(record()).toMatchObject({ phase: "interrupted", statusId: imageId });
+      const writes = persist.mock.calls.length;
+      progress("transfer", imageId);
+      expect(persist).toHaveBeenCalledTimes(writes + Number(failIdSave));
+      expect(phase()).toBe("transferring");
+      expect(useLocalPersistenceStore.getState().batchIssues[batchId]).toBeUndefined();
+      expect(record()).toMatchObject({ phase: "interrupted", statusId: imageId });
+      persist.mockClear();
+      progress("queued", imageId);
+      expect(phase()).toBe("processing");
+      expect(persist).not.toHaveBeenCalled();
+      finish();
+      await Promise.resolve();
+      expect(record().submission).toMatchObject({ outcome: "accepted", queued: "acknowledged" });
+    } finally { finish(); await submission; disposeUploadJobs(); vi.unstubAllGlobals(); }
+  });
+
   it("keeps polling without publishing or saving unchanged progress", async () => {
     vi.useFakeTimers();
     const imageId = "c".repeat(40);
