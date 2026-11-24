@@ -12,7 +12,7 @@ import {
   deleteLeaseControl,
   expectShownDuringSave,
   labelOfAccess,
-  LEASE_PREVIEW_CLASS,
+  LEASE_PREVIEW_DESCRIPTION,
   leaseAccess,
   leaseItem,
   leaseItems,
@@ -54,13 +54,13 @@ When('I apply that metadata template', async ({ page, testContext }) => {
 });
 
 Then('the {string} lease is shown highlighted as a preview', async ({ page }, label: string) => {
-  await expect(leaseItem(leasesRegion(page), label)).toContainClass(LEASE_PREVIEW_CLASS);
+  await expect(leaseItem(leasesRegion(page), label)).toHaveAccessibleDescription(LEASE_PREVIEW_DESCRIPTION);
 });
 
 Then('the existing {string} lease is still shown', async ({ page }, label: string) => {
   const lease = leaseItem(leasesRegion(page), label);
   await expect(lease).toBeVisible();
-  await expect(lease).not.toContainClass(LEASE_PREVIEW_CLASS);
+  await expect(lease).not.toHaveAccessibleDescription(LEASE_PREVIEW_DESCRIPTION);
 });
 
 Then('no delete controls are shown on the leases', async ({ page }) => {
@@ -71,7 +71,7 @@ Then('no delete controls are shown on the leases', async ({ page }) => {
 
 Then('only the {string} lease is shown, highlighted as a preview', async ({ page }, label: string) => {
   const region = leasesRegion(page);
-  await expect(leaseItem(region, label)).toContainClass(LEASE_PREVIEW_CLASS);
+  await expect(leaseItem(region, label)).toHaveAccessibleDescription(LEASE_PREVIEW_DESCRIPTION);
   await expect(leaseItems(region)).toHaveCount(1);
 });
 
@@ -80,10 +80,12 @@ Then(
   async ({ page, testContext }, existing: string) => {
     const region = leasesRegion(page);
     const { leaseType } = E2E_LEASE_TEMPLATES.find((t) => t.templateName === testContext.metadataTemplate)!;
-    await expect(leaseItem(region, labelOfAccess(leaseType))).toContainClass(LEASE_PREVIEW_CLASS);
+    await expect(leaseItem(region, labelOfAccess(leaseType))).toHaveAccessibleDescription(
+      LEASE_PREVIEW_DESCRIPTION,
+    );
     const existingLease = leaseItem(region, labelOfAccess(existing));
     await expect(existingLease).toBeVisible();
-    await expect(existingLease).not.toContainClass(LEASE_PREVIEW_CLASS);
+    await expect(existingLease).not.toHaveAccessibleDescription(LEASE_PREVIEW_DESCRIPTION);
     await expect(leaseItems(region)).toHaveCount(2);
   },
 );

@@ -11,7 +11,7 @@ import {
   addLease,
   addLeaseButton,
   applyLeasesToAllButton,
-  LEASE_PREVIEW_CLASS,
+  LEASE_PREVIEW_DESCRIPTION,
   expectShownDuringSave,
   labelOfAccess,
   leaseItem,
@@ -157,8 +157,8 @@ When('I select a metadata template with leases for the first upload', async ({ p
   const job = nthUpload(page, 0);
   await chooseMetadataTemplate(job, template.templateName);
   // The preview lists the template's lease, marked as a preview (leases.html).
-  await expect(leaseItem(uploadLeases(job), labelOfAccess(template.leaseType))).toContainClass(
-    LEASE_PREVIEW_CLASS,
+  await expect(leaseItem(uploadLeases(job), labelOfAccess(template.leaseType))).toHaveAccessibleDescription(
+    LEASE_PREVIEW_DESCRIPTION,
   );
 });
 

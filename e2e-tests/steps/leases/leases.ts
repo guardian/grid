@@ -48,8 +48,8 @@ export const closeLeaseFormButton = (scope: Scope) => scope.getByTitle('Close', 
 
 export const leaseItems = (scope: Scope) => scope.getByRole('listitem');
 
-/** leases.html marks a lease a template would add with this class, which leases.css outlines. */
-export const LEASE_PREVIEW_CLASS = 'lease__item-preview';
+/** leases.html describes a lease a template would add with this. */
+export const LEASE_PREVIEW_DESCRIPTION = 'Preview: added by template';
 
 /** The lease whose access is labelled `label`, e.g. "Allow use". */
 export const leaseItem = (scope: Scope, label: string) =>
