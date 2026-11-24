@@ -9,6 +9,7 @@ import {
   leaseItems,
   leasesRegion,
   pollImageLeases,
+  unchangedImageLeases,
 } from './leases.ts';
 
 Then('the add lease control shows {string} while the lease is saved', async ({ page, testContext }, text: string) => {
@@ -29,9 +30,11 @@ Then('the image shows a(n) {string} lease with no start date', async ({ page, te
   const lease = leaseItem(leasesRegion(page), label);
   await expect(lease).toBeVisible();
   await expect(lease.getByText(/^Start(s|ed) /)).toHaveCount(0);
-  await pollImageLeases(testContext).toEqual([expect.objectContaining({ access: accessOfLabel(label) })]);
-  const [saved] = await imageLeases(testContext.imageId!);
-  expect(saved.startDate ?? null, 'the saved start date').toBeNull();
+  await expect
+    .poll(async () =>
+      (await imageLeases(testContext.imageId!)).map(({ access, startDate }) => ({ access, startDate: startDate ?? null })),
+    { message: 'the leases media-api serves, with their start dates' })
+    .toEqual([{ access: accessOfLabel(label), startDate: null }]);
 });
 
 Then(
@@ -45,13 +48,11 @@ Then(
 );
 
 Then('the image still has only its {string} lease', async ({ page, testContext }, label: string) => {
-  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
-  const items = leaseItems(leasesRegion(page));
-  await expect(items).toHaveCount(1);
-  await expect(leaseItem(leasesRegion(page), label)).toBeVisible();
-  expect(accesses(await imageLeases(testContext.imageId!)), 'the leases media-api serves').toEqual([
+  expect(accesses(await unchangedImageLeases(testContext)), 'the leases media-api serves').toEqual([
     accessOfLabel(label),
   ]);
+  await expect(leaseItems(leasesRegion(page))).toHaveCount(1);
+  await expect(leaseItem(leasesRegion(page), label)).toBeVisible();
 });
 
 Then('the {string} lease is no longer shown', async ({ page, testContext }, label: string) => {

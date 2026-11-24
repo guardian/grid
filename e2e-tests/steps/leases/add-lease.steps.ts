@@ -1,5 +1,4 @@
 /** Steps for the add lease form in the single image view. */
-import { imageLeases } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import { answerHeldConfirm } from '../utils/dialogs.ts';
 import {
@@ -15,6 +14,7 @@ import {
   notesField,
   openAddLeaseForm,
   saveLeaseButton,
+  unchangedImageLeases,
 } from './leases.ts';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -66,9 +66,8 @@ Then('the add lease form is hidden', async ({ page }) => {
 });
 
 Then('no lease is added to the image', async ({ page, testContext }) => {
-  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
+  expect(await unchangedImageLeases(testContext), 'the leases media-api serves').toEqual([]);
   await expect(leaseItems(leasesRegion(page))).toHaveCount(0);
-  expect(await imageLeases(testContext.imageId!), 'the leases media-api serves').toEqual([]);
 });
 
 When('I save the lease without choosing an access type', async ({ page }) => {

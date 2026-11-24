@@ -151,6 +151,16 @@ export const pollLeasesOf = (imageId: string) =>
 /** pollLeasesOf the image a scenario opened. */
 export const pollImageLeases = (testContext: TestContext) => pollLeasesOf(testContext.imageId!);
 
+/**
+ * The leases media-api serves for the image a scenario opened, once the step has checked the
+ * page sent no request to change them. Polling can't show something did not happen, but with
+ * no change requested there is nothing for thrall to apply later, so one read is enough.
+ */
+export async function unchangedImageLeases(testContext: TestContext): Promise<MediaLease[]> {
+  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
+  return imageLeases(testContext.imageId!);
+}
+
 export const accesses = (leases: MediaLease[]) => leases.map(({ access }) => access).sort();
 
 /**

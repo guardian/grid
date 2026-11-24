@@ -1,9 +1,8 @@
 /** Steps for deleting a lease in the single image view. */
 import type { Page } from '@playwright/test';
-import { imageLeases } from '../../setup/seed-leases.ts';
 import { Given, Then, When, expect } from '../setup.ts';
 import { pauseClock } from '../utils/clock.ts';
-import { deleteLeaseControl, failLeaseRequests, leaseItems, leasesRegion } from './leases.ts';
+import { deleteLeaseControl, failLeaseRequests, leaseItems, leasesRegion, unchangedImageLeases } from './leases.ts';
 
 /** gr-confirm-delete reverts to "Delete" this long after the first click. */
 const CONFIRM_WINDOW_MS = 5_000;
@@ -38,9 +37,8 @@ Then('the delete control shows {string}( again)', async ({ page }, label: string
 });
 
 Then('the lease is still on the image', async ({ page, testContext }) => {
-  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
+  expect(await unchangedImageLeases(testContext), 'the leases media-api serves').toHaveLength(1);
   await expect(leaseItems(leasesRegion(page))).toHaveCount(1);
-  expect(await imageLeases(testContext.imageId!), 'the leases media-api serves').toHaveLength(1);
 });
 
 Given('deleting leases will fail', async ({ page }) => {
