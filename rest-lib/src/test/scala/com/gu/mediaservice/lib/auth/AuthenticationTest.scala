@@ -347,7 +347,7 @@ class AuthenticationTest extends AsyncFreeSpec with Matchers with EitherValues w
         override def authenticateRequest(request: RequestHeader): ApiAuthenticationStatus = ???
         override def onBehalfOf(request: Authentication.Principal): Either[String, WSRequest => WSRequest] = request match {
           case MachinePrincipal(_, attributes) if attributes.contains(HeaderKey) => Right(req => req.addHttpHeaders(attributes.get(HeaderKey).get))
-          case MachinePrincipal(ApiAccessor(identity, _), _) => Left(s"Unable to build onBehalfOf function for $identity")
+          case MachinePrincipal(ApiAccessor(identity, _, _), _) => Left(s"Unable to build onBehalfOf function for $identity")
           case _ => throw new RuntimeException("Unexpected onBehalfOf case for test MachineAuthenticationProvider")
         }
       },
