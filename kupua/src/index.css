@@ -297,6 +297,7 @@
 [data-editable-pill] > button::after { content: ""; position: absolute; right: 0; top: 25%; bottom: 25%; width: 1px; background: currentColor; opacity: .18; pointer-events: none; }
 [data-editable-pill] > button:last-child::after { right: auto; left: 0; }
 [data-editable-pill] > span { overflow-wrap: anywhere; }
+[data-retained-reading] :is(.metadata-add-tool, [data-editable-pill] > button, .metadata-edit-tool):disabled:not(.metadata-pencil) { opacity: 1; }
 @media (hover: hover) and (pointer: fine) {
   .metadata-edit-tool:enabled:hover { background: #555; color: white; border-radius: 50%; }
   [data-metadata-field] .metadata-pencil { opacity: 0; }

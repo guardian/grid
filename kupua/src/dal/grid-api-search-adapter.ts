@@ -18,7 +18,7 @@ import { mediaApiUrl } from "./grid-api/proxy-target";
 import { captureImageRead, stampImageRead } from "@/lib/image-read-freshness";
 
 type ImagePageResponse = {
-  data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }>;
+  data: Array<{ uri?: string; data?: unknown; actions?: unknown; links?: Link[] }>;
   sortValues: SortValues[];
 };
 
@@ -50,8 +50,8 @@ function mediaLinksOf(links: Link[] | undefined): Image["__mediaLinks"] {
   return optimised || optimisedPng ? { optimised, optimisedPng } : undefined;
 }
 
-function mapApiImageToImage(raw: unknown, links?: Link[]): Image {
-  const d = raw as ImageData;
+function mapApiImageToImage({ data, links, uri }: ImagePageResponse["data"][number]): Image {
+  const d = data as ImageData;
   const edits = d.userMetadata && unwrapEntity(d.userMetadata);
   const userMetadata = edits ? {
     archived: unwrapEntity(edits.archived) ?? undefined,
@@ -73,10 +73,13 @@ function mapApiImageToImage(raw: unknown, links?: Link[]): Image {
 
   // collections: array of Argo entities, extract each .data
   const collectionsRaw = d.collections as Array<{ data?: unknown }> | undefined;
-  const collections = collectionsRaw?.map((c) => c.data).filter(Boolean) ?? [];
+  const collections = Array.isArray(collectionsRaw) && collectionsRaw.every(member => typeof (member?.data as { pathId?: unknown } | undefined)?.pathId === "string")
+    ? collectionsRaw.map(member => member.data) : undefined;
 
   const __mediaLinks = mediaLinksOf(links);
-  return { ...d, userMetadata, fileMetadata, usages, leases, collections, ...(__mediaLinks && { __mediaLinks }) } as unknown as Image;
+  const ui = links?.find(link => link.rel === "ui:image")?.href;
+  const __dragResource = uri && ui ? { data: d, uri, ui, crops: links?.find(link => link.rel === "crops")?.href } : undefined;
+  return { ...d, userMetadata, fileMetadata, usages, leases, collections, ...(__mediaLinks && { __mediaLinks }), ...(__dragResource && { __dragResource }) } as unknown as Image;
 }
 
 /**
@@ -185,7 +188,7 @@ export async function apiGetImage(id: string, signal?: AbortSignal): Promise<Ima
   if (!res.ok) throw await readFailure(res, signal);
   const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown; links?: Link[] };
   if (json.data?.id !== id) return undefined;
-  const image = mapApiImageToImage(json.data, json.links);
+  const image = mapApiImageToImage(json);
   const enrichment = extractEnrichment(json)?.[1];
   stampImageRead(image, enrichment, issued, "full");
   if (enrichment) attachEnrichment(image, enrichment);
@@ -213,7 +216,7 @@ export async function apiGetByIds(ids: string[], signal?: AbortSignal): Promise<
       const json = await postImageRead("/images/mget", { ids: chunks[next++] }, controller.signal) as { data: Array<{ data?: unknown; actions?: unknown; links?: Link[] }> };
       for (const entity of json.data) {
         if (entity.data == null) continue;
-        const image = mapApiImageToImage(entity.data, entity.links);
+        const image = mapApiImageToImage(entity);
         const enrichment = extractEnrichment(entity);
         stampImageRead(image, enrichment?.[1], issued, "lean");
         if (enrichment) attachEnrichment(image, enrichment[1]);
@@ -271,7 +274,7 @@ function decodeImagePage(data: ImagePageResponse["data"], issued: number): { hit
     const entry = extractEnrichment(entity);
     if (entry) enrichment.set(entry[0], entry[1]);
     if (entity.data != null) {
-      const image = mapApiImageToImage(entity.data, entity.links);
+      const image = mapApiImageToImage(entity);
       stampImageRead(image, entry?.[1], issued, "lean");
       if (entry) attachEnrichment(image, entry[1]);
       hits.push(image);

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer as createHttpServer } from "node:http";
 import { resolve } from "node:path";
 import { Readable } from "node:stream";
 import type { Connect } from "vite";
@@ -68,6 +69,9 @@ it("routes advertised local and TEST satellites independently without manual tar
   for (const environment of ["local", "test"]) {
     const metadata = `https://media-metadata.${environment}.dev-gutools.co.uk`;
     const auth = `https://media-auth.${environment}.dev-gutools.co.uk`;
+    const cropper = `https://cropper.media.${environment}.dev-gutools.co.uk`;
+    expect(gridServiceUrl("cropper", `${cropper}/crops/fixture`, "/crops/fixture", cropper))
+      .toBe(environment === "test" ? `${cropper}/crops/fixture` : "/grid-local-cropper/crops/fixture");
     const leases = `https://media-leases.${environment}.dev-gutools.co.uk`;
     expect(gridServiceUrl("leases", `${leases}/leases`, "/leases", leases)).toBe(environment === "test" ? `${leases}/leases` : "/grid-local-leases/leases");
     const loader = `https://loader.media.${environment}.dev-gutools.co.uk`;
@@ -84,6 +88,47 @@ it("routes advertised local and TEST satellites independently without manual tar
   }
   const foreign = "https://unexpected.example.test";
   expect(gridServiceUrl("metadata", `${foreign}/metadata/fixture`, "/metadata/fixture", foreign)).toBeUndefined();
+  vi.stubEnv("VITE_HOSTED", "true");
+  const local = "https://cropper.media.local.dev-gutools.co.uk";
+  expect(gridServiceUrl("cropper", `${local}/crops/fixture`, "/crops/fixture", local)).toBe(`${local}/crops/fixture`);
+});
+
+it("forwards only the exact saved-crop GET to the fixed LOCAL cropper", async () => {
+  vi.stubEnv("VITE_USE_MEDIA_API", "true");
+  const { createServer } = await import("vite");
+  const received: string[] = [];
+  const list = { data: [{ id: "synthetic-saved-crop" }] };
+  const upstream = createHttpServer((request, response) => {
+    received.push(`${request.method} ${request.url}`);
+    response.end(JSON.stringify(list));
+  });
+  const cacheDir = await mkdtemp(resolve("node_modules/.vite-read-guard-"));
+  let vite: Awaited<ReturnType<typeof createServer>> | undefined;
+  try {
+    await new Promise<void>(done => upstream.listen(0, "127.0.0.1", done));
+    const address = upstream.address();
+    if (!address || typeof address === "string") throw new Error("Missing loopback address");
+    vite = await createServer({ configFile: "vite.config.ts", cacheDir, optimizeDeps: { noDiscovery: true, include: [] },
+      server: { host: "127.0.0.1", port: 0 }, plugins: [{ name: "loopback-cropper", configResolved(config) {
+        const proxies = config.server.proxy!;
+        expect(Object.keys(proxies).filter(key => key.includes("cropper"))).toEqual(["^/grid-local-cropper/"]);
+        const route = proxies["^/grid-local-cropper/"];
+        expect(route).toMatchObject({ target: "https://cropper.media.local.dev-gutools.co.uk", followRedirects: false });
+        if (typeof route !== "string") route.target = `http://127.0.0.1:${address.port}`;
+      } }] });
+    await vite.listen();
+    const prefix = `${vite.resolvedUrls!.local[0]}grid-local-cropper`;
+    expect(await (await fetch(`${prefix}/crops/fixture`)).json()).toEqual(list);
+    for (const [method, path] of [["POST", "/crops/fixture"], ["DELETE", "/crops/fixture"], ["GET", "/management/healthcheck"],
+      ["PUT", "/collections/news"], ["GET", "/crops/fixture/extra"], ["GET", "/crops/fixture?all=true"]]) {
+      expect((await fetch(prefix + path, { method })).status, `${method} ${path}`).toBe(403);
+    }
+    expect(received).toEqual(["GET /crops/fixture"]);
+  } finally {
+    await vite?.close();
+    await new Promise<void>(done => upstream.close(() => done()));
+    await rm(cacheDir, { recursive: true, force: true });
+  }
 });
 
 it("admits only supported Vite transport shapes with startup-captured proxy targets", async () => {

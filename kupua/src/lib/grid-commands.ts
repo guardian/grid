@@ -3,11 +3,12 @@ import { z } from "zod";
 import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
 import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
 import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated } from "./grid-api-instance";
-import { addressableLabel, isLabelRemovalRequest } from "./grid-mutation-policy";
+import { addressableLabel, isCollectionMembershipRequest, isLabelRemovalRequest } from "./grid-mutation-policy";
 import { leaseCommandValueSchema, leaseSetKey, storedLeases } from "./lease-change";
 import { editingAllowedAtStartup } from "./editing-preference";
 import { BATCH_POLICY } from "./batch-execution";
 import { copyImageRead, getMetadataWriteWitness, retainsEditGrant } from "./image-read-freshness";
+import { useCollectionStore } from "@/stores/collection-store";
 
 const addLabelsSchema = z.object({
   operation: z.literal("add-labels"),
@@ -49,7 +50,15 @@ export type LabelListCommand = z.infer<typeof labelListSchema>;
 const photoshootSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-photoshoot"), value: z.string().trim(), projectionMatches: z.boolean() }).strict();
 export type PhotoshootCommand = z.infer<typeof photoshootSchema>;
 const photoshootResource = z.object({ data: z.object({ photoshoot: z.object({ uri: z.string(), data: z.object({ title: z.string() }).optional() }) }) });
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema]);
+const collectionSchema = z.object({ operation: z.literal("edit-collection"), imageId: addLabelsSchema.shape.imageId,
+  action: z.enum(["add", "remove"]), path: z.array(z.string().min(1).refine(bit => bit !== "." && bit !== ".." && !/[\/\\"\u0000-\u001f]/.test(bit))).min(1) }).strict();
+const collectionData = z.object({ pathId: z.string(), path: z.array(z.string()) });
+const membershipSchema = collectionSchema.omit({ path: true, action: true, operation: true }).extend({
+  operation: z.literal("edit-memberships"), action: z.enum(["add", "remove", "overwrite"]), pathIds: z.array(z.string().min(1)),
+}).strict();
+export type MembershipCommand = z.infer<typeof membershipSchema>;
+const collectionAction = z.object({ name: z.string(), method: z.string(), href: z.string() });
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema, collectionSchema, membershipSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
   metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
@@ -209,15 +218,83 @@ async function executeLeaseChange(command: LeaseCommand): Promise<GridCommandRes
   } catch { return dispatchedLeases !== undefined ? { outcome: "unknown", expectedLeases: dispatchedLeases } : blocked; }
 }
 
+async function executeCollectionChange(command: z.infer<typeof collectionSchema> | MembershipCommand): Promise<GridCommandResult> {
+  const blocked = { outcome: "blocked", reason: "unavailable" } as const;
+  let dispatched = false;
+  try {
+    const [origin, session] = await Promise.all([getGridServiceOrigin("collections"), getGridSessionPermissions()]);
+    if (!origin || !session || isGridSessionInvalidated()) return blocked;
+    const keys = command.operation === "edit-collection" ? [command.path.join("/").toLowerCase()] : [...new Set(command.pathIds)];
+    if ((command.action === "overwrite") !== !keys.length) return blocked;
+    const path = `/images/${command.imageId}`;
+    const options = { credentials: "include", redirect: "error", signal: AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs) } as const;
+    const read = await fetch(mediaApiUrl(path), options);
+    if (!read.ok) return failure(read, false);
+    const image = z.object({ data: z.object({ id: z.string(), collections: z.array(z.object({ data: collectionData, actions: z.array(collectionAction).optional() })) }), actions: z.array(collectionAction).optional() }).parse(await read.json());
+    if (image.data.id !== command.imageId) return blocked;
+    const add = command.action === "add";
+    const sourceUrl = gridServiceUrl("collections", origin + path, path, origin);
+    if (!sourceUrl) return blocked;
+    const source = await fetch(sourceUrl, options);
+    if (!source.ok && source.status !== 404) return failure(source, false);
+    const sourceBody = await source.json();
+    const missing = parseArgoErrorBody(sourceBody);
+    if (!source.ok && (image.data.collections.length || missing.errorKey !== "not-found" || missing.errorMessage !== "No collections found")) return blocked;
+    const sourceMembers = source.ok ? z.object({ data: z.array(collectionData) }).parse(sourceBody).data : [];
+    const members = new Map(image.data.collections.map(member => [member.data.pathId, member]));
+    const current = new Set(sourceMembers.map(member => member.pathId));
+    if (members.size !== image.data.collections.length || current.size !== sourceMembers.length || members.size !== current.size || sourceMembers.some(item =>
+      item.pathId !== item.path.join("/").toLowerCase() || JSON.stringify(members.get(item.pathId)?.data.path) !== JSON.stringify(item.path))) return blocked;
+    const steps: { key: string; url: string; body?: string }[] = [];
+    const method = add ? "POST" : "DELETE";
+    for (const key of command.action === "overwrite" ? current : keys) {
+      const member = members.get(key);
+      if (add === !!member) continue;
+      let endpoint = path, actions = image.actions, body: string | undefined;
+      if (add) {
+        const { tree, status, countServiceUri } = useCollectionStore.getState();
+        if (!tree || status !== "ready" || countServiceUri !== origin) return blocked;
+        let node: typeof tree | undefined = tree;
+        for (const bit of key.split("/")) node = node?.data.children.find(child => child.data.fullPath.at(-1)?.toLowerCase() === bit);
+        const entry = node?.data.data;
+        if (!entry || entry.pathId !== key || command.operation === "edit-collection" && JSON.stringify(entry.path) !== JSON.stringify(command.path)) return blocked;
+        body = JSON.stringify({ data: entry.path });
+      } else if (member) {
+        endpoint += "/" + member.data.path.map(bit => encodeURIComponent(bit).replace(/[!'()~]/g, char => `%${char.charCodeAt(0).toString(16).toUpperCase()}`)).join("/");
+        actions = member.actions;
+      }
+      const action = actions?.find(item => item.name === (add ? "add-collection" : "remove") && item.method === method);
+      const url = gridServiceUrl("collections", action?.href, endpoint, origin);
+      if (!url || !isCollectionMembershipRequest(method, endpoint)) return blocked;
+      steps.push({ key, url, body });
+    }
+    for (const [index, step] of steps.entries()) {
+      const labelSteps = { acknowledged: index, rejected: 0, uncertain: 0, notSent: steps.length - index };
+      if (options.signal.aborted || isGridSessionInvalidated()) return index ? { outcome: "partial", expected: { collections: [...current] }, labelSteps, reason: isGridSessionInvalidated() ? "reload-required" : "unavailable" } : blocked;
+      dispatched = true;
+      let failed: Awaited<ReturnType<typeof failure>> | undefined;
+      try {
+        const response = await fetch(step.url, { ...options, method, ...(step.body && { headers: { "Content-Type": "application/json" }, body: step.body }) });
+        if (!response.ok) failed = await failure(response, true);
+      } catch { failed = { outcome: "unknown" }; }
+      if (failed?.outcome === "rejected") return index ? { ...failed, outcome: "partial", expected: { collections: [...current] }, labelSteps: { ...labelSteps, rejected: 1, notSent: labelSteps.notSent - 1 } } : failed;
+      if (add) current.add(step.key); else current.delete(step.key);
+      if (failed) return { ...failed, expected: { collections: [...current] }, labelSteps: { ...labelSteps, uncertain: 1, notSent: labelSteps.notSent - 1 } };
+    }
+    return { outcome: steps.length ? "acknowledged" : "unchanged", expected: { collections: [...current] } };
+  } catch { return dispatched ? { outcome: "unknown" } : blocked; }
+}
+
 export async function executeGridCommand(input: unknown, observeRights?: ObserveRights, onDerivedDispatch?: DerivedDispatch): Promise<GridCommandResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { outcome: "blocked", reason: "invalid-command" };
   const command = parsed.data;
-  copyImageRead((input as { resource: object }).resource, command.resource);
+  if ("resource" in command) copyImageRead((input as { resource: object }).resource, command.resource);
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
   if (command.operation === "edit-rights" && !observeRights) return { outcome: "blocked", reason: "unavailable" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
   if (command.operation === "edit-leases") return executeLeaseChange(command);
+  if (command.operation === "edit-collection" || command.operation === "edit-memberships") return executeCollectionChange(command);
   const path = `/metadata/${command.imageId}`;
   const href = findLink(command.resource, "edits")?.href;
   const witness = command.operation === "edit-metadata" || command.operation === "edit-rights" ? getMetadataWriteWitness(command.imageId) : undefined;

@@ -1,7 +1,7 @@
 import { createMetadataEditExecution, type MetadataEditReceipt, type MetadataEditObservation } from "./metadata-edit-execution";
 import { metadataWriteFingerprint, type AddLabelsCommand, type GridCommandResult, type MetadataCommand, type RightsCommand, type LeaseCommand, type ObserveRights } from "./grid-commands";
 import { leaseChangeForImage, leaseSetKey, type LeaseChange } from "./lease-change";
-import type { LabelListCommand, PhotoshootCommand } from "./grid-commands";
+import type { LabelListCommand, PhotoshootCommand, MembershipCommand } from "./grid-commands";
 import { BATCH_POLICY, type BatchPacing } from "./batch-execution";
 import { attachedEnrichment } from "@/stores/enrichment-store";
 
@@ -47,11 +47,12 @@ export function createRightsReadback(readImages: MetadataEditObservation["readIm
 }
 
 export type MetadataIntent = (Pick<MetadataCommand, "fieldId" | "action" | "value">
+  | { fieldId: "collections"; action: "add" | "remove" | "overwrite"; value: string[] }
   | { fieldId: "photoshoot"; action: "overwrite"; value: string }
   | { fieldId: "usageRights_category"; action: "overwrite"; value: RightsCommand["value"] }
   | { fieldId: "leases"; action: "overwrite"; value: LeaseChange }
   | { fieldId: "labels"; action: "add" | "remove" | "overwrite"; value: string | string[] }) & { targetIds: readonly string[]; removed?: string[] };
-export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand | PhotoshootCommand;
+export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand | PhotoshootCommand | MembershipCommand;
 export type MetadataReceipt = MetadataEditReceipt<MetadataIntent>;
 
 export function matchesPhotoshoot(image: import("@/types/image").Image, title: string) {
@@ -68,13 +69,14 @@ export function createMetadataOperation(
   return createMetadataEditExecution<MetadataIntent, EditorCommand>({
     dispatchConcurrency: execution?.dispatchConcurrency,
     valid: intent => intent.targetIds.length > 0 && intent.targetIds.every(id => /^[a-zA-Z0-9_-]+$/.test(id)),
-    normalize: intent => intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "labels" || intent.fieldId === "leases" || intent.fieldId === "photoshoot" ? { ...intent }
+    normalize: intent => intent.fieldId === "collections" ? { ...intent, value: [...intent.value] } : intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "labels" || intent.fieldId === "leases" || intent.fieldId === "photoshoot" ? { ...intent }
       : { ...intent, value: typeof intent.value === "string" ? intent.value : Array.isArray(intent.value) ? [...intent.value] : Object.freeze({ ...intent.value }) },
     unsupported: () => false,
-    metadataWitness: (image, input) => ["labels", "leases", "photoshoot"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
+    metadataWitness: (image, input) => ["labels", "leases", "photoshoot", "collections"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
       ? undefined : metadataWriteFingerprint(image.userMetadata?.metadata),
     command: (input, imageId, resource) => {
       const intent = perImageIntents?.get(imageId) ?? input;
+      if (intent.fieldId === "collections") return { operation: "edit-memberships", action: intent.action, pathIds: intent.value, imageId };
       if (intent.fieldId === "photoshoot") return { operation: "edit-photoshoot", imageId, resource, value: intent.value, projectionMatches: execution?.matchingPhotoshoots?.has(imageId) === true };
       if (intent.fieldId === "leases") return { operation: "edit-leases", imageId, resource, value: leaseChangeForImage(intent.value, imageId) };
       if (intent.fieldId === "usageRights_category") return { operation: "edit-rights", imageId, resource, value: intent.value };
@@ -89,6 +91,11 @@ export function createMetadataOperation(
     },
     matches: (image, intent, result) => {
       intent = perImageIntents?.get(image.id) ?? intent;
+      if (intent.fieldId === "collections") {
+        const expected = result && "expected" in result && result.expected?.collections;
+        const actual = image.collections?.map(member => member.pathId);
+        return Array.isArray(expected) && !!actual && actual.length === expected.length && new Set(actual).size === actual.length && expected.every(path => actual.includes(path));
+      }
       if (intent.fieldId === "photoshoot") return matchesPhotoshoot(image, intent.value);
       if (intent.fieldId === "leases") {
         const records = image.leases?.leases;

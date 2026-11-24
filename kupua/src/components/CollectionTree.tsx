@@ -13,7 +13,8 @@
  * See kupua/exploration/docs/00 Architecture and philosophy/06-collections.md for architecture.
  */
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
+import { useStore } from "zustand";
 import { useSearch } from "@tanstack/react-router";
 import { collectionCountScope, useCollectionStore, type CollectionNode } from "@/stores/collection-store";
 import { useSearchStore } from "@/stores/search-store";
@@ -21,27 +22,59 @@ import { useUpdateSearchParams } from "@/hooks/useUrlSearchSync";
 import { findFieldTerm, upsertFieldTerm, removeAllFieldTerms } from "@/dal/adapters/elasticsearch/cql-query-edit";
 import { formatCount } from "@/lib/format-count";
 import { Chevron } from "./Chevron";
+import { AccordionSection } from "./PanelLayout";
+import { usePanelStore } from "@/stores/panel-store";
+import { useImageDragSpringOpen } from "@/hooks/useImageDragSpringOpen";
+import { MetadataEditorContext, useMetadataCommit } from "./MetadataEditing";
+import { activeImageDrag, hasImageDrag, imageDragSignal, subscribeImageDrag, takeImageDrag } from "@/lib/internal-image-drag";
+import { useBrowsingContext } from "@/lib/browsing-context";
+import { useSelectionStore } from "@/stores/selection-store";
+import "./CollectionTree.css";
 
 // ---------------------------------------------------------------------------
 // CollectionTree — top-level component
 // ---------------------------------------------------------------------------
 
-const NO_COUNTS: Record<string, number> = {};
+export function CollectionsSection() {
+  const editor = useContext(MetadataEditorContext);
+  const sectionId = "left-collections";
+  const headerDragHandlers = useImageDragSpringOpen(
+    () => editor.getState().connected && !usePanelStore.getState().isSectionOpen(sectionId),
+    () => usePanelStore.getState().toggleSection(sectionId),
+  );
+  return <AccordionSection sectionId={sectionId} title="Collections" headerDragHandlers={headerDragHandlers}>
+    <CollectionTree />
+  </AccordionSection>;
+}
 
 export function CollectionTree() {
   const status = useCollectionStore((s) => s.status);
   const tree = useCollectionStore((s) => s.tree);
 
-  const searchParams = useSearch({ from: "/search" });
+  const { path } = useBrowsingContext();
+  const searchParams = useSearch({ from: path });
+  const editor = useContext(MetadataEditorContext);
+  const connected = useStore(editor, state => state.connected);
+  const selected = useSelectionStore(state => path === "/search" && state.selectedIds.size > 0);
+  const gesture = useSyncExternalStore(subscribeImageDrag, activeImageDrag);
+  const [hover, setHover] = useState<{ signal?: AbortSignal; pathId?: string }>();
+  const commit = useMetadataCommit();
+  const dragging = !!gesture || (hover !== undefined && !hover.signal);
+  const editSelection = selected && connected && !dragging ? (action: "add" | "remove", pathId: string) => {
+    if (path !== "/search" || !editor.getState().connected || activeImageDrag()) return;
+    const targetIds = [...useSelectionStore.getState().selectedIds];
+    if (targetIds.length) commit({ fieldId: "collections", action, value: pathId, targetIds });
+  } : undefined;
   const scope = collectionCountScope(searchParams);
-  const counts = useCollectionStore((s) => s.countsByScope[scope]) ?? NO_COUNTS;
+  const counts = useCollectionStore((s) => s.countsByScope[scope]);
+  const countRevision = useCollectionStore((s) => s.countRevision);
   const updateSearch = useUpdateSearchParams();
   const currentQuery = searchParams.query ?? "";
 
   // Mounted only while the panel and section are open: that is the request for counts.
   useEffect(() => {
     void useCollectionStore.getState().loadCounts(useSearchStore.getState().dataSource, scope);
-  }, [scope]);
+  }, [scope, countRevision]);
 
   // Local expand state — collapsed by default, keyed by pathId.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -83,7 +116,15 @@ export function CollectionTree() {
   }
 
   return (
-    <div className="py-1">
+    <div className="py-1" onDragOverCapture={event => {
+      const signal = imageDragSignal(event.dataTransfer);
+      const pathId = signal && event.target instanceof Element ? event.target.closest<HTMLElement>(".collection-tree-row")?.dataset.pathId : undefined;
+      setHover(previous => previous && previous.signal === signal && previous.pathId === pathId ? previous : { signal, pathId });
+    }} onDragLeaveCapture={event => {
+      const row = event.target instanceof Element && event.target.closest(".collection-tree-row");
+      if (row && event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) return;
+      setHover(undefined);
+    }} onDropCapture={() => setHover(undefined)}>
       {tree.data.children.map((child) => (
         <CollectionTreeNode
           key={child.data.data?.pathId ?? child.data.basename}
@@ -94,6 +135,8 @@ export function CollectionTree() {
           counts={counts}
           currentQuery={currentQuery}
           onNodeClick={handleNodeClick}
+          editSelection={editSelection}
+          dropPath={connected && gesture && gesture === hover?.signal ? hover.pathId : undefined}
         />
       ))}
     </div>
@@ -109,9 +152,11 @@ interface CollectionTreeNodeProps {
   depth: number;
   expanded: Set<string>;
   setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
-  counts: Record<string, number>;
+  counts: Record<string, number> | undefined;
   currentQuery: string;
   onNodeClick: (pathId: string) => void;
+  editSelection?: (action: "add" | "remove", pathId: string) => void;
+  dropPath?: string;
 }
 
 function CollectionTreeNode({
@@ -122,18 +167,26 @@ function CollectionTreeNode({
   counts,
   currentQuery,
   onNodeClick,
+  editSelection,
+  dropPath,
 }: CollectionTreeNodeProps) {
+  const editor = useContext(MetadataEditorContext);
+  const commit = useMetadataCommit();
   const pathId = node.data.data?.pathId ?? null;
   const hasChildren = node.data.children.length > 0;
   const nodeKey = pathId ?? node.data.basename;
   const isExpanded = expanded.has(nodeKey);
+  const spring = useImageDragSpringOpen(
+    () => hasChildren && !isExpanded && editor.getState().connected,
+    () => setExpanded(prev => prev.has(nodeKey) ? prev : new Set(prev).add(nodeKey)),
+  );
 
   // Active = this pathId is currently filtered in the query
   const isActive =
     pathId !== null &&
     findFieldTerm(currentQuery, "collection", pathId)?.negated === false;
 
-  const count = pathId !== null ? (counts[pathId] ?? 0) : null;
+  const count = pathId !== null && counts ? (Object.hasOwn(counts, pathId) ? counts[pathId] : 0) : null;
 
   const handleToggle = useCallback(() => {
     if (isExpanded) {
@@ -155,7 +208,7 @@ function CollectionTreeNode({
       {/* Node row */}
       <div
         className={[
-          "flex items-center h-8 pr-1 select-none",
+          "collection-tree-row flex items-center h-8 pr-1 select-none",
           pathId !== null ? "cursor-pointer" : "",
           isSticky ? "sticky" : "",
           // Sticky rows need opaque backgrounds (content scrolls behind them).
@@ -171,7 +224,25 @@ function CollectionTreeNode({
           .filter(Boolean)
           .join(" ")}
         style={isSticky ? { top: 0, zIndex: 20 } : undefined}
+        data-path-id={pathId ?? undefined}
+        data-drop-target={dropPath === pathId || undefined}
         onClick={pathId !== null ? () => onNodeClick(pathId) : undefined}
+        onDragLeave={spring.onDragLeave}
+        onDragOver={event => {
+          spring.onDragOver(event);
+          if (pathId === null || !editor.getState().connected || !hasImageDrag(event.dataTransfer)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={event => {
+          spring.onDrop();
+          if (pathId === null) return;
+          const targetIds = takeImageDrag(event.dataTransfer);
+          if (!targetIds || !editor.getState().connected) return;
+          event.preventDefault();
+          event.stopPropagation();
+          commit({ fieldId: "collections", action: "add", value: pathId, targetIds });
+        }}
       >
         {/* Left colour stripe — flush to left edge, no indent for subcollections */}
         <span
@@ -210,6 +281,13 @@ function CollectionTreeNode({
         </span>
 
         {/* Subtree count */}
+        {pathId !== null && editSelection && (["add", "remove"] as const).map(action => {
+          const label = `${action === "add" ? "Add selected images to" : "Remove selected images from"} ${pathId}`;
+          return <button key={action} type="button" className="collection-tree-action" aria-label={label} title={label}
+            onClick={event => { event.stopPropagation(); editSelection(action, pathId); }}>
+            {action === "add" ? "+" : "\u2212"}
+          </button>;
+        })}
         {count !== null && count > 0 && (
           <span className="text-2xs text-grid-text-dim tabular-nums ml-auto shrink-0">
             {formatCount(count)}
@@ -231,6 +309,8 @@ function CollectionTreeNode({
               counts={counts}
               currentQuery={currentQuery}
               onNodeClick={onNodeClick}
+              editSelection={editSelection}
+              dropPath={dropPath}
             />
           ))}
         </div>

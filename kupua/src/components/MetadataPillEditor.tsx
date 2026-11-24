@@ -32,8 +32,9 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   editable?: boolean;
   readOnly?: ReactNode;
 }) {
-  const commit = useMetadataCommit(form);
-  const pending = usePendingPillIntents(labelTargetKey(targetIds), pillCommandField(field.id), form ? targetIds[0] : undefined);
+  const panelTargetKey = labelTargetKey(targetIds);
+  const commit = useMetadataCommit(form, panelTargetKey);
+  const pending = usePendingPillIntents(panelTargetKey, pillCommandField(field.id), form ? targetIds[0] : undefined);
   const bounded = field.id === "subjects";
   const available = dataAvailable && editable;
   const canAdd = (available || allowQueuedAdd) && (collectionGrants?.add ?? true);
@@ -55,8 +56,8 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const collection = field.id === "collections";
   const lastSettledVisible = useRef<boolean | undefined>(undefined);
   useLayoutEffect(() => {
-    if (collection && !collectionPending) lastSettledVisible.current = editable || values.length > 0;
-  }, [collection, collectionPending, editable, values.length]);
+    if (collection && !collectionPending) lastSettledVisible.current = editable;
+  }, [collection, collectionPending, editable]);
   const noun = collection ? "collection" : field.id === "people" ? "person"
     : field.id === "subjects" ? "subject" : field.id === "labels" ? "label" : "keyword";
   const hasAll = (value: string) => values.some(item => item.value === value.trim() && item.count === targetIds.length);
@@ -87,7 +88,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     const admitted = form ? submitted?.state !== "finished" : panelSaveAdmitted(submitted, message) || !submitted;
     if (admitted && action === "add" && value === draft) { setAdding(false); setDraft(""); }
   };
-  if (!adding && collectionPending && lastSettledVisible.current === false) return null;
+  if (!adding && collectionPending && lastSettledVisible.current === false) return readOnly ?? null;
   if (!editable && !adding && !(collectionPending && lastSettledVisible.current)) return readOnly ?? null;
   return <MetadataBlock ref={header} tabIndex={-1} label={field.label} action={
     <span className={adding && !bounded ? "invisible" : ""} aria-hidden={adding && !bounded || undefined}>

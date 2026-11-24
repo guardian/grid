@@ -235,5 +235,6 @@ export interface Image {
    * expire; reload recovers. Used only in canonical media delivery.
    */
   __mediaLinks?: { optimised?: string; optimisedPng?: string };
+  __dragResource?: { data: import("@/dal/grid-api/types").ImageData; uri: string; ui: string; crops?: string };
 }
 

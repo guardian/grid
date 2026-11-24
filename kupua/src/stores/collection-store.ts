@@ -69,6 +69,8 @@ interface CollectionStoreState {
    */
   countsByScope: Partial<Record<CollectionCountScope, Record<string, number>>>;
   countServiceUri: string | null;
+  countRevision: number;
+  invalidateCounts: () => void;
   status: CollectionStatus;
 
   /** Load the collection tree. Called once at app boot. */
@@ -128,14 +130,14 @@ export function buildSubtreeCounts(
 // Store
 // ---------------------------------------------------------------------------
 
-const countsInFlight = new Map<string, Promise<void>>();
-
 export const useCollectionStore = create<CollectionStoreState>()(
   persist(
     (set, get) => {
+      let countsInFlight = new Map<CollectionCountScope, Promise<void>>();
       const selectService = async () => {
         const serviceUri = await collectionServiceUri();
         if (get().countServiceUri !== serviceUri) {
+          countsInFlight = new Map();
           set({ countServiceUri: serviceUri, countsByScope: {} });
         }
         return serviceUri;
@@ -144,6 +146,11 @@ export const useCollectionStore = create<CollectionStoreState>()(
         tree: null,
         countsByScope: {},
         countServiceUri: null,
+        countRevision: 0,
+        invalidateCounts: () => {
+          countsInFlight = new Map();
+          set(state => ({ countsByScope: {}, countRevision: state.countRevision + 1 }));
+        },
         status: "idle" as CollectionStatus,
 
         loadCollections: async () => {
@@ -160,8 +167,8 @@ export const useCollectionStore = create<CollectionStoreState>()(
         loadCounts: async (dataSource, scope) => {
           const serviceUri = await selectService();
           if (!serviceUri || get().countsByScope[scope]) return;
-          const key = `${serviceUri}/${scope}`;
-          const pending = countsInFlight.get(key);
+          const requests = countsInFlight;
+          const pending = requests.get(scope);
           if (pending) return pending;
           const request = (async () => {
             try {
@@ -169,19 +176,22 @@ export const useCollectionStore = create<CollectionStoreState>()(
                 scope === "all" ? { nonFree: "true" } : {},
                 [{ field: "collections.pathId", size: 6000 }],
               );
-              const buckets = result.fields["collections.pathId"]?.buckets ?? [];
+              const buckets = result.fields["collections.pathId"]?.buckets;
+              if (!buckets) return;
               const counts = Object.fromEntries(buildSubtreeCounts(new Map(buckets.map((b) => [b.key, b.count]))));
-              if (get().countServiceUri === serviceUri) {
+              if (requests === countsInFlight && get().countServiceUri === serviceUri) {
                 set((state) => ({ countsByScope: { ...state.countsByScope, [scope]: counts } }));
               }
             } catch {
               // Optional data: the tree stays usable without counts.
-            } finally {
-              countsInFlight.delete(key);
             }
           })();
-          countsInFlight.set(key, request);
-          return request;
+          requests.set(scope, request);
+          try {
+            await request;
+          } finally {
+            requests.delete(scope);
+          }
         },
       };
     },

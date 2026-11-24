@@ -1,0 +1,25 @@
+.collection-tree-row[data-drop-target] {
+  outline: 2px solid var(--color-grid-accent);
+  outline-offset: -2px;
+}
+
+.collection-tree-action {
+  opacity: 0;
+  pointer-events: none;
+  flex: 0 0 1.5rem;
+  height: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.collection-tree-row:hover .collection-tree-action,
+.collection-tree-row:focus-within .collection-tree-action {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.collection-tree-action:hover,
+.collection-tree-action:focus-visible {
+  color: var(--color-grid-accent);
+  outline: 1px solid currentColor;
+}

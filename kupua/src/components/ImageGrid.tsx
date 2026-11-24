@@ -1,3 +1,4 @@
+import { startResultImageDrag } from "@/lib/result-image-drag";
 import { useDetailsBodyClick } from "@/hooks/useDetailsBodyClick";
 /**
  * ImageGrid — thumbnail grid density.
@@ -236,7 +237,7 @@ interface GridCellProps {
   /** Desktop only: set by ImageGrid when IS_COARSE_POINTER is false. */
   draggable?: boolean;
   /** Desktop only: dragstart handler passed from ImageGrid. */
-  onDragStart?: (imageId: string, e: React.DragEvent) => void;
+  onDragStart?: (image: Image, e: React.DragEvent) => void;
   /** Whether graphic-image blur is enabled (from ui-prefs-store, read once at container level). */
   blurGraphicImages: boolean;
 }
@@ -346,7 +347,7 @@ const GridCell = memo(function GridCell({
       draggable={draggable}
       onClick={(e) => onCellClick(image.id, e)}
       onDoubleClick={() => onCellDoubleClick(image.id)}
-      onDragStart={draggable ? (e) => onDragStart?.(image.id, e) : undefined}
+      onDragStart={draggable ? (e) => onDragStart?.(image, e) : undefined}
     >
       {/* Selection tickbox — hidden by CSS, shown on hover or in Selection Mode */}
       {!openOnly && <Tickbox imageId={image.id} onTickClick={handleTickBound} />}
@@ -1015,22 +1016,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   // add-range effect (same anchor-intent path as desktop shift-click).
   // -------------------------------------------------------------------------
 
-  // Desktop drag-to-collection. Only wired on fine-pointer devices (see IS_COARSE_POINTER).
-  // Single-image drag sets minimal payload; multi-image drag (selection mode) packages
-  // all selected IDs. Full Kahuna MIME types (vnd.mediaservice.image+json etc.) are a
-  // TODO -- requires the image's API URI which is not in the ES result yet.
-  const handleDragStart = useCallback((imageId: string, e: React.DragEvent) => {
-    const selState = useSelectionStore.getState();
-    const inMode = selectionEnabled && selState.selectedIds.size > 0 && selState.selectedIds.has(imageId);
-    const ids = inMode ? Array.from(selState.selectedIds) : [imageId];
-    e.dataTransfer.effectAllowed = "copy";
-    // text/plain: consumed by plain-text drop targets
-    e.dataTransfer.setData("text/plain", ids.join(","));
-    // Minimal Grid image payload -- TODO: extend to full Kahuna MIME types
-    e.dataTransfer.setData(
-      "application/vnd.mediaservice.images+json",
-      JSON.stringify(ids.map((id) => ({ data: { id } }))),
-    );
+  const handleDragStart = useCallback((image: Image, e: React.DragEvent) => {
+    startResultImageDrag(e.currentTarget, e.dataTransfer, image, selectionEnabled);
   }, [selectionEnabled]);
 
   // Label + collection pill click → search.
@@ -1368,7 +1355,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
                       onTickClick={handleTickClick}
                       onLabelSearch={handleLabelSearch}
                       collectionColours={collectionColours}
-                      draggable={IS_COARSE_POINTER || measuredCells ? undefined : true}
+                      draggable={IS_COARSE_POINTER ? undefined : true}
                       onDragStart={IS_COARSE_POINTER ? undefined : handleDragStart}
                       blurGraphicImages={blurGraphicImages}
                     />

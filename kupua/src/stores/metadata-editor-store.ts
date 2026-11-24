@@ -6,6 +6,7 @@ import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type Met
 import { rightsValueSchema, type GridCommandResult, type MetadataCommand } from "@/lib/grid-commands";
 import { leaseChangeSchema, type LeaseChange } from "@/lib/lease-change";
 import { attachedEnrichment } from "./enrichment-store";
+import { useCollectionStore } from "./collection-store";
 import { acceptImageRead, captureImageRead, ensureImageRead, getMetadataWriteWitness, hasImageCommandConflict, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
 import { useMetadataDrafts } from "./metadata-drafts-store";
 import { invalidateGridSession, isGridSessionInvalidated } from "@/lib/grid-api-instance";
@@ -30,6 +31,11 @@ export interface MetadataSave {
 }
 
 export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[], removed?: string[]): MetadataIntent | undefined {
+  if (fieldId === "collections") {
+    if (action === "overwrite" && Array.isArray(value) && value.every(path => path.length > 0)) return { fieldId, action: value.length ? "add" : "overwrite", value: [...new Set(value)], targetIds };
+    if ((action === "add" || action === "remove") && typeof value === "string" && value.length) return { fieldId, action, value: [value], targetIds };
+    return;
+  }
   if (fieldId === "photoshoot") return action === "overwrite" && typeof value === "string" ? { fieldId, action, value: value.trim(), targetIds } : undefined;
   if (Array.isArray(value)) {
     if (fieldId === "subjects" && action === "add" && (value.length || removed?.length) && [...value, ...(removed ?? [])].every(subject => SUBJECTS.includes(subject)))
@@ -82,7 +88,7 @@ export function metadataSaveStatus(save: MetadataSave): string {
     + (superseded ? `; ${superseded} superseded` : "")
     + (save.excluded ? `; ${save.excluded} excluded` : "")
     + (save.items.some(item => item.result?.outcome === "blocked" && item.result.reason === "unaddressable-label") ? "; An existing label cannot be removed by Grid's member URL" : "")
-    + (stepSummary ? `; Interrupted label steps: ${stepSummary}` : "")
+    + (stepSummary ? `; Interrupted ${save.intent.fieldId === "collections" ? "collection" : "label"} steps: ${stepSummary}` : "")
     + (notSaved || notConfirmed ? `; Metadata from rights: ${[notSaved && `${notSaved} not saved`, notConfirmed && `${notConfirmed} not confirmed`].filter(Boolean).join(" · ")}` : "");
 }
 
@@ -158,7 +164,7 @@ export function createMetadataEditorStore(
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
       const intent: MetadataIntent = input.fieldId === "leases" ? { ...input, targetIds, value: structuredClone(input.value) } : input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds, value: Array.isArray(input.value) ? [...input.value] : input.value }
-        : input.fieldId === "photoshoot" ? { ...input, targetIds, value: input.value.trim() }
+        : input.fieldId === "collections" ? { ...input, targetIds, value: [...input.value] } : input.fieldId === "photoshoot" ? { ...input, targetIds, value: input.value.trim() }
         : { ...input, targetIds, value: typeof input.value === "string" ? input.value : Array.isArray(input.value) ? [...input.value] : { ...input.value } };
       if (!newRevision) {
         const targets = new Set(targetIds);
@@ -362,7 +368,11 @@ export function createMetadataEditorStore(
           const overlay = attachedEnrichment(image);
           ensureImageRead(image, issued, "lean", overlay);
           if (acceptImageRead(image) !== image) continue;
-          const target = { resource: overlay?.resource };
+          const intent = owners.get(image.id)!.intent;
+          const held = new Set(image.collections?.map(member => member.pathId));
+          const target = { resource: overlay?.resource, ...(intent.fieldId === "collections" && { collectionGrant: Array.isArray(image.collections) && (
+            intent.action === "add" ? intent.value.every(key => held.has(key)) || !!overlay?.actions?.some(action => action.name === "add-collection" && action.method === "POST" && !!action.href)
+              : (intent.action === "overwrite" ? [...held] : intent.value).every(key => !held.has(key) || !!key && overlay?.removableCollections?.has(key))) }) };
           if (metadataEditTargetCounts({ targetIds: [image.id], targets: new Map([[image.id, target]]) }).eligible) targets.set(image.id, target);
         }
         for (const imageId of ids) {
@@ -405,7 +415,7 @@ export function createMetadataEditorStore(
         });
         await operation.confirm({ ...save.intent, targetIds: [...targets.keys()] }, targets);
         if (!detailsTurn && !disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
-          && operation.getSnapshot()!.items.every(item => !["leases", "labels", "photoshoot"].includes(intents.get(item.imageId)?.fieldId ?? "")
+          && operation.getSnapshot()!.items.every(item => !["leases", "labels", "photoshoot", "collections"].includes(intents.get(item.imageId)?.fieldId ?? "")
             && (item.result?.outcome === "acknowledged" || item.result?.outcome === "unchanged")
             && typeof getMetadataWriteWitness(item.imageId) === "string")) releaseDispatch();
         await done;
@@ -487,6 +497,10 @@ export function createMetadataEditorStore(
         }
         return { saves, ...(removedPills && { removedPills }), ...(owners && { derivedOwners: owners }), ...(rightsSaves && { formRightsSaves: rightsSaves }) };
       });
+      if (group.some(member => member.intent.fieldId === "collections" && progress.get(member.id)!.items.some(({ result, observation }) =>
+        result?.outcome === "acknowledged" ||
+        (result?.outcome === "partial" || result?.outcome === "unknown") &&
+          ((result.labelSteps?.acknowledged ?? 0) > 0 || observation === "observed")))) useCollectionStore.getState().invalidateCounts();
       for (const member of group) {
         const { items } = progress.get(member.id)!;
         if ((member.intent.fieldId === "usageRights_category" || member.intent.fieldId === "leases") && member.intent.targetIds.length === 1) {

@@ -1,5 +1,24 @@
 # Editing Performance: Evidence Ledger
 
+## Local collection membership pressure, 24 November
+
+**Subsequent UI verification:** a 504-image selection in local Vite added the same fixture membership through Details, then removed it. Grouped media-api reads verified all 504 transitions in each direction and the selection was unchanged. This confirms the multi-group UI path separately from the timed command trials below; it is not a rate measurement.
+
+One authenticated HTTPS Vite tab, throwaway local Grid, distinct images, five concurrent per-image command executions, no intentional start delay. The browser invoked the real gated command executor, not selection UI or a simulated service. Each collection command read the full image and owning memberships, then followed its advertised action. Grouped media-api mget reads checked all target IDs after dispatch. A 200-ID browser workload is not an increase in the shared scheduler's per-group limits. No direct ES, TEST or external publication.
+
+| Workload | Images | Command completion, add / remove or restore | All observed, add / remove or restore |
+| --- | ---: | --- | --- |
+| Metadata-editor label | 100 | 1.92 / 2.24 s | 3.09 / 3.70 s |
+| Collection A | 100 | 2.68 / 3.09 s | 3.88 / 4.40 s |
+| Sibling collection B | 100 | 2.69 / 3.05 s | 3.86 / 5.08 s |
+| Metadata-editor label | 200 | 3.93 / 3.53 s | 5.43 / 6.40 s |
+| Collection, completed pair | 200 | 5.43 / 5.87 s | 7.05 / 7.53 s |
+| Ordinary scalar override | 200 | 4.67 / 4.57 s | 6.48 / 7.07 s |
+
+The two-path order was add A, add B, remove A, remove B. All 100 images retained B after removing A. An identical one-image add returned unchanged. The first 200-image collection add **did not complete**: dispatch stopped at 144 acknowledged and one unknown. No automatic replay. Later owning and projected reads agreed on 144 memberships across all 200 images. Deliberate cleanup acknowledged 144 removals, skipped 56 absent memberships, and confirmed 200 clean. No causal HTTP status was recovered. During the later successful 200-image pair all 400 membership writes returned 200; expected first-record GET 404s were not mutation errors. Final checks verified all 200 complete scalar override objects against their originals, zero owning memberships, empty projected memberships and absence of the trial label. Two empty fixture paths remain for UI testing.
+
+**Decision:** no collection-specific numeric limit on this evidence. Use ordinary shared pacing and do not retry uncertain appends. Collections were slower than labels, but only modestly slower than ordinary metadata on this cohort. This is a local functional pressure trial, not a measured AWS capacity, multi-user, large per-image list, sustained traffic, or end-to-end selection UI guarantee. GRID-011's concurrent list-replacement race remains separate. The final stricter tree/404 checks were verified with one fresh add/remove, not another timed campaign.
+
 ## Executive Summary (20 November)
 
 | Question | Headline result | Limit |

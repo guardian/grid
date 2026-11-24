@@ -1,4 +1,5 @@
 import { useDetailsBodyClick } from "@/hooks/useDetailsBodyClick";
+import { startResultImageDrag } from "@/lib/result-image-drag";
 import {
   memo,
   useCallback,
@@ -227,6 +228,8 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
       data-cell-id={image.id}
       aria-rowindex={rowIndexOffset + virtualRow.index + 2}
       aria-selected={isFocused}
+      draggable={typeof window !== "undefined" && !window.matchMedia("(pointer: coarse)").matches}
+      onDragStart={event => startResultImageDrag(event.currentTarget, event.dataTransfer, image, window.location.pathname === "/search")}
       className={`absolute left-0 right-0 flex border-b border-grid-separator/30 cursor-pointer select-none ${
         isFocused
           ? "bg-grid-hover/40 outline-2 -outline-offset-2 outline-grid-accent"

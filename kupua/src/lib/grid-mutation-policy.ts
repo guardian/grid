@@ -23,6 +23,18 @@ export function isPhotoshootRequest(method: string | undefined, path: string | u
   return (method === "PUT" || method === "DELETE") && /^\/metadata\/[a-zA-Z0-9_-]+\/photoshoot$/.test(path ?? "");
 }
 
+export function isCollectionMembershipRequest(method: string | undefined, path: string | undefined): boolean {
+  if (method === "GET" || method === "POST") return /^\/images\/[a-zA-Z0-9_-]+$/.test(path ?? "");
+  const match = /^\/images\/[a-zA-Z0-9_-]+\/([a-zA-Z0-9_.*%/-]+)$/.exec(path ?? "");
+  if (method !== "DELETE" || !match) return false;
+  try {
+    return match[1].split("/").every(bit => {
+      const decoded = decodeURIComponent(bit);
+      return !!decoded && decoded !== "." && decoded !== ".." && !/[\/\\"\u0000-\u001f]/.test(decoded);
+    });
+  } catch { return false; }
+}
+
 export function isUsageRightsRequest(method: string | undefined, path: string | undefined): boolean {
   return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/usage-rights$/.test(path ?? "")
     || method === "POST" && /^\/metadata\/[a-zA-Z0-9_-]+\/metadata\/set-from-usage-rights$/.test(path ?? "");
@@ -55,7 +67,7 @@ export function isLeaseRequest(method: string | undefined, path: string | undefi
 }
 
 export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: string; loader?: string; leases?: string } = {}) {
-  const routes: { service: "metadata" | "auth" | "collections" | "loader" | "leases"; prefix: string; origin: string }[] = [];
+  const routes: { service: "metadata" | "auth" | "collections" | "loader" | "leases" | "cropper"; prefix: string; origin: string }[] = [];
   for (const environment of ["local", "test"]) {
     for (const service of ["metadata", "auth", "loader", "leases"] as const) {
       const hostname = service === "loader" ? "loader.media" : `media-${service}`;
@@ -65,6 +77,8 @@ export function gridServiceProxyRoutes(configured: { metadata?: string; auth?: s
   }
   routes.push({ service: "collections", prefix: "/grid-local-collections",
     origin: "https://media-collections.local.dev-gutools.co.uk" });
+  routes.push({ service: "cropper", prefix: "/grid-local-cropper",
+    origin: "https://cropper.media.local.dev-gutools.co.uk" });
   for (const service of ["metadata", "auth", "loader", "leases"] as const) {
     const origin = serviceOrigin(configured[service], true);
     if (origin) routes.push({ service, prefix: `/grid-${service}`, origin });

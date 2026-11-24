@@ -1,6 +1,6 @@
 # Gradually Growing Teeth: Kupua Editing Steps
 
-**23 November 2026 — Manual Leases connected; U7 pill fields built.** Guardian Rights
+**24 November 2026 — Collection membership and original/saved-crop drags connected.** Guardian Rights
 and its derived metadata are connected. Do not rebuild Rights or ordinary metadata
 for Upload: [Step 15's workplan](gradually-growing-teeth.upload-workplan.md#unit-status)
 reuses those editors. After Leases, select one missing Upload action at a time,
@@ -60,13 +60,13 @@ own the Upload-specific evidence and remaining work.
 | --- | --- | --- |
 | Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
 | Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions. Later families reuse this foundation; each still needs its own command. |
-| Steps 7-8 | Connected labels and U5 ordinary metadata; bounded Subjects added under KUP-051. Explicit Search/detail commits, Form autosave and shared observation/publication. | Archive and collection writes; configured-domain editors remain separate. |
+| Steps 7-8 | Connected labels, collection additions and U5 ordinary metadata; bounded Subjects added under KUP-051. Explicit Search/detail commits, Form autosave and shared observation/publication. | Archive; configured-domain editors remain separate. |
 | Step 10 / U6a | **Done for Guardian:** save or clear Rights; confirm the override and report derived metadata separately. Uses the filtered catalogue and server notice wording. | Deployment acceptance. No category-triggered leases in Guardian scope. |
 | Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
 | Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
-| Steps 12, 14, 16, 17, 20 | Photoshoot membership connected; some collection, download, delete and share controls prepare an action without sending it. | Collection removal/tree management; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; clipboard, drag and embedding integrations. |
-| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields and Photoshoot membership. | U7 collection membership and remaining image actions; U8 integrated and target-deployment acceptance. |
+| Steps 12, 14, 16, 17, 20 | Collection add/remove, same-tab tree drops and hover controls; Photoshoot membership; original and saved-crop drag payloads. | Tree CRUD; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; clipboard, embedding and external consumer acceptance. |
+| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields, Photoshoot and collection membership. | U7 archive, crop creation and delete/restore; U8 integrated and target-deployment acceptance. |
 | Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
 | Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
 
@@ -116,8 +116,8 @@ editing foundation and the other feature families can be scheduled according
 to their local dependencies. **Step 6 added the bounded label batch path.** Neither requires
 finishing the entire Grid backlog, inventing batch APIs, adding PIT or solving KUP-041.
 
-Labels and ordinary metadata are connected; archive and collection addition remain
-independent candidates. Crop saving can proceed after its own authorization without
+Labels, ordinary metadata and collection membership are connected; archive remains
+open. Crop saving can proceed after its own authorization without
 waiting for metadata/rights editors. Upload, leases, rights and destructive workflows do
 not all have to wait for one another. The numbered order is not a linear programme.
 
@@ -969,14 +969,14 @@ their operation implementations or authorizing activation.
 
 | Step / Family | Implemented Now | Still To Do |
 | --- | --- | --- |
-| 7: Labels, Archive, collection addition | Existing Labels execution preserved; shared desktop/mobile pills, entry and suggestions integrated. Collection membership and Library actions prepare Not sent intent. | Archive/unarchive and connected collection addition; separately selected activation/acceptance. |
+| 7: Labels, Archive, collection addition | Labels and collection additions connected, including selected images. Library actions prepare Not sent intent. | Archive/unarchive. |
 | 8: Ordinary/configured metadata | U5 connects ordinary fields through fresh override merges, readback and publication. KUP-051 adds bounded Subjects. Changed Details drafts follow the open editor; Form autosaves per image and field. | Configured-domain schema and editors. Replacing Taken on works; clearing an embedded date remains disabled (GRID-025). |
-| 12: Collection removal/tree | Membership removal and partial apply-to-all controls prepare Not sent intent using canonical path IDs. | Connected removal under the accepted concurrency boundary; tree create/delete and populated-leaf decisions. |
+| 12: Collection removal/tree | Membership removal and partial apply-to-all controls use canonical path IDs. Same-tab tree drops and hover controls are connected. | Tree create/delete and populated-leaf decisions; GRID-011 accepted for the single-operator prototype. |
 | 13: Full frame / Crop entry | Saved-export rail/preview and replace-only crop URLs; shared ratio restrictions; demand-driven mobile lists; enriched eligibility/source/notices in normal, direct and fullscreen editor. Full-frame preparation skips existing/known-ineligible targets with count feedback. All preparation remains Not sent. | Cropper submission/outcomes, returned export identity/readback/publication and canonical result delivery. |
 | 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
-| 16: Photoshoots and syndication | Photoshoot title suggestion/clear preparation only, with its own field identity. | Assignment/removal execution and fan-out, syndication and Photo Sales workflows. |
+| 16: Photoshoots and syndication | Photoshoot assignment and clearing connected; readback confirms target membership only. | Syndication and Photo Sales workflows. |
 | 17: Delete | Target-bound red second-activation confirmation prepares Not sent intent. | Command lifecycle, authoritative confirmation, search gap closure and detail-to-search position preservation. |
-| 20: Share with URL | Captured-ID link preparation only. | Clipboard delivery and feedback; other editorial/embedding contracts remain unchanged. |
+| 20: Share and drag | Captured-ID link preparation; original and saved-crop drag payloads with canonical grants. | Clipboard delivery and feedback, embedding and external consumer acceptance. |
 
 Other later-step families are unchanged by these UI batches. The
 [UI decisions](gradually-growing-teeth.editing-ui-decisions.md) own selected interactions
@@ -1031,9 +1031,8 @@ physical-phone keyboard or performance certification.
 
 **Depends on:** step 5; step 6 for batches.
 
-**Status: partial.** The selected app-UI expansion is implemented; Labels retains
-its existing execution. Archive/unarchive and connected collection addition are
-not implemented. Later-family UI listed above is not completion of those steps.
+**Status: partial.** Labels and collection addition are connected for individual images,
+selections and Upload. Archive/unarchive remains unimplemented.
 
 <details>
 <summary>10–11 November UI inventory (before U5 connected ordinary metadata)</summary>
@@ -1130,8 +1129,8 @@ No server repair, shared-environment mutation or broader rollout is authorized h
 
 Label suggestions, add/remove and mixed-selection behavior are implemented. Add archive/unarchive as
 explicit target states, not a blind toggle across mixed values. Archive is persistence/reaper
-policy, not soft deletion. Add selected images to an existing collection, using canonical path
-identity and fresh capability information. Avoid duplicate additions on ambiguous retry.
+policy, not soft deletion. Selection additions use an existing collection's canonical path
+identity and fresh capability information. Do not replay an ambiguous addition.
 
 **Executor pointers:** [labels](../../../kahuna/public/js/services/label.js),
 [archive](../../../kahuna/public/js/services/archive.js),
@@ -1142,8 +1141,7 @@ identity and fresh capability information. Avoid duplicate additions on ambiguou
 
 **Done when:** each action works singly and at its approved batch cap, updates detail/selection
 and search display, and preserves the viewport under a matching label/archive/collection filter.
-Connected collection removal and tree deletion remain deferred to step 12; the
-expanded UI may prepare not-sent membership intent. Archive overwrite is
+Step 12 covers connected membership removal and still-unimplemented tree deletion. Archive overwrite is
 last-writer-wins, not a universal commutative-operation guarantee.
 
 ### Step 8. Editable Metadata, Including Configured Domain Fields
@@ -1298,14 +1296,12 @@ later in upload completion; do not implement a second template engine there.
 
 **Depends on:** step 7; resolve GRID-011 before claiming safe concurrent membership removal.
 
-**Membership presentation only:** the current panel prepares Not sent removal and
-apply-to-all intent; no collection command or tree-management implementation follows
-from those controls. Preserve the accepted prototype concurrency choice recorded
-under Step 7 without claiming cross-client safety.
-
-Implement per-image and selected-image removal after a bounded server repair or explicitly
-approved prototype limitation. A client queue cannot prevent another user's concurrent add
-being lost by the server's read/filter/write replacement. Keep that distinct from tree CRUD.
+**Membership connected; no tree CRUD.** Per-image, selection and Upload controls add and remove
+memberships. A tree row's hover controls add or remove the selected images. Dropping a
+same-tab image drag on an existing tree row adds membership; hovering
+over the closed header or a closed branch opens it without selecting a filter or writing.
+GRID-011 is accepted for the single-operator prototype: a concurrent add can still be lost
+when the server replaces memberships during removal.
 
 Support root/child creation and permitted leaf deletion. Preserve case-insensitive path IDs,
 tree name validation, non-leaf refusal and independent tree/membership/count refresh. Current
@@ -1413,9 +1409,9 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 ### Step 15. Upload, Import and Post-Upload Editing
 
-**Built:** file upload and ordinary metadata (U1–U5), Guardian Rights (U6a), manual Leases (U6b), and the Labels, Keywords and People portion of U7. Remaining operations and U8 acceptance are open.
+**Built:** file upload and ordinary metadata (U1–U5), Guardian Rights (U6a), manual Leases (U6b), and U7 pill fields, Photoshoot and collection membership. Remaining image actions and U8 acceptance are open.
 
-**Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Photoshoot assigns one title or confirms a batch clear. The Collections arrow remains disabled; a future non-empty Collections arrow adds memberships, never propagates individual removals.
+**Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Photoshoot assigns one title or confirms a batch clear. Collections copies current memberships additively, never propagating individual removals. Only a confirmed empty source clears peer memberships.
 
 Upload Form opens missing Rights directly for an authorised editor; opening is not a save. Other categories retain the pencil. Cost/restrictions, usability and Library status sit below the thumbnail. Library uses the existing action policy and does not archive an image. Search/Detail keep their own presentation and targets. The [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status) owns acceptance and remaining work.
 
@@ -1613,6 +1609,10 @@ unapproved hard-delete path remains an explicit parity gap, not silently counted
 
 **Depends on:** the image/crop/download/upload commands needed by the selected integration.
 
+**Drag support is not embedding parity.** Original and saved-crop drags use canonical grants;
+a saved crop requires the matching cropper response and its returned assets. Producing a
+payload does not establish that Composer, Pinboard or another external consumer accepts it.
+
 Preserve Kahuna's image/crop drag payloads, asset handles, copy/link formats and embedding
 contracts used by Composer/Pinboard and other configured consumers. Crop selection must honor
 requested ratios/defaults and report the correct created/exported identity. Retain multi-image
@@ -1716,13 +1716,13 @@ operation is not a deployment sign-off; a preview is not a connected operation.
 | --- | --- | --- |
 | Labels add/remove, suggestions and mixed selection | 7 | Done on the shared single/batch path |
 | Archive/unarchive | 7 | Archive permission; preserve reaper meaning |
-| Add images to collections, including drop integration | 7, 20 | Canonical path identity; no duplicate blind retry |
+| Add images to collections, including drop integration | 7, 20 | Connected for individual images, selections and Upload; same-tab tree drop and hover controls implemented |
 | Ordinary metadata and list/date/location values | 8 | Connected with fresh override merges; clearing an embedded Taken date remains disabled (GRID-025) |
 | Configured domain fields and batch overwrite/append/prepend | 8 | Hosted specs; no write inferred from display aliases |
 | Lease add/remove/replace/clear and batch addition | 9 | Connected; deployed acceptance separate |
 | Guardian rights category/properties/restrictions and clearing | 10 | Done for Guardian: filtered catalogue and derived metadata; no category-triggered leases |
 | Metadata templates and preview/cancel | 11 | Deferred for Upload; no template execution |
-| Collection membership removal and tree create/delete | 12 | GRID-011; explicit non-cascade semantics |
+| Collection membership removal and tree create/delete | 12 | Membership removal connected under accepted GRID-011 limitation; no tree CRUD |
 | Crop creation, ratio constraints, existing crop selection | 13 | KUP-044 image facts and KUP-047 read-only UI done; canonical source, creation and export identity remain |
 | Full-frame export, single and batch | 13 | Separate crop creation, not original download |
 | Original/optimised/crop download and selected ZIP | 14 | Download policy, usage side effects, byte bounds |
@@ -1732,7 +1732,7 @@ operation is not a deployment sign-off; a preview is not a connected operation.
 | Soft delete, restore and reaper restore | 17 | GRID-012; explicit GRID-010 decision |
 | Privileged crop/usage cleanup, selected usage IDs | 18 | Fresh capabilities and destructive confirmation |
 | Guided content takedown, deny lease and exceptional hard delete | 19 | Explicit irreversible-action approval; no batch hard delete |
-| Image/crop drag, copy/link, asset handles and embedded picking | 20 | External consumers; current iframe exclusion |
+| Image/crop drag, copy/link, asset handles and embedded picking | 20 | Original and saved-crop drag payloads with canonical grants implemented; external consumer acceptance and embedding remain separate, with iframes still on Kahuna |
 | Hosted rollout, permission/configuration variants, full parity acceptance | 21 | Real target/deployment evidence; no hidden fallback counted as parity |
 
 **Sequencing:** after manual Leases, select one remaining U7 family at a time, then U8.
@@ -1750,7 +1750,7 @@ own dependencies are met. Backend rollout and destructive-operation decisions re
 | KUP-047 | **Resolved** at the disconnected crop UI boundary; live crop creation/readback remains Step 13 work, not an open KUP-047 prerequisite. |
 | GRID-019 | General batch rollout gate; resolve table/GSI capacity or explicitly bound an operator-only exception. No "three flights makes it safe" claim. |
 | GRID-018 and missing drop alert | **Open for ordinary ingestion:** the newer XMP retry covers direct insertion, not the ordinary ImageMessage upsert. Contain or resolve for broad Upload rollout; not a U5 metadata or existing-image editing gate. |
-| GRID-011 | **Open** for concurrent collection removal; the operator accepted the single-operator prototype limitation. No safe cross-client claim without repair or a stronger contract; add-only workflows can proceed. |
+| GRID-011 | **Open, accepted for the single-operator prototype:** membership removal is connected. Safe cross-client removal still requires repair or a stronger contract. |
 | GRID-012 | Source acknowledgement for soft delete, step 17. HTTP acceptance currently precedes the owned handoff. |
 | GRID-010 | Delete/restore ordering decision; mandatory protection before a separate bulk lane or stronger undo guarantee. Not a universal first-edit gate. |
 | GRID-020 | **Open, accepted for the single-operator prototype:** fresh override reads and same-client serialization mitigate but do not eliminate the race. Not a U5 blocker; concurrent-editor protection needs a separate contract. |

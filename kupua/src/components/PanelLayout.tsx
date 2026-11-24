@@ -54,6 +54,7 @@ interface PanelLayoutProps {
 // ---------------------------------------------------------------------------
 
 interface AccordionSectionProps {
+  headerDragHandlers?: Pick<React.HTMLAttributes<HTMLDivElement>, "onDragOver" | "onDragLeave" | "onDrop">;
   sectionId: string;
   contentId?: string;
   title: string;
@@ -62,7 +63,7 @@ interface AccordionSectionProps {
   children: ReactNode;
 }
 
-export function AccordionSection({ sectionId, contentId = `section-${sectionId}`, title, headerRight, children }: AccordionSectionProps) {
+export function AccordionSection({ sectionId, contentId = `section-${sectionId}`, title, headerRight, headerDragHandlers, children }: AccordionSectionProps) {
   const isOpen = usePanelStore((s) => s.isSectionOpen(sectionId));
   const toggleSection = usePanelStore((s) => s.toggleSection);
 
@@ -74,6 +75,7 @@ export function AccordionSection({ sectionId, contentId = `section-${sectionId}`
           handling keeps it accessible. */}
       <div
         role="button"
+        {...headerDragHandlers}
         tabIndex={0}
         className="flex items-center gap-1 w-full px-1.5 h-9 border-b border-grid-separator text-sm font-medium text-grid-text hover:bg-grid-hover/15 transition-colors cursor-pointer select-none"
         onClick={() => toggleSection(sectionId)}

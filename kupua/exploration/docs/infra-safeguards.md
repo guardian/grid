@@ -289,6 +289,10 @@ are rejected with 403. The new satellite proxies exist only with valid configure
 origins; they never accept a request-supplied upstream target or follow redirects.
 TLS verification is retained for them. Local development certificates must be trusted.
 
+**Local Collections membership:** the fixed local Collections proxy admits the existing tree GET, membership GET/POST at `/images/:id` and DELETE at `/images/:id/:encodedPath`. It does not admit tree writes. The named membership command uses the same API-only, default-off startup editing preference as Photoshoot, checks the session, and validates the advertised action against the discovered service and exact image/member path. The preference governs Kupua commands, not arbitrary browser HTTP requests.
+
+**Local saved-crop drag:** the laptop cropper proxy admits only `GET /crops/:imageId` on its fixed local upstream. The image must advertise the exact path on the discovered cropper origin. No crop creation, deletion, asset download, request-supplied destination or TEST proxy follows. Hosted reads use the validated service origin directly.
+
 **Read-only POST exception:** media-api's ordered image reads take their
 compound sort clauses and cursors in a JSON body, so they are POST. The
 guard admits exactly those paths via `GRID_API_READ_VIA_POST`:

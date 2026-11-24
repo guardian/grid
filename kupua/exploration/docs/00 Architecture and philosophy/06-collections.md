@@ -1,9 +1,8 @@
 # Collections — Architecture
 
 > Permanent reference for how the collections feature works in Kupua.
-> Phase 2 work; collection write-path (add/remove images, create/rename/delete
-> nodes) is Phase 3+. Implementation history lives in
-> [`../changelog.md`](../changelog.md) (15 May 2026 entry).
+> Covers browsing and editing image membership. Tree creation, deletion and
+> restructuring are separate work. Implementation history lives in the [changelog](../changelog.md).
 >
 > Companion: [`../01 Research/enrichment-strategy.md §D`](../01%20Research/enrichment-strategy.md)
 > for the full ES data model and sort mechanics.
@@ -15,7 +14,11 @@
 A collapsible tree panel showing all Grid collections with subtree image counts.
 Sits in the left panel (Browse panel) ABOVE Filters. Clicking a node injects
 `collection:sport/football` into the CQL query, triggering a filtered search and
-auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
+auto-switching the sort to `-dateAddedToCollection`. Clicking a name browses; it never edits membership.
+
+With API editing enabled, Details pills add and remove exact memberships. The Upload arrow copies the source memberships to its captured peers without removing unrelated ones; an empty source offers a confirmed clear. In Search, a row's plus/minus actions use the selection at click time. A same-tab drop adds the images captured at drag start. Hovering during a drag can open the section or a branch, but never submits an edit. Display names retain the tree's case; membership identity uses `pathId`.
+
+Receipts distinguish a rejected change from an uncertain or partially completed one. No blind replay or cross-user atomicity is promised ([GRID-011](../bug-backlog.md#grid-011)). See the [local pressure measurements](../editing-performance-evidence.md#local-collection-membership-pressure-24-november) for why no separate Collections limiter was selected.
 
 ---
 
@@ -32,15 +35,17 @@ auto-switching the sort to `-dateAddedToCollection`. Read-only in Phase 2.
   or fallback when discovery fails. Local direct-ES uses `http://localhost:9010`;
   direct-TEST leaves the tree unavailable. The service returns a pre-nested tree;
   no client-side tree builder is needed. Requests include credentials. Vite uses a
-  fixed, GET-only proxy for the exact local Collections origin; other advertised
+  fixed proxy for the exact local Collections origin; tree access remains GET-only.
+  Per-image membership commands are separately admitted behind the startup editing preference;
+  tree writes are not admitted. Other advertised
   HTTPS addresses remain direct requests with destination-owned CORS and cookies.
 
 3. **Counts = whole-library ES agg in the checkbox's scope.** Terms agg on
    `collections.pathId` (size 6000, covers PROD's 5,350+ unique values), not scoped
    to the current search. Scope follows "Free to use only": `nonFree=true` counts
    all images, otherwise free-only. Fetched lazily when Collections is shown (left
-   panel open and section expanded) or hover-prefetched from Browse, at most once
-   per scope for the current service per tab session (KUP-037). The tree alone
+  panel open and section expanded) or hover-prefetched from Browse. Counts are cached
+  per scope and service until invalidated. Membership edits invalidate both scopes once per save group when changes are acknowledged (including partial writes), or an uncertain change is observed. Only positive totals are displayed. The tree alone
    loads at boot; resolving its address does not fetch counts.
 
 4. **Subtree counts via pathId-splitting** (not tree walk). Splits each pathId on
@@ -350,7 +355,7 @@ designed but not needed until users report orientation loss in deep trees.
 
 ## 12. Explicit non-goals and deferred work (Phase 2)
 
-- **Write path** (add/remove from collection, create/rename/delete nodes) — Phase 3+.
+- **Tree editing** (create/delete nodes and decide populated-leaf behavior); rename/move is separate from membership edits.
 - **Dual counts** (global + in-current-search, like `Getty (31/47)`) — worth
   user-testing demand first.
 - **Per-collection date on cells** — only differs from max-date when image belongs to

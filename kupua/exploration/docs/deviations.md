@@ -20,6 +20,8 @@ Hosted Kupua does not use this route.
 
 ## From Grid / Kahuna
 
+**Spring-open Collections:** Kahuna highlights a collection row during drag-over. Kupua also opens a collapsed Collections header or branch after a 600 ms same-tab image drag dwell, so a nested destination need not be prepared before starting the drag. Only a drop on a collection adds membership. Opened branches stay open until manually collapsed; this favours predictable movement into children over automatically restoring the old tree shape. Pills and buttons remain the non-drag alternative.
+
 **Photoshoot batch editing:** Kahuna broadcasts the title to mounted Upload editors, including the source. Kupua captures the other known batch images, trims outer whitespace, and requires a second click for a batch clear. The 100-target limit and serial writes trade batch speed for bounded client pressure on Grid's shoot-wide rights recalculation; they do not bound the number of indirectly affected images.
 
 ### Empty Collections in Details

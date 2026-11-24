@@ -24,6 +24,24 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 24 November 2026 - Connect collection membership in Details, Upload and the tree
+
+Details captures affected images for membership pills; Upload copies memberships additively or confirms a peer clear. Tree-row controls and same-tab drops reuse the command path. Counts are invalidated once per save group, including when an acknowledged change cannot be confirmed in search. During temporary readback, Details retains the settled layout without retaining permission to write. Tree suggestions keep the displayed spelling while commands use canonical identities.
+
+Image and crop drags use compact transparent previews when loaded artwork is available; otherwise the browser retains its native preview. Laptop saved-crop drags can read the canonical crop list through a fixed read-only local cropper proxy.
+
+### 24 November 2026 - External image and saved crop drag data
+
+Retain the returned image entity data for lazy Kahuna-compatible drag serialization, including singleton selections. Detail original and saved crop drags carry the Grid UI route separately from the media-api URI; crop drags require a matching cropper response and its returned assets rather than synthesizing a crop from the indexed export.
+
+### 24 November 2026 - Spring-open Collections during image drags
+
+Holding a same-tab image drag over the closed Collections header or a closed branch reveals its children when editing is connected. Passing over a row briefly leaves it alone. Expansion never selects a filter, changes membership or collapses another branch.
+
+### 24 November 2026 - Admit local per-image collection membership commands
+
+The API-mode command boundary gates collection membership with the existing startup editing preference. The local Collections proxy admits per-image reads, additions and member removals but no tree mutations. Commands check the advertised image or membership action and compare source with projection before writing. Local pressure evidence does not select a separate collection limiter. Selection controls and batch clear are not connected by this change.
+
 ### 24 November 2026 - Connect Photoshoot membership editing
 
 Details and Upload use the advertised Photoshoot resource. Form saves a completed title on blur or suggestion choice; its arrow targets the other images in the open batch and confirms an empty-source clear. Direct targets are capped and membership commands are paced serially. Source and projection must agree before skipping an unchanged write. Readback confirms the target's membership, not the rights of other shoot members. GRID-029 remains a separate accepted backend limitation.

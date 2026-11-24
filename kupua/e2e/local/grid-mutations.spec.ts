@@ -1,4 +1,4 @@
-import { expect, type Dialog, type JSHandle, type Page } from "@playwright/test";
+import { expect, type Dialog, type JSHandle, type Locator, type Page } from "@playwright/test";
 import { createServer as createHttpServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve, extname } from "node:path";
@@ -16,6 +16,18 @@ import type { useSelectionStore } from "../../src/stores/selection-store";
 type CommandWindow = typeof window & { commandFixture: typeof Commands; editorFixture: typeof labelEditorFixture;
   __kupua_store__: typeof useSearchStore; __kupua_selection_store__: typeof useSelectionStore };
 const fixturePlugin = gridMutationPlugin();
+
+async function addCollection(scope: Locator | Page, name: string) {
+  await scope.getByRole("button", { name: "Add collection", exact: true }).click();
+  await scope.getByLabel("New collection", { exact: true }).fill(name);
+  await scope.getByRole("button", { name: "Commit new collection", exact: true }).click();
+}
+
+const collectionIds = (page: Page, origin: string, ids: string[]) => Promise.all(ids.map(async id => {
+  const response = await page.request.get(`${origin}/api/images/${id}`);
+  expect(response.ok()).toBe(true);
+  return (await response.json()).data.collections.map((member: { data: { pathId: string } }) => member.data.pathId).sort();
+}));
 
 test.describe("U3 isolated uploads", () => {
   let vite: Awaited<ReturnType<typeof createServer>>;
@@ -103,6 +115,8 @@ test.describe("U3 isolated uploads", () => {
     expect(await writes()).toHaveLength(1);
     await page.goto(`${origin}/__readback?density=grid`);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+    await addCollection(page, "news");
+    await expect.poll(() => collectionIds(page, origin, ["local-0", "local-1", "local-2"])).toEqual([["news"], ["news"], []]);
     await page.getByRole("button", { name: "Add lease", exact: true }).click();
     const lease = page.getByRole("form", { name: "New lease" });
     await lease.getByLabel("Access").selectOption("allow-syndication");
@@ -145,6 +159,7 @@ test.describe("U3 isolated uploads", () => {
       metadata: Record<string, { description?: string; credit?: string; byline?: string; dateTaken?: string; domainMetadata?: unknown }>;
       labels: Record<string, string[]>; metadataWrites: { id: string; method: string; data: Record<string, unknown> }[];
       metadataReads: Record<string, number>;
+      collectionWrites: { id: string; method: string; pathId: string }[];
     };
     await expect.poll(() => page.evaluate(async batchId => {
       const path = "/src/stores/upload-jobs-store.ts";
@@ -239,7 +254,26 @@ test.describe("U3 isolated uploads", () => {
       await expect(fieldArrow(id)).toBeVisible();
       expect(Math.abs((await fieldArrow(id).boundingBox())!.x - expectedEdge)).toBeLessThanOrEqual(1);
     }
-    await expect(fieldArrow("collections")).toBeDisabled();
+    const collectionField = first.locator('[data-measured-field="collections"]');
+    const batchCollections = () => collectionIds(page, origin, ids);
+    await addCollection(first, "news");
+    await expect(collectionField.getByText("news", { exact: true })).toBeVisible();
+    await addCollection(form.locator(`[data-measured-cell][data-image-id="${ids[1]}"]`), "sport");
+    await expect.poll(batchCollections).toEqual([["news"], ["sport"], []]);
+    await fieldArrow("collections").click();
+    await expect.poll(batchCollections).toEqual([["news"], ["news", "sport"], ["news"]]);
+    await collectionField.getByRole("button", { name: /^Remove news/i }).click();
+    await expect.poll(batchCollections).toEqual([[], ["news", "sport"], ["news"]]);
+    const beforeClear = (await results()).collectionWrites.length;
+    await fieldArrow("collections").click();
+    const confirmCollections = collectionField.getByRole("button", { name: "Remove ALL collections from the 2 other images?", exact: true });
+    await expect(confirmCollections).toBeVisible();
+    expect((await results()).collectionWrites).toHaveLength(beforeClear);
+    await confirmCollections.click();
+    await expect.poll(batchCollections).toEqual([[], [], []]);
+    expect((await results()).collectionWrites.slice(beforeClear).map(write => [write.id, write.method, write.pathId]).sort()).toEqual([
+      [ids[1], "DELETE", "news"], [ids[1], "DELETE", "sport"], [ids[2], "DELETE", "news"],
+    ].sort());
     const shoot = first.getByLabel("Photoshoot", { exact: true });
     const memberships = () => Promise.all(ids.map(async id => (await (await page.request.get(`${origin}/api/images/${id}`)).json()).data.userMetadata.data.photoshoot.data?.title ?? ""));
     await shoot.fill("Desk assignment");
@@ -915,6 +949,7 @@ test.describe("U3 isolated uploads", () => {
       await new KupuaHelpers(page).waitForResults();
       const image = page.locator("[data-image-id]").first();
       await image.dispatchEvent("dragstart", { dataTransfer: drop });
+      expect(await drop.evaluate(transfer => transfer.types.includes("application/x-kupua-image-drag"))).toBe(true);
       await page.locator("[data-upload-dropzone]").dispatchEvent("drop", { dataTransfer: drop });
       await image.dispatchEvent("dragend", { dataTransfer: drop });
       expect(new URL(page.url()).pathname).toBe("/search");

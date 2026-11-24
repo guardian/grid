@@ -36,7 +36,8 @@ import { isLeaseActive } from "@/lib/syndication/calculate-syndication-status";
 import { deriveImage } from "@/lib/derive-enriched-image";
 import { useCategoryLabel } from "@/lib/category-labels";
 import { attachedEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
-import { isImageMetadataCurrent, resolveImageOverlay } from "@/lib/image-read-freshness";
+import { getImageAvailability, getImageReadSequence, hasNewerImageOperation, isImageMetadataCurrent, isPendingFormGrant, resolveImageOverlay } from "@/lib/image-read-freshness";
+import { isGridSessionInvalidated } from "@/lib/grid-api-instance";
 import { collectionEligibility } from "@/lib/collection-eligibility";
 import type { Cost } from "@/dal/grid-api/types";
 import { MetadataTextEditor, METADATA_EDIT_CONTROLS } from "./MetadataTextEditor";
@@ -455,7 +456,7 @@ function LeaseTypeRow({ label, count, total, isAllow }: { label: string; count: 
 import { UsageRightsEditor } from "./UsageRightsEditor";
 import { LeaseEditor } from "./LeaseEditor";
 
-function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }: MultiImageMetadataProps & { ids: readonly string[]; editable: boolean }) {
+function RightsAndLeasesSection({ images, reconciledView, total, ids, editable, holding, addLease, holdLease }: MultiImageMetadataProps & { ids: readonly string[]; editable: boolean; holding: boolean; addLease: boolean; holdLease: boolean }) {
   const onSearch = useMetadataSearch();
   const categoryLabel = useCategoryLabel();
 
@@ -509,7 +510,7 @@ function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }
       <MetadataSection rights>
         {categoryField && categoryRec && (
           <MetadataBlock label="Rights & restrictions">
-            <UsageRightsEditor ids={ids} rights={images.map(image => image.usageRights ?? {})} allowed={editable}>
+            <UsageRightsEditor ids={ids} rights={images.map(image => image.usageRights ?? {})} allowed={editable} pendingGrant={holding}>
             {categoryRec.kind === "all-same" ? (() => {
               const raw = String((categoryRec as { value: unknown }).value);
               return (
@@ -535,7 +536,7 @@ function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }
 
       {/* Leases — compact card rows, use before syndication, deny before allow, active before pending */}
       <MetadataSection>
-        <LeaseEditor ids={ids} images={images} allowed={editable && images.every(image => resolveImageOverlay(image, useEnrichmentStore.getState().data.get(image.id), attachedEnrichment(image))?.actions?.some(action => action.name === "add-lease"))} />
+        <LeaseEditor ids={ids} images={images} allowed={addLease} pendingGrant={holdLease} />
         {(hasAnyActive || hasAnyPending || imagesWithAnyExpired > 0) && (
           <div className="space-y-0.5">
             {LEASE_ROW_ORDER.map(({ key, access, label, isAllow, state }) => (
@@ -563,7 +564,7 @@ function RightsAndLeasesSection({ images, reconciledView, total, ids, editable }
 // Component
 // ---------------------------------------------------------------------------
 
-export function MultiImageMetadata({ images, reconciledView, total, labelEditing, resolveLabelEditing }: MultiImageMetadataProps) {
+export function MultiImageMetadata({ images, reconciledView: publishedView, total, labelEditing, resolveLabelEditing, retainedSnapshot }: MultiImageMetadataProps & { retainedSnapshot?: boolean }) {
   const onSearch = useMetadataSearch();
   const ids = labelEditing?.targetIds ?? images.map(image => image.id);
   const targetKey = labelTargetKey(ids);
@@ -573,22 +574,39 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
     && labelTargetKey(receipt.intent.targetIds) === targetKey));
   const loadedIds = new Set(images.map(image => image.id));
   const sameImages = ids.length === total && ids.every(id => loadedIds.has(id));
-  const complete = sameImages && !labelEditing?.pending;
+  const reconciledView = retainedSnapshot || !labelEditing || sameImages ? publishedView : null;
   const enrichment = useEnrichmentStore(state => state.data);
-  const canEditMetadata = images.length > 0 && images.every(image => {
-    const resource = labelEditing?.targets.get(image.id)?.resource
-      ?? resolveImageOverlay(image, enrichment.get(image.id), attachedEnrichment(image))?.resource;
-    return Boolean(resource && findLink(resource, "edits"));
+  const overlays = new Map(images.map(image => [image.id, resolveImageOverlay(image, enrichment.get(image.id), attachedEnrichment(image))]));
+  const fenced = !isGridSessionInvalidated() && images.some(image => isPendingFormGrant(image, overlays.get(image.id)?.resource, enrichment.get(image.id) ?? attachedEnrichment(image)));
+  const collectionFenced = !isGridSessionInvalidated() && images.some(image => {
+    const prior = enrichment.get(image.id) ?? attachedEnrichment(image);
+    return prior && hasNewerImageOperation(image.id, getImageReadSequence(prior)) && overlays.get(image.id) === resolveImageOverlay(image) && isImageMetadataCurrent(image);
+  });
+  const refreshing = fenced || labelEditing?.pending || ids.some(id => labelEditing?.targets.get(id)?.pending);
+  const complete = sameImages && !refreshing;
+  const resourceFor = (image: Image) => labelEditing?.targets.get(image.id)?.resource ?? overlays.get(image.id)?.resource;
+  const denied = images.some(image => {
+    const resource = resourceFor(image);
+    return image.__availability || getImageAvailability(image.id) || (resource && !findLink(resource, "edits") && resource !== resolveImageOverlay(image)?.resource);
+  });
+  const canEditMetadata = !denied && images.length > 0 && images.every(image => {
+    const resource = resourceFor(image);
+    return resource && findLink(resource, "edits");
   });
   const collectionPaths = new Map(images.flatMap(image => image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : []) ?? []));
   const [editableKey, setEditableKey] = useState<string>();
-  const holdingSelection = sameImages && (savingSelection || savingLabels) && editableKey === targetKey
-    && !images.some(image => {
-      const resource = labelEditing?.targets.get(image.id)?.resource;
-      return image.__availability || (resource && !findLink(resource, "edits"));
-    });
+  const holdingSelection = Boolean(sameImages && (refreshing || savingSelection || savingLabels) && editableKey === targetKey && !denied && !isGridSessionInvalidated());
+  const allowQueuedAdd = !fenced && holdingSelection && (savingSelection || savingLabels);
   const nextEditableKey = (complete && canEditMetadata) || holdingSelection ? targetKey : undefined;
   if (editableKey !== nextEditableKey) setEditableKey(nextEditableKey);
+  const [leaseKey, setLeaseKey] = useState<string>();
+  const canAddLease = complete && canEditMetadata && images.every(image => overlays.get(image.id)?.actions?.some(action => action.name === "add-lease"));
+  const holdLease = holdingSelection && leaseKey === targetKey && images.every(image => {
+    const overlay = overlays.get(image.id);
+    return !overlay || overlay === resolveImageOverlay(image) || overlay.actions?.some(action => action.name === "add-lease");
+  });
+  const nextLeaseKey = canAddLease || holdLease ? targetKey : undefined;
+  if (leaseKey !== nextLeaseKey) setLeaseKey(nextLeaseKey);
   const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(() => new Set());
   const toggleField = (id: string, expanded: boolean) => setExpandedFields((current) => {
     const next = new Set(current);
@@ -600,48 +618,51 @@ export function MultiImageMetadata({ images, reconciledView, total, labelEditing
   return (
     <>
       <CostSummarySection images={images} />
-      <dl>
-        <RightsAndLeasesSection images={images} reconciledView={reconciledView} total={total} ids={ids} editable={complete && canEditMetadata} />
+      <dl data-retained-reading={sameImages && (refreshing || savingSelection || savingLabels || collectionFenced) || undefined}>
+        <RightsAndLeasesSection key={targetKey} images={images} reconciledView={reconciledView} total={total} ids={ids} editable={complete && canEditMetadata} holding={holdingSelection} addLease={canAddLease} holdLease={holdLease} />
       {MULTI_SECTIONS.map((sectionFields, si) => (
         <MetadataSection key={si} additional={sectionFields[0]?.detailGroup === "extended"}>
           {sectionFields.map((field) => {
             if (field.visibleWhen?.() === false) return null;
             const rec = reconciledView?.get(field.id);
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
+              let unresolvedCollectionGrant = false;
               const collectionGrants = field.id === "collections" ? collectionEligibility(images, image => {
                 const stored = enrichment.get(image.id), attached = attachedEnrichment(image);
-                return !image.__availability && isImageMetadataCurrent(image, stored, attached) ? resolveImageOverlay(image, stored, attached) : undefined;
+                const overlay = isImageMetadataCurrent(image, stored, attached) ? resolveImageOverlay(image, stored, attached) : undefined;
+                if (!overlay || overlay !== stored && overlay !== attached) unresolvedCollectionGrant = true;
+                return overlay;
               }) : undefined;
               return <MetadataPillEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} onSearch={onSearch}
-                collectionGrants={collectionGrants} collectionPending={!!collectionGrants && (!complete || savingSelection || savingLabels)} editable={collectionGrants ? collectionGrants.editable : canEditMetadata || savingSelection || holdingSelection}
-                retainReading={(savingSelection || holdingSelection) && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
-                allowQueuedAdd={!collectionGrants && holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
-                readOnly={renderChipField(field, rec, onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))}
-                available={(collectionGrants?.editable ?? canEditMetadata) && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                collectionGrants={collectionGrants} collectionPending={unresolvedCollectionGrant && sameImages && !images.some(image => image.__availability || getImageAvailability(image.id)) && (!complete || savingSelection || savingLabels || collectionFenced)} editable={collectionGrants ? collectionGrants.editable : canEditMetadata || holdingSelection}
+                retainReading={sameImages && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                allowQueuedAdd={!collectionGrants && allowQueuedAdd && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                readOnly={collectionGrants && !rec ? null : renderChipField(field, rec, onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))}
+                available={(collectionGrants ? collectionGrants.editable && !collectionFenced : canEditMetadata) && complete && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
                 values={rec?.kind === "chip-array" ? rec.chips : []}
                 collectionPaths={field.id === "collections" ? collectionPaths : undefined} />;
             }
             const hideExtraInstructions = field.id === "metadata_specialInstructions" && rec?.kind === "all-empty"
               && images.some(image => Boolean(image.metadata?.usageInstructions));
             if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
-              return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} selectionKey={targetKey} retainHint={savingSelection} reconciling={labelEditing?.pending}
-                editable={canEditMetadata || savingSelection} readOnly={hideExtraInstructions ? null : renderField(field, rec, onSearch, total)}
+              return <MetadataTextEditor key={`${field.id}:${targetKey}`} field={field} targetIds={ids} selectionKey={targetKey} retainHint={holdingSelection && (rec?.kind === "all-same" || rec?.kind === "all-empty" || rec?.kind === "mixed")} reconciling={labelEditing?.pending}
+                editable={canEditMetadata || holdingSelection} readOnly={hideExtraInstructions ? null : renderField(field, rec, onSearch, total)}
                 furtherInstructions={field.id === "metadata_specialInstructions" && images.some(image => Boolean(image.metadata?.usageInstructions))}
                 available={canEditMetadata && complete && (rec?.kind === "all-same" || rec?.kind === "mixed" || rec?.kind === "all-empty")}
                 value={rec?.kind === "all-same" && typeof rec.value === "string" ? rec.value : ""} mixed={rec?.kind === "mixed"}>
-                {!complete && !savingSelection ? <Dash /> : rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
+                {rec?.kind === "mixed" ? <MultiValue field={field} topValues={rec.topValues} total={total} />
                   : rec?.kind === "all-same" ? renderScalarAllSame(field, rec.value, onSearch) : <Dash />}
               </MetadataTextEditor>;
             }
             if (hideExtraInstructions) return null;
             return (
             field.id === "labels" && labelEditing && import.meta.env.VITE_USE_MEDIA_API === "true"
-              ? <LabelEditor key={field.id} context={labelEditing} resolveContext={resolveLabelEditing} onSearch={onSearch}
-                  allowQueuedAdd={holdingSelection && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
-                  values={reconciledView?.get(field.id)?.kind === "chip-array"
-                    ? (reconciledView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
+              ? <LabelEditor key={field.id} denied={denied} context={sameImages && !fenced ? labelEditing : { ...labelEditing, pending: true }} resolveContext={resolveLabelEditing} onSearch={onSearch}
+                  retainReading={sameImages && rec?.kind === "chip-array"} allowQueuedAdd={allowQueuedAdd && (rec?.kind === "chip-array" || rec?.kind === "all-empty")}
+                  values={publishedView?.get(field.id)?.kind === "chip-array"
+                    ? (publishedView.get(field.id) as Extract<FieldReconciliation, { kind: "chip-array" }>).chips : []} />
               : field.id === "__location__"
-              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete && canEditMetadata, editable: canEditMetadata || savingSelection, retainReading: savingSelection })
+              ? renderLocationGroup(reconciledView, onSearch, total, { targetIds: ids, available: complete && canEditMetadata, editable: canEditMetadata || holdingSelection, retainReading: holdingSelection })
               : field.multiSelectBehaviour === "chip-array"
                 ? renderChipField(field, reconciledView?.get(field.id), onSearch, expandedFields.has(field.id), (expanded) => toggleField(field.id, expanded))
                 : renderField(field, reconciledView?.get(field.id), onSearch, total));

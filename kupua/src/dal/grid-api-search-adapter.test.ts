@@ -668,7 +668,8 @@ describe("returned media links and capabilities", () => {
         { rel: "crops", href: "https://cropper.example.test/crops/abc123" },
       ],
     };
-    const entity = { data, uri: resource.uri, links: [...links, ...resource.links] };
+    const ui = "https://grid.example.test/images/abc123";
+    const entity = { data, uri: resource.uri, links: [...links, ...resource.links, { rel: "ui:image", href: ui }] };
 
     respond({ ...makeApiResponse(data.id), data: [entity] });
     const page = await apiSearchAfter(probeParams, null, undefined, false, false);
@@ -681,6 +682,7 @@ describe("returned media links and capabilities", () => {
 
     for (const image of [page.hits[0], single?.image, mgetImage]) {
       expect(image?.__mediaLinks).toEqual({ optimised, optimisedPng });
+      expect(image?.__dragResource).toEqual({ data, uri: resource.uri, ui, crops: resource.links[1].href });
     }
     for (const overlay of [page.enrichment?.get(data.id), single?.enrichment, attachedEnrichment(mgetImage)]) {
       expect(overlay?.resource).toEqual(resource);

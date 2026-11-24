@@ -39,8 +39,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ImageActions } from "./ImageActions";
 import { MetadataBatchArrow } from "./MetadataEditing";
 import { CostBadge } from "./CostBadge";
-import { attachedEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
-import { isPendingFormGrant } from "@/lib/image-read-freshness";
+import { attachedEnrichment, useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
+import { getImageReadSequence, hasNewerImageOperation, isPendingFormGrant, resolveImageOverlay } from "@/lib/image-read-freshness";
 import { isGridSessionInvalidated } from "@/lib/grid-api-instance";
 import { DETAIL_PANEL_FIELDS, FIELDS_BY_ID } from "@/lib/field-registry";
 import {
@@ -234,10 +234,22 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
   const categoryLabel = useCategoryLabel();
   const enriched = useEnrichedImage(image, overlay);
   const canEditMetadata = Boolean(enriched?.resource && findLink(enriched.resource, "edits"));
-  const editDataReady = canEditMetadata && !labelEditing?.pending && !enriched?.metadataStale;
+  const refreshing = labelEditing?.pending || labelEditing?.targets.get(image.id)?.pending;
+  const editDataReady = canEditMetadata && !refreshing && !enriched?.metadataStale;
   const leaseGrant = (name: string) => editDataReady && !!enriched?.actions?.some(action => action.name === name);
-  const attached = formFields && !canEditMetadata && !enriched?.metadataStale ? attachedEnrichment(image) : undefined;
-  const pendingForm = attached && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, attached) ? attached : undefined;
+  const attached = !canEditMetadata && !enriched?.metadataStale ? attachedEnrichment(image) : undefined;
+  const prior = overlay ?? useEnrichmentStore.getState().data.get(image.id) ?? attached;
+  const fenced = !canEditMetadata && !enriched?.metadataStale && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, prior);
+  const pendingForm = formFields && attached && !isGridSessionInvalidated() && isPendingFormGrant(image, enriched?.resource, attached) ? attached : undefined;
+  const collectionFenced = !formFields && !!prior && !enriched?.metadataStale && !isGridSessionInvalidated() && hasNewerImageOperation(image.id, getImageReadSequence(prior)) && enriched?.resource === resolveImageOverlay(image)?.resource;
+  const [lastReady, setLastReady] = useState<{ id: string; add: boolean; remove: boolean }>();
+  const holding = !formFields && lastReady?.id === image.id && (fenced || canEditMetadata && !!refreshing && !enriched?.metadataStale);
+  const add = leaseGrant("add-lease"), remove = leaseGrant("delete-leases");
+  if (!formFields && editDataReady) {
+    if (lastReady?.id !== image.id || lastReady.add !== add || lastReady.remove !== remove) setLastReady({ id: image.id, add, remove });
+  } else if (!holding && lastReady) setLastReady(undefined);
+  const showAdd = add || holding && lastReady.add && (!canEditMetadata || !!enriched?.actions?.some(action => action.name === "add-lease"));
+  const showRemove = remove || holding && lastReady.remove && (!canEditMetadata || !!enriched?.actions?.some(action => action.name === "delete-leases"));
 
   // All cost/validity fields come from deriveImage (ES baseline + API overlay)
   const cost = pendingForm?.cost ?? enriched?.cost ?? "pay";
@@ -294,7 +306,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
   const reasonText = reasons.map(([key, desc]) => desc || VALIDITY_DESCRIPTIONS[key] || key);
   if (showDenySyndicationBanner) reasonText.push(gridConfig.denySyndicationTextHeader);
   const metadata = (
-    <dl className="wrap-anywhere">
+    <dl className="wrap-anywhere" data-retained-reading={holding || collectionFenced || undefined}>
       {/* Deleted image banner — shown when the image has been soft-deleted.
           Trumps all other invalidity reasons; validity and restrictions banners are
           suppressed when this is shown. Shows who deleted it and when (relative
@@ -374,7 +386,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
         <div className="py-0.75 leading-snug">
           <dt className="text-xs font-bold text-grid-text-dim">Rights &amp; restrictions</dt>
           <dd className="text-xs text-grid-text mt-0.5">
-            <UsageRightsEditor key={image.id} ids={labelEditing?.targetIds ?? [image.id]} rights={[usageRights ?? {}]} form={Boolean(formFields)} pendingGrant={!!pendingForm}
+            <UsageRightsEditor key={image.id} ids={labelEditing?.targetIds ?? [image.id]} rights={[usageRights ?? {}]} form={Boolean(formFields)} pendingGrant={!!pendingForm || holding}
               allowed={editDataReady} inactive={editingPending}>{categoryLabel(category)}</UsageRightsEditor>
           </dd>
         </div>
@@ -383,9 +395,9 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
       {/* Leases section — own section with heading, matching Kahuna layout.
           Counts come from enrichment (always available); individual cards only
           render when raw ES lease data is present (after SOURCE_INCLUDES fix). */}
-      {(hasLeases || formFields || leaseGrant("add-lease")) && (
+      {(hasLeases || formFields || showAdd) && (
         <MetadataSection>
-          <LeaseEditor ids={labelEditing?.targetIds ?? [image.id]} images={[image]} allowed={leaseGrant("add-lease")} form={!!formFields} canReplace={leaseGrant("replace-leases")} canClear={leaseGrant("delete-leases")}>
+          <LeaseEditor key={image.id} ids={labelEditing?.targetIds ?? [image.id]} images={[image]} allowed={add} pendingGrant={showAdd && !add} form={!!formFields} canReplace={leaseGrant("replace-leases")} canClear={remove}>
           {allLeases.length > 0 ? (
             <ul className="lease-cards space-y-1 list-none">
               {[...allLeases].sort((a, b) => leaseSortKey(a, nowMs).localeCompare(leaseSortKey(b, nowMs))).map((lease) => {
@@ -420,7 +432,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
                     <div className={`border-t-[5px] rounded-t-sm p-1.5 ${
                       isAllow ? "border-[teal]" : "border-[red]"
                     }`}>
-                      {leaseGrant("delete-leases") && <RemoveLease lease={lease} imageId={image.id} form={!!formFields} />}
+                      {showRemove && <RemoveLease lease={lease} imageId={image.id} form={!!formFields} disabled={!remove} />}
                       <div className="font-medium">{LEASE_ACCESS_LABELS[lease.access] ?? lease.access}{pending ? " (pending)" : ""}</div>
                       {startRel && <p className="italic my-0.5">{startRel}</p>}
                       {endRel && <p className="italic my-0.5">{endRel}</p>}
@@ -452,7 +464,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             if (!formFields && field.id === "labels" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <LabelEditor key={field.id} onSearch={onSearch} resolveContext={resolveLabelEditing} displayedImageId={image.id}
                 context={{ ...(labelEditing ?? { targetIds: [image.id], targets: new Map([[image.id, { resource: enriched?.resource }]]) }),
-                  pending: labelEditing?.pending || enriched?.metadataStale }}
+                  pending: refreshing || fenced || enriched?.metadataStale }}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []} />;
             }
             const hasValue = Array.isArray(raw) ? raw.length > 0 : raw != null && raw !== "";
@@ -495,7 +507,7 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
 
             if (field.id === "location" && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataLocationEditor key={`location:${image.id}`} targetIds={[image.id]}
-                editable={canEditMetadata} readOnly={readOnly}
+                editable={canEditMetadata || holding} retainReading={holding} readOnly={readOnly}
                 available={editDataReady}
                 fields={LOCATION_COMPONENTS.map(component => ({ ...component, value: image.metadata?.[component.key] ?? "", mixed: false }))}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}
@@ -503,14 +515,14 @@ export function ImageMetadata({ image, overlay, labelEditing, resolveLabelEditin
             }
             if (PILL_EDIT_FIELDS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataPillEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} onSearch={onSearch}
-                editable={pillEditable} readOnly={readOnly} collectionGrants={collectionGrants} retainReading={!image.__availability}
-                available={collectionGrants ? pillEditable && !labelEditing?.pending : editDataReady}
+                editable={pillEditable || !collectionGrants && holding} readOnly={readOnly} collectionGrants={collectionGrants} collectionPending={!!collectionGrants && collectionFenced} retainReading={!image.__availability}
+                available={collectionGrants ? pillEditable && !refreshing && !fenced : editDataReady}
                 values={Array.isArray(raw) ? raw.map(value => ({ value: String(value), count: 1 })) : []}
                 collectionPaths={field.id === "collections" ? new Map(image.collections?.flatMap(collection => collection.pathId ? [[collection.pathId, collection.path ?? collection.pathId.split("/")] as const] : [])) : undefined} />;
             }
             if (METADATA_EDIT_CONTROLS.has(field.id) && import.meta.env.VITE_USE_MEDIA_API === "true") {
               return <MetadataTextEditor key={`${field.id}:${image.id}`} field={field} targetIds={[image.id]} value={typeof raw === "string" ? raw : ""}
-                editable={canEditMetadata} readOnly={readOnly}
+                editable={canEditMetadata || holding} retainHint={holding} readOnly={readOnly}
                 furtherInstructions={field.id === "metadata_specialInstructions" && Boolean(image.metadata?.usageInstructions)}
                 available={editDataReady}>
                 {hasValue ? <FieldValue field={field} image={image} onSearch={onSearch} /> : <Dash />}

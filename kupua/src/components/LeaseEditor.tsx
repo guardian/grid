@@ -18,10 +18,10 @@ function localDate(offset: number, end: boolean) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -1);
 }
 
-export function RemoveLease({ lease, imageId, form }: { lease: Lease; imageId: string; form: boolean }) {
+export function RemoveLease({ lease, imageId, form, disabled = false }: { lease: Lease; imageId: string; form: boolean; disabled?: boolean }) {
   const commit = useMetadataCommit(form);
   const store = useContext(MetadataEditorContext);
-  const ready = useStore(store, state => !state.hasPendingField(imageId, "leases"));
+  const ready = useStore(store, state => !disabled && !state.hasPendingField(imageId, "leases"));
   const target = JSON.stringify([imageId, lease.id]);
   const [armed, setArmed] = useDeleteConfirmation(target, !ready);
   const confirming = ready && armed === target;
@@ -36,9 +36,9 @@ export function RemoveLease({ lease, imageId, form }: { lease: Lease; imageId: s
   }}><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></svg>{label}</button>;
 }
 
-export function LeaseEditor({ ids, images, allowed, form = false, canReplace = false, canClear = false, children }: {
+export function LeaseEditor({ ids, images, allowed, pendingGrant = false, form = false, canReplace = false, canClear = false, children }: {
   children?: ReactNode;
-  ids: readonly string[]; images: readonly Image[]; allowed: boolean; form?: boolean; canReplace?: boolean; canClear?: boolean;
+  ids: readonly string[]; images: readonly Image[]; allowed: boolean; pendingGrant?: boolean; form?: boolean; canReplace?: boolean; canClear?: boolean;
 }) {
   const store = useContext(MetadataEditorContext);
   const connected = useStore(store, state => state.connected);
@@ -73,7 +73,7 @@ export function LeaseEditor({ ids, images, allowed, form = false, canReplace = f
   const ready = allowed && !busy && ids.length > 0 && ids.length === images.length && images.every(image => Array.isArray(image.leases?.leases));
   return <div className="lease-editor"><div className="lease-header flex items-center justify-between gap-1 text-xs font-bold text-grid-text-dim pb-1">
     <span className="lease-heading flex flex-1 items-center justify-between gap-1">Leases
-      {connected && allowed && !draft && <FieldAddButton ref={add} iconOnly label="Add lease" disabled={!ready} onClick={() => { focus.current = "access"; setDraft({ ...blank }); }} />}
+      {connected && (allowed || pendingGrant) && !draft && <FieldAddButton ref={add} iconOnly label="Add lease" disabled={!ready} onClick={() => { focus.current = "access"; setDraft({ ...blank }); }} />}
     </span>
     {connected && form && <div className="lease-header-actions flex items-center gap-1">
       {form && records && (records.length ? canReplace : canClear) && <MetadataBatchArrow imageId={ids[0]} fieldId="leases" label="leases" value={{ kind: "replace", leases: records.map(leaseTerms) }} disabled={busy || !!draft} />}

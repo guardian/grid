@@ -18,8 +18,9 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
   const [active, setActive] = useState(-1);
   const [suggestionsVisible, setSuggestionsVisible] = useState(false);
   const [focused, setFocused] = useState(autoFocus);
-  const [dismissed, setDismissed] = useState<string | null>(null);
-  const items = useTypeaheadSuggestions(resolver, value, focused && !readOnly && dismissed !== value);
+  const [dismissed, setDismissed] = useState<TypeaheadSuggestion | null>(null);
+  const items = useTypeaheadSuggestions(resolver, value, focused && !readOnly && dismissed?.value !== value);
+  const displayValue = fieldKey === "collection" && dismissed?.value === value ? dismissed.label ?? value : value;
   useLayoutEffect(() => {
     const input = ref.current;
     if (input && autoFocus) input.setSelectionRange(input.value.length, input.value.length);
@@ -27,11 +28,11 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
   useEffect(() => { setActive(-1); }, [items]);
   const choose = (item: TypeaheadSuggestion) => {
     onChange(item.value, true);
-    setDismissed(item.value);
+    setDismissed(item);
     setActive(-1);
   };
   return <>
-    <input ref={ref} autoFocus={autoFocus} required={required} readOnly={readOnly} aria-label={label} value={value} placeholder={placeholder} autoComplete="off"
+    <input ref={ref} autoFocus={autoFocus} required={required} readOnly={readOnly} aria-label={label} value={displayValue} placeholder={placeholder} autoComplete="off"
       role={resolver ? "combobox" : undefined} aria-autocomplete={resolver ? "list" : undefined} aria-expanded={resolver ? suggestionsVisible : undefined}
       aria-controls={suggestionsVisible ? id : undefined} aria-activedescendant={suggestionsVisible && active >= 0 && items[active] ? `${id}-${active}` : undefined}
       onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
@@ -39,7 +40,7 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
       onKeyDown={event => {
         if (event.nativeEvent.isComposing) return;
         if (event.key === "Escape" && items.length) {
-          event.preventDefault(); event.stopPropagation(); setDismissed(value); setActive(-1);
+          event.preventDefault(); event.stopPropagation(); setDismissed({ value }); setActive(-1);
         } else if ((event.key === "ArrowDown" || event.key === "ArrowUp") && suggestionsVisible && items.length) {
           event.preventDefault(); event.stopPropagation();
           const direction = event.key === "ArrowDown" ? 1 : -1;

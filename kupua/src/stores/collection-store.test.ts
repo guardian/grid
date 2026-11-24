@@ -190,9 +190,12 @@ describe("loadCounts", () => {
     expect(getAggregations).toHaveBeenCalledOnce();
   });
 
-  it("does not cache a failure, so the next need retries", async () => {
+  it.each(["rejected", "missing field"])("does not cache a failure (%s), so the next need retries", async failure => {
     const getAggregations = vi.fn()
-      .mockRejectedValueOnce(new Error("unavailable"))
+      .mockImplementationOnce(async () => {
+        if (failure === "rejected") throw new Error("unavailable");
+        return { fields: {} };
+      })
       .mockResolvedValueOnce(buckets(1));
 
     await useCollectionStore.getState().loadCounts(source(getAggregations), "all");
@@ -200,6 +203,30 @@ describe("loadCounts", () => {
 
     await useCollectionStore.getState().loadCounts(source(getAggregations), "all");
     expect(useCollectionStore.getState().countsByScope.all).toEqual({ sport: 4, "sport/football": 3 });
+  });
+
+  it("invalidates both scopes without fetching and does not let a late response replace or release the new request", async () => {
+    const completions: Array<(result: ReturnType<typeof buckets>) => void> = [];
+    const getAggregations = vi.fn(() => new Promise<ReturnType<typeof buckets>>(resolve => completions.push(resolve)));
+    const { loadCounts } = useCollectionStore.getState();
+    const load = () => loadCounts(source(getAggregations), "all");
+    const old = load();
+    await vi.waitFor(() => expect(completions).toHaveLength(1));
+    useCollectionStore.setState({ countsByScope: { free: { sport: 12 } } });
+    useCollectionStore.getState().invalidateCounts();
+    expect(useCollectionStore.getState().countsByScope).toEqual({});
+    expect(getAggregations).toHaveBeenCalledTimes(1);
+    const fresh = load();
+    await vi.waitFor(() => expect(completions).toHaveLength(2));
+    completions[0](buckets(50));
+    await old;
+    expect(useCollectionStore.getState().countsByScope).toEqual({});
+    const concurrent = load();
+    await vi.waitFor(() => expect(serviceLink).toHaveBeenCalledTimes(3));
+    completions[1](buckets(4));
+    await Promise.all([fresh, concurrent]);
+    expect(getAggregations).toHaveBeenCalledTimes(2);
+    expect(useCollectionStore.getState().countsByScope.all?.sport).toBe(7);
   });
 });
 

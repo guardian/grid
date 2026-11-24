@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { useLayoutEffect, useState, type ComponentProps, type ReactNode } from "react";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import type { AiSearchResult, ImageByIdResult, SearchParams, SortValues } from "@/dal/types";
@@ -269,7 +269,7 @@ describe("KUP-004 standalone detail identity", () => {
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
   });
 
-  it("shows Original, full frame and crops in a left rail and selects their previews without sending actions", () => {
+  it("shows and drags Original and matched saved crops from the rail and preview without sending actions", async () => {
     const prepare = vi.spyOn(useImageActionStore.getState(), "prepare");
     fixture.relativeMedia = true;
     const image = makeImage("A");
@@ -280,9 +280,39 @@ describe("KUP-004 standalone detail identity", () => {
       { id: "full", specification: { type: "full", bounds: { x: 0, y: 0, width: 6000, height: 4000 } }, master: fullAsset, assets: [fullAsset] },
       { id: "crop", specification: { type: "crop", aspectRatio: "16:9", bounds: { x: 0, y: 0, width: 1600, height: 900 } }, master: cropAsset, assets: [cropAsset], author: "Fixture Author", date: "2026-11-12T10:00:00Z" },
     ];
+    const uri = "https://api.example.test/images/A";
+    const ui = "https://grid.example.test/images/A";
+    const crops = "https://crop.example.test/crops/A";
+    vi.spyOn(await import("@/lib/grid-api-instance"), "serviceLink").mockImplementation(async rel => rel === "cropper" ? "https://crop.example.test" : undefined);
+    history.replaceState({}, "", "/images/A?defaultCropType=video&nonFree=true");
+    image.__dragResource = { uri, ui, crops, data: { ...image, thumbnail: fullAsset } as unknown as NonNullable<Image["__dragResource"]>["data"] };
+    const returned = { ...image.exports[1], specification: { ...image.exports[1].specification, uri },
+      assets: [cropAsset, { ...cropAsset, dimensions: { width: 400, height: 225 }, secureUrl: "https://assets.example.test/small.jpg" }] };
+    const download = "https://api.example.test/download";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ data: [returned], links: [
+      { rel: "image", href: uri }, { rel: "crop-download-crop-1600", href: download },
+    ] }));
     fixture.resident = [image];
     const view = render(<Detail imageId="A" />);
     const rail = screen.getByRole("complementary", { name: "Image original and crops select" });
+    const cropButton = within(rail).getByRole("button", { name: "View 1600 by 900 crop" });
+    await waitFor(() => expect(cropButton.draggable).toBe(true));
+    expect(within(rail).getByRole("button", { name: "View full frame" }).draggable).toBe(false);
+    const drag = (element: HTMLElement) => {
+      const entries = new Map<string, string>();
+      fireEvent.dragStart(element, { dataTransfer: { setData: entries.set.bind(entries) } });
+      return entries;
+    };
+    const original = drag(within(rail).getByRole("button", { name: "View original image" }));
+    expect(drag(screen.getByAltText("Title A"))).toEqual(original);
+    expect(original.get("text/uri-list")).toBe(uri);
+    const saved = drag(cropButton);
+    expect(saved.get("application/vnd.mediaservice.kahuna.uri")).toBe(ui);
+    expect(saved.get("text/uri-list")).toBe(uri);
+    expect(JSON.parse(saved.get("application/vnd.asset-handle+json")!)).toEqual({ source: "grid", sourceType: "crop", thumbnail: returned.assets[1].secureUrl,
+      embeddableUrl: `${ui}?crop=crop&defaultCropType=video`, aspectRatio: "16:9", cropType: "video" });
+    expect(JSON.parse(saved.get("application/vnd.mediaservice.crops+json")!)).toEqual({ ...returned, downloadLink: download,
+      assets: [returned.assets[1], { ...cropAsset, downloadLink: download }] });
     expect(within(rail).getByRole("region", { name: "Original image" }).textContent).toContain("6000");
     expect(within(rail).getByRole("region", { name: "Original image" }).textContent).toContain("1.05 MB");
     expect(within(rail).getByRole("region", { name: "Full frame" })).toBeTruthy();
@@ -294,6 +324,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.search = fixture.navigate.mock.calls.at(-1)![0].search(fixture.search);
     view.rerender(<Detail imageId="A" />);
     expect(screen.getByAltText("Title A").getAttribute("src")).toBe(cropAsset.secureUrl);
+    expect(drag(screen.getByAltText("Title A"))).toEqual(saved);
     fireEvent.error(screen.getByAltText("Title A"));
     expect(screen.queryByAltText("Title A")).toBeNull();
     expect(screen.getByText("Image preview not available")).toBeTruthy();

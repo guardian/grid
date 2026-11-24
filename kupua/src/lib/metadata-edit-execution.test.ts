@@ -137,6 +137,49 @@ describe("metadata edit execution", () => {
     } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
   });
 
+  it("keeps observed collections and their grants separate from newer metadata on stale projections", async () => {
+    const first = "2026-11-06T00:01:00Z", later = "2026-11-06T00:02:00Z";
+    const read = (paths: string[], lastModified: string, credit = "old") => {
+      const image = { ...observedImage(), collections: paths.map(pathId => ({ pathId })), lastModified,
+        metadata: { credit }, userMetadata: { lastModified: credit === "old" ? first : later } };
+      const overlay = { resource: structuredClone(resource), valid: credit === "old", removableCollections: new Set(paths),
+        actions: [{ name: "add-collection", method: "POST" as const, href: "/collections" }, { name: "other", method: "GET" as const, href: "/other" }] };
+      attachEnrichment(image, overlay);
+      stampImageRead(image, overlay, captureImageRead(), "lean");
+      return { image, overlay };
+    };
+    const confirm = async (paths: string[], credit: string) => {
+      const operation = createMetadataOperation(async () => ({ outcome: "acknowledged", expected: { collections: paths } }), {
+        readImages: async () => [read(paths, first, credit).image], publishImages: vi.fn(),
+      });
+      try {
+        const grant = read(paths.length ? [] : ["news"], first, credit).overlay;
+        await operation.confirm({ fieldId: "collections", action: paths.length ? "add" : "remove", value: ["news"], targetIds: ["first"] },
+          new Map([["first", { resource: grant.resource, collectionGrant: true }]]));
+        expect(operation.getSnapshot()?.items[0]?.observation).toBe("observed");
+      } finally { operation.cancelObservation(); }
+    };
+    const held = read(["old"], later);
+    await confirm(["news"], "old");
+    const current = read(["news"], first);
+    expect(acceptImageRead(current.image)).toBe(current.image);
+    expect(acceptImageRead(held.image, current.image)).toBe(current.image);
+    const stale = read(["old"], first, "new");
+    const body = acceptImageRead(stale.image, current.image)!;
+    expect(body).toMatchObject({ metadata: { credit: "new" }, collections: [{ pathId: "news" }] });
+    const overlay = acceptImageOverlay("first", stale.overlay, current.overlay);
+    expect(overlay.valid).toBe(false);
+    expect(overlay.actions?.map(action => action.name)).toEqual(["other"]);
+    expect(overlay.removableCollections?.has("old")).not.toBe(true);
+    expect(resolveImageOverlay(body, stale.overlay)?.removableCollections?.has("old")).not.toBe(true);
+    await confirm([], "new");
+    expect(acceptImageRead(read(["news"], first, "new").image)?.collections).toEqual([]);
+    const external = read(["external"], later, "new");
+    expect(acceptImageOverlay("first", external.overlay)).toBe(external.overlay);
+    expect(acceptImageRead(read([], first, "new").image)?.collections).toEqual(external.image.collections);
+    expect(acceptImageRead(read(["external"], later, "new").image)?.collections).toEqual(external.image.collections);
+  });
+
   it.each([true, false])("fences later lease bodies and overlays until newer evidence or a confirmed clear (versioned: %s)", async versioned => {
     const lease = { id: "first-lease", access: "allow-use" } as const;
     const timestamp = "2026-11-06T00:01:00Z";

@@ -22,6 +22,61 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("admits collection pills and additive or empty-source batch copies", async () => {
+    const { metadataIntent } = await import("../stores/metadata-editor-store");
+    const targets = ["first", "second"];
+    for (const action of ["add", "remove"]) expect(metadataIntent("collections", action, "desk/news", targets)).toEqual({ fieldId: "collections", action, value: ["desk/news"], targetIds: targets });
+    expect(metadataIntent("collections", "overwrite", ["desk/news", "front"], targets)).toEqual({ fieldId: "collections", action: "add", value: ["desk/news", "front"], targetIds: targets });
+    expect(metadataIntent("collections", "overwrite", [], targets)).toEqual({ fieldId: "collections", action: "overwrite", value: [], targetIds: targets });
+  });
+  it("admits only local collection membership routes, not tree writes", async () => {
+    const { isCollectionMembershipRequest: admits } = await import("./grid-mutation-policy");
+    expect(admits("GET", "/images/fixture")).toBe(true);
+    expect(admits("POST", "/images/fixture")).toBe(true);
+    expect(admits("DELETE", "/images/fixture/Kupua%20local/Election%20desk")).toBe(true);
+    for (const [method, path] of [["POST", "/collections"], ["DELETE", "/collections/Desk"], ["DELETE", "/images/fixture"], ["DELETE", "/images/fixture/%2e%2e"], ["DELETE", "/images/fixture/a%2Fb"], ["POST", "/images/fixture?other=true"]]) expect(admits(method, path)).toBe(false);
+  });
+  it("blocks collection and photoshoot edits before any request when startup editing is off", async () => {
+    vi.stubGlobal("localStorage", { getItem: () => "false" });
+    const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
+    const { executeGridCommand } = await import("./grid-commands");
+    for (const input of [{ operation: "edit-collection", imageId: "fixture", action: "add", path: ["Desk"] },
+      { operation: "edit-photoshoot", imageId: "fixture", resource: command.resource, value: "Desk", projectionMatches: false }]) {
+      expect(await executeGridCommand(input)).toEqual({ outcome: "blocked", reason: "disabled" });
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("uses the collections grant without an edits link, and fails closed on ambiguous membership", async () => {
+    const origin = "https://media-collections.local.dev-gutools.co.uk", image = "/images/fixture";
+    const member = { path: ["Desk A"], pathId: "desk a" };
+    const memberUri = `${origin}${image}/Desk%20A`;
+    let stored = false, emptyRecord = false, removeHref = memberUri;
+    const writes: unknown[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api") return Response.json({ links: [{ rel: "collections", href: origin }, { rel: "session", href: `${authOrigin}/session` }] });
+      if (url === "/grid-auth/session") return session();
+      if (url === "/grid-local-collections/collections") return Response.json({ data: { children: [{ data: { fullPath: member.path, data: member, children: [] } }] } });
+      if (url === "/api" + image) return Response.json({ data: { id: "fixture", collections: stored ? [{ data: member, actions: [{ name: "remove", method: "DELETE", href: removeHref }] }] : [] }, actions: [{ name: "add-collection", method: "POST", href: origin + image }] });
+      if (url === "/grid-local-collections" + image && !init?.method) return stored ? Response.json({ data: [member] }) : Response.json({ errorKey: "not-found", errorMessage: emptyRecord ? "No collections found" : "Unknown route" }, { status: 404 });
+      writes.push([init?.method, url, init?.body]); stored = init?.method === "POST";
+      return new Response(null, { status: 200 });
+    });
+    const { executeGridCommand } = await import("./grid-commands");
+    const { useCollectionStore } = await import("@/stores/collection-store");
+    await useCollectionStore.getState().loadCollections();
+    const change = (action: string, path = member.path) => executeGridCommand({ operation: "edit-collection", imageId: "fixture", action, path });
+    expect((await change("add")).outcome).toBe("blocked");
+    emptyRecord = true;
+    expect((await change("add", ["Unknown"])).outcome).toBe("blocked");
+    expect((await change("add")).outcome).toBe("acknowledged");
+    expect((await change("add")).outcome).toBe("unchanged");
+    removeHref = `${origin}/images/other/Desk%20A`;
+    expect((await change("remove")).outcome).toBe("blocked");
+    removeHref = memberUri;
+    expect((await change("remove")).outcome).toBe("acknowledged");
+    expect(writes).toEqual([["POST", "/grid-local-collections/images/fixture", JSON.stringify({ data: member.path })], ["DELETE", "/grid-local-collections/images/fixture/Desk%20A", undefined]]);
+  });
+
   it("sets and clears only the advertised photoshoot membership", async () => {
     const path = "/metadata/fixture/photoshoot";
     let uri = metadataOrigin + path, title = "";

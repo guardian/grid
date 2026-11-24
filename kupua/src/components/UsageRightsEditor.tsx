@@ -81,7 +81,8 @@ export function UsageRightsEditor({ ids, rights, allowed, form = false, pendingG
   const submitted = useSubmittedField(form ? () => {} : close, retained && tracking?.revision === retained.revision ? tracking.id : undefined);
   const guide = siteSettings().usageRightsHelpLink;
   const feedback = form && tracking && !tracking.superseded && <MetadataSaveFeedback fieldId={fieldId} targetIds={ids} saveId={tracking.id} />;
-  if (!draft || !modern) return <>{!form && pending ? <><div className="metadata-saving" data-field-state="Saving…"><div aria-busy="true">{children}</div></div><span className={`metadata-edit-tool absolute top-2 ${enabled && modern ? "right-10" : "right-0"}`}><FieldSaveNote label="rights" state="Saving…" /></span></> : children}{(enabled || (connected && form && pendingGrant)) && modern && <span className="absolute right-0 top-2 inline-flex items-center gap-1">
+  const showEdit = enabled || connected && pendingGrant && import.meta.env.VITE_USE_MEDIA_API === "true";
+  if (!draft || !modern) return <>{!form && pending ? <><div className="metadata-saving" data-field-state="Saving…"><div aria-busy="true">{children}</div></div><span className={`metadata-edit-tool absolute top-2 ${showEdit && modern ? "right-10" : "right-0"}`}><FieldSaveNote label="rights" state="Saving…" /></span></> : children}{showEdit && modern && <span className="absolute right-0 top-2 inline-flex items-center gap-1">
     <span className="inline-flex text-grid-text-dim"><MetadataEditButton label={label} editing={false} disabled={!enabled} onClick={() => setDraft(initial)} /></span>
     {form && choices.some(category => category.value === common) && <MetadataBatchArrow fieldId={fieldId} imageId={ids[0]} label={label} value={initial.values} disabled={!allowed} />}
   </span>}{feedback}</>;

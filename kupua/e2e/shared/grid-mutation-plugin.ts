@@ -17,7 +17,15 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
   const rightsOverrides = new Map<string, Record<string, string>>();
   const leases = new Map<string, { mediaId: string; id: string; access: string; notes?: string }[]>();
   const leaseOrigin = "https://leases.example.test";
-  const imageActions = (id: string) => [{ name: "add-collection", method: "POST", href: `/collections/images/${id}` }, ...(uploadEdits ? [
+  const collectionOrigin = "https://media-collections.local.dev-gutools.co.uk";
+  const collectionPaths = ["news", "sport"].map(name => ({ path: [name], pathId: name }));
+  const collections = new Map<string, Set<string>>();
+  const collectionWrites: { id: string; method: string; pathId: string }[] = [];
+  const memberships = (id: string) => collectionPaths.filter(member => collections.get(id)?.has(member.pathId));
+  const projectedCollections = (id: string) => memberships(id).map(data => ({ data, actions: [
+    { name: "remove", method: "DELETE", href: `${collectionOrigin}/images/${id}/${data.pathId}` },
+  ] }));
+  const imageActions = (id: string) => [{ name: "add-collection", method: "POST", href: uploadEdits ? `${collectionOrigin}/images/${id}` : `/collections/images/${id}` }, ...(uploadEdits ? [
     { name: "add-lease", method: "POST", href: `${leaseOrigin}/leases` },
     { name: "replace-leases", method: "PUT", href: `${leaseOrigin}/leases/media/${id}` },
     { name: "delete-leases", method: "DELETE", href: `${leaseOrigin}/leases/media/${id}` },
@@ -106,7 +114,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
           labels: { data: [{ data: label ?? "original label" }] }, archived: { data: false }, metadata: {}, usageRights: {}, photoshoot: {} } },
         source: { dimensions, mimeType: "image/jpeg" },
         thumbnail: { secureUrl: `/__publication-media/${asset}.jpg`, dimensions, mimeType: "image/jpeg" },
-        usages: { data: [] }, leases: { data: { leases: leases.get(id) ?? [] } }, collections: [],
+        usages: { data: [] }, leases: { data: { leases: leases.get(id) ?? [] } }, collections: projectedCollections(id),
       },
     };
   };
@@ -129,7 +137,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const file = uploaded.get(id);
     const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
     return { ...resource, uri: `/api/images/${id}`, actions: imageActions(id), data: { ...resource.data, id, leases: { data: { leases: leases.get(id) ?? [] } },
-      ...(uploadEdits ? { originalMetadata,
+      ...(uploadEdits ? { originalMetadata, collections: projectedCollections(id),
         usageRights: rightsOverrides.get(id) ?? {},
         ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", valid: leases.get(id)?.some(item => item.access === "allow-use") ?? false, invalidReasons: { paid_image: "Fixture paid-image notice" } }),
         metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
@@ -162,6 +170,30 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
         if (!pathname) return next();
+        if (/^\/grid-(?:(?:local|test)-)?collections(?:\/|$)/.test(pathname)) {
+          const send = (data: unknown, status = 200) => {
+            response.statusCode = status; response.setHeader("Content-Type", "application/json"); response.end(JSON.stringify(data));
+          };
+          if (!uploadEdits || !pathname.startsWith("/grid-local-collections/")) return send({}, 403);
+          if (pathname === "/grid-local-collections/collections" && request.method === "GET") {
+            return send({ data: { basename: "", fullPath: [], children: collectionPaths.map(data => ({ data: { basename: data.pathId, fullPath: data.path, data, children: [] } })) } });
+          }
+          const match = /^\/grid-local-collections\/images\/([\w-]+)(?:\/(news|sport))?$/.exec(pathname);
+          if (!match || !known(match[1]) && !uploaded.has(match[1])) return send({}, 404);
+          const [, id, member] = match;
+          if (!member && request.method === "GET") return memberships(id).length ? send({ data: memberships(id) }) : send({ errorKey: "not-found", errorMessage: "No collections found" }, 404);
+          if (!member && request.method === "POST") {
+            const chunks: Buffer[] = [];
+            for await (const chunk of request) chunks.push(Buffer.from(chunk));
+            const { data } = JSON.parse(Buffer.concat(chunks).toString());
+            if (!Array.isArray(data) || data.length !== 1 || !collectionPaths.some(path => path.pathId === data[0])) return send({}, 400);
+            collections.set(id, new Set(collections.get(id)).add(data[0]));
+            collectionWrites.push({ id, method: "POST", pathId: data[0] });
+          } else if (member && request.method === "DELETE" && collections.get(id)?.delete(member)) {
+            collectionWrites.push({ id, method: "DELETE", pathId: member });
+          } else return send({}, 403);
+          return send({}, 202);
+        }
         if (/^\/grid-(?:(?:local|test)-)?leases(?:\/|$)/.test(pathname)) {
           const path = request.url!.slice("/grid-leases".length);
           if (!uploadEdits || !pathname.startsWith("/grid-leases/") || !isLeaseRequest(request.method, path)) {
@@ -246,7 +278,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              if (body.reset) { rightsOverrides.clear(); leases.clear(); }
+              if (body.reset) { rightsOverrides.clear(); leases.clear(); collections.clear(); collectionWrites.length = 0; }
               if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); photoshoots.clear(); shootWrites = 0; metadataWrites.length = 0; metadataReads.clear(); }
               if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
                 embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
@@ -264,10 +296,10 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               }
             }
             return send({ writes: uploadWrites, statusReads: uploadStatusReads, visibilityReads: uploadVisibilityReads, imageId: uploadId,
-              ...(uploadEdits ? { metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
+              ...(uploadEdits ? { collectionWrites, metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
           }
           if (pathname === "/api" || pathname === "/api/") return send({ links: [
-            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }, { rel: "leases", href: leaseOrigin }] : []),
+            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }, { rel: "leases", href: leaseOrigin }, { rel: "collections", href: collectionOrigin }] : []),
             ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
           ] });
           if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },

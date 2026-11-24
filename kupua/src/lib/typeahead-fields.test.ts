@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildDynamicFieldFallback, buildTypeaheadFields, createLabelSuggestionProvider, stripFieldFromQuery, queryContainsField } from "./typeahead-fields";
 import { MockDataSource } from "@/dal/mock-data-source";
+import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
 import type {
   SearchParams,
   AggregationRequest,
@@ -28,6 +29,29 @@ const literalCases = [
 ] as const;
 
 describe("literal-safe typeahead scope", () => {
+  it("shows collection hierarchy with display spelling and retains canonical values", async () => {
+    const branch = (parent: string): CollectionNode => {
+      const path = [parent, "UK News"];
+      const pathId = path.join("/").toLowerCase();
+      return { uri: "", links: [], actions: [], data: { basename: parent, fullPath: [parent], children: [
+        { uri: "", links: [], actions: [], data: { basename: "UK News", fullPath: path, children: [],
+          data: { path, pathId, description: "", actionData: { author: "", date: "" } } } },
+      ] } };
+    };
+    const { tree, status } = useCollectionStore.getState();
+    try {
+      useCollectionStore.setState({ status: "ready", tree: { uri: "", links: [], actions: [],
+        data: { basename: "root", fullPath: [], children: [branch("Sport"), branch("Archive")] } } });
+      const resolver = buildTypeaheadFields(new MockDataSource(0)).find(field => field.fieldName === "collection")?.resolver;
+      if (typeof resolver !== "function") throw new Error("Expected collection resolver");
+      expect(await resolver("UK Ne")).toEqual([
+        { value: "archive/uk news", label: "Archive/UK News" },
+        { value: "sport/uk news", label: "Sport/UK News" },
+      ]);
+    } finally {
+      useCollectionStore.setState({ tree, status });
+    }
+  });
   it("is: suggestions count owned photo and illustration with the server's is: filter counts", async () => {
     const counts = { deleted: 1, "under-quota": 2, "GNM-owned-photo": 7, "GNM-owned-illustration": 3 };
     const resolver = buildTypeaheadFields(new MockDataSource(0), undefined, () => ({}), () => null, () => counts)

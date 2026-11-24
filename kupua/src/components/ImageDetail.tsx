@@ -68,6 +68,8 @@ import { DetailsDrafts } from "./DetailsDrafts";
 import { afterDetailsDeparture, hasChangedDetails } from "@/lib/details-departure";
 import { SelectedEditStatus } from "./LabelEditor";
 import { ImageCrops, MobileImageCrops, cropAsset, latestCrops } from "@/components/ImageCrops";
+import { readGridDragCrops, writeGridImageDragData } from "@/lib/grid-drag-data";
+import { setImageDragPreview } from "@/lib/image-drag-preview";
 import { useCropSettings } from "@/hooks/useCropSettings";
 import { allowsCropRatio } from "@/lib/crop/crop-options";
 import { cropAccess } from "@/lib/crop/crop-policy";
@@ -374,6 +376,17 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const actionImage = useEnrichedImage(image ?? undefined, standaloneEnrichment);
   const sessionInvalidated = useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
   const cropPolicy = cropAccess(actionImage, import.meta.env.VITE_USE_MEDIA_API === "true", sessionInvalidated);
+  const dragResource = !cropping && !sessionInvalidated && cropPolicy.canReadExports && image?.exports?.length ? image.__dragResource : undefined;
+  const [cropList, setCropList] = useState<{ owner: typeof dragResource; crops: Awaited<ReturnType<typeof readGridDragCrops>> }>();
+  useEffect(() => {
+    if (!dragResource?.crops) return;
+    const controller = new AbortController();
+    void readGridDragCrops(dragResource, controller.signal).then(crops => {
+      if (!controller.signal.aborted) setCropList({ owner: dragResource, crops });
+    }).catch(() => {});
+    return () => controller.abort();
+  }, [dragResource]);
+  const dragCrops = cropList?.owner === dragResource ? cropList?.crops : undefined;
   const selectedExport = useMemo(() => !cropping && cropPolicy.canReadExports && searchParams.crop
     ? latestCrops(image?.exports).find(crop => crop.id === searchParams.crop) : undefined,
   [cropping, cropPolicy.canReadExports, image?.exports, searchParams.crop]);
@@ -861,7 +874,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   >
     {renderMetadata(detailImage, current && !imageFromResults ? standaloneEnrichment : undefined)}
     {current && <AccordionSection sectionId="detail-crops" contentId={`detail-crops-${detailImage.id}`} title="Crops">
-      <MobileImageCrops key={detailImage.id} active={cardExpanded && !cropping} image={detailImage} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} compact onSelect={selectCrop} />
+      <MobileImageCrops key={detailImage.id} active={cardExpanded && !cropping} image={detailImage} dragCrops={current ? dragCrops : undefined} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} compact onSelect={selectCrop} />
     </AccordionSection>}
   </BottomSheet>;
   const renderNeighbor = (detailImage: Image, src: string | undefined, slot: "previous" | "next") => <div
@@ -961,7 +974,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       >
         {!cropping && !isFullscreen && !isCompact && displayImage && <aside aria-label="Image original and crops select"
           className="w-[130px] shrink-0 border-r border-grid-separator bg-grid-bg overflow-y-auto overflow-x-clip">
-          <ImageCrops key={displayImage.id} image={displayImage} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} onSelect={selectCrop} />
+          <ImageCrops key={displayImage.id} image={displayImage} dragCrops={dragCrops} canReadExports={cropPolicy.canReadExports} selectedId={selectedCrop?.id} settings={cropSettings} onSelect={selectCrop} />
         </aside>}
         {/* Fullscreen container and horizontal page viewport. overflow-clip clips
           neighbouring pages without creating a trackpad scroll container.
@@ -1009,7 +1022,12 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                   fetchPriority="high"
                   alt={displayImage.metadata?.title ?? displayImage.metadata?.description ?? ""}
                   className={imageClass}
-                  draggable={false}
+                  draggable={!isCompact && !isFullscreen && Boolean(selectedCrop ? selectedCrop.id && dragCrops?.has(selectedCrop.id) : displayImage.__dragResource)}
+                  onDragStart={event => {
+                    const crop = selectedCrop?.id ? dragCrops?.get(selectedCrop.id) : undefined;
+                    if (isCompact || isFullscreen || (selectedCrop && !crop) || !writeGridImageDragData(event.dataTransfer, displayImage, { crop, detail: true })) event.preventDefault();
+                    else setImageDragPreview(event.dataTransfer, event.currentTarget);
+                  }}
                   onClick={handleImageClick}
                   onLoad={(event) => {
                     if (currentMediaOwnerRef.current !== mediaOwner || event.currentTarget !== imageRef.current) return;

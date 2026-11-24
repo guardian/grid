@@ -43,10 +43,12 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
 }
 
 
-export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false, displayedImageId }: {
+export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false, retainReading = false, displayedImageId, denied = false }: {
   context: MetadataEditContext;
+  denied?: boolean;
   displayedImageId?: string;
   allowQueuedAdd?: boolean;
+  retainReading?: boolean;
   values: readonly { value: string; count: number }[];
   onSearch: (key: string, value: string, event: React.MouseEvent) => void;
   resolveContext?: () => MetadataEditContext;
@@ -122,11 +124,11 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     return () => { clearTimeout(timer); controller.abort(); };
   }, [showSuggestions, suggestLabels, prefix, suggestionOwner]);
   const counts = metadataEditTargetCounts(context);
-  const disabled = import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
-  const queueAdds = allowQueuedAdd && !counts.ineligible && !counts.unavailable;
+  const disabled = denied || import.meta.env.VITE_USE_MEDIA_API !== "true" || !counts.selected || Boolean(counts.ineligible || counts.unresolved || counts.unavailable);
+  const queueAdds = !denied && allowQueuedAdd && !counts.ineligible && !counts.unavailable;
   const addDisabled = disabled && !queueAdds;
   const sameSingleImage = displayedImageId !== undefined && context.targetIds.length === 1 && context.targetIds[0] === displayedImageId;
-  const coverageKnown = queueAdds || counts.unavailable === 0 && (sameSingleImage || !context.pending && counts.unresolved === 0);
+  const coverageKnown = retainReading || queueAdds || counts.unavailable === 0 && (sameSingleImage || !context.pending && counts.unresolved === 0);
   const chips = visibleEditorPills(values, expanded, [...panelIntents, ...labelIntents.map(intent => ({ action: intent.action, value: intent.label }))]);
   const act = (action: "add" | "remove", label: string) => {
     if (!addressableLabel(action === "add" ? label.trim() : label)) {
@@ -170,7 +172,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     inputRef.current?.focus();
   };
   return <MetadataBlock label="Labels" ref={headerRef} tabIndex={-1} action={
-    <span className={adding ? "invisible" : ""} aria-hidden={adding || undefined}>
+    !denied && <span className={adding ? "invisible" : ""} aria-hidden={adding || undefined}>
       <FieldAddButton ref={addButtonRef} iconOnly label="Add label" disabled={addDisabled || adding} onClick={() => setAdding(true)} />
     </span>
   }>

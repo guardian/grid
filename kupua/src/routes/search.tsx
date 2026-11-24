@@ -40,7 +40,7 @@ import type { SortDistribution } from "@/dal/types";
 import { descendingDateTicks, lookupSortDistribution } from "@/lib/sort-context";
 import type { PositionMap } from "@/dal/position-map";
 import { FacetFilters, AggCircuitBreaker } from "@/components/FacetFilters";
-import { CollectionTree } from "@/components/CollectionTree";
+import { CollectionsSection } from "@/components/CollectionTree";
 import { useCollectionStore } from "@/stores/collection-store";
 import { ImageMetadata } from "@/components/ImageMetadata";
 import { MultiImageMetadata } from "@/components/MultiImageMetadata";
@@ -432,9 +432,7 @@ function SearchPage() {
           leftPanel={!upload &&
             <>
               {collectionStatus !== "absent" && (
-                <AccordionSection sectionId="left-collections" title="Collections">
-                  <CollectionTree />
-                </AccordionSection>
+                <CollectionsSection />
               )}
               <AccordionSection sectionId="left-filters" title="Filters" headerRight={<AggCircuitBreaker />}>
                 <FacetFilters />
@@ -538,7 +536,7 @@ function useFocusedOrSelectedImage() {
   const [completed, setCompleted] = useState<typeof presentation | null>(null);
   const nextCompleted = isPending ? completed : selectedCount === 0 && !presentation.image ? null : presentation;
   if (nextCompleted !== completed) setCompleted(nextCompleted);
-  return { ...(isPending && completed ? completed : presentation), isPending };
+  return { ...(isPending && completed ? completed : presentation), isPending, retainedSnapshot: Boolean(isPending && completed) };
 }
 
 
@@ -559,7 +557,7 @@ function currentPanelLabelEditing(): MetadataEditContext {
 }
 
 function FocusedImageMetadata() {
-  const { image, isMultiSelection, metadataImages, reconciledView, total, isPending } = useFocusedOrSelectedImage();
+  const { image, isMultiSelection, metadataImages, reconciledView, total, isPending, retainedSnapshot } = useFocusedOrSelectedImage();
   useEnrichmentStore(state => state.data);
   const labelEditing = currentPanelLabelEditing();
   labelEditing.pending ||= isPending;
@@ -573,7 +571,7 @@ function FocusedImageMetadata() {
   if (isMultiSelection) {
     return (
       <div className="p-3" aria-busy={isPending}>
-        <MultiImageMetadata images={metadataImages} reconciledView={reconciledView} total={total}
+        <MultiImageMetadata images={metadataImages} reconciledView={reconciledView} total={total} retainedSnapshot={retainedSnapshot}
           labelEditing={labelEditing} resolveLabelEditing={currentPanelLabelEditing} />
       </div>
     );

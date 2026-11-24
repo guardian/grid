@@ -6,6 +6,7 @@ import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captur
 import { BATCH_POLICY, createBatchExecution } from "./batch-execution";
 
 export interface MetadataEditTarget {
+  collectionGrant?: boolean;
   resource?: EnrichmentFields["resource"];
   pending?: boolean;
 }
@@ -37,7 +38,7 @@ export function captureMetadataEditTargets(ids: readonly string[], targets: Read
     const source = targets.get(id)!.resource!;
     const resource = { links: source.links.map(({ rel, href }) => ({ rel, href })) };
     copyImageRead(source, resource);
-    return [id, { resource }] as const;
+    return [id, { resource, collectionGrant: targets.get(id)?.collectionGrant }] as const;
   }));
 }
 
@@ -48,7 +49,7 @@ export function metadataEditTargetCounts(context: MetadataEditContext, captured 
     const target = context.targets.get(imageId);
     if (getImageAvailability(imageId)) counts.unavailable++;
     else if (context.pending || target?.pending || !target?.resource) counts.unresolved++;
-    else if (findLink(target.resource, "edits")) {
+    else if (target.collectionGrant !== undefined ? target.collectionGrant : findLink(target.resource, "edits")) {
       if (isLabelAuthorityCurrent(imageId, target.resource, captured)) counts.eligible++;
       else counts.unresolved++;
     }
@@ -168,6 +169,9 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
       const accepted = acceptObservedImages(ready, operationId!, image => {
         const result = receipt?.items.find(item => item.imageId === image.id)?.result;
         return !!result && "expectedLeases" in result;
+      }, image => {
+        const result = receipt?.items.find(item => item.imageId === image.id)?.result;
+        return !!result && "expected" in result && Array.isArray(result.expected?.collections);
       });
       if (accepted.length) observation!.publishImages(accepted);
       for (const image of accepted) {
@@ -373,7 +377,8 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
         }
         const execute = async (command: Command) => {
           let result: GridCommandResult;
-          try { result = mode === "connected" && !retainsEditGrant(command.imageId, capturedTargets.get(command.imageId)!.resource)
+          const target = capturedTargets.get(command.imageId)!;
+          try { result = mode === "connected" && ("operation" in command && command.operation === "edit-memberships" ? !target.collectionGrant || !!getImageAvailability(command.imageId) : !retainsEditGrant(command.imageId, target.resource))
             ? { outcome: "blocked", reason: "unavailable" } : await simulate(command); }
           catch { result = { outcome: "unknown" }; }
           const metadataWitness = "operation" in command && (command.operation === "edit-metadata" || command.operation === "edit-rights")

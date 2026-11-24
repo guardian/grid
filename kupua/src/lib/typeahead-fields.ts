@@ -498,12 +498,10 @@ export function buildTypeaheadFields(
       resolver: async (value: string) => {
         const { tree, status } = useCollectionStore.getState();
         if (!tree || status !== "ready") return [];
-        const pathIds = flattenCollectionPathIds(tree);
         const lower = value.toLowerCase();
-        return pathIds
-          .filter((id) => id.includes(lower))
-          .sort()
-          .map((id) => ({ value: id }));
+        return collectionSuggestions(tree)
+          .filter(item => item.value.includes(lower) || item.label.toLowerCase().includes(lower))
+          .sort((left, right) => left.value < right.value ? -1 : left.value > right.value ? 1 : 0);
       },
     },
   ];
@@ -516,18 +514,15 @@ export function buildTypeaheadFields(
 // Collection tree helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Flatten a CollectionNode tree into a list of all pathIds (depth-first).
- * Nodes without inner data (no pathId) are skipped.
- */
-function flattenCollectionPathIds(root: CollectionNode): string[] {
-  const ids: string[] = [];
+function collectionSuggestions(root: CollectionNode): { value: string; label: string }[] {
+  const items: { value: string; label: string }[] = [];
   function walk(node: CollectionNode) {
-    if (node.data.data?.pathId) ids.push(node.data.data.pathId);
+    const member = node.data.data;
+    if (member?.pathId) items.push({ value: member.pathId, label: node.data.fullPath.join("/") });
     for (const child of node.data.children) walk(child);
   }
   walk(root);
-  return ids;
+  return items;
 }
 
 // ---------------------------------------------------------------------------

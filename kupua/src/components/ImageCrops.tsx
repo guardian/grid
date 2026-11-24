@@ -3,6 +3,9 @@ import type { Image } from "@/types/image";
 import { getThumbnailUrl } from "@/lib/image-urls";
 import { allowsCropRatio, BUILT_IN_CROP_OPTIONS, FREEFORM, type CropSettings } from "@/lib/crop/crop-options";
 import { GRID_CLASSIC } from "@/lib/results-zoom";
+import { writeGridImageDragData } from "@/lib/grid-drag-data";
+import { setImageDragPreview } from "@/lib/image-drag-preview";
+import type { Crop } from "@/dal/grid-api/types";
 
 type ImageExport = NonNullable<Image["exports"]>[number];
 
@@ -38,10 +41,11 @@ export function cropAsset(crop: ImageExport, size: "thumbnail" | "preview") {
   return selected ?? (crop.master?.secureUrl || crop.master?.file ? crop.master : undefined);
 }
 
-export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect, settings, canReadExports, compact = false }: {
+export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect, settings, canReadExports, dragCrops, compact = false }: {
   image: Image; selectedId?: string; onSelect: (id: string | undefined) => void; compact?: boolean;
   settings: CropSettings;
   canReadExports: boolean;
+  dragCrops?: Map<string, Crop>;
 }) {
   const deferredImage = useDeferredValue<Image | null>(image, null);
   const exportImage = canReadExports && deferredImage?.id === image.id ? deferredImage : null;
@@ -59,7 +63,7 @@ export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect
   const renderThumbnail = (src: string | undefined, alt: string, dimensions?: Image["source"]["dimensions"]) => <span
     className={compact ? "relative block w-full overflow-hidden bg-[#222]" : "block"}
     style={compact ? { aspectRatio: `${GRID_CLASSIC.minCellWidth} / ${GRID_CLASSIC.thumbHeight}` } : undefined}>
-    {src ? <img src={src} alt={alt} width={dimensions?.width} height={dimensions?.height}
+    {src ? <img src={src} alt={alt} draggable={false} width={dimensions?.width} height={dimensions?.height}
       className={compact ? "absolute inset-0 size-full object-contain" : "block mx-auto max-w-full max-h-16 w-auto h-auto object-contain"}
       loading="lazy" fetchPriority="low" decoding="async" />
       : <span className={`${compact ? "absolute inset-0" : "min-h-16"} flex items-center justify-center text-2xs text-grid-text-dim`}>Preview unavailable</span>}
@@ -73,8 +77,10 @@ export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect
     const fullFrame = (crop.specification?.type ?? crop.type) === "full";
     const selected = Boolean(crop.id && crop.id === selectedId);
     const compatible = allowsCropRatio(settings, crop.specification?.aspectRatio);
+    const dragCrop = compatible && thumbnail && crop.id ? dragCrops?.get(crop.id) : undefined;
     const initials = crop.author?.split("@")[0].split(".").map(part => part.charAt(0).toUpperCase()).join("");
     return <button type="button" key={`${image.id}:${crop.id ?? "crop"}:${index}`} disabled={!crop.id || !thumbnail || !compatible}
+      draggable={Boolean(dragCrop)} onDragStart={event => { if (!dragCrop || !writeGridImageDragData(event.dataTransfer, image, { crop: dragCrop, detail: true })) event.preventDefault(); else setImageDragPreview(event.dataTransfer, event.currentTarget); }}
       title={!compatible ? `${settings.options[0]?.ratioString ?? settings.lockedType} crops only` : undefined}
       aria-label={fullFrame ? "View full frame" : dimensions ? `View ${dimensions.width} by ${dimensions.height} crop` : "View crop"}
       aria-pressed={selected} onClick={() => onSelect(crop.id)}
@@ -97,6 +103,7 @@ export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect
         Original <span className="text-2xs font-normal">{fileSize(image.source?.size)}</span>
       </h3>
       <button type="button" aria-label="View original image" aria-pressed={!selectedId} onClick={() => onSelect(undefined)}
+        draggable={Boolean(image.__dragResource)} onDragStart={event => { if (!writeGridImageDragData(event.dataTransfer, image, { detail: true })) event.preventDefault(); else setImageDragPreview(event.dataTransfer, event.currentTarget); }}
         className={`${tileClass} ${!selectedId ? "border-grid-accent" : "border-transparent hover:border-grid-text-dim"}`}>
         {renderThumbnail(thumbnail, "Original image thumbnail", image.thumbnail?.dimensions ?? dimensions)}
         <span className={`block bg-[#333] px-0.5 py-0.5 text-2xs ${!selectedId ? "text-white" : "text-grid-text-dim"}`}>

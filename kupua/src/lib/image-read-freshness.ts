@@ -1,5 +1,5 @@
 import type { Image } from "@/types/image";
-import type { EnrichmentFields } from "@/stores/enrichment-store";
+import { attachedEnrichment, attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import type { GridCommandResult } from "./grid-commands";
 import { BATCH_POLICY } from "./batch-execution";
 
@@ -9,9 +9,52 @@ interface ReadEvidence {
   version?: number;
   leases?: Image["leases"];
   leaseWitness?: LeaseWitness;
+  collections: Image["collections"];
+  imageModified?: string;
 }
 
 interface LeaseWitness { version?: number; key: string }
+
+interface CollectionFact {
+  members: NonNullable<Image["collections"]>;
+  key: string;
+  issued: number;
+  highWater?: number;
+}
+
+function collectionKey(members: Image["collections"]): string | undefined {
+  if (members?.every(member => typeof member.pathId === "string")) return JSON.stringify(members.map(member => member.pathId).sort());
+}
+
+function collectionCurrent(floor: CollectionFact, stamp?: ReadEvidence): boolean {
+  if (!stamp || stamp.issued < floor.issued) return false;
+  const key = collectionKey(stamp.collections);
+  if (key === undefined) return false;
+  const version = Date.parse(stamp.imageModified ?? "");
+  if (key !== floor.key) return floor.highWater !== undefined && version > floor.highWater;
+  return stamp.issued === floor.issued || !Number.isFinite(version) || floor.highWater === undefined || version >= floor.highWater;
+}
+
+function observeCollections(fact: ImageFact, stamp: ReadEvidence): void {
+  const key = collectionKey(stamp.collections);
+  if (key === undefined || !stamp.collections) return;
+  const version = Date.parse(stamp.imageModified ?? "");
+  const previous = fact.collections?.highWater;
+  fact.collections = { members: stamp.collections, key, issued: stamp.issued,
+    highWater: Number.isFinite(version) ? Math.max(previous ?? version, version) : previous };
+}
+
+function collectionOverlay(fact: ImageFact, overlay: EnrichmentFields, advance = false): EnrichmentFields {
+  if (!fact.collections) return overlay;
+  const stamp = evidence.get(overlay);
+  if (stamp && collectionCurrent(fact.collections, stamp)) {
+    if (advance) observeCollections(fact, stamp);
+    return overlay;
+  }
+  const safe = { ...overlay, actions: overlay.actions?.filter(action => action.name !== "add-collection"), removableCollections: undefined };
+  copyImageRead(overlay, safe);
+  return safe;
+}
 
 function leaseWitness(stamp?: ReadEvidence): LeaseWitness | undefined {
   const records = stamp?.leases?.leases;
@@ -50,6 +93,7 @@ interface ImageFact {
   floor?: number;
   acceptedRead: number;
   lease?: LeaseWitness & { issued: number; operation: number; highWater?: number };
+  collections?: CollectionFact;
   authorityRead: number;
   editsHref?: string;
   projection?: string;
@@ -113,7 +157,8 @@ export function unavailableImage(id: string, state: NonNullable<Image["__availab
 
 export function stampImageRead(image: Image, overlay: EnrichmentFields | undefined, issued: number, projection: ReadEvidence["projection"]): void {
   const parsed = Date.parse(image.userMetadata?.lastModified ?? "");
-  const stamp = { issued, projection, version: Number.isFinite(parsed) ? parsed : undefined, leases: image.leases };
+  const stamp = { issued, projection, version: Number.isFinite(parsed) ? parsed : undefined, leases: image.leases,
+    collections: image.collections, imageModified: image.lastModified };
   evidence.set(image, stamp);
   if (overlay) evidence.set(overlay, stamp);
   if (overlay?.resource) evidence.set(overlay.resource, stamp);
@@ -271,7 +316,7 @@ export function acceptImageRead(image: Image, current?: Image): Image | undefine
   return acceptRead(image, current);
 }
 
-function acceptRead(image: Image, current?: Image, confirmedLeaseOperation?: number): Image | undefined {
+function acceptRead(image: Image, current?: Image, confirmedLeaseOperation?: number, confirmedCollections = false): Image | undefined {
   const fact = facts.get(image.id);
   if (!fact) return image;
   const stamp = evidence.get(image);
@@ -279,11 +324,11 @@ function acceptRead(image: Image, current?: Image, confirmedLeaseOperation?: num
     return unavailableImage(image.id, fact.availability.state, current ?? image);
   }
   const retained = fact.availability ? unavailableImage(image.id, fact.availability.state, current ?? image)
-    : current && isImageMetadataCurrent(current) ? current : undefined;
+    : current && isImageMetadataCurrent(current) && (!fact.collections || collectionKey(current.collections) === fact.collections.key) ? current : undefined;
   const confirmed = confirmedLeaseOperation === fact.operation ? leaseWitness(stamp) : undefined;
   const replacesLease = confirmed && fact.lease?.operation !== confirmedLeaseOperation;
   if (!stamp || stamp.issued < fact.operation || (!replacesLease && !leaseCurrent(fact, stamp))) return retained;
-  if (stamp.issued === fact.acceptedRead && !confirmed) return image;
+  if (stamp.issued === fact.acceptedRead && !confirmed && !confirmedCollections && !fact.collections) return image;
   const projection = JSON.stringify([image.metadata, image.userMetadata, image.usageRights]);
   if (fact.hasFloor && (stamp.version === undefined || (fact.floor !== undefined && stamp.version <= fact.floor))) {
     const sameProjection = stamp.issued >= fact.acceptedRead && stamp.version === fact.floor && projection === fact.projection;
@@ -301,12 +346,27 @@ function acceptRead(image: Image, current?: Image, confirmedLeaseOperation?: num
   }
   else advanceLease(fact, stamp);
   fact.availability = undefined;
+  if (confirmedCollections || (fact.collections && collectionCurrent(fact.collections, stamp))) observeCollections(fact, stamp);
+  else if (fact.collections) {
+    if (image.collections === fact.collections.members) return image;
+    const repaired = { ...image, collections: fact.collections.members };
+    copyImageRead(image, repaired);
+    const overlay = attachedEnrichment(image);
+    if (overlay) attachEnrichment(repaired, collectionOverlay(fact, overlay));
+    return repaired;
+  }
   return image;
 }
 
-export function acceptObservedImages(images: Image[], operation: number, confirmedLease?: (image: Image) => boolean): Image[] {
-  return images.filter(image => (facts.get(image.id)?.operation === operation || activeGroups.get(operation)?.includes(image.id))
-    && acceptRead(image, undefined, confirmedLease?.(image) ? operation : undefined) === image);
+export function acceptObservedImages(images: Image[], operation: number, confirmedLease?: (image: Image) => boolean, confirmedCollections?: (image: Image) => boolean): Image[] {
+  return images.flatMap(image => {
+    const owns = facts.get(image.id)?.operation === operation;
+    if (!owns && !activeGroups.get(operation)?.includes(image.id)) return [];
+    const membership = confirmedCollections?.(image);
+    if (membership && !owns) return [];
+    const accepted = acceptRead(image, undefined, confirmedLease?.(image) ? operation : undefined, membership);
+    return accepted && !accepted.__availability ? [accepted] : [];
+  });
 }
 
 export function acceptImageOverlay(id: string, overlay: EnrichmentFields, current?: EnrichmentFields): EnrichmentFields {
@@ -323,7 +383,7 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
     if (stamp && stamp.issued >= cutoff) { fact.authorityRead = stamp.issued; fact.editsHref = undefined; }
     return unavailableAuthority;
   }
-  if (!stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead)) return current ?? unavailableAuthority;
+  if (!stamp || stamp.issued < Math.max(fact.operation, fact.authorityRead)) return current ? collectionOverlay(fact, current) : unavailableAuthority;
   fact.authorityRead = stamp.issued;
   fact.editsHref = undefined;
   if (fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)) {
@@ -333,7 +393,7 @@ export function acceptImageOverlay(id: string, overlay: EnrichmentFields, curren
   }
   fact.editsHref = overlay.resource?.links.find(link => link.rel === "edits")?.href;
   advanceLease(fact, stamp);
-  return overlay;
+  return collectionOverlay(fact, overlay, true);
 }
 
 export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields | undefined)[]): EnrichmentFields | undefined {
@@ -348,7 +408,7 @@ export function resolveImageOverlay(image: Image, ...overlays: (EnrichmentFields
     if (overlay && stamp && stamp.issued >= latest && leaseCurrent(fact, stamp)) {
       latest = stamp.issued;
       accepted = fact.hasFloor && stamp.issued !== fact.acceptedRead && (stamp.version === undefined || fact.floor === undefined || stamp.version < fact.floor)
-        ? unavailableAuthority : overlay;
+        ? unavailableAuthority : collectionOverlay(fact, overlay);
     }
   }
   return accepted ?? unavailableAuthority;

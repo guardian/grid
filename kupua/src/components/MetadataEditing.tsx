@@ -159,8 +159,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const busy = !!save && save.state !== "finished";
   const needsAttention = !!save && save.id !== dismissed && !busy && !panelSaveSucceeded(save);
   if (hideWhenDisabled && disabled && !busy && !needsAttention) return null;
-  const unsupported = fieldId === "collections" ? `${label} batch editing is not connected` : undefined;
-  if (!source && !busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects" && !unsupported) return null;
+  if (!source && !busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects") return null;
   const clear = confirmClear || value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
     fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
     fieldId === "usageRights_category" && "category" in value && value.category === ""
@@ -180,7 +179,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const batchText = `Applying ${label} to ${captured} other ${captured === 1 ? "image" : "images"}`;
   const reload = needsAttention && save.items.some(item => editIssue(item.imageId, label, item).reload);
   const tooltip = needsAttention ? `${label} edit needs attention` : sourceIssue ? sourceText : busy ? batchText : showSourceBusy ? sourceText
-    : unsupported ? `${applyLabel} (${unsupported})` : !valid && fieldId === "metadata_dateTaken" ? `${label} cannot be cleared` : applyLabel;
+    : !valid && fieldId === "metadata_dateTaken" ? `${label} cannot be cleared` : applyLabel;
   const hasDetails = busy || needsAttention || sourceIssue || showSourceBusy;
   const receiptKey = busy || needsAttention ? `batch:${save.id}` : `source:${source?.id}`;
   const expanded = hasDetails && receiptKey === disclosure.openFor;
@@ -216,14 +215,14 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   </div>{fieldId === "subjects" && !!removals?.length && <p className="metadata-field-status hidden pointer-coarse:block">Batch arrow also removes {removals.join(", ")} from the {others}.</p>}</>;
 }
 
-export function useMetadataCommit(form = false) {
+export function useMetadataCommit(form = false, panelTargetKey?: string) {
   const store = useContext(MetadataEditorContext);
   const batch = useContext(FormBatchContext);
   return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[] }, returnFocus?: HTMLElement | null, origin?: "details-scalar") => {
     const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds, input.removed);
     const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords", "subjects"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
     const id = intent ? store.getState().submit(intent, false, source, origin) : undefined;
-    if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
+    if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: panelTargetKey ?? labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
     return id === undefined ? undefined : store.getState().saves.get(id);
   };
 }
@@ -414,6 +413,6 @@ export function MetadataSaveFeedback({ fieldId, targetIds, saveId }: { fieldId: 
   const item = save.items.find(item => item.imageId === targetIds[0]);
   const derived = item && derivedIssue(item);
   const issue = derived ?? editIssue(targetIds[0], fieldId, item, true);
-  if (issue.steps) return <p role="status" className="metadata-field-status">Label changes: {issue.steps}{issue.reload && ". Reload page"}</p>;
+  if (issue.steps) return <p role="status" className="metadata-field-status">{fieldId === "collections" ? "Collection" : "Label"} changes: {issue.steps}{issue.reload && ". Reload page"}</p>;
   return <p role="status" className="metadata-field-status">{derived ? "Metadata from rights: 1 " : ""}{issue.notSaved ? derived ? "not saved" : "Not saved" : derived ? "not confirmed" : "Not confirmed"}</p>;
 }
