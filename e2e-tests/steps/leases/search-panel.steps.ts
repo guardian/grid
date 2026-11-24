@@ -59,7 +59,9 @@ async function selectImages(page: Page, ids: string[]): Promise<void> {
   for (const [index, id] of ids.entries()) {
     const card = resultCard(page, id);
     if (index === 0) {
-      // The checkbox only shows while the card is hovered, and its icon label covers the input.
+      // The checkbox only shows while the card is hovered. Kahuna hides the input itself with
+      // `visibility: hidden` (main.css), so it has no role to find it by; users click the icon
+      // label that sits over it.
       await card.hover();
       await card.locator('.result__select__checkbox__label').click();
     } else {
