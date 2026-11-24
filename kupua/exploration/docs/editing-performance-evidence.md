@@ -17,6 +17,16 @@ new runner or a promise that all operation families are implemented.
 
 ## Current Decisions and Open Questions
 
+**24 November: manual Details Credit during a 300-image Search Title edit.** Local Vite, same ordered selection and three recipient positions before and after; one run per case and revision. Times in seconds, before/after. Manual times start at Commit, bulk times at bulk Commit. Visible means a matching image in the app's search readback, not paint.
+
+| Recipient | Bulk ACKs at manual Commit | Bulk ACKs at manual PUT | Manual PUT / ACK / visible (before; after) | Last bulk ACK / all visible (before; after) | App bulk-read requests / IDs (before; after) |
+| --- | --- | --- | --- | --- | --- |
+| Outside | 11 / 10 | 300 / 100 | 8.655 / 8.681 / 9.216; 3.413 / 3.442 / 4.001 | 9.333 / 10.045; 10.616 / 12.178 | 17 / 733; 20 / 806 |
+| First recipient | 100 / 100 | 300 / 100 | 5.785 / 5.810 / 7.355; 0.378 / 0.406 / 1.432 | 8.830 / 10.375; 11.383 / 12.525 | 19 / 767; 19 / 774 |
+| Late recipient (281st) | 10 / 11 | 300 / 300 | 8.220 / 8.245 / 9.816; 8.896 / 8.920 / 10.507 | 8.854 / 9.526; 9.512 / 10.207 | 18 / 735; 19 / 767 |
+
+All six runs sent 301 PUTs, peaked at five simultaneous PUTs and independently verified both intended fields across the same 301 images. No latency or fleet-capacity guarantee: eligible manual visibility improved by 5.2 and 5.9 seconds, while all-bulk visibility finished about 2.1 seconds later in both lending runs; the no-loan control was 0.68 seconds later too. Read counts exclude independent verification; overlapping IDs count again on each read. The candidate waits for the borrowed Details readback before resuming; existing Form release rules are unchanged.
+
 **23 November: receipt history, settlement and Upload persistence (local checks).**
 
 | Question | Result | Interpretation |

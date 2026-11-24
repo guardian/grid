@@ -152,10 +152,10 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
 export function useMetadataCommit(form = false) {
   const store = useContext(MetadataEditorContext);
   const batch = useContext(FormBatchContext);
-  return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[] }, returnFocus?: HTMLElement | null) => {
+  return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[] }, returnFocus?: HTMLElement | null, origin?: "details-scalar") => {
     const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds, input.removed);
     const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords", "subjects"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
-    const id = intent ? store.getState().submit(intent, false, source) : undefined;
+    const id = intent ? store.getState().submit(intent, false, source, origin) : undefined;
     if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
     return id === undefined ? undefined : store.getState().saves.get(id);
   };

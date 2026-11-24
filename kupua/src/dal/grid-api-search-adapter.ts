@@ -245,6 +245,7 @@ async function fetchImageRead(path: string, init: RequestInit, signal?: AbortSig
 }
 
 async function readFailure(res: Response, signal?: AbortSignal): Promise<SearchAfterApiError> {
+  if (res.status === 401 || res.status === 419) return new SearchAfterApiError("refused", res.status);
   const errorBody: unknown = await res.json().catch(() => undefined);
   signal?.throwIfAborted();
   const kind = (res.status === 502 || res.status === 504) && errorBody === undefined && !res.headers.has("Retry-After")

@@ -26,6 +26,7 @@ import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import { CostBadge, CostBadgeFromCost } from "./CostBadge";
 import { useUsageRightsCatalogue } from "@/lib/usage-rights-catalogue";
 import * as typeahead from "@/lib/typeahead-fields";
+import * as gridSession from "@/lib/grid-api-instance";
 import type { GridCommandResult, LabelCommand } from "@/lib/grid-commands";
 import { acceptEnrichedImage, attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { acceptImageOverlay, acceptObservedImages, admitLabelObservation, captureImageRead, getMetadataWriteWitness, recordImageAvailability, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
@@ -470,8 +471,11 @@ describe("metadata field preparation", () => {
     } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
   });
 
-  it.each(["early", "late", "session rejection", "shared waiter"])("executes captured offscreen targets in bounded groups: %s", async scenario => {
+  it.each(["early", "late", "session rejection", "shared waiter", "Details outside", "Details observed", "Details late", "Details joined automatic", "Details preflight 401", "Details preflight 503", "Details readback 419", "Details stop parent 419", "Details stopped"])("executes captured offscreen targets in bounded groups: %s", async scenario => {
     const recipientIndex = scenario === "late" ? 100 : 0;
+    let invalid = false;
+    vi.spyOn(gridSession, "invalidateGridSession").mockImplementation(() => { invalid = true; });
+    vi.spyOn(gridSession, "isGridSessionInvalidated").mockImplementation(() => invalid);
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
     vi.useFakeTimers();
     const ids = Array.from({ length: 101 }, (_, index) => `captured-${index}`);
@@ -494,7 +498,12 @@ describe("metadata field preparation", () => {
       versions.set(command.imageId, new Date(++revision).toISOString());
       return { outcome: "acknowledged", expected: { [field]: String(command.value) }, metadataWitness: String(revision) };
     });
-    const readImages = vi.fn(async (requested: string[]) => {
+    const readImages = vi.fn(async (requested: string[], signal: AbortSignal) => {
+      if (scenario === "Details stopped" && requested[0] === "outside") await new Promise<void>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+      if (requested.length === 1 && requested[0] === "outside" && (scenario.includes("preflight") || scenario.includes("419") && values.has("outside"))) {
+        if (scenario.includes("419")) await formHeld;
+        throw Object.assign(new Error("Read refused"), { status: Number(scenario.split(" ").at(-1)) });
+      }
       const result = requested.map(id => {
         const image = { ...images[0], id, metadata: { credit: values.get(id) ?? "Original", byline: bylines.get(id) }, userMetadata: { lastModified: versions.get(id) ?? originalVersion } };
         const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
@@ -515,6 +524,63 @@ describe("metadata field preparation", () => {
       expect(execute).toHaveBeenCalledTimes(5);
       const waiter = scenario === "shared waiter" ? shared.admit() : undefined;
       if (scenario === "shared waiter" && !waiter) throw new Error("Shared waiter was not admitted");
+      if (scenario.startsWith("Details")) {
+        const target = scenario === "Details observed" ? ids[0] : scenario === "Details late" ? ids[100] : "outside";
+        const intent = { fieldId: "metadata_credit", action: "overwrite", value: "Manual credit", targetIds: [target] } as const;
+        const earlier = scenario === "Details joined automatic" ? editor.getState().submit(intent) : undefined;
+        const capturedIds = [target];
+        const field = RECONCILE_FIELDS.find(field => field.id === "metadata_credit")!;
+        render(<MetadataEditorContext value={editor}><dl><MetadataTextEditor field={field} targetIds={capturedIds} value="Old">Old</MetadataTextEditor></dl></MetadataEditorContext>);
+        fireEvent.click(screen.getByRole("button", { name: "Edit Credit" }));
+        fireEvent.change(screen.getByLabelText("Credit", { selector: "input" }), { target: { value: "Manual credit" } });
+        fireEvent.click(screen.getByRole("button", { name: "Commit Credit" }));
+        const manual = editor.getState().panelSaves[0].id;
+        cleanup();
+        if (scenario === "Details joined automatic") { expect(earlier).toBeDefined(); expect(manual).toBe(earlier); }
+        const failedRead = scenario.includes("401") || scenario.includes("419");
+        const successor = failedRead ? editor.getState().submit({ ...intent, targetIds: ["following"] }) : undefined;
+        releaseDispatch(); release();
+        if (scenario === "Details stopped") {
+          await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+          expect(editor.getState().saves.get(manual)?.state).toBe("saving");
+          editor.getState().stop(manual);
+          await vi.advanceTimersByTimeAsync(0);
+          expect(bylines.size).toBe(101);
+          expect(values.size).toBe(0);
+          expect(editor.getState().saves.get(manual)?.message).toMatch(/Stopped/);
+          return;
+        }
+        if (scenario.includes("419")) {
+          await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+          expect(values.get("outside")).toBe("Manual credit");
+          expect(bylines.has(ids[100])).toBe(false);
+          if (scenario === "Details stop parent 419") editor.getState().stop(id);
+        }
+        releaseForm();
+        await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationWindowMs + 1);
+        const calls = execute.mock.calls.map(([command]) => command);
+        expect(calls.filter(command => command.fieldId === "metadata_byline").map(command => command.imageId).toSorted()).toEqual((failedRead ? ids.slice(0, 100) : ids).toSorted());
+        const single = editor.getState().saves.get(manual)!;
+        const creditCalls = calls.filter(command => command.fieldId === "metadata_credit");
+        expect(creditCalls.map(command => command.imageId)).toEqual(scenario.includes("preflight") ? [] : [target]);
+        if (failedRead) {
+          expect(editor.getState().saves.get(successor!)?.items[0]).toMatchObject({ state: "not-started", result: { reason: "reload-required" } });
+          const parent = editor.getState().saves.get(id)!;
+          if (scenario === "Details stop parent 419") {
+            expect(parent.message).toMatch(/Stopped/);
+            expect(parent.items.some(item => item.imageId === ids[100] && item.state === "not-started")).toBe(false);
+          } else expect(parent.items.at(-1)).toMatchObject({ imageId: ids[100], state: "not-started", result: { reason: "reload-required" } });
+          expect(single.items[0]).toMatchObject(scenario.includes("401") ? { state: "not-started" } : { state: "accepted-awaiting-visibility", observation: "unavailable", reloadRequired: true });
+        } else if (scenario.includes("503")) {
+          expect(single.items[0]).toMatchObject({ state: "not-started", result: { reason: "unavailable" } });
+        } else {
+          expect(single.items[0].observation).toBe("observed");
+          expect(calls.indexOf(creditCalls[0])).toBe(scenario === "Details late" || scenario === "Details joined automatic" ? 101 : 100);
+          expect(values.get(target)).toBe("Manual credit");
+          if (ids.includes(target)) expect(bylines.get(target)).toBe("Batch byline");
+        }
+        return;
+      }
       useMetadataDrafts.getState().setDraft(ids[recipientIndex], "metadata_credit", "Original", "Form credit");
       editor.getState().flush(ids[recipientIndex], "metadata_credit");
       releaseDispatch();

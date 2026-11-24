@@ -8,8 +8,15 @@ import { leaseChangeSchema, type LeaseChange } from "@/lib/lease-change";
 import { attachedEnrichment } from "./enrichment-store";
 import { acceptImageRead, captureImageRead, ensureImageRead, getMetadataWriteWitness, hasImageCommandConflict, watchQueuedLabelTargets } from "@/lib/image-read-freshness";
 import { useMetadataDrafts } from "./metadata-drafts-store";
+import { invalidateGridSession, isGridSessionInvalidated } from "@/lib/grid-api-instance";
 
 const publisherFields = ["metadata_byline", "metadata_credit", "metadata_imageType"];
+const scalarFields = new Set(["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline", "metadata_credit",
+  "metadata_copyright", "metadata_dateTaken", "metadata_imageType"]);
+
+function sessionReadFailure(error: unknown): boolean {
+  return !!error && typeof error === "object" && "status" in error && (error.status === 401 || error.status === 419);
+}
 
 export interface MetadataSave {
   id: number;
@@ -44,8 +51,7 @@ export function metadataIntent(fieldId: string, action: string, value: string | 
   const field = pillCommandField(fieldId);
   if (field === "metadata_subjects" && (typeof value !== "string" || !(action === "remove" || action === "add" && SUBJECTS.includes(value)))) return;
   if (field.startsWith("location_")) return { fieldId: "location", action: "overwrite", value: { [field.slice(9)]: value as string }, targetIds };
-  if (!["metadata_title", "metadata_description", "metadata_specialInstructions", "metadata_byline", "metadata_credit",
-    "metadata_copyright", "metadata_dateTaken", "metadata_imageType", "metadata_keywords", "metadata_peopleInImage", "metadata_subjects", "location"].includes(field)) return;
+  if (!scalarFields.has(field) && !["metadata_keywords", "metadata_peopleInImage", "metadata_subjects", "location"].includes(field)) return;
   if (field === "metadata_dateTaken") {
     if (typeof value !== "string" || !value || !Number.isFinite(Date.parse(value))) return;
     value = new Date(value).toISOString();
@@ -91,6 +97,8 @@ export function createMetadataEditorStore(
   const pending: number[] = [];
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const capturedDrafts = new Map<number, { imageId: string; fieldId: string; revision: number }>();
+  const detailsSingles = new WeakSet<MetadataIntent>();
+  let detailsPreflight: { id: number; controller: AbortController } | undefined;
   const submittedDrafts = new Map<string, number>();
   const deferredDrafts = new Map<string, number>();
   const running = new Map<number, ReturnType<typeof createMetadataOperation>>();
@@ -118,7 +126,7 @@ export function createMetadataEditorStore(
     arrowSaves: ReadonlyMap<string, number>;
     removedPills: ReadonlyMap<string, readonly string[]>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
-    submit: (intent: MetadataIntent, newRevision?: boolean, pillSource?: string) => number | undefined;
+    submit: (intent: MetadataIntent, newRevision?: boolean, pillSource?: string, origin?: "details-scalar") => number | undefined;
     schedule: (imageId: string, fieldId: string) => void;
     deferDraft: (imageId: string, fieldId: string) => void;
     settleDraftGrant: (imageId: string, fieldId: string, granted: boolean) => void;
@@ -144,7 +152,7 @@ export function createMetadataEditorStore(
       if (id !== undefined && captured && get().saves.get(id)?.state !== "finished") pillApplications.set(id, { key, captured });
       if (id !== undefined) set({ arrowSaves: new Map(get().arrowSaves).set(key, id) });
     },
-    submit(input, newRevision = false, pillSource) {
+    submit(input, newRevision = false, pillSource, origin) {
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
       const intent: MetadataIntent = input.fieldId === "leases" ? { ...input, targetIds, value: structuredClone(input.value) } : input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds, value: Array.isArray(input.value) ? [...input.value] : input.value }
@@ -188,6 +196,7 @@ export function createMetadataEditorStore(
       }
       set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "queued", items: [], excluded: 0 }) });
       pending.push(id);
+      if (origin === "details-scalar" && targetIds.length === 1 && scalarFields.has(intent.fieldId)) detailsSingles.add(intent);
       queueMicrotask(() => void pump());
       return id;
     },
@@ -235,6 +244,7 @@ export function createMetadataEditorStore(
     },
     stop(id) {
       stopped.add(id);
+      if (detailsPreflight?.id === id) detailsPreflight.controller.abort();
       running.get(id)?.stopTargets(get().saves.get(id)!.intent.targetIds);
       if (get().saves.get(id)?.state === "queued") {
         if (waiting?.id === id) waiting.complete();
@@ -245,6 +255,7 @@ export function createMetadataEditorStore(
     },
     dispose() {
       disposed = true;
+      detailsPreflight?.controller.abort();
       unsubscribe();
       waiting?.complete();
       for (const timer of timers.values()) clearTimeout(timer);
@@ -272,12 +283,17 @@ export function createMetadataEditorStore(
     await runSave(id, slot, true);
   }
 
-  async function runSave(id: number, slot: NonNullable<ReturnType<typeof queue.admit>>, primary: boolean) {
+  async function runSave(id: number, slot: NonNullable<ReturnType<typeof queue.admit>>, primary: boolean, detailsTurn = false) {
     if (!execute || !observation) return;
     const save = store.getState().saves.get(id)!;
     const group = [save];
     const progress = new Map<number, { items: MetadataReceipt["items"][number][]; excluded: number }>();
     let dispatchReleased = false;
+    const turnObservation = { ...observation, onReadError: (error: unknown) => {
+      if (!sessionReadFailure(error)) return false;
+      invalidateGridSession();
+      return true;
+    } };
     const releaseDispatch = () => {
       if (dispatchReleased) return;
       dispatchReleased = true;
@@ -307,14 +323,29 @@ export function createMetadataEditorStore(
       for (const member of group) progress.set(member.id, { items: [], excluded: 0 });
       const owners = new Map(group.flatMap(member => member.intent.targetIds.map(imageId => [imageId, member] as const)));
       const allIds = [...owners.keys()];
+      const notSent = (ids: readonly string[], reason: "unavailable" | "disabled" | "reload-required") => {
+        for (const imageId of ids) {
+          const owner = owners.get(imageId)!.id;
+          if (!stopped.has(owner)) progress.get(owner)!.items.push({ imageId, state: "not-started", result: { outcome: "blocked", reason } });
+        }
+      };
       store.setState(state => ({ saves: new Map([...state.saves].map(([saveId, value]) => [saveId,
         progress.has(saveId) ? { ...value, state: "saving" as const } : value])) }));
       for (let offset = 0; offset < allIds.length && !disposed; offset += BATCH_POLICY.maxTargets) {
         const ids = allIds.slice(offset, offset + BATCH_POLICY.maxTargets).filter(imageId => !stopped.has(owners.get(imageId)!.id));
         if (!ids.length) continue;
+        if (isGridSessionInvalidated()) { notSent(allIds.slice(offset), "reload-required"); break; }
         const issued = captureImageRead();
-        const images = await observation.readImages([...ids], AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs));
+        let images: Awaited<ReturnType<typeof observation.readImages>>;
+        const timeout = AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs);
+        if (detailsTurn) detailsPreflight = { id, controller: new AbortController() };
+        try { images = await observation.readImages([...ids], detailsTurn && detailsPreflight ? AbortSignal.any([timeout, detailsPreflight.controller.signal]) : timeout); }
+        catch (error) {
+          if (!disposed && !(detailsTurn && stopped.has(id))) notSent(allIds.slice(offset), turnObservation.onReadError(error) ? "reload-required" : "unavailable");
+          break;
+        } finally { if (detailsTurn) detailsPreflight = undefined; }
         if (disposed) break;
+        if (isGridSessionInvalidated()) { notSent(allIds.slice(offset), "reload-required"); break; }
         const targets = new Map<string, MetadataEditTarget>();
         for (const image of images) {
           if (!ids.includes(image.id) || stopped.has(owners.get(image.id)!.id)) continue;
@@ -330,7 +361,7 @@ export function createMetadataEditorStore(
         }
         if (!targets.size) continue;
         const intents = new Map([...targets.keys()].map(imageId => [imageId, owners.get(imageId)!.intent]));
-        const operation = createMetadataOperation(execute, observation, {
+        const operation = createMetadataOperation(execute, turnObservation, {
           onDerivedDispatch: (imageId, fields) => {
             const ownerId = owners.get(imageId)!.id;
             store.setState(state => {
@@ -360,7 +391,7 @@ export function createMetadataEditorStore(
           if (!receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending")) finish();
         });
         await operation.confirm({ ...save.intent, targetIds: [...targets.keys()] }, targets);
-        if (!disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
+        if (!detailsTurn && !disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
           && operation.getSnapshot()!.items.every(item => !["leases", "labels"].includes(intents.get(item.imageId)?.fieldId ?? "")
             && (item.result?.outcome === "acknowledged" || item.result?.outcome === "unchanged")
             && typeof getMetadataWriteWitness(item.imageId) === "string")) releaseDispatch();
@@ -372,29 +403,29 @@ export function createMetadataEditorStore(
           const own = progress.get(owners.get(item.imageId)!.id)!;
           own.items.push(item);
         }
+        if (isGridSessionInvalidated()) { notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), "reload-required"); break; }
         if (receipt.blocked || receipt.items.some(item => item.result?.outcome === "blocked" || item.state === "stopped" && !stopped.has(owners.get(item.imageId)!.id)
           || sessionStopReason(item.result))) break;
         if (primary && group.length === 1 && save.intent.fieldId.startsWith("metadata_") && !stopped.has(id)
           && offset + BATCH_POLICY.maxTargets < allIds.length) {
           while (pending.length && stopped.has(pending[0])) pending.shift();
           const next = pending[0];
-          const draft = capturedDrafts.get(next);
-          if (draft && !hasImageCommandConflict(draft.imageId) && (!unique.has(draft.imageId) || progress.get(id)!.items.some(item =>
-            item.imageId === draft.imageId && item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")))) {
+          const candidate = store.getState().saves.get(next)?.intent;
+          const details = !!candidate && detailsSingles.has(candidate) && scalarFields.has(save.intent.fieldId);
+          const imageId = details ? candidate.targetIds[0] : capturedDrafts.get(next)?.imageId;
+          if (imageId && !hasImageCommandConflict(imageId) && (!unique.has(imageId) || progress.get(id)!.items.some(item =>
+            item.imageId === imageId && item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")))) {
             let resume!: () => void;
             const turn = new Promise<void>(resolve => { resume = resolve; });
             const borrowed = queue.borrowTurn(slot, resume);
             if (borrowed) {
               pending.shift();
-              void runSave(next, borrowed, false);
+              void runSave(next, borrowed, false, details);
               await turn;
               const single = store.getState().saves.get(next);
-              const reason = sessionStopReason(single?.items[0]?.result);
+              const reason = isGridSessionInvalidated() ? "reload-required" : sessionStopReason(single?.items[0]?.result);
               if (reason) {
-                const own = progress.get(id)!;
-                own.items = [...own.items, ...allIds.slice(offset + BATCH_POLICY.maxTargets).map((imageId): MetadataSave["items"][number] => ({
-                  imageId, state: "not-started", result: { outcome: "blocked", reason },
-                }))];
+                notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), reason);
                 break;
               }
             }

@@ -249,7 +249,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
     if (!validDraft || !formRef.current?.checkValidity()) return;
     const prepared = control === "datetime-local" && draft ? dateTimeIntent(draft, originalOffset) : normalizedDraft;
     const intent: MetadataEditIntent = { fieldId: field.id, targetIds: [...targetIds], action: mode, value: prepared };
-    const save = onPrepare ? (onPrepare(intent), undefined) : commit(intent, editRef.current);
+    const save = onPrepare ? (onPrepare(intent), undefined) : commit(intent, editRef.current, "details-scalar");
     if (save) submitted.track(save.id);
     else panelSaveAdmitted(save, `Not sent - ${field.label} change prepared for ${intent.targetIds.length} ${intent.targetIds.length === 1 ? "image" : "images"}.`);
   };

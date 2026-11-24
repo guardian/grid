@@ -2563,6 +2563,8 @@ acknowledgement rule while the single remains under bounded observation. No
 new concurrency ceiling, priority guarantee, automatic retry or live rollout.
 See the [evidence ledger](editing-performance-evidence.md) for the comparison.
 
+**24 November extension: single-image Details commits.** Search and Upload share one turn, not one per page. During a bulk ordinary scalar edit, a newly committed single-image scalar Details save at the head of the queue can take the same turn as a Form autosave. An image outside the batch must be free of conflicts; a batch member must also have its own earlier successful change observed, even if Details edits a different field. A batch arrow, automatic edit or reused receipt does not acquire priority. Unlike a Form flush, a borrowed Details commit holds the turn until readback settles, so a session failure can stop the unsent bulk remainder without replaying the write. See the [paired Search trials](editing-performance-evidence.md#current-decisions-and-open-questions).
+
 <details>
 <summary>18–19 November tuning history: upload follow-ups, overlapping edits and readback experiments</summary>
 

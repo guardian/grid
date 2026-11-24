@@ -380,6 +380,7 @@ responses are fast. They are colocated in `BATCH_POLICY.speed`, not dashboard co
 the same policy owns the other editing admission, timeout and freshness limits.
 Startup injects one queue into the connected editor store. Future edit families borrow
 that owner; disposing one borrower stops its own work without closing sibling admission.
+Search Details and Upload use this same queue; the [Upload workplan](../gradually-growing-teeth.upload-workplan.md) records which manual edits can take a turn between bulk groups and when the bulk resumes.
 Three
 executions does not mean three separate operator batches or three HTTP requests/second:
 each execution includes prerequisite reads and a possible write. A 429 delays unsent

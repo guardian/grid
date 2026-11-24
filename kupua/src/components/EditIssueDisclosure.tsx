@@ -7,7 +7,7 @@ import { Chevron } from "./Chevron";
 export function editIssue(imageId: string, field: string, item?: MetadataSave["items"][number], missingNotSent = false) {
   const result = item?.result;
   const notSaved = item ? ["not-started", "queued", "stopped", "rejected"].includes(item.state) || result?.outcome === "blocked" : missingNotSent;
-  const reload = sessionStopReason(result) === "reload-required";
+  const reload = item?.reloadRequired === true || sessionStopReason(result) === "reload-required";
   const steps = labelStepStatus(result);
   return { imageId, field, notSaved, reload, ...(steps && { steps }) };
 }

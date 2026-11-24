@@ -70,9 +70,11 @@ interface MetadataEditItem {
   state: "not-started" | "queued" | "stopped" | "submitted" | "accepted-awaiting-visibility" | "unchanged" | "partial" | "rejected" | "unknown";
   result?: Readonly<GridCommandResult>;
   observation?: "pending" | "observed" | "deadline" | "unavailable" | "superseded";
+  reloadRequired?: true;
 }
 
 export interface MetadataEditObservation {
+  onReadError?: (error: unknown) => boolean;
   readImages: (ids: string[], signal: AbortSignal) => Promise<Image[]>;
   publishImages: (images: Image[]) => void;
   standalone?: () => MetadataEditStandaloneOwner | undefined;
@@ -152,6 +154,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
     let settled = false;
     let running = false;
     let attempts = 0;
+    let reloadRequired = false;
     let lastAttempt = -Infinity;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let dispatching = batched;
@@ -218,6 +221,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
       publish({ ...receipt, items: Object.freeze(receipt.items.map(item => Object.freeze({
         ...item,
         ...(item.observation === "pending" && {
+          ...(reloadRequired && { reloadRequired: true as const }),
           observation: published.has(item.imageId) ? "observed" as const : superseded.has(item.imageId) ? "superseded" as const : unavailable.has(item.imageId) ? "unavailable" as const
             : verified.has(item.imageId) ? "superseded" as const : reason,
         }),
@@ -281,7 +285,7 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
           const pending = fullPending;
           let full: Image | undefined;
           try { full = await pending.owner.read(controller.signal); }
-          catch { full = undefined; }
+          catch (error) { reloadRequired = observation!.onReadError?.(error) === true; full = undefined; }
           if (settled || !receipt) return;
           fullPending = undefined;
           const overlay = full && attachedEnrichment(full);
@@ -294,8 +298,10 @@ export function createMetadataEditExecution<Intent extends { targetIds: readonly
         if (batched) publishVerified();
         running = false;
         observe();
-      }, () => {
+      }, (error: unknown) => {
         if (settled) return;
+        reloadRequired = observation!.onReadError?.(error) === true;
+        if (reloadRequired) { finish("unavailable"); return; }
         if (execution?.continueAfterLocalBlock && dispatching) {
           for (const id of ids) unavailable.add(id);
           running = false;

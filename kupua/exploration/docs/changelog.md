@@ -24,6 +24,12 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 24 November 2026 - Offer single-image Details commits a turn between bulk metadata groups
+
+A newly committed ordinary scalar field on one image can use the next eligible settled group boundary. An overlapping recipient must already have its preceding bulk change observed. Form autosave retains its separate draft and release rules; repeating an existing receipt cannot promote it. Read-side session loss preserves acknowledged writes as unconfirmed, distinguishes unsent targets, and prevents further dispatch until reload. See the [paired local measurements and bulk-tail trade-off](editing-performance-evidence.md#current-decisions-and-open-questions).
+
+In paired local Search trials during a 300-image Title edit, a manual Credit change became visible in **4.00 s instead of 9.22 s** on an outside image, and **1.43 s instead of 7.36 s** on an already-confirmed recipient. All bulk changes became visible about **2.1 s later** in both runs. The late recipient correctly waited. Each trial sent 301 writes, peaked at five simultaneous writes, and verified the final values; these are single-run comparisons, not latency guarantees.
+
 ### 23 November 2026 - Keep live transfer progress without rewriting unchanged recovery records
 
 Preparation, transfer and queue notifications still update the Upload interface. They share the same interrupted state on reload, so they no longer rewrite the batch unless a new status ID is learned or the previous save failed. Submission receipts and outcomes still save immediately.
