@@ -340,7 +340,7 @@ unit checkpoints for exact validation and live-trial limits.
 | P09 | **Connected for ordinary metadata, Guardian Rights and manual Leases:** an arrow captures the open upper batch, including offscreen members, not the lower section or later arrivals. | U7 families still need their own propagation and outcome checks. |
 | P10 | **Guardian Rights and manual Leases connected:** explicit saves, derived metadata, server notices, captured batch targets and lease readback. | U8: integrated and target-deployment acceptance. Category-triggered leases are excluded, not missing. |
 | P11 | **Deferred by operator:** templates are not a current Upload acceptance gate. | U6c only if separately selected; not a passed feature. |
-| P12 | **Partial:** Labels, Keywords and People support individual edits, propagation of additions/explicit removals and confirmed batch clear. | Collection membership and photoshoot execution remain disconnected. |
+| P12 | **Partial:** Labels, Keywords and People support individual edits, propagation of additions/explicit removals and confirmed batch clear. Photoshoot supports assignment and confirmed peer clear. | Collection membership remains disconnected. |
 | P13 | **Partial:** per-attempt outcomes and deduplicated canonical membership exist. | U7/Step 17: authorized deletion/restore, duplicate eligibility and lifecycle handling. No automatic restore or re-upload. |
 | P14 | **Partial:** batch-aware detail/crop return and disconnected crop eligibility/notices are implemented. | U7/Steps 7 and 13: archive and actual crop creation/readback. |
 | P15 | **Done locally at bounded recovery scope:** retained descriptors, interrupted/uncertain outcomes and read-only Recheck (U3/U4). | No durable draft/transfer recovery or automatic replay; real expiry/login-return acceptance remains separate. |
@@ -423,7 +423,7 @@ follows image clear/replace/add/add-many actions and lease deletion, with some
 detached readback polling. Preserve intended state, not false completion or a
 new one-lease-per-type rule.
 
-**Connected Upload pill arrows (Labels, Keywords, People, Subjects):** apply the source's current values and its explicitly removed values to the other captured batch images, retaining unrelated values on each peer. Only observed source edits contribute removals. Re-adding a value cancels its removal; successful batch application consumes the captured removal history. An empty source offers a second-click clear of that field on all captured peers. Subjects adds only vocabulary members; a nonempty legacy-only source is not a clear. Collection membership and Photoshoot writes are not connected; Collections must not inherit explicit removal propagation for a non-empty source.
+**Connected Upload pill arrows (Labels, Keywords, People, Subjects):** apply the source's current values and its explicitly removed values to the other captured batch images, retaining unrelated values on each peer. Only observed source edits contribute removals. Re-adding a value cancels its removal; successful batch application consumes the captured removal history. An empty source offers a second-click clear of that field on all captured peers. Subjects adds only vocabulary members; a nonempty legacy-only source is not a clear. Collections remains disconnected and must not inherit explicit removal propagation for a non-empty source. Photoshoot is a scalar membership, not a pill list.
 
 **Kahuna reference, collections/lists/photoshoot:** [collection arrow](../../../kahuna/public/js/edits/image-editor.js#L412)
 adds source paths to target memberships, not nonempty replacement; empty source
@@ -440,7 +440,7 @@ permission from uploader identity. [Composition](../../../metadata-editor/app/li
 compares rights across old/new photoshoots around the membership change and
 publishes changed inferred syndication rights: the side-effect scope can exceed
 the explicit batch. Title readback alone does not certify all those effects.
-Wider execution/admission and recorded GRID-009/013 limits remain owned by
+The original GRID-009/013 handoff defects are repaired. [GRID-029](bug-backlog.md#grid-029), reproduced on local removal, is accepted for prototype membership editing. Wider execution/admission remains owned by
 [Step 16](gradually-growing-teeth.kupua-edits-steps.md#step-16-photoshoots-syndication-rights-and-send-to-photo-sales),
 not new read-endpoint prerequisites or permission for external publication.
 
@@ -588,7 +588,7 @@ implementation history belongs in the existing changelog.
 | U6a / Step 10 | **Done for Guardian:** Rights and derived metadata with separate outcomes; shared with Details and selection. |
 | U6b / Step 9 | Connected: manual lease editing, whole-set batch copy/clear and display after readback. |
 | U6c / Step 11 | **Deferred by operator:** templates are not a current acceptance gate. |
-| U7 | **Partial:** Labels, Keywords and People connected and exercised on fixture peers. Collection membership, photoshoots, archive, crop creation and soft delete/authorized restore remain. |
+| U7 | **Partial:** Labels, Keywords, People and Photoshoot membership connected and exercised on fixture peers. Collection membership, archive, crop creation and soft delete/authorized restore remain. |
 | U8 | **Open:** integrated acceptance against P01–P15, not a new implementation of work above. |
 
 Select each remaining operation separately. Configured-domain editors are not an Upload dependency.
@@ -2046,7 +2046,7 @@ as applicable. Reuse implemented work rather than porting it again.
 
 - Collection membership add/remove and batch propagation, including the existing
   removal confirmation. Do not redesign/rename the collection tree for Upload.
-- Photoshoot assignment and clearing; confirm its cross-image syndication effects before activation. Do not rebuild the connected pill operations.
+- Photoshoot assignment and clearing are connected; receipts confirm membership, not cross-image syndication effects.
 - Library/archive, soft delete and authorized undelete of an existing deleted
   image returned by a repeat upload. No new hard-delete flow.
 - Existing detail/crop return and any still-disconnected crop operation required

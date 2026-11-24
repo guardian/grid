@@ -23,8 +23,11 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     { name: "delete-leases", method: "DELETE", href: `${leaseOrigin}/leases/media/${id}` },
   ] : [])];
   const presetLabels = new Map<string, string[]>();
+  const photoshoots = new Map<string, { title: string }>();
+  let shootWrites = 0;
+  const shootResource = (id: string) => ({ uri: `https://metadata.example.test/metadata/${id}/photoshoot`, data: photoshoots.get(id) });
   const metadataWrites: { id: string; method: string; data: unknown }[] = [];
-  const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + metadataWrites.length * 1000).toISOString();
+  const metadataVersion = () => new Date(Date.UTC(2026, 10, 20) + (metadataWrites.length + shootWrites) * 1000).toISOString();
   const hiddenFromSearch = new Set<string>();
   const held = new Set<() => void>();
   let holdNext = false;
@@ -131,6 +134,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
         ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", valid: leases.get(id)?.some(item => item.access === "allow-use") ?? false, invalidReasons: { paid_image: "Fixture paid-image notice" } }),
         metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
         userMetadata: { data: { ...resource.data.userMetadata.data,
+          photoshoot: shootResource(id),
           usageRights: { data: rightsOverrides.get(id) }, metadata: { data: metadataOverrides.get(id) },
           lastModified: metadataOverrides.has(id) || presetLabels.has(id) ? metadataVersion() : undefined,
           labels: { data: (presetLabels.get(id) ?? []).map(data => ({ data })) } } } } : {}),
@@ -193,13 +197,14 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               { value: "", name: "Unknown Rights", description: "No known rights", caution: "You cannot use this image in content!", properties: [] }] })); return;
         }
         if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
-          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/metadata|\/labels(?:\/([^/]+))?)?$/.exec(pathname);
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/photoshoot|\/metadata|\/labels(?:\/([^/]+))?)?$/.exec(pathname);
           response.setHeader("Content-Type", "application/json");
           if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
           const id = match[1];
           if (request.method === "GET" && !match[2]) {
             metadataReads.set(id, (metadataReads.get(id) ?? 0) + 1);
             response.end(JSON.stringify({ data: {
+              photoshoot: shootResource(id),
               usageRights: { uri: `https://metadata.example.test/metadata/${id}/usage-rights`, data: rightsOverrides.get(id) },
               metadata: { uri: `https://metadata.example.test/metadata/${id}/metadata`, data: metadataOverrides.get(id) ?? { domainMetadata: { desk: { reference: "retained" } } }, actions: [
                 { name: "set-from-usage-rights", method: "POST", href: `https://metadata.example.test/metadata/${id}/metadata/set-from-usage-rights` }] },
@@ -210,6 +215,11 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
           const chunks: Buffer[] = [];
           for await (const chunk of request) chunks.push(Buffer.from(chunk));
           const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+          if (match[2] === "/photoshoot" && (request.method === "PUT" || request.method === "DELETE")) {
+            if (request.method === "PUT") photoshoots.set(id, body.data); else photoshoots.delete(id);
+            shootWrites++;
+            response.statusCode = request.method === "PUT" ? 200 : 202; response.end(JSON.stringify({ data: body.data })); return;
+          }
           if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
           else if (match[2] === "/usage-rights" && request.method === "PUT") rightsOverrides.set(id, body.data);
           else if (match[2] === "/metadata/set-from-usage-rights" && request.method === "POST") {
@@ -237,7 +247,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
               if (body.reset) { rightsOverrides.clear(); leases.clear(); }
-              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); metadataWrites.length = 0; metadataReads.clear(); }
+              if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); photoshoots.clear(); shootWrites = 0; metadataWrites.length = 0; metadataReads.clear(); }
               if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
                 embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
               }

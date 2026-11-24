@@ -19,6 +19,10 @@ export function isMetadataUpdateRequest(method: string | undefined, path: string
   return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/metadata$/.test(path ?? "");
 }
 
+export function isPhotoshootRequest(method: string | undefined, path: string | undefined): boolean {
+  return (method === "PUT" || method === "DELETE") && /^\/metadata\/[a-zA-Z0-9_-]+\/photoshoot$/.test(path ?? "");
+}
+
 export function isUsageRightsRequest(method: string | undefined, path: string | undefined): boolean {
   return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/usage-rights$/.test(path ?? "")
     || method === "POST" && /^\/metadata\/[a-zA-Z0-9_-]+\/metadata\/set-from-usage-rights$/.test(path ?? "");

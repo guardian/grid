@@ -20,6 +20,8 @@ Hosted Kupua does not use this route.
 
 ## From Grid / Kahuna
 
+**Photoshoot batch editing:** Kahuna broadcasts the title to mounted Upload editors, including the source. Kupua captures the other known batch images, trims outer whitespace, and requires a second click for a batch clear. The 100-target limit and serial writes trade batch speed for bounded client pressure on Grid's shoot-wide rights recalculation; they do not bound the number of indirectly affected images.
+
 ### Empty Collections in Details
 
 Kahuna renders its Collections section for a single image only. Kupua supports settled selections as well: in Details and Form, existing memberships remain readable, and an empty row is offered only when Grid advertises `add-collection` (POST) for every intended recipient. The metadata `edits` link is neither required nor sufficient. Filling a partial membership checks the missing images; removal checks the nested `remove` (DELETE) action on every affected membership. Withdrawing either action withdraws its corresponding preparation control or disables it, without hiding readable data. Direct-ES supplies no grants. Collection writes and batch execution remain disconnected. Keywords, in contrast, use metadata write authority: empty read-only Keywords stay hidden and populated values remain searchable.

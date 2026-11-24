@@ -46,7 +46,10 @@ export type LeaseCommand = z.infer<typeof leaseCommandSchema>;
 const labelListSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-label-list"),
   add: z.array(z.string().refine(addressableLabel)), remove: z.array(nonempty), clear: z.boolean() }).strict();
 export type LabelListCommand = z.infer<typeof labelListSchema>;
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema]);
+const photoshootSchema = addLabelsSchema.omit({ operation: true, labels: true }).extend({ operation: z.literal("edit-photoshoot"), value: z.string().trim(), projectionMatches: z.boolean() }).strict();
+export type PhotoshootCommand = z.infer<typeof photoshootSchema>;
+const photoshootResource = z.object({ data: z.object({ photoshoot: z.object({ uri: z.string(), data: z.object({ title: z.string() }).optional() }) }) });
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
   metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
@@ -260,6 +263,18 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
       if (attempt + 1 === BATCH_POLICY.sourceReadAttempts) return { outcome: "blocked", reason: "unavailable" };
     }
     if (!retainsEditGrant(command.imageId, command.resource)) return { outcome: "blocked", reason: "unavailable" };
+    if (command.operation === "edit-photoshoot") {
+      const resource = photoshootResource.safeParse(body);
+      if (!resource.success) return { outcome: "blocked", reason: "unavailable" };
+      const shoot = resource.data.data.photoshoot;
+      const target = gridServiceUrl("metadata", shoot.uri, `${path}/photoshoot`, origin);
+      if (!target) return { outcome: "blocked", reason: "unavailable" };
+      if (command.projectionMatches && (command.value ? shoot.data?.title === command.value : !shoot.data)) return { outcome: "unchanged" };
+      dispatched = true;
+      const response = await fetch(target, { credentials: "include", redirect: "error", signal: sourceSignal,
+        ...(command.value ? { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: { title: command.value } }) } : { method: "DELETE" }) });
+      return response.ok ? { outcome: "acknowledged" } : await failure(response, true);
+    }
     if (command.operation === "edit-rights") {
       const resource = rightsResourceSchema.safeParse(body);
       if (!resource.success) return { outcome: "blocked", reason: "unavailable" };

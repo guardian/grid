@@ -6,7 +6,7 @@ import { useCollectionStore } from "@/stores/collection-store";
 import { useTypeaheadSuggestions } from "@/hooks/useTypeaheadSuggestions";
 
 export function MetadataSuggestionInput({ label, fieldKey, value, onChange, placeholder, autoFocus = true, required = false, readOnly = false }: {
-  label: string; fieldKey: string; value: string; onChange: (value: string) => void; placeholder?: string;
+  label: string; fieldKey: string; value: string; onChange: (value: string, chosen?: boolean) => void; placeholder?: string;
   autoFocus?: boolean; required?: boolean; readOnly?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -26,7 +26,7 @@ export function MetadataSuggestionInput({ label, fieldKey, value, onChange, plac
   }, []);
   useEffect(() => { setActive(-1); }, [items]);
   const choose = (item: TypeaheadSuggestion) => {
-    onChange(item.value);
+    onChange(item.value, true);
     setDismissed(item.value);
     setActive(-1);
   };

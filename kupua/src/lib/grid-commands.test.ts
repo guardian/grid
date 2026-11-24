@@ -22,6 +22,28 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("sets and clears only the advertised photoshoot membership", async () => {
+    const path = "/metadata/fixture/photoshoot";
+    let uri = metadataOrigin + path, title = "";
+    const writes: unknown[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api") return root();
+      if (url === "/grid-auth/session") return session();
+      if (!init?.method) return Response.json({ data: { photoshoot: { uri, ...(title && { data: { title } }) } } });
+      writes.push([url, init.method, init.body]);
+      title = init.body ? JSON.parse(String(init.body)).data.title : "";
+      return new Response(null, { status: 202 });
+    });
+    const { executeGridCommand } = await import("./grid-commands");
+    const save = (value: string, projectionMatches = false) => executeGridCommand({ operation: "edit-photoshoot", imageId: command.imageId, resource: command.resource, value, projectionMatches });
+    expect((await save(" Desk ")).outcome).toBe("acknowledged");
+    expect((await save("Desk", true)).outcome).toBe("unchanged");
+    title = "";
+    expect((await save("")).outcome).toBe("acknowledged");
+    uri = metadataOrigin + "/metadata/another/photoshoot";
+    expect((await save("Desk")).outcome).toBe("blocked");
+    expect(writes).toEqual([["/grid-metadata" + path, "PUT", JSON.stringify({ data: { title: "Desk" } })], ["/grid-metadata" + path, "DELETE", undefined]]);
+  });
   it("refuses label additions that cannot be addressed as members", async () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);

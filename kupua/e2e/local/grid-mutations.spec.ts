@@ -240,7 +240,22 @@ test.describe("U3 isolated uploads", () => {
       expect(Math.abs((await fieldArrow(id).boundingBox())!.x - expectedEdge)).toBeLessThanOrEqual(1);
     }
     await expect(fieldArrow("collections")).toBeDisabled();
-    await expect(fieldArrow("photoshoot")).toBeDisabled();
+    const shoot = first.getByLabel("Photoshoot", { exact: true });
+    const memberships = () => Promise.all(ids.map(async id => (await (await page.request.get(`${origin}/api/images/${id}`)).json()).data.userMetadata.data.photoshoot.data?.title ?? ""));
+    await shoot.fill("Desk assignment");
+    await page.clock.runFor(700);
+    expect(await memberships()).toEqual(["", "", ""]);
+    await shoot.press("Tab");
+    await expect.poll(memberships).toEqual(["Desk assignment", "", ""]);
+    await first.getByRole("button", { name: "Apply Photoshoot to 2 other images", exact: true }).click();
+    await expect.poll(memberships).toEqual(ids.map(() => "Desk assignment"));
+    await shoot.fill(""); await shoot.press("Tab");
+    await expect.poll(memberships).toEqual(["", "Desk assignment", "Desk assignment"]);
+    await first.getByRole("button", { name: "Clear Photoshoot on 2 other images", exact: true }).click();
+    await expect(first.getByRole("button", { name: "Clear Photoshoot on 2 other images?", exact: true })).toBeVisible();
+    expect(await memberships()).toEqual(["", "Desk assignment", "Desk assignment"]);
+    await first.getByRole("button", { name: "Clear Photoshoot on 2 other images?", exact: true }).click();
+    await expect.poll(memberships).toEqual(["", "", ""]);
     await expect(fieldArrow("labels")).toBeEnabled();
     await expect(fieldArrow("keywords")).toHaveAttribute("title", "Clear keywords on 2 other images");
     const leasePlus = await first.getByRole("button", { name: "Add lease", exact: true }).boundingBox();
@@ -4249,6 +4264,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
   let connectedLabels = ["news"];
   const otherLabels = new Map<string, string[]>();
   let connectedVersion = 0;
+  const shoots = new Map<string, { title: string }>();
   let releaseMetadata: (() => void) | undefined;
   let heldMetadata: Promise<void> | undefined;
   const imageEntity = (imageId: string) => ({
@@ -4259,7 +4275,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + connectedVersion * 1000).toISOString(),
         labels: { data: (connected ? imageId === "fixture" ? connectedLabels : otherLabels.get(imageId) ?? ["news"] : ["news"]).map(data => ({ data })) }, archived: { data: false },
-        metadata: {}, usageRights: {}, photoshoot: {} } },
+        metadata: {}, usageRights: {}, photoshoot: { data: shoots.get(imageId) } } },
       source: { dimensions: { width: 800, height: 600 }, mimeType: "image/jpeg" },
       thumbnail: { secureUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", dimensions: { width: 1, height: 1 } },
       usages: { data: [] }, leases: { data: { leases: [] } }, collections: [],
@@ -4309,11 +4325,14 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     if (url.origin === authOrigin) body = { data: { user: { permissions: {} } } };
     const imageId = url.pathname.split("/")[2];
     const labels = connected ? imageId === "fixture" ? connectedLabels : otherLabels.get(imageId) ?? ["news"] : ["fixture label"];
-    if (url.origin === metadataOrigin) body = { data: { labels: { uri: `${metadataOrigin}/metadata/${imageId}/labels`,
+    if (url.origin === metadataOrigin) body = { data: { photoshoot: { uri: `${metadataOrigin}/metadata/${imageId}/photoshoot`, data: shoots.get(imageId) }, labels: { uri: `${metadataOrigin}/metadata/${imageId}/labels`,
       data: labels.map(label => ({
         uri: `${metadataOrigin}/metadata/${imageId}/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label,
       })) } } };
     const status = url.origin === metadataOrigin && ["POST", "DELETE"].includes(request.method()) ? writeStatus : 200;
+    if (connected && url.origin === metadataOrigin && url.pathname === `/metadata/${imageId}/photoshoot` && request.method() === "PUT") {
+      shoots.set(imageId, request.postDataJSON().data); connectedVersion++;
+    }
     if (connected && url.origin === metadataOrigin && status === 200 && ["POST", "DELETE"].includes(request.method())) {
       const updated = request.method() === "POST"
         ? [...new Set([...labels, ...(request.postDataJSON().data as string[])])]
@@ -4323,7 +4342,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       connectedVersion++;
     }
     await route.fulfill({ status, json: status === 419 ? { errorKey: "authentication-expired" } : body,
-      headers: { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "content-type" } });
+      headers: { "Access-Control-Allow-Origin": appOrigin, "Access-Control-Allow-Credentials": "true", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS", "Access-Control-Allow-Headers": "content-type" } });
   });
   try {
     await page.goto(appOrigin);
@@ -4595,7 +4614,19 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       await expect(sheet.getByRole("complementary", { name: "Label activity" })).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath("bulk-labels-compact.png") });
-    } finally { await compact.detach(); }
+    } finally {
+      await compact.send("Emulation.setTouchEmulationEnabled", { enabled: false });
+      await compact.detach();
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.evaluate(() => (window as CommandWindow).editorFixture.navigate("fixture"));
+    await page.getByRole("button", { name: "Edit Photoshoot", exact: true }).click();
+    await page.getByLabel("Photoshoot", { exact: true }).fill("Hosted assignment");
+    const beforeShoot = requests.length;
+    await page.getByRole("button", { name: "Commit Photoshoot", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Edit Photoshoot", exact: true })).toBeEnabled();
+    await expect(page.getByText("Hosted assignment", { exact: true })).toBeVisible();
+    expect(requests.slice(beforeShoot).filter(request => request.method === "PUT").map(request => [request.origin, request.path])).toEqual([[metadataOrigin, "/metadata/fixture/photoshoot"]]);
     expect(escaped).toEqual([]);
   } finally {
     releaseMetadata?.();

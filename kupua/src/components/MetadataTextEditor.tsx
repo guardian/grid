@@ -68,7 +68,7 @@ function dateTimeDraft(value: string): string {
 
 export function MetadataTextInput({ field, value, onChange, placeholder, autoFocus = true, natural = false,
   required = false, readOnly = false, textareaRef, describedBy }: {
-  field: FieldDefinition; value: string; onChange: (value: string) => void; placeholder?: string;
+  field: FieldDefinition; value: string; onChange: (value: string, chosen?: boolean) => void; placeholder?: string;
   autoFocus?: boolean; natural?: boolean; required?: boolean; readOnly?: boolean;
   textareaRef?: React.Ref<HTMLTextAreaElement>; describedBy?: string;
 }) {
@@ -92,6 +92,8 @@ export function MetadataTextInput({ field, value, onChange, placeholder, autoFoc
     : <MetadataSuggestionInput label={field.label} fieldKey={field.cqlKey ?? field.id} value={value}
       placeholder={placeholder} autoFocus={autoFocus} required={required} readOnly={readOnly} onChange={onChange} />;
 }
+
+const photoshootNotice = "Changing a photoshoot can change inherited syndication rights on other images.";
 
 export const MetadataFormField = memo(function MetadataFormField({ imageId, field, value, editable, pendingGrant = false, required = false, editorialGuidance = false }: {
   imageId: string; field: FieldDefinition; value: string; editable: boolean; pendingGrant?: boolean; required?: boolean; editorialGuidance?: boolean;
@@ -131,13 +133,17 @@ export const MetadataFormField = memo(function MetadataFormField({ imageId, fiel
     onFocus={event => { if (editable && event.target.matches("input,textarea,select")) setEditingHere(true); }}
     onCompositionStart={() => { composing.current = true; editor.getState().pause(imageId, field.id); }}
     onCompositionEnd={() => { composing.current = false; if (editable) editor.getState().schedule(imageId, field.id); else if (pendingGrant) editor.getState().deferDraft(imageId, field.id); }}
-    onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setEditingHere(false); if (!composing.current && editable) editor.getState().flush(imageId, field.id); } }}>
+    onBlur={event => {
+      const leftField = !event.currentTarget.contains(event.relatedTarget);
+      if (leftField) setEditingHere(false);
+      if ((leftField || field.id === "photoshoot" && event.target.matches("input")) && !composing.current && editable) editor.getState().flush(imageId, field.id);
+    }}>
     <div className="flex items-baseline justify-between gap-2 text-xs text-grid-text-dim">
       <span>{field.label}{required && <span className="text-grid-error"> *</span>}</span>
     </div>
     <div className="metadata-form-input" data-tool-slot={editor.getState().connected || undefined} data-field-state={state} data-grant-pending={pendingGrant || undefined}>
     <MetadataTextInput field={field} value={displayed} placeholder={placeholder} describedBy={showGuidance && guidance ? hintId : undefined} autoFocus={false} natural required={required} readOnly={!editable && !(editingHere && pendingGrant)}
-      onChange={next => {
+      onChange={(next, chosen) => {
       if (!editable && !(editingHere && pendingGrant)) return;
         const nextValue = field.id !== "metadata_dateTaken" || !next ? next
           : next === baseline.slice(0, 19) ? baseline : `${next}.000`;
@@ -147,12 +153,16 @@ export const MetadataFormField = memo(function MetadataFormField({ imageId, fiel
           : undefined;
         useMetadataDrafts.getState().setDraft(imageId, field.id, baseline, nextValue, pending, dateInstant);
         if (!editable && pendingGrant) editor.getState().deferDraft(imageId, field.id);
-        if (!composing.current && editable) editor.getState().schedule(imageId, field.id);
+        if (!composing.current && editable) {
+          if (chosen && field.id === "photoshoot") editor.getState().flush(imageId, field.id);
+          else editor.getState().schedule(imageId, field.id);
+        }
       }} />
     <MetadataBatchArrow imageId={imageId} fieldId={field.id} label={field.label} value={draft?.dateInstant ?? draft?.value ?? value} disabled={!editable || composing.current}
       source={state && id !== undefined ? { id, state, detail, dismiss: reload ? undefined : () => { dismiss(id); fieldRef.current?.querySelector<HTMLElement>("input,textarea,select")?.focus(); } } : undefined} />
     </div>
     {showGuidance && <p className="grid text-xs"><span aria-hidden="true" className="invisible col-start-1 row-start-1">{shortHint}</span><span id={hintId} className="col-start-1 row-start-1 text-grid-warning">{guidance}</span></p>}
+    {field.id === "photoshoot" && editable && <p className="text-xs text-grid-text-dim">{photoshootNotice}</p>}
   </div>;
 });
 
@@ -306,6 +316,7 @@ export function MetadataTextEditor({ field, targetIds, selectionKey, retainHint,
           {gridConfig.imageTypes.map((value, index) => <option key={value} value={index}>{value}</option>)}
         </select> : <MetadataTextInput field={field} value={draft} placeholder={mixedPlaceholder} onChange={updateDraft} />}
       {!inputValid && <p id={validationId} role="alert" className="mt-1 text-xs text-grid-error">Enter a valid date and time.</p>}
+      {field.id === "photoshoot" && <p className="text-xs text-grid-text-dim">{photoshootNotice}</p>}
       <div className="metadata-edit-footer">
         {control === "datetime-local" && <button type="button" className="metadata-edit-tool" aria-label="Clear Taken on"
           title="Date clearing is unavailable until Grid supports it" disabled>

@@ -1,7 +1,7 @@
 import { createMetadataEditExecution, type MetadataEditReceipt, type MetadataEditObservation } from "./metadata-edit-execution";
 import { metadataWriteFingerprint, type AddLabelsCommand, type GridCommandResult, type MetadataCommand, type RightsCommand, type LeaseCommand, type ObserveRights } from "./grid-commands";
 import { leaseChangeForImage, leaseSetKey, type LeaseChange } from "./lease-change";
-import type { LabelListCommand } from "./grid-commands";
+import type { LabelListCommand, PhotoshootCommand } from "./grid-commands";
 import { BATCH_POLICY, type BatchPacing } from "./batch-execution";
 import { attachedEnrichment } from "@/stores/enrichment-store";
 
@@ -47,29 +47,35 @@ export function createRightsReadback(readImages: MetadataEditObservation["readIm
 }
 
 export type MetadataIntent = (Pick<MetadataCommand, "fieldId" | "action" | "value">
+  | { fieldId: "photoshoot"; action: "overwrite"; value: string }
   | { fieldId: "usageRights_category"; action: "overwrite"; value: RightsCommand["value"] }
   | { fieldId: "leases"; action: "overwrite"; value: LeaseChange }
   | { fieldId: "labels"; action: "add" | "remove" | "overwrite"; value: string | string[] }) & { targetIds: readonly string[]; removed?: string[] };
-export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand;
+export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand | PhotoshootCommand;
 export type MetadataReceipt = MetadataEditReceipt<MetadataIntent>;
+
+export function matchesPhotoshoot(image: import("@/types/image").Image, title: string) {
+  return !!image.userMetadata && (title ? image.userMetadata.photoshoot?.title === title : !image.userMetadata.photoshoot);
+}
 
 export function createMetadataOperation(
   execute: (command: EditorCommand, observeRights?: ObserveRights, onDerivedDispatch?: import("./grid-commands").DerivedDispatch) => Promise<GridCommandResult>,
   observation: MetadataEditObservation,
-  execution?: { wait?: Promise<void>; pacing: BatchPacing; continueAfterLocalBlock?: boolean; dispatchConcurrency?: number; onDerivedDispatch?: import("./grid-commands").DerivedDispatch },
+  execution?: { wait?: Promise<void>; pacing: BatchPacing; continueAfterLocalBlock?: boolean; dispatchConcurrency?: number; matchingPhotoshoots?: ReadonlySet<string>; onDerivedDispatch?: import("./grid-commands").DerivedDispatch },
   perImageIntents?: ReadonlyMap<string, MetadataIntent>,
 ) {
   const observeRights = createRightsReadback(observation.readImages);
   return createMetadataEditExecution<MetadataIntent, EditorCommand>({
     dispatchConcurrency: execution?.dispatchConcurrency,
     valid: intent => intent.targetIds.length > 0 && intent.targetIds.every(id => /^[a-zA-Z0-9_-]+$/.test(id)),
-    normalize: intent => intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "labels" || intent.fieldId === "leases" ? { ...intent }
+    normalize: intent => intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "labels" || intent.fieldId === "leases" || intent.fieldId === "photoshoot" ? { ...intent }
       : { ...intent, value: typeof intent.value === "string" ? intent.value : Array.isArray(intent.value) ? [...intent.value] : Object.freeze({ ...intent.value }) },
     unsupported: () => false,
-    metadataWitness: (image, input) => ["labels", "leases"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
+    metadataWitness: (image, input) => ["labels", "leases", "photoshoot"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
       ? undefined : metadataWriteFingerprint(image.userMetadata?.metadata),
     command: (input, imageId, resource) => {
       const intent = perImageIntents?.get(imageId) ?? input;
+      if (intent.fieldId === "photoshoot") return { operation: "edit-photoshoot", imageId, resource, value: intent.value, projectionMatches: execution?.matchingPhotoshoots?.has(imageId) === true };
       if (intent.fieldId === "leases") return { operation: "edit-leases", imageId, resource, value: leaseChangeForImage(intent.value, imageId) };
       if (intent.fieldId === "usageRights_category") return { operation: "edit-rights", imageId, resource, value: intent.value };
       if (intent.fieldId === "labels" && (intent.action !== "add" || intent.removed?.length)) {
@@ -83,6 +89,7 @@ export function createMetadataOperation(
     },
     matches: (image, intent, result) => {
       intent = perImageIntents?.get(image.id) ?? intent;
+      if (intent.fieldId === "photoshoot") return matchesPhotoshoot(image, intent.value);
       if (intent.fieldId === "leases") {
         const records = image.leases?.leases;
         const change = intent.value;

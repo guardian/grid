@@ -17,7 +17,7 @@ synthetic direct-TEST reproduction and verification passed, but natural-workflow
 
 ## At a Glance
 
-**Latest intake: 22 November 2026.** Existing entries retain their cited verification dates.
+**Latest intake: 24 November 2026.** Existing entries retain their cited verification dates.
 The tables below list open defects,
 approval/integration/review tasks or explicit residuals; completed bounded repairs and verification are listed separately.
 A remaining task does not undo a completed sub-fix. Source-only findings still need their proposed
@@ -54,10 +54,9 @@ the unchanged loader with no competing writer. The upstream fix was submitted in
 Other dispositions have not been revalidated.
 The 15 November update closes KUP-053 as a corrected mobile test: the original
 journey did not target the unfinished chip's value; the corrected touch journey passes.
-The local remote-tracking ref `origin/fix/await-message-processing` contains candidate
-changes for GRID-009/012/013, but they are not ancestors of this checkout. They were
-not reviewed, tested or checked for deployment in this reconciliation; the current
-checkout's recorded dispositions remain open.
+On 24 November the checkout was verified to contain merged [Grid PR #5231](https://github.com/guardian/grid/pull/5231)
+(`f96cba0821`). GRID-009 and GRID-013 are closed for their original completion defects;
+deployment and the separate GRID-012 disposition were not verified here.
 The19November intake adds GRID-026: local SQS receive failures terminated consumers
 without recovery in their owning loops. Backend implementation remains deferred.
 Update this overview when a detailed disposition changes.
@@ -116,11 +115,9 @@ legacy-category expansion remains accepted lag.
 | [GRID-005](#grid-005) | Zero-width narrow-image resize | Parked; source-only | Independent image-processing robustness |
 | [GRID-006](#grid-006) | Local imgops timestamp stripping | Parked; local configuration finding, unexecuted | Independent unless selected deployment reuses it |
 | [GRID-007](#grid-007) | Cleanup reads only the first page | Parked; conditional source finding | Independent operational script |
-| [GRID-009](#grid-009) | Detached syndication source/publication work | Open; source-only | Independent Grid reliability; useful future-editing contract |
 | [GRID-010](#grid-010) | Reordered delete/undelete projection | Open; source-only | Independent Grid lifecycle; useful future-editing contract |
 | [GRID-011](#grid-011) | Collection membership lost update | Open; source-only | Independent Grid concurrency; useful future-editing contract |
 | [GRID-012](#grid-012) | Premature soft-delete acknowledgement | Open; source-only | Independent Grid handoff; useful future-editing contract |
-| [GRID-013](#grid-013) | Unawaited Thrall syndication updates | Open; source-only | Independent Grid consumer reliability |
 | [GRID-014](#grid-014) | `GET /images` ignores the rights-acquired filter | Open; legacy GET confirmed, U9-A explicit AI deliberately inherits it | Independent Grid fix; new POST endpoints already honor the filter |
 | [GRID-016](#grid-016) | Search results use a weaker syndication visibility rule than single-image reads | Open; source-only (U9-A cold review); private triage | Independent Grid data-exposure fix; same deployment caveat as GRID-015 |
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
@@ -135,9 +132,10 @@ legacy-category expansion remains accepted lag.
 | [GRID-026](#grid-026) | SQS receive failure can terminate ingestion/consumer loops | Local terminal/runtime witness and source-confirmed mechanism; production incidence unmeasured | Deferred backend reliability work; no backend changes during Kupua tuning |
 | [GRID-027](#grid-027) | Lease replacement clears existing restrictions before storing their replacements | Open; source-confirmed, no observed outage | Client preflight cannot make replacement atomic |
 | [GRID-028](#grid-028) | Confirm intended per-image authorization for label writes | Open policy question; source comparison only | Resolve with metadata-editor owner before broader rollout |
+| [GRID-029](#grid-029) | Removing Photoshoot membership clears indexed explicit syndication rights | Reproduced on local Grid via APIs | Accepted prototype limitation; separate Grid repair |
 
 <details>
-<summary>Completed bounded repairs and verification: 55 IDs</summary>
+<summary>Completed bounded repairs and verification: 57 IDs</summary>
 
 | Group | Completed IDs |
 | --- | --- |
@@ -171,6 +169,7 @@ legacy-category expansion remains accepted lag.
 | Filtered Rights Creator disclosure and incremental mixed-value tooltip ranking | [KUP-054](#kup-054), [KUP-055](#kup-055) |
 | Grid independent usage exclusions and print-field resolution | [GRID-001](#grid-001), [GRID-008](#grid-008) |
 | Grid ordinary/AI deleted-search admission | [GRID-002](#grid-002), [GRID-015](#grid-015) |
+| Grid awaits syndication persistence/publication and Thrall's projection update | [GRID-009](#grid-009), [GRID-013](#grid-013) |
 
 DONE refers to the repaired or verified scope, not every adjacent behavior or future API acceptance.
 In particular, no-saved density fallback and wider native-fullscreen timing remain uncertified,
@@ -1058,7 +1057,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** delayed or failed syndication persistence/publication. Completion should include the owned source write and publication; set returns its store future while dropping the direct publish future, and delete drops the store future while returning publication. The outer photoshoot recomputation does not repair those detached outcomes.
 - **Evidence:** P33-GRID-001; [set/delete and outer composition](../../../metadata-editor/app/lib/Syndication.scala#L28), [asynchronous publisher](../../../metadata-editor/app/lib/Syndication.scala#L164), [existing pure-helper tests](../../../metadata-editor/test/lib/SyndicationTest.scala#L12). High-confidence source defect, not executed or deployed incidence.
 - **Smallest discriminator:** deferred mocked store/publisher outcomes, asserting source-before-publish and failure/completion propagation for set/delete plus photoshoot/no-photoshoot controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent Grid-only reliability defect. No present read-migration prerequisite; future editing must not assume these responses certify both stages. Distinct from Thrall's downstream [GRID-013](#grid-013).
+- **Disposition: DONE (Grid repair, 24 November).** [PR #5231](https://github.com/guardian/grid/pull/5231) sequences persistence before publication and awaits both for direct syndication set/delete. [Regression suite](../../../metadata-editor/test/lib/SyndicationTest.scala#L61). This establishes completion ordering, not the freshness of the post-write group read used to choose the published rights: an eventually consistent read may still return an older explicit value. No deployment verification or guarantee of search visibility.
 
 #### GRID-010
 **Reordered delete/undelete events can overwrite newer lifecycle state**
@@ -1221,6 +1220,12 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Owner:** Grid metadata-editor. [Label handlers](../../../metadata-editor/app/controllers/EditsController.scala#L123) authenticate; the [metadata setter](../../../metadata-editor/app/controllers/EditsController.scala#L155) also applies the uploader-or-editor check. Kupua gates its controls on an image grant; that is not server enforcement.
 - **Decision:** should a signed-in user who cannot edit an image's credit be able to add or remove its labels? Confirm the intended policy and cover it at the receiving handler before broader rollout. This is not a confirmed policy violation or a live access test.
 
+#### GRID-029
+**Removing a Photoshoot can clear an image's explicit syndication rights in search**
+- **Local reproduction, 24 November:** two previously unassigned images shared a new shoot. A had explicit published syndication rights (no acquired rights); B inherited them. Metadata-editor and media-api agreed for both before removal. Deleting only A's shoot returned 202. After projection, B correctly lost its inherited rights, but A's singleton showed no syndication rights while metadata-editor still returned its explicit rights. A separate later read confirmed the mismatch. Trial memberships and synthetic rights were removed and their absence verified through both APIs. No direct ES or partner publication.
+- **Cause:** [membership comparison and merge](../../../metadata-editor/app/lib/Syndication.scala#L47) interprets departure from the old group as loss of all rights. [Thrall](../../../thrall/app/lib/kinesis/MessageProcessor.scala#L191) applies the supplied value; it does not reread the image's explicit rights. This is not the detached-future defect fixed in GRID-009/013.
+- **Disposition: OPEN, accepted for the Kupua prototype (24 November).** A Grid repair should retain the departing member's explicit rights while its sibling loses only inferred rights. Kupua confirms membership only; it never compensates by rewriting rights. The local removal was witnessed; moving between groups and shared deployment incidence were not tested. No wider rollout decision follows.
+
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**
 - **Component / owner:** media-api deleteImage; human owner-to-confirm.
@@ -1235,7 +1240,7 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Trigger / expected / actual:** image lookup succeeds and a syndication ES update remains pending or fails. Processing completion/retry should include that update; `getImage(...).map` returns a list of futures as its value without sequencing them. The outer consumer can report completion and acknowledge while ES work is unresolved.
 - **Evidence:** coordinator check of P33's actual syndication path; [consumer](../../../thrall/app/lib/kinesis/MessageProcessor.scala#L203), [acknowledgement](../../../thrall/app/lib/ThrallStreamProcessor.scala#L108), [ES method](../../../thrall/app/lib/elasticsearch/ElasticSearch.scala#L201). High-confidence source defect, no runtime failure or message-loss incidence claimed.
 - **Smallest discriminator:** mock a successful lookup and deferred/failed ES futures; assert process completion remains pending/fails until the selected updates finish, retaining missing-image and successful controls. Proposed, not run.
-- **Dependency / disposition:** OPEN, independent Grid-only consumer reliability, distinct from metadata-editor [GRID-009](#grid-009). No new retry policy, durable outbox or current read-migration prerequisite.
+- **Disposition: DONE (Grid repair, 24 November).** [PR #5231](https://github.com/guardian/grid/pull/5231) composes the existing-image lookup with the index update via `flatMap`; the returned future waits for that update. Missing-image behaviour is unchanged. [Regression suite](../../../thrall/test/lib/kinesis/MessageProcessorTest.scala#L35). This is not an ordering, durable delivery or deployment guarantee.
 
 #### GRID-014
 **`GET /images` ignores the `hasRightsAcquired` filter**

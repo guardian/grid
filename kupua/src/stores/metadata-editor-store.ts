@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import { pillCommandField, SUBJECTS } from "@/lib/metadata-pill-fields";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
-import { createMetadataOperation, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
+import { createMetadataOperation, matchesPhotoshoot, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
 import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
 import { rightsValueSchema, type GridCommandResult, type MetadataCommand } from "@/lib/grid-commands";
 import { leaseChangeSchema, type LeaseChange } from "@/lib/lease-change";
@@ -30,6 +30,7 @@ export interface MetadataSave {
 }
 
 export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[], removed?: string[]): MetadataIntent | undefined {
+  if (fieldId === "photoshoot") return action === "overwrite" && typeof value === "string" ? { fieldId, action, value: value.trim(), targetIds } : undefined;
   if (Array.isArray(value)) {
     if (fieldId === "subjects" && action === "add" && (value.length || removed?.length) && [...value, ...(removed ?? [])].every(subject => SUBJECTS.includes(subject)))
       return { fieldId: "metadata_subjects", action, value, removed, targetIds };
@@ -157,6 +158,7 @@ export function createMetadataEditorStore(
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
       const intent: MetadataIntent = input.fieldId === "leases" ? { ...input, targetIds, value: structuredClone(input.value) } : input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds, value: Array.isArray(input.value) ? [...input.value] : input.value }
+        : input.fieldId === "photoshoot" ? { ...input, targetIds, value: input.value.trim() }
         : { ...input, targetIds, value: typeof input.value === "string" ? input.value : Array.isArray(input.value) ? [...input.value] : { ...input.value } };
       if (!newRevision) {
         const targets = new Set(targetIds);
@@ -168,6 +170,11 @@ export function createMetadataEditorStore(
       const sequence = nextEditSequence();
       const draftRevision = typeof newRevision === "number" ? newRevision : undefined;
       if (targetIds.length === 1) for (const key of keysFor(intent)) latestSingle.set(key, id);
+      if (intent.fieldId === "photoshoot" && targetIds.length > BATCH_POLICY.maxTargets) {
+        set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "finished", items: [], excluded: 0,
+          message: `Not sent: Photoshoot editing is limited to ${BATCH_POLICY.maxTargets} images per action.` }) });
+        return id;
+      }
       const release = watchQueuedLabelTargets(intent.targetIds);
       if (!release) {
         set({ saves: new Map(get().saves).set(id, { id, intent, sequence, draftRevision, state: "finished", items: [], excluded: 0,
@@ -222,7 +229,7 @@ export function createMetadataEditorStore(
       get().pause(imageId, fieldId);
       const key = keyFor(imageId, fieldId);
       deferredDrafts.delete(key);
-      if (get().connected) timers.set(key, setTimeout(() => get().flush(imageId, fieldId), 600));
+      if (get().connected && fieldId !== "photoshoot") timers.set(key, setTimeout(() => get().flush(imageId, fieldId), 600));
     },
     flush(imageId, fieldId) {
       get().pause(imageId, fieldId);
@@ -316,6 +323,7 @@ export function createMetadataEditorStore(
           const candidate = store.getState().saves.get(pending[0])!;
           if (stopped.has(candidate.id)) { pending.shift(); continue; }
           const targets = candidate.intent.targetIds;
+          if (candidate.intent.fieldId === "photoshoot" || save.intent.fieldId === "photoshoot") break;
           if (targets.length !== 1 || unique.has(targets[0]) || hasImageCommandConflict(targets[0])) break;
           pending.shift();
           group.push(candidate);
@@ -362,8 +370,11 @@ export function createMetadataEditorStore(
           if (!targets.has(imageId) && !stopped.has(owner.id)) progress.get(owner.id)!.excluded++;
         }
         if (!targets.size) continue;
+        if (save.intent.fieldId === "photoshoot" && targets.size !== ids.length) { notSent([...targets.keys()], "unavailable"); break; }
         const intents = new Map([...targets.keys()].map(imageId => [imageId, owners.get(imageId)!.intent]));
+        const shoot = save.intent.fieldId === "photoshoot" ? save.intent.value : undefined;
         const operation = createMetadataOperation(execute, turnObservation, {
+          matchingPhotoshoots: shoot === undefined ? undefined : new Set(images.filter(image => matchesPhotoshoot(image, shoot)).map(image => image.id)),
           onDerivedDispatch: (imageId, fields) => {
             const ownerId = owners.get(imageId)!.id;
             store.setState(state => {
@@ -373,7 +384,7 @@ export function createMetadataEditorStore(
             });
           },
           pacing: slot.pacing, continueAfterLocalBlock: group.length > 1,
-          dispatchConcurrency: group.length === 1 && save.intent.fieldId !== "labels" && allIds.length > 1 ? 5 : undefined,
+          dispatchConcurrency: save.intent.fieldId === "photoshoot" ? 1 : group.length === 1 && save.intent.fieldId !== "labels" && allIds.length > 1 ? 5 : undefined,
         }, intents);
         for (const member of group) running.set(member.id, operation);
         let finish!: () => void;
@@ -394,7 +405,7 @@ export function createMetadataEditorStore(
         });
         await operation.confirm({ ...save.intent, targetIds: [...targets.keys()] }, targets);
         if (!detailsTurn && !disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
-          && operation.getSnapshot()!.items.every(item => !["leases", "labels"].includes(intents.get(item.imageId)?.fieldId ?? "")
+          && operation.getSnapshot()!.items.every(item => !["leases", "labels", "photoshoot"].includes(intents.get(item.imageId)?.fieldId ?? "")
             && (item.result?.outcome === "acknowledged" || item.result?.outcome === "unchanged")
             && typeof getMetadataWriteWitness(item.imageId) === "string")) releaseDispatch();
         await done;

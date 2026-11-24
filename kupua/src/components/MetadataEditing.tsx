@@ -141,12 +141,13 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const [confirming, setConfirming] = useState<typeof batch>();
   const pill = Array.isArray(value) && ["labels", "keywords", "people", "subjects", "collections"].includes(fieldId);
   const emptyPills = pill && value.length === 0;
+  const confirmClear = emptyPills || fieldId === "photoshoot" && typeof value === "string" && !value.trim();
   useEffect(() => {
     if (!confirming) return;
-    if (confirming !== batch || !emptyPills || disabled || sourcePending) { setConfirming(undefined); return; }
+    if (confirming !== batch || !confirmClear || disabled || sourcePending) { setConfirming(undefined); return; }
     const timer = setTimeout(() => setConfirming(undefined), 5000);
     return () => clearTimeout(timer);
-  }, [confirming, batch, emptyPills, disabled, sourcePending]);
+  }, [confirming, batch, confirmClear, disabled, sourcePending]);
   const disclosure = useEditDisclosure();
   const [dismissed, setDismissed] = useState<number>();
   const showBusy = useDelayedBusy(save && save.state !== "finished" ? save.id : undefined);
@@ -158,9 +159,9 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const busy = !!save && save.state !== "finished";
   const needsAttention = !!save && save.id !== dismissed && !busy && !panelSaveSucceeded(save);
   if (hideWhenDisabled && disabled && !busy && !needsAttention) return null;
-  const unsupported = fieldId === "collections" || fieldId === "photoshoot" ? `${label} batch editing is not connected` : undefined;
+  const unsupported = fieldId === "collections" ? `${label} batch editing is not connected` : undefined;
   if (!source && !busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects" && !unsupported) return null;
-  const clear = value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
+  const clear = confirmClear || value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
     fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
     fieldId === "usageRights_category" && "category" in value && value.category === ""
   ));
@@ -172,7 +173,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
     ? `Apply ${fieldId} to ${others} (also removes ${removals.length === 1 ? `“${removals[0]}”` : `${removals.length} ${noun}`})` : `Add ${fieldId} to ${others}`
     : fieldId === "leases" ? clear ? `Clear leases on ${others}` : `Replace leases on ${peerCount === 1 ? "the" : "all"} ${others}`
     : clear ? `Clear ${label} on ${others}` : `Apply ${label} to ${others}`;
-  const question = `Remove ALL ${fieldId} from the ${others}?`;
+  const question = fieldId === "photoshoot" ? `Clear Photoshoot on ${others}?` : `Remove ALL ${fieldId} from the ${others}?`;
   const sourceIssue = !!source && source.state !== "Saving…";
   const sourceText = sourceIssue ? `${label} ${source.state.toLowerCase()}` : `Saving ${label}`;
   const captured = save?.intent.targetIds.length ?? peerCount;
@@ -183,17 +184,17 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const hasDetails = busy || needsAttention || sourceIssue || showSourceBusy;
   const receiptKey = busy || needsAttention ? `batch:${save.id}` : `source:${source?.id}`;
   const expanded = hasDetails && receiptKey === disclosure.openFor;
-  const showConfirmation = confirming === batch && emptyPills && !disabled && !sourcePending && !busy;
+  const showConfirmation = confirming === batch && confirmClear && !disabled && !sourcePending && !busy;
   const apply = (confirmed = false) => {
-    if (emptyPills && !confirmed) { setConfirming(batch); return; }
-    if (clear && !emptyPills && !window.confirm(`${applyLabel}?`)) return;
+    if (confirmClear && !confirmed) { setConfirming(batch); return; }
+    if (clear && !confirmClear && !window.confirm(`${applyLabel}?`)) return;
     if (!clear && fieldId === "leases" && !window.confirm(`Replace all leases on ${peers}?`)) return;
     const intent = metadataIntent(fieldId, "overwrite", value, batch.ids.filter(id => id !== imageId));
     if (intent) store.getState().submitArrow(removals?.length ? { ...intent, removed: removals } : intent, key);
   };
   return <><div className="metadata-batch-tool" {...disclosure.events(expanded || !!confirming, () => setConfirming(undefined))}>
     <button ref={disclosure.trigger} type="button" disabled={!hasDetails && (disabled || pill && sourcePending || !valid || !peerCount)} className="metadata-edit-tool"
-      aria-label={tooltip} title={tooltip} {...disclosure.attributes(showConfirmation || (hasDetails ? expanded : emptyPills ? false : undefined))}
+      aria-label={tooltip} title={tooltip} {...disclosure.attributes(showConfirmation || (hasDetails ? expanded : confirmClear ? false : undefined))}
       onClick={() => {
         if (hasDetails) { disclosure.toggle(receiptKey); return; }
         apply();

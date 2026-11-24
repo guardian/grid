@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 24 November 2026 - Connect Photoshoot membership editing
+
+Details and Upload use the advertised Photoshoot resource. Form saves a completed title on blur or suggestion choice; its arrow targets the other images in the open batch and confirms an empty-source clear. Direct targets are capped and membership commands are paced serially. Source and projection must agree before skipping an unchanged write. Readback confirms the target's membership, not the rights of other shoot members. GRID-029 remains a separate accepted backend limitation.
+
 ### 24 November 2026 - Keep edit feedback with the affected field, batch or file
 
 Form and Details show delayed save spinners without adding a status row, including for Location, Rights and Leases. Field and batch notices share keyboard and focus handling but report separate outcomes: autosave feedback follows the submitted draft revision, and a batch warning applies only to the other images targeted at submission. Dismissing an unconfirmed Details edit keeps the draft without resending it. Upload Description reserves space for required or short-caption guidance.

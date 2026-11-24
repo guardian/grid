@@ -65,8 +65,8 @@ own the Upload-specific evidence and remaining work.
 | Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
 | Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
-| Steps 12, 14, 16, 17, 20 | Some collection, download, photoshoot, delete and share controls prepare an action without sending it. | Collection removal/tree management; file/ZIP delivery; photoshoots, syndication and Photo Sales; soft delete/restore; clipboard, drag and embedding integrations. |
-| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases and batch Labels/Keywords/People. | U7 collection membership, photoshoot and remaining image actions; U8 integrated and target-deployment acceptance. |
+| Steps 12, 14, 16, 17, 20 | Photoshoot membership connected; some collection, download, delete and share controls prepare an action without sending it. | Collection removal/tree management; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; clipboard, drag and embedding integrations. |
+| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields and Photoshoot membership. | U7 collection membership and remaining image actions; U8 integrated and target-deployment acceptance. |
 | Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
 | Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
 
@@ -1415,7 +1415,7 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 **Built:** file upload and ordinary metadata (U1–U5), Guardian Rights (U6a), manual Leases (U6b), and the Labels, Keywords and People portion of U7. Remaining operations and U8 acceptance are open.
 
-**Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Collections and Photoshoot arrows are disabled, not connected operations. A future non-empty Collections arrow adds memberships, never propagates individual removals.
+**Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Photoshoot assigns one title or confirms a batch clear. The Collections arrow remains disabled; a future non-empty Collections arrow adds memberships, never propagates individual removals.
 
 Upload Form opens missing Rights directly for an authorised editor; opening is not a save. Other categories retain the pencil. Cost/restrictions, usability and Library status sit below the thumbnail. Library uses the existing action policy and does not archive an image. Search/Detail keep their own presentation and targets. The [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status) owns acceptance and remaining work.
 
@@ -1476,11 +1476,11 @@ automatically new UI actions just because they exist.
 
 ### Step 16. Photoshoots, Syndication Rights and Send to Photo Sales
 
-**Depends on:** steps 8-10 as applicable; source/event handoff decisions for GRID-009/013.
+**Backend boundary:** GRID-009/013's original handoff defects are fixed in [Grid PR #5231](https://github.com/guardian/grid/pull/5231). [GRID-029](bug-backlog.md#grid-029) is a separate reproduced backend defect, accepted for prototype membership editing. Removing a shoot can clear indexed explicit syndication rights while the source retains them.
 
-**Photoshoot presentation only:** suggested title/clear input prepares Not sent intent.
-Assignment/removal execution, cross-image rights effects, syndication and external
-publication remain unimplemented by this UI batch.
+**Photoshoot membership connected:** Details commits explicitly; Upload Form saves on suggestion choice or blur. A batch arrow applies the trimmed title to captured peers, with a second click to clear. At most 100 direct targets are admitted, one membership write at a time. This is not a ceiling on server-side rights recalculation. Observation confirms target membership only. No syndication editor, partner delivery or client-side rights repair.
+
+**Local verification, 24 November:** on the authenticated HTTPS Vite app, Details assigned a temporary shoot to one unassigned image (PUT 200) and cleared it (DELETE 202). Metadata-editor and media-api agreed after both actions; the image returned to its original unassigned state. This verifies local membership editing, not deployment or downstream rights correctness.
 
 Support photoshoot assignment/removal and the existing rights/syndication workflow exposed by
 the target deployment. A photoshoot change can affect rights of other images: preview that
@@ -1754,7 +1754,7 @@ own dependencies are met. Backend rollout and destructive-operation decisions re
 | GRID-012 | Source acknowledgement for soft delete, step 17. HTTP acceptance currently precedes the owned handoff. |
 | GRID-010 | Delete/restore ordering decision; mandatory protection before a separate bulk lane or stronger undo guarantee. Not a universal first-edit gate. |
 | GRID-020 | **Open, accepted for the single-operator prototype:** fresh override reads and same-client serialization mitigate but do not eliminate the race. Not a U5 blocker; concurrent-editor protection needs a separate contract. |
-| GRID-009/013 | Syndication/photoshoot source and consumer handoff, step 16; no need to hold labels hostage. |
+| GRID-009/013; GRID-029 | Original source and consumer handoff defects repaired. GRID-029 remains open and accepted for prototype Photoshoot editing. |
 | GRID-024 | **Open backend defect, mitigated in Upload:** rejected QUEUED receipts remain truthful while availability is independently confirmed. Not a U5 gate. |
 | Private write-admission findings | Maintainer review of affected mutation routes before wider activation; no security detail expansion or live probing here. |
 | GRID-003/014/016 | Revisit only where the selected syndication/tier/query path depends on them; GRID-016 is a private deployment/admission question, not a generic editor refactor. |
