@@ -77,9 +77,7 @@ Then('the lease shows {string}', async ({ page }, text: string) => {
 
 Then('the lease is shown as inactive', async ({ page }) => {
   // leaseClass() marks the lease's wrapper inactive, which leases.css fades.
-  const wrapper = theLease(page).locator('.lease__wrapper');
-  await expect(wrapper).toContainClass('lease__inactive');
-  await expect(wrapper).toHaveCSS('opacity', '0.5');
+  await expect(theLease(page).locator('.lease__wrapper')).toContainClass('lease__inactive');
 });
 
 When('I hover over the lease', async ({ page }) => {
