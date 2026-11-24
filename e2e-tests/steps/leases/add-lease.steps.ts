@@ -116,8 +116,10 @@ Then('an {string} date picker is shown for the start/end date', async ({ page },
 Then('dates before tomorrow cannot be chosen', async ({ page }) => {
   const region = leasesRegion(page);
   await datePickerButton(region, 'after').click();
-  // Pikaday marks the days before its minimum date `is-disabled`, and opens on the minimum
-  // date's month, so the first choosable day it shows is the earliest one.
+  // Pikaday, a third-party date picker, marks the days before its minimum date `is-disabled`
+  // and only with that class: they have no disabled attribute or ARIA state for a role-based
+  // locator to use. It opens on the minimum date's month, so the first choosable day it shows
+  // is the earliest one.
   const firstChoosableDay = region
     .locator('.pika-table td:not(.is-disabled):not(.is-empty)')
     .first()
