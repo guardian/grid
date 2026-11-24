@@ -155,19 +155,3 @@ export async function expectInUploadHistory(
     })
     .toContain(mediaId);
 }
-
-/** Hold the past-uploads search until the returned function is called. */
-export const holdPastUploads = async (page: Page) => {
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
-    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
-    async (route) => {
-      await released;
-      await route.continue();
-    },
-  );
-  return release;
-};

@@ -7,6 +7,8 @@ import { expect } from '@playwright/test';
 import { KAHUNA_PORT, TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
 import type { TestImage } from '../setup.ts';
+import { failRequests, holdRequests, holdRequestsUntilReleased } from '../utils/routes.ts';
+import type { RequestMatch } from '../utils/routes.ts';
 
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
@@ -65,55 +67,33 @@ export const gifImage = (): TestImage => {
 export const uniqueBatch = (base?: TestImage): string[] =>
   Array.from({ length: BATCH_SIZE }, () => uniqueImage(base).path);
 
+const ingestTransfer: RequestMatch = {
+  url: (url) => url.hostname.startsWith('localstack.'),
+  methods: ['PUT'],
+};
+
 /** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
 export const holdIngest = (page: Page, ms = 5_000) =>
-  page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await new Promise((resolve) => setTimeout(resolve, ms));
-      await route.abort();
-    },
-  );
+  holdRequests(page, ingestTransfer, () => new Promise((resolve) => setTimeout(resolve, ms)), {
+    thenAbort: true,
+  });
 
 /** Reject the transfer to the ingest bucket so the job fails. */
 export const failIngest = (page: Page) =>
-  page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await route.fulfill({ status: 403, body: 'denied' });
-    },
-  );
+  failRequests(page, ingestTransfer, { status: 403, body: 'denied' });
 
 /**
  * Make the image delete fail. Aborting the DELETE surfaces a real rejection
  * that reaches the `image-delete-failure` handler.
  */
 export const failDelete = (page: Page) =>
-  page.route(
-    () => true,
-    async (route) => {
-      if (route.request().method() !== 'DELETE') return route.fallback();
-      await route.abort();
-    },
-  );
+  failRequests(page, { url: () => true, methods: ['DELETE'] }, { abort: true });
 
 /** Hold the past-uploads search until the returned function is called. */
-export const holdPastUploads = async (page: Page) => {
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
+export const holdPastUploads = (page: Page) =>
+  holdRequestsUntilReleased(page, {
+    url: (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
   });
-  await page.route(
-    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
-    async (route) => {
-      await released;
-      await route.continue();
-    },
-  );
-  return release;
-};
 
 /** The collections/labels/keywords/photoshoot section of an image-editor. */
 export const grouping = (job: Locator) =>

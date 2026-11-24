@@ -8,8 +8,10 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
 import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
-import { KAHUNA_APP_URL, expect } from '../setup.ts';
+import { expect } from '../setup.ts';
 import { holdingConfirms } from '../utils/dialogs.ts';
+import { failRequests, holdRequests } from '../utils/routes.ts';
+import type { RequestMatch } from '../utils/routes.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 
 type Scope = Page | Locator;
@@ -76,11 +78,14 @@ export const deleteLeaseControl = (scope: Scope) =>
 export const datePickerButton = (scope: Scope, label: string) =>
   scope.getByRole('button', { name: new RegExp(`^event ${label} `) });
 
-const isLeasesService = (url: string | URL) => new URL(url).hostname.startsWith('media-leases.');
+const leasesService = (methods?: string[]): RequestMatch => ({
+  url: (url) => url.hostname.startsWith('media-leases.'),
+  methods,
+});
+
+const LEASE_WRITES = ['POST', 'PUT', 'DELETE'];
 
 const recording = new WeakSet<Page>();
-
-const isLeaseWrite = (method: string) => ['POST', 'PUT', 'DELETE'].includes(method);
 
 /**
  * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
@@ -94,35 +99,27 @@ export async function recordLeaseWrites(page: Page, testContext: TestContext): P
   testContext.shownDuringWrites ??= [];
   if (recording.has(page)) return;
   recording.add(page);
+  const writes = leasesService(LEASE_WRITES);
   // A request listener sees requests that a later route fails, too.
   page.on('request', (request) => {
-    if (isLeasesService(request.url()) && isLeaseWrite(request.method())) {
-      testContext.leaseWrites!.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    const url = new URL(request.url());
+    if (writes.url(url) && writes.methods!.includes(request.method())) {
+      testContext.leaseWrites!.push(`${request.method()} ${url.pathname}`);
     }
   });
-  await page.route(isLeasesService, async (route) => {
-    if (isLeaseWrite(route.request().method())) {
-      // The request is held until the route resolves, so this is the control mid-save.
-      const watched = testContext.watchDuringWrites ?? addLeaseButton(leasesRegion(page));
-      testContext.shownDuringWrites!.push(await watched.innerText({ timeout: 1_000 }).catch(() => ''));
-    }
-    await route.fallback();
+  // The request is held until this resolves, so this reads the control mid-save.
+  await holdRequests(page, writes, async () => {
+    const watched = testContext.watchDuringWrites ?? addLeaseButton(leasesRegion(page));
+    testContext.shownDuringWrites!.push(await watched.innerText({ timeout: 1_000 }).catch(() => ''));
   });
 }
 
 /** Make the leases service fail every `method` request the page sends it. */
 export async function failLeaseRequests(page: Page, method: 'POST' | 'DELETE'): Promise<void> {
-  await page.route(isLeasesService, async (route) => {
-    if (route.request().method() !== method) return route.fallback();
-    await route.fulfill({
-      status: 500,
-      // Readable cross-origin, so Kahuna sees the failure rather than a CORS error.
-      headers: {
-        'Access-Control-Allow-Origin': KAHUNA_APP_URL,
-        'Access-Control-Allow-Credentials': 'true',
-      },
-      json: { errorKey: 'e2e-failure', errorMessage: 'Failed by the e2e test' },
-    });
+  await failRequests(page, leasesService([method]), {
+    status: 500,
+    json: { errorKey: 'e2e-failure', errorMessage: 'Failed by the e2e test' },
+    cors: true,
   });
 }
 
