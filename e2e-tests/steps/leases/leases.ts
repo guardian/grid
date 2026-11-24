@@ -3,7 +3,7 @@
  * is the same on every surface, so locators take the surface's scope: the single image view's
  * "Leases" region, an info panel or an upload job.
  */
-import type { Locator, Page, Request } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
 import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
 import { expect } from '../setup.ts';
@@ -104,30 +104,6 @@ export async function recordLeaseWrites(page: Page, testContext: TestContext): P
   });
 }
 
-/** media-api's single image resource, e.g. /images/<sha1>, which LeasesCtrl reads leases from. */
-const isImageRead = (request: Request) =>
-  request.method() === 'GET' &&
-  new URL(request.url()).hostname.startsWith('api.') &&
-  /^\/images\/[0-9a-f]{40}$/.test(new URL(request.url()).pathname);
-
-const imageReadsInFlight = new WeakMap<Page, Set<Request>>();
-
-/**
- * Track the page's reads of single images from media-api, which is how the lease widget fetches
- * leases (leaseService.getLeases), so openAddLeaseForm can wait for them. The lease features'
- * Before hook calls this for every scenario.
- */
-export function trackImageReads(page: Page): void {
-  const inFlight = new Set<Request>();
-  imageReadsInFlight.set(page, inFlight);
-  page.on('request', (request) => {
-    if (isImageRead(request)) inFlight.add(request);
-  });
-  const settle = (request: Request) => inFlight.delete(request);
-  page.on('requestfinished', settle);
-  page.on('requestfailed', settle);
-}
-
 /** Make the leases service fail every `method` request the page sends it. */
 export async function failLeaseRequests(page: Page, method: 'POST' | 'DELETE'): Promise<void> {
   await failRequests(page, leasesService([method]), {
@@ -184,15 +160,7 @@ export async function expectShownDuringSave(
 export const notesField = (scope: Locator) => scope.getByPlaceholder('Notes...', { exact: true });
 
 /** Open the add lease form of the lease widget in `scope`. */
-export async function openAddLeaseForm(page: Page, testContext: TestContext, scope: Locator): Promise<void> {
-  // The lease widget fetches the image's leases as it renders, and closes the form when that
-  // resolves (LeasesCtrl.updateLeases), so a form opened sooner snaps shut. With no leases
-  // nothing on the page shows the fetch is done, so wait for the image reads it makes.
-  const inFlight = imageReadsInFlight.get(page);
-  if (!inFlight) throw new Error('image reads are not tracked; is the scenario tagged @leases?');
-  await expect
-    .poll(() => inFlight.size, { message: 'image reads still in flight' })
-    .toBe(0);
+export async function openAddLeaseForm(scope: Locator): Promise<void> {
   await addLeaseButton(scope).click();
   await expect(accessSelect(scope)).toBeVisible();
 }
@@ -213,7 +181,7 @@ export async function addLease(
   access: string,
   { ticked = [], notes }: { ticked?: string[]; notes?: string } = {},
 ): Promise<void> {
-  await openAddLeaseForm(page, testContext, scope);
+  await openAddLeaseForm(scope);
   await chooseAccess(testContext, scope, access);
   testContext.watchDuringWrites = addLeaseButton(scope);
   for (const checkbox of ticked) {

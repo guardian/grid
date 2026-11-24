@@ -26,8 +26,8 @@ const guDateDisplay = (date: Date) =>
 const endOfDayAfterTomorrow = (from: Date) =>
   new Date(from.getFullYear(), from.getMonth(), from.getDate() + 2, 23, 59);
 
-Given('I( have) open(ed) the add lease form', async ({ page, testContext }) => {
-  await openAddLeaseForm(page, testContext, leasesRegion(page));
+Given('I( have) open(ed) the add lease form', async ({ page }) => {
+  await openAddLeaseForm(leasesRegion(page));
 });
 
 Then('the add lease form is shown with {string} selected', async ({ page }, option: string) => {
