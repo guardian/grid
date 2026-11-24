@@ -181,7 +181,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 36, 38-39
   # Evidence: kahuna/public/js/leases/leases.js lines 59-61, 197-199
 
-  @todo
   Scenario: Saving a use lease adds it to the image
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -193,7 +192,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.js lines 59-67, 104-111, 185-195, 222-232, 297-299
   # Evidence: kahuna/public/js/services/api/leases.js lines 74-82, 96-114, 140-170
 
-  @todo
   Scenario: Allow syndication clauses are prepended to the lease notes
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -203,7 +201,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 79-88
   # Evidence: kahuna/public/js/leases/leases.js lines 73-83, 244-255
 
-  @todo
   Scenario: A deny syndication lease is saved without a start date
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image with no leases
@@ -229,7 +226,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/services/api/leases.js lines 205-207
 
 
-  @todo # Note: after declining, the controller leaves the form hidden and the add control showing
+  # Note: after declining, the controller leaves the form hidden and the add control showing
   # "Updating..." (ctrl.adding stays true). This records only the persisted outcome.
   Scenario: Declining an overwrite keeps the existing syndication lease
     Given I am signed in with edit metadata permission
@@ -264,7 +261,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/leases/leases.html lines 157-159
   # Evidence: kahuna/public/js/components/gr-confirm-delete/gr-confirm-delete.js lines 11-32
 
-  @todo
   Scenario: Confirming delete removes the lease
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -312,7 +308,6 @@ Feature: Viewing and managing an image's leases in the single image view
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 588-606
   # Evidence: kahuna/public/js/leases/leases.css lines 169-171
 
-  @todo
   Scenario: A replacing metadata template previews only its own leases
     Given I am signed in with edit metadata permission
     And the image has an active "allow-use" lease
@@ -330,11 +325,10 @@ Feature: Viewing and managing an image's leases in the single image view
     And a metadata template adds leases with a "allow-syndication" lease
     And I have opened the single image view of the image
     When I select that metadata template
-    Then the existing lease should be shown alongside the "Deny use" lease, highlighted as a preview
+    Then the existing lease should be shown alongside the "allow-use" lease, highlighted as a preview
   # Evidence: kahuna/public/js/leases/leases.html lines 126-141
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 600-606
 
-  @todo
   Scenario: Applying a metadata template shows the leases updating
     Given I am signed in with edit metadata permission
     And a metadata template adds a "deny-syndication" lease
