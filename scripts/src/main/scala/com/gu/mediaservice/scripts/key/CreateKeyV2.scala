@@ -10,10 +10,10 @@ object CreateKeyV2 extends App {
   val s3Client = new S3(s3Bucket)
 
   val parsed = KeyArgs.parse(args)
-  val apiKeyConfig = ApiKeyConfig(parsed.name, parsed.permissions, parsed.principalType, parsed.expiryDays)
+  val apiKeyConfig = ApiKeyConfig(parsed.name, parsed.permissions, parsed.principalType, parsed.expiry)
 
   val key = KeyGenerator.randomKey()
-  
-  s3Client.upload(key, apiKeyConfig)
+
+  s3Client.upload(key, apiKeyConfig, ApiKeyConfig.resolveExpiry(parsed.expiry, parsed.principalType))
 
 }

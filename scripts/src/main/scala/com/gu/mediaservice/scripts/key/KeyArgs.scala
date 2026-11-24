@@ -1,14 +1,14 @@
 package com.gu.mediaservice.scripts.key
 
 import com.gu.mediaservice.auth.Permissions
-import com.gu.mediaservice.lib.auth.{Developer, Machine, PrincipalType}
+import com.gu.mediaservice.lib.auth.{Developer, Machine, PrincipalType, Expiry, Day, Week, Month}
 import com.gu.permissions.PermissionDefinition
 
 case class KeyArgs(
                     name: String,
                     principalType: PrincipalType,
                     permissions: Seq[PermissionDefinition],
-                    expiryDays: Option[Int]
+                    expiry: Option[Expiry]
                   )
 
 object KeyArgs {
@@ -21,7 +21,7 @@ object KeyArgs {
        |  --name=<name>         Name for the key (required)
        |  --type=<type>         'developer' (default) or 'machine'
        |  --permissions=<csv>   Comma-separated list. Defaults to none.
-       |  --expiry=<days>       Optional expiry in days. Defaults to 1 day for developer keys.
+       |  --expiry=<days>       'day', 'week', or 'month' (default is 'day' for developer keys, no expiry for machine keys)
        |  --help                Show this message
        |
        |Available permissions:
@@ -74,12 +74,10 @@ object KeyArgs {
     }
     val expiryDays = options.get("expiry") match {
       case None => None
-      case Some(value) =>
-        value.toIntOption match {
-          case Some(days) if days > 0 => Some(days)
-          case _ => fail(s"invalid --expiry '$value' (expected a positive whole number of days)")
-        }
-    }
+      case Some("day") => Some(Day)
+      case Some("week") => Some(Week)
+      case Some("month") => Some(Month)
+      case Some(other) => fail(s"unknown --expiry '$other' (expected 'day', 'week', or 'month')")    }
 
     KeyArgs(name, principalType, permissions, expiryDays)
   }
