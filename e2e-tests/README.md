@@ -124,18 +124,15 @@ npm run test:report           # Playwright: http://localhost:9323
 npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
-Testcontainers' debug output (image builds, pulls, and container logs until the stack is
-up) is written to `logs/<timestamp>/testcontainers.log` on every run, in a new folder per
-session so earlier logs are kept. Check the latest one first when the stack
-fails to boot, for example with an opaque `Failed to build image`. Set
-`DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
-whole run.
+Each run prints a timestamped directory under `e2e-tests/target/logs/`. Start with
+`stack.log` to see which step failed and how long it ran. It has the same
+progress messages as the terminal, with timestamps. For more detail, look in
+`builds/<name>.log` or `containers/<name>.log`. Set `E2E_DEBUG=1` to see build and
+container output in the terminal too.
 
-CI also adds GitHub failure annotations. Both reports and their captured attachments are
-uploaded together as `e2e-report`, retained for 14 days after successful or failed runs,
-excluding cancelled runs. Failures before report generation may leave no reports to
-upload. Failed runs also upload the debug log as `testcontainers-log`, linked from an
-annotation on the job page.
+CI retains the Playwright and Cucumber reports and the stack logs in `e2e-report`
+for 14 days. A failure annotation links to the artifact. The Features UI workflow
+retains its Playwright and coverage reports and uploads the stack logs separately.
 
 ### Feature library
 
@@ -210,17 +207,19 @@ Chekov diagnostics are available at `https://chekov.local.dev-gutools.co.uk`.
 The proxy, aliases and generated leaf certificates are recreated on each fresh stack
 and torn down with it. Its built image is retained for Docker layer caching.
 
-Validate the proxy independently of Scala and the application databases:
+The stack builds the OIDC and imgops images while Elasticsearch and LocalStack
+start. It provisions LocalStack and generates Grid's config before starting the
+Grid services. With Chekov enabled, it checks the LocalStack routes before launch
+and the remaining HTTPS routes once the services are ready.
 
-```bash
-npm run test:setup      # endpoint rewriting and route registration; no Docker required
-npm run test:proxy      # route metadata and bucket rewrite unit tests
-npm run validate:proxy  # real Chekov with temporary HTTP backends; needs Docker and mkcert
-```
+[Stack startup](setup/stack-containers.ts) coordinates the
+[container definitions](setup/stack/containers.ts),
+[cleanup](setup/stack-lifecycle.ts), and [logging](setup/stack-diagnostics.ts).
 
-The smoke test checks every Grid alias, TLS hostname/CA verification, container-to-container
-DNS, S3 path/query preservation and nginx configuration, then removes its containers and
-network. It uses the same fixed ports as the stack, so stop the stack before running it.
+If startup fails or you press Ctrl-C, Grid waits for containers that are still
+starting. It stops the containers it started, removes the network, and deletes
+its generated config. From `e2e-tests`, `npm run test:stack` exercises failures
+such as interrupted startup and failed cleanup without running Docker.
 
 ### Running the tests against a stack you already started
 
@@ -229,8 +228,11 @@ multi-minute boot into a couple of seconds. Leave `npm run dev:e2e` running in o
 terminal, then use `npm test`, `npm run test:ui` or any of the others as normal — they
 attach automatically and leave the stack running when they finish.
 
-If only some services are up (usually because the stack is still booting), the run stops
-straight away and names the ports it is waiting on.
+Playwright starts a fresh stack only if every checked port refuses connections
+twice. If only some services are ready, or an endpoint times out or returns an
+HTTP error, setup reports the affected ports. Before reusing a stack, Playwright
+also checks Kahuna's HTTPS URL and the sign-in provider's OIDC issuer. CI
+requires a fresh stack.
 
 | Variable           | Effect                                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -241,5 +243,5 @@ bind-mounted and services run under `sbt run`), but _not_ changes to anything ap
 boot: generated service config, CloudFormation templates, bucket contents, OIDC users,
 permissions, Elasticsearch fixtures or seeded collections. After changing any of those, restart `dev:e2e`.
 
-Reuse also means state carries over between runs. The current suite is read-only, so this
-is harmless today, but a test that uploads or edits an image will want a fresh stack.
+Uploads and edits persist in a reused stack. Stop it before running the tests if
+you need fresh data.

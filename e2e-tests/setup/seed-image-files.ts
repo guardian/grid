@@ -33,7 +33,6 @@ function keyOf(asset: Asset | undefined): string | undefined {
 export async function seedImageFiles(
   s3: S3Client,
   coreStackProps: StackProps,
-  report: (message: string) => void,
 ): Promise<void> {
   const body = fs.readFileSync(PLACEHOLDER_PATH);
   const { ImageBucket, ThumbBucket } = coreStackProps;
@@ -54,6 +53,4 @@ export async function seedImageFiles(
       ),
     ),
   );
-
-  report(`Uploaded ${toUpload.length} image file(s) to S3 for the Elasticsearch fixtures`);
 }

@@ -10,31 +10,34 @@
  * `hits.hits[]` as `{ _id, _source }`. Each document is (re)indexed under its `_id` — the
  * stale `_index` recorded in the fixture is ignored in favour of the live alias.
  */
+import { setTimeout as delay } from 'node:timers/promises';
 import { loadImageFixtures } from './image-fixtures.ts';
 
 /** Alias the Grid app assigns to the live images index (dev service-config `es.index.aliases.current`). */
 const IMAGES_ALIAS = 'Images_Current';
 
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
 /**
  * Poll the alias until the Grid app has created the index and assigned it, so the bulk
  * insert below has a valid write target. Throws if it never appears within the timeout.
  */
-async function waitForAlias(esBaseUrl: string, timeoutMs: number): Promise<void> {
+async function waitForAlias(esBaseUrl: string, timeoutMs: number, signal?: AbortSignal): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   let lastStatus = 'no response';
   while (Date.now() < deadline) {
+    signal?.throwIfAborted();
     try {
-      const response = await fetch(`${esBaseUrl}/${IMAGES_ALIAS}`);
+      const response = await fetch(`${esBaseUrl}/${IMAGES_ALIAS}`, {
+        signal: AbortSignal.any([AbortSignal.timeout(2_000), ...(signal ? [signal] : [])]),
+      });
       if (response.ok) {
         return;
       }
       lastStatus = `HTTP ${response.status}`;
     } catch (error) {
+      signal?.throwIfAborted();
       lastStatus = error instanceof Error ? error.message : String(error);
     }
-    await sleep(1000);
+    await delay(1000, undefined, { signal });
   }
   throw new Error(
     `Elasticsearch alias '${IMAGES_ALIAS}' was not assigned within ${timeoutMs}ms (last: ${lastStatus})`,
@@ -47,12 +50,11 @@ async function waitForAlias(esBaseUrl: string, timeoutMs: number): Promise<void>
 export async function seedElasticsearch(
   esBaseUrl: string,
   startupTimeoutMs: number,
-  report: (message: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const hits = loadImageFixtures();
 
-  report(`Waiting for the '${IMAGES_ALIAS}' alias`);
-  await waitForAlias(esBaseUrl, startupTimeoutMs);
+  await waitForAlias(esBaseUrl, startupTimeoutMs, signal);
 
   // NDJSON bulk body: an index action line (targeting the document's `_id`) followed by
   // the source document, repeated for every hit.
@@ -67,6 +69,7 @@ export async function seedElasticsearch(
     method: 'POST',
     headers: { 'Content-Type': 'application/x-ndjson' },
     body,
+    signal: AbortSignal.any([AbortSignal.timeout(startupTimeoutMs), ...(signal ? [signal] : [])]),
   });
 
   if (!response.ok) {
@@ -82,6 +85,4 @@ export async function seedElasticsearch(
     const firstError = result.items.find((item) => item.index?.error)?.index?.error;
     throw new Error(`Elasticsearch bulk seed reported errors: ${JSON.stringify(firstError)}`);
   }
-
-  report(`Seeded ${hits.length} image fixture(s) into Elasticsearch alias '${IMAGES_ALIAS}'`);
 }

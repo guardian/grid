@@ -1,8 +1,7 @@
 /**
  * Playwright global teardown. Stops the stack started in `global-setup.ts`.
  */
-import { stopStack } from './stack.ts';
-import { getEnvironment } from './state.ts';
+import { getEnvironment, setEnvironment, waitForSetup } from './state.ts';
 import { readdir, readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import MCR from 'monocart-coverage-reports';
@@ -24,19 +23,49 @@ async function generateFeatureReports(): Promise<void> {
     const featureDir = `${FEATURE_COVERAGE_DIR}/${feature}`;
     await generateReport(featureDir);
     const scenariosDir = `${featureDir}/${SCENARIOS_DIR_NAME}`;
-    for (const scenario of await subdirs(scenariosDir)) await generateReport(`${scenariosDir}/${scenario}`);
+
+    for (const scenario of await subdirs(scenariosDir)) {
+      await generateReport(`${scenariosDir}/${scenario}`);
+    }
   }
 }
 
 async function globalTeardown(): Promise<void> {
-  if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
-    const results = await MCR(coverageOptions).generate();
-    if (!results || !results.files.length) {
-      throw new Error('No browser coverage generated: check fixtures and source scope');
+  await waitForSetup();
+
+  const environment = getEnvironment();
+
+  if (!environment) return;
+
+  setEnvironment(undefined);
+  const { diagnostics } = environment;
+  let failedStage: 'coverage' | 'cleanup' | undefined;
+
+  try {
+    if (process.env.GRID_DISABLE_COVERAGE !== 'true') {
+      const results = await MCR(coverageOptions).generate();
+      if (!results || !results.files.length) {
+        throw new Error('No browser coverage generated: check fixtures and source scope');
+      }
+      await generateFeatureReports();
     }
-    await generateFeatureReports();
+  } catch (error) {
+    diagnostics.error('coverage', error);
+    failedStage = 'coverage';
   }
-  await stopStack(getEnvironment());
+
+  try {
+    await environment.stop();
+  } catch (error) {
+    diagnostics.error('cleanup:stack', error);
+    failedStage ??= 'cleanup';
+  } finally {
+    diagnostics.flush();
+  }
+
+  if (failedStage) {
+    throw new Error(`Grid e2e ${failedStage} failed. See ${diagnostics.directory}/stack.log`);
+  }
 }
 
 export default globalTeardown;

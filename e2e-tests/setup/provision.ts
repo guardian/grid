@@ -23,7 +23,6 @@ import {
   DOMAIN,
   OIDC_CLIENT_ID,
   OIDC_CLIENT_SECRET,
-  OIDC_ISSUER,
   REGION,
   REPO_ROOT,
 } from './constants.ts';
@@ -54,24 +53,26 @@ async function createStack(
   cfn: CloudFormationClient,
   stackName: string,
   templatePath: string,
+  signal: AbortSignal,
 ): Promise<StackProps> {
   const templateBody = fs.readFileSync(templatePath, 'utf8');
 
-  await cfn.send(new CreateStackCommand({ StackName: stackName, TemplateBody: templateBody }));
+  await cfn.send(new CreateStackCommand({ StackName: stackName, TemplateBody: templateBody }), { abortSignal: signal });
 
   // LocalStack applies the stack in seconds; the SDK default would sit out its 30s minimum delay.
   await waitUntilStackCreateComplete(
-    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 1 },
+    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 1, abortSignal: signal },
     { StackName: stackName },
   );
 
-  return describeStack(cfn, stackName);
+  return describeStack(cfn, stackName, signal);
 }
 
 /** Logical -> physical resource ids for an already-applied stack. */
-async function describeStack(cfn: CloudFormationClient, stackName: string): Promise<StackProps> {
+async function describeStack(cfn: CloudFormationClient, stackName: string, signal?: AbortSignal): Promise<StackProps> {
   const { StackResources = [] } = await cfn.send(
     new DescribeStackResourcesCommand({ StackName: stackName }),
+    { abortSignal: signal },
   );
 
   return Object.fromEntries(
@@ -82,11 +83,12 @@ async function describeStack(cfn: CloudFormationClient, stackName: string): Prom
   );
 }
 
-export function createCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
+export function createCoreStack(cfn: CloudFormationClient, signal: AbortSignal): Promise<StackProps> {
   return createStack(
     cfn,
     CORE_STACK_NAME,
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
+    signal,
   );
 }
 
@@ -94,11 +96,12 @@ export function describeCoreStack(cfn: CloudFormationClient): Promise<StackProps
   return describeStack(cfn, CORE_STACK_NAME);
 }
 
-export function createAuthStack(cfn: CloudFormationClient): Promise<StackProps> {
+export function createAuthStack(cfn: CloudFormationClient, signal: AbortSignal): Promise<StackProps> {
   return createStack(
     cfn,
     AUTH_STACK_NAME,
     path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-auth.yml'),
+    signal,
   );
 }
 
@@ -134,13 +137,19 @@ function keyBody(pem: string): string {
   return pem.replace(/-----[^-]+-----|\s/g, '');
 }
 
-export async function seedAuthBuckets(s3: S3Client, props: StackProps, oidcIssuer = OIDC_ISSUER): Promise<void> {
+export async function seedAuthBuckets(
+  s3: S3Client,
+  props: StackProps,
+  oidcIssuer: string,
+  addSecrets: (values: readonly string[]) => void,
+): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
     publicKeyEncoding: { type: 'spki', format: 'pem' },
   });
   const privateKeyBody = keyBody(privateKey);
+  addSecrets([privateKey, privateKeyBody]);
   const publicKeyBody = keyBody(publicKey);
   const settings = [
     `privateKey=${privateKeyBody}`,
@@ -185,6 +194,7 @@ export async function seedKclLeaseTable(
   dynamo: DynamoDBClient,
   kinesis: KinesisClient,
   streamName: string,
+  signal: AbortSignal,
 ): Promise<void> {
   await dynamo.send(
     new CreateTableCommand({
@@ -194,7 +204,7 @@ export async function seedKclLeaseTable(
       BillingMode: 'PAY_PER_REQUEST',
     }),
   );
-  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60, minDelay: 1 }, { TableName: streamName });
+  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60, minDelay: 1, abortSignal: signal }, { TableName: streamName });
 
   const { Shards = [] } = await kinesis.send(new ListShardsCommand({ StreamName: streamName }));
 

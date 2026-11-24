@@ -30,7 +30,7 @@ jobs:
       run: npm ci
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
     # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
-    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # e2e-tests/setup/stack/containers.ts, bind-mounts these host dirs into the container.
     # Without this the container re-downloads the whole dependency tree from Maven
     # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
     # build files, with a prefix restore-key so an unrelated build change only
@@ -61,6 +61,7 @@ jobs:
       with:
         path: |
           **/target
+          !e2e-tests/target
           ~/.sbt
         key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
         restore-keys: |
@@ -108,6 +109,8 @@ jobs:
         # intermediate layers too, so the mise toolchain layer is reused).
         cache-from: type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main
         cache-to: ${{ github.event_name == 'push' && 'type=registry,ref=ghcr.io/guardian/grid/e2e-ci-cache:main,mode=max' || '' }}
+    - name: Check stack lifecycle and diagnostics
+      run: npm run test:stack
     - name: Set up local CA for devcontainer-nginx
       id: local-ca
       run: |
@@ -122,7 +125,8 @@ jobs:
         # Coverage runs in the Features UI job instead, to keep this release-path job fast.
         GRID_DISABLE_COVERAGE: 'true'
       run: npm test
-    - name: Upload e2e reports
+    - name: Upload e2e reports and stack logs
+      id: e2e-report
       uses: actions/upload-artifact@v7
       if: ${{ !cancelled() }}
       with:
@@ -130,23 +134,11 @@ jobs:
         path: |
           e2e-tests/playwright-report/
           e2e-tests/cucumber-report/
+          e2e-tests/target/logs/
         retention-days: 14
         if-no-files-found: ignore
-    - name: Upload testcontainers log
-      id: testcontainers-log
-      uses: actions/upload-artifact@v7
-      if: ${{ failure() }}
-      with:
-        name: testcontainers-log
-        path: e2e-tests/logs/
-        retention-days: 14
-        if-no-files-found: ignore
-    # Annotations show on the job page, which doesn't list the run's artifacts.
-    - name: Show testcontainers debug log
-      if: ${{ failure() && steps.testcontainers-log.outputs.artifact-url != '' }}
+    - name: Link failure diagnostics
+      if: ${{ failure() && steps.e2e-report.outputs.artifact-url != '' }}
       env:
-        ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
-      run: |
-        echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
-        cat logs/*/testcontainers.log
-
+        ARTIFACT_URL: ${{ steps.e2e-report.outputs.artifact-url }}
+      run: echo "::error title=Grid e2e diagnostics::See the stack logs and test reports at $ARTIFACT_URL"
