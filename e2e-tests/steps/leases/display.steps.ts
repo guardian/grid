@@ -76,7 +76,7 @@ Then('the lease shows {string}', async ({ page }, text: string) => {
 });
 
 Then('the lease is shown as inactive', async ({ page }) => {
-  // leaseClass() marks the lease's wrapper inactive, which leases.css fades.
+  // Using a class selector as changing the client code is arguably better left to the migration
   await expect(theLease(page).locator('.lease__wrapper')).toContainClass('lease__inactive');
 });
 
