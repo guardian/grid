@@ -25,8 +25,6 @@ export interface TestContext {
   dialogAnswer?: 'accept' | 'dismiss';
   /** The disposable image copy that "the image" steps refer to. */
   imageId?: string;
-  /** Requests that changed leases, as "METHOD /path" (see recordLeaseWrites). */
-  leaseWrites?: string[];
   /** When a lease access type was chosen in the add lease form. */
   accessChosenAt?: Date;
   /** Whether answerDialogs leaves confirms unanswered (see holdingConfirms). */
@@ -35,9 +33,9 @@ export interface TestContext {
   heldConfirm?: Dialog;
   /** The action that raised `heldConfirm`, which finishes once it is answered. */
   heldAction?: Promise<unknown>;
-  /** What `watchDuringWrites` showed while each lease write was in flight (see recordLeaseWrites). */
+  /** What `watchDuringWrites` showed while each lease write was in flight (see recordShownDuringSaves). */
   shownDuringWrites?: string[];
-  /** The element recordLeaseWrites reads during each lease write; the add lease control by default. */
+  /** The element recordShownDuringSaves reads during each lease write; the add lease control by default. */
   watchDuringWrites?: Locator;
   /** Ids of the images a scenario showed in search results or uploaded, in order. */
   surfaceImageIds?: string[];

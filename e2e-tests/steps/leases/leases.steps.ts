@@ -26,10 +26,10 @@ import {
   notesField,
   openAddLeaseForm,
   pollImageLeases,
-  recordLeaseWrites,
+  recordShownDuringSaves,
   saveLeaseButton,
   seedLeasedImage,
-  unchangedImageLeases,
+  storedImageLeases,
 } from './leases.ts';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -60,9 +60,9 @@ async function seedLease(
   testContext.imageId = await seedLeasedImage(seedImage, [{ access: 'allow-use', ...lease }]);
 }
 
-// Before any step loads a page, so lease steps can check what was (not) saved on any surface.
+// Before any step loads a page, so lease steps can check what was shown while saving on any surface.
 Before({ tags: '@leases' }, async ({ page, testContext }) => {
-  await recordLeaseWrites(page, testContext);
+  await recordShownDuringSaves(page, testContext);
 });
 
 Given('the image has no leases', async ({ seedImage, testContext }) => {
@@ -129,7 +129,7 @@ Then('the add lease form is hidden', async ({ page }) => {
 });
 
 Then('no lease is added to the image', async ({ page, testContext }) => {
-  expect(await unchangedImageLeases(testContext), 'the leases media-api serves').toEqual([]);
+  expect(await storedImageLeases(testContext), 'the stored leases').toEqual([]);
   await expect(leaseItems(leasesRegion(page))).toHaveCount(0);
 });
 
@@ -260,7 +260,7 @@ Then('the delete control shows {string}( again)', async ({ page }, label: string
 });
 
 Then('the lease is still on the image', async ({ page, testContext }) => {
-  expect(await unchangedImageLeases(testContext), 'the leases media-api serves').toHaveLength(1);
+  expect(await storedImageLeases(testContext), 'the stored leases').toHaveLength(1);
   await expect(leaseItems(leasesRegion(page))).toHaveCount(1);
 });
 
@@ -376,7 +376,7 @@ Then(
 );
 
 Then('the image still has only its {string} lease', async ({ page, testContext }, label: string) => {
-  expect(accesses(await unchangedImageLeases(testContext)), 'the leases media-api serves').toEqual([
+  expect(accesses(await storedImageLeases(testContext)), 'the stored leases').toEqual([
     accessOfLabel(label),
   ]);
   await expect(leaseItems(leasesRegion(page))).toHaveCount(1);

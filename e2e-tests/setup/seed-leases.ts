@@ -50,6 +50,19 @@ export async function imageLeases(mediaId: string): Promise<MediaLease[]> {
   return data.leases.data.leases;
 }
 
+/**
+ * The leases the leases service has stored for `mediaId`. It stores a change before it
+ * responds, so unlike imageLeases this needs no wait for thrall.
+ */
+export async function storedLeases(mediaId: string): Promise<SeedLease[]> {
+  const response = await fetch(`${LEASES_URL}/leases/media/${mediaId}`, { headers: HEADERS });
+  if (!response.ok) {
+    throw new Error(`Fetching leases for ${mediaId} failed: HTTP ${response.status} ${await response.text()}`);
+  }
+  const { data } = (await response.json()) as { data: { leases: SeedLease[] } };
+  return data.leases;
+}
+
 /** Poll media-api until thrall has given `mediaId` `count` leases. */
 function waitForLeaseCount(mediaId: string, count: number): Promise<MediaLease[]> {
   return pollUntil(() => imageLeases(mediaId), (leases) => leases.length === count, {
@@ -87,12 +100,7 @@ export async function seedLeases(mediaId: string, leases: SeedLease[]): Promise<
  * show none: thrall warns if the removal reaches an image copy that has already been deleted.
  */
 export async function removeLeases(mediaId: string): Promise<void> {
-  const response = await fetch(`${LEASES_URL}/leases/media/${mediaId}`, { headers: HEADERS });
-  if (!response.ok) {
-    throw new Error(`Fetching leases for ${mediaId} failed: HTTP ${response.status} ${await response.text()}`);
-  }
-  const { data } = (await response.json()) as { data: { leases: unknown[] } };
-  if (data.leases.length === 0) return;
+  if ((await storedLeases(mediaId)).length === 0) return;
   await leasesRequest('DELETE', mediaId);
   await waitForLeaseCount(mediaId, 0);
 }

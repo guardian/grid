@@ -4,8 +4,8 @@
  * "Leases" region, an info panel or an upload job.
  */
 import type { Locator, Page } from '@playwright/test';
-import { imageLeases, isLeaseAccess, seedLeases } from '../../setup/seed-leases.ts';
-import type { LeaseAccess, MediaLease, SeedLease } from '../../setup/seed-leases.ts';
+import { imageLeases, isLeaseAccess, seedLeases, storedLeases } from '../../setup/seed-leases.ts';
+import type { LeaseAccess, SeedLease } from '../../setup/seed-leases.ts';
 import { expect } from '../setup.ts';
 import { holdingConfirms } from '../utils/dialogs.ts';
 import { failRequests, holdRequests } from '../utils/routes.ts';
@@ -85,25 +85,15 @@ const leasesService = (methods?: string[]): RequestMatch => ({
 const LEASE_WRITES = ['POST', 'PUT', 'DELETE'];
 
 /**
- * Record each request the page sends to change leases in `testContext.leaseWrites`, so steps
- * can check nothing was saved, and what `testContext.watchDuringWrites` (by default the single
- * image view's add lease control) showed while each was in flight in
- * `testContext.shownDuringWrites`, so steps can check what it showed during a save without
- * racing it. The lease features' Before hook calls this for every scenario.
+ * Record what `testContext.watchDuringWrites` (by default the single image view's add lease
+ * control) showed while each lease save was in flight in `testContext.shownDuringWrites`, so
+ * steps can check what it showed during a save without racing it. The lease features' Before
+ * hook calls this for every scenario.
  */
-export async function recordLeaseWrites(page: Page, testContext: TestContext): Promise<void> {
-  testContext.leaseWrites = [];
+export async function recordShownDuringSaves(page: Page, testContext: TestContext): Promise<void> {
   testContext.shownDuringWrites = [];
-  const writes = leasesService(LEASE_WRITES);
-  // A request listener sees requests that a later route fails, too.
-  page.on('request', (request) => {
-    const url = new URL(request.url());
-    if (writes.url(url) && writes.methods!.includes(request.method())) {
-      testContext.leaseWrites!.push(`${request.method()} ${url.pathname}`);
-    }
-  });
   // The request is held until this resolves, so this reads the control mid-save.
-  await holdRequests(page, writes, async () => {
+  await holdRequests(page, leasesService(LEASE_WRITES), async () => {
     const watched = testContext.watchDuringWrites ?? addLeaseButton(leasesRegion(page));
     testContext.shownDuringWrites!.push(await watched.innerText({ timeout: 1_000 }).catch(() => ''));
   });
@@ -133,16 +123,14 @@ export const pollLeasesOf = (imageId: string) =>
 export const pollImageLeases = (testContext: TestContext) => pollLeasesOf(testContext.imageId!);
 
 /**
- * The leases media-api serves for the image a scenario opened, once the step has checked the
- * page sent no request to change them. Polling can't show something did not happen, but with
- * no change requested there is nothing for thrall to apply later, so one read is enough.
+ * The leases stored for the image a scenario opened. Polling media-api can't show something
+ * did not happen, as thrall may apply a change later; the leases service stores a change
+ * before it responds, so one read of it is enough.
  */
-export async function unchangedImageLeases(testContext: TestContext): Promise<MediaLease[]> {
-  expect(testContext.leaseWrites, 'requests to change leases').toEqual([]);
-  return imageLeases(testContext.imageId!);
-}
+export const storedImageLeases = (testContext: TestContext): Promise<SeedLease[]> =>
+  storedLeases(testContext.imageId!);
 
-export const accesses = (leases: MediaLease[]) => leases.map(({ access }) => access).sort();
+export const accesses = (leases: SeedLease[]) => leases.map(({ access }) => access).sort();
 
 /**
  * `watched` (by default the single image view's add lease control) showed `text` while a lease
