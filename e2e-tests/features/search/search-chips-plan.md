@@ -152,7 +152,7 @@ covered by manual entry and result scenarios.
 | Behavior | Fixtures and expectations |
 | --- | --- |
 | Intersections and exclusions | `harbour-daylight-jpeg`/`harbour-night-cropped-png` distinguish positive city/keyword intersections and excluded values. |
-| Category compatibility | `pay-to-use-london`/`legacy-chargeable-cardiff` match modern pay-to-use expansion; `legacy-commissioned-agency`/`pr-and-third-party` match PR expansion; `bylines-rights` and the photographer/illustrator fixtures cover other configured categories. |
+| Category compatibility | `pay-to-use-london`/`legacy-chargeable-cardiff` match modern pay-to-use expansion; `pr-and-third-party` matches PR expansion; `legacy-commissioned-agency`/`bylines-rights` match publisher-photography expansion; the photographer/illustrator fixtures cover other configured categories. |
 | Format and crops | `harbour-daylight-jpeg`/`harbour-night-cropped-png` distinguish JPEG without a crop from PNG with a crop; `tiff-identifier-over-quota` adds TIFF and `tif`. |
 | Location scope | The harbour, London and Cardiff fixtures distinguish `in`, `city` and `location` with additional metadata and a zero-match near-miss. |
 | Ownership | `staff-photo-multi-persisted`/`contract-illustration-leased` distinguish owned photographs, illustrations and aggregate ownership. |

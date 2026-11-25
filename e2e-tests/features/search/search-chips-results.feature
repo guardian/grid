@@ -106,17 +106,20 @@ Feature: Combining search filter chips
   # Evidence: common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/filters.scala lines 51-52
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 148-237, 243-270, 296-312
 
-  Scenario: Modern PR category search includes a legacy commissioned-agency fixture
+  Scenario Outline: Modern category search includes only the legacy categories it replaces
     Given I am searching chip fixtures "legacy-commissioned-agency,pr-and-third-party,bylines-rights" with all usage rights included
-    When I search for images using "category:pr-and-third-party"
-    Then the search results should contain exactly these chip fixtures:
-      | Fixture                    |
-      | legacy-commissioned-agency |
-      | pr-and-third-party         |
+    When I search for images using "<Query>"
+    Then the search results should contain exactly chip fixtures "<Matches>"
+    # title-format: Category query <Query> returns <Matches>
+
+    Examples: Category query <Query> returns <Matches>
+      | Query                          | Matches                                   |
+      | category:pr-and-third-party    | pr-and-third-party                        |
+      | category:publisher-photography | legacy-commissioned-agency,bylines-rights |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 42-54, 99-102
-  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala lines 228-253, 296-308
-  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 260-272
+  # Evidence: common-lib/src/main/scala/com/gu/mediaservice/model/UsageRights.scala lines 228-255, 686-713
+  # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 273, 284-285
 
   Scenario Outline: Supplemental usages match the requested platform status or reference on the same usage
     Given I am searching chip fixtures "split-print-and-published-usages,print-published-at-midnight,missing-metadata-unpersisted,assorted-usages-with-reference" with all usage rights included
