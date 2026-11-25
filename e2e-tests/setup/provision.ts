@@ -1,18 +1,19 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { generateKeyPairSync } from 'crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   CloudFormationClient,
   CreateStackCommand,
   DescribeStackResourcesCommand,
-  waitUntilStackCreateComplete,
+  DescribeStacksCommand,
 } from '@aws-sdk/client-cloudformation';
 import {
   CreateTableCommand,
+  DescribeTableCommand,
   DynamoDBClient,
   PutItemCommand,
-  ScanCommand,
-  waitUntilTableExists,
+  ResourceNotFoundException,
 } from '@aws-sdk/client-dynamodb';
 import { KinesisClient, ListShardsCommand } from '@aws-sdk/client-kinesis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -44,6 +45,30 @@ export function provisioningClients(endpoint: string) {
   return { cfn, s3, dynamo, kinesis };
 }
 
+async function waitForProvisioning(
+  name: string,
+  timeoutMs: number,
+  signal: AbortSignal,
+  isReady: (signal: AbortSignal) => Promise<boolean>,
+): Promise<void> {
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const pollSignal = AbortSignal.any([signal, deadline]);
+
+  try {
+    pollSignal.throwIfAborted();
+    while (!(await isReady(pollSignal))) {
+      await delay(1_000, undefined, { signal: pollSignal });
+    }
+    pollSignal.throwIfAborted();
+  } catch (error) {
+    signal.throwIfAborted();
+    if (deadline.aborted) {
+      throw new Error(`Timed out waiting for ${name} after ${timeoutMs / 1_000}s`, { cause: error });
+    }
+    throw error;
+  }
+}
+
 /**
  * Provisions the Grid core infrastructure inside LocalStack: applies the CloudFormation
  * core stack, waits for completion, reads the created resource names, and seeds the
@@ -59,11 +84,16 @@ async function createStack(
 
   await cfn.send(new CreateStackCommand({ StackName: stackName, TemplateBody: templateBody }), { abortSignal: signal });
 
-  // LocalStack applies the stack in seconds; the SDK default would sit out its 30s minimum delay.
-  await waitUntilStackCreateComplete(
-    { client: cfn, maxWaitTime: 180, minDelay: 1, maxDelay: 1, abortSignal: signal },
-    { StackName: stackName },
-  );
+  await waitForProvisioning(`CloudFormation stack ${stackName}`, 180_000, signal, async (abortSignal) => {
+    const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stackName }), { abortSignal });
+    const stack = Stacks?.[0];
+    const status = stack?.StackStatus;
+    if (!status || status === 'CREATE_IN_PROGRESS') return false;
+    if (status === 'CREATE_COMPLETE') return true;
+
+    const reason = stack?.StackStatusReason;
+    throw new Error(`CloudFormation stack ${stackName} reached ${status}${reason ? ` (${reason})` : ''}`);
+  });
 
   return describeStack(cfn, stackName, signal);
 }
@@ -209,7 +239,15 @@ export async function seedKclLeaseTable(
     }),
     { abortSignal: signal },
   );
-  await waitUntilTableExists({ client: dynamo, maxWaitTime: 60, minDelay: 1, abortSignal: signal }, { TableName: streamName });
+  await waitForProvisioning(`DynamoDB table ${streamName}`, 60_000, signal, async (abortSignal) => {
+    try {
+      const { Table } = await dynamo.send(new DescribeTableCommand({ TableName: streamName }), { abortSignal });
+      return Table?.TableStatus === 'ACTIVE';
+    } catch (error) {
+      if (error instanceof ResourceNotFoundException) return false;
+      throw error;
+    }
+  });
 
   const { Shards = [] } = await kinesis.send(
     new ListShardsCommand({ StreamName: streamName }),

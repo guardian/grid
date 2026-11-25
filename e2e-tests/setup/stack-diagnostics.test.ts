@@ -22,6 +22,8 @@ test('credentials split across chunks or lines stay out of saved and debug outpu
   diagnostics.capture('containers', 'grid', stream);
   stream.write('token=private-');
   stream.write('fixture-hidden-extension\nAuthorization: Bearer hidden-auth\n');
+  stream.write('GET /oauthCallback?code=hidden-code&');
+  stream.write('state=hidden-state 302\n');
   stream.end('hidden-key-line-1\nhidden-key-line-2');
 
   await finished(stream);
@@ -32,6 +34,7 @@ test('credentials split across chunks or lines stay out of saved and debug outpu
   for (const text of [file, terminal]) {
     assert.match(text, /token=\[REDACTED\]/);
     assert.match(text, /Authorization: \[REDACTED\]/);
+    assert.match(text, /GET \/oauthCallback 302/);
     assert.doesNotMatch(text, /private-fixture|hidden-/);
   }
 });

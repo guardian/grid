@@ -46,7 +46,8 @@ export function createStackDiagnostics(
     function redact(text: string): string {
         let safe = stripVTControlCharacters(text)
             .replace(/((?:set-cookie|cookie|authorization)\s*:\s*)[^\r\n]+/gi, "$1[REDACTED]")
-            .replace(/(gutoolsAuth-assym=)[^;\s]+/g, "$1[REDACTED]");
+            .replace(/(gutoolsAuth-assym=)[^;\s]+/g, "$1[REDACTED]")
+            .replace(/\/oauthCallback\?[^\s"'<>]*/g, "/oauthCallback");
 
         for (const secret of [...secrets].sort((first, second) => second.length - first.length)) {
             safe = safe.split(secret).join("[REDACTED]");
