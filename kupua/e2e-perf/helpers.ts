@@ -7,6 +7,66 @@ import { createPerfAuthGuard, type PerfAuthGuard } from "./auth-failure.mjs";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
 import { createPageIntegrityGuard } from "./runner-runtime.mjs";
 
+export function observeDetailMediaRequests(page: KupuaHelpers["page"]) {
+  type MediaRequest = { status?: number; finished?: boolean; failure?: string; next?: MediaRequest };
+  const requests = new Map<string, MediaRequest>();
+  const byRequest = new WeakMap<Request, MediaRequest>();
+  let truncated = false;
+  const onRequest = (request: Request) => {
+    if (request.resourceType() !== "image") return;
+    const url = request.url();
+    if (!requests.has(url) && requests.size >= 512) {
+      truncated = true;
+      return;
+    }
+    const observed = {};
+    requests.set(url, observed);
+    byRequest.set(request, observed);
+    const redirectedFrom = request.redirectedFrom();
+    const preceding = redirectedFrom && byRequest.get(redirectedFrom);
+    if (preceding) preceding.next = observed;
+  };
+  const onResponse = (response: Response) => {
+    const observed = byRequest.get(response.request());
+    if (observed) observed.status = response.status();
+  };
+  const onFinished = (request: Request) => {
+    const observed = byRequest.get(request);
+    if (observed) observed.finished = true;
+  };
+  const onFailed = (request: Request) => {
+    const observed = byRequest.get(request);
+    if (!observed) return;
+    const code = request.failure()?.errorText ?? "";
+    observed.failure = /^net::ERR_[A-Z0-9_]+$/.test(code) ? code : "unknown";
+  };
+  page.on("request", onRequest);
+  page.on("response", onResponse);
+  page.on("requestfinished", onFinished);
+  page.on("requestfailed", onFailed);
+  return {
+    async summarize() {
+      const media = await page.evaluate(() => {
+        const image = document.querySelector<HTMLImageElement>('[data-detail-image-id] img[fetchpriority="high"]');
+        return image ? { candidate: image.src, complete: image.complete, sized: image.naturalWidth > 0 } : null;
+      });
+      let request = media?.candidate ? requests.get(media.candidate) : undefined;
+      while (request?.next) request = request.next;
+      const state = !request ? "not-observed" : request.failure ? "failed" : request.finished ? "finished"
+        : request.status === undefined ? "awaiting-headers" : "awaiting-body";
+      return { state, status: request?.status ?? null, failure: request?.failure ?? null,
+        imageComplete: media?.complete ?? null, imageSized: media?.sized ?? null, truncated };
+    },
+    stop() {
+      page.off("request", onRequest);
+      page.off("response", onResponse);
+      page.off("requestfinished", onFinished);
+      page.off("requestfailed", onFailed);
+      requests.clear();
+    },
+  };
+}
+
 export function beginPerfMeasurement(id: string) {
   test.info().annotations.push({ type: "perf-active", description: id });
 }

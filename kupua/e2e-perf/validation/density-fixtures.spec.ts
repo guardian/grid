@@ -11,6 +11,41 @@ import { createRequestProbe } from "../network-probe.mjs";
 import * as densityDrivers from "../density-browser";
 import { DENSITY_PRESSURE_STEPS, summarizeDensityPressure } from "../density-pressure.mjs";
 import { AUTH_REQUIRED_MARKER, createPerfAuthGuard } from "../auth-failure.mjs";
+import { observeDetailMediaRequests } from "../helpers";
+
+test("detail media evidence follows a redirect and reports a pending body without URLs", async ({ page }) => {
+  let release = () => {};
+  const body = new Promise<void>(resolve => { release = resolve; });
+  const server = createServer((request, response) => {
+    const path = new URL(request.url ?? "/", "http://fixture.invalid").pathname;
+    if (path === "/preview") {
+      response.writeHead(302, { location: "/asset?private-marker=1" }).end();
+    } else if (path === "/asset") {
+      response.writeHead(200, { "Content-Type": "image/svg+xml" });
+      response.flushHeaders();
+      void body.then(() => response.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'));
+    } else {
+      response.writeHead(200, { "Content-Type": "text/html" })
+        .end('<div data-detail-image-id="fixture"><img src="/preview?private-marker=1" fetchpriority="high"></div>');
+    }
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Media fixture did not bind loopback");
+  const probe = observeDetailMediaRequests(page);
+  try {
+    await page.goto(`http://127.0.0.1:${address.port}`, { waitUntil: "domcontentloaded" });
+    await expect.poll(() => probe.summarize()).toEqual({ state: "awaiting-body", status: 200, failure: null,
+      imageComplete: false, imageSized: false, truncated: false });
+    release();
+    await expect.poll(() => probe.summarize()).toMatchObject({ state: "finished", imageComplete: true, imageSized: true });
+  } finally {
+    probe.stop();
+    release();
+    server.closeAllConnections();
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+});
 
 for (const failure of [401, 419, "login"] as const) {
   test(`perf authentication guard recognizes routed browser ${failure}`, async ({ page }) => {

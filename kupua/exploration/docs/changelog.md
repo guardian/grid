@@ -24,6 +24,12 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 November 2026 - Identify decoded-detail timeouts in performance reports
+
+Report the last condition that blocked decoded, visible, stable detail without logging image identities or URLs. P15 also records the initial media request state on failure and the unmeasured readiness wait on success. Allow up to 30 seconds only for P15's pre-measurement image, after canonical requests repeatedly missed the 10-second setup cutoff while awaiting headers. Report slow setup separately; all image readiness checks and measured deadlines are unchanged. Validate request-state reporting with a synthetic held image response and redirect.
+
+Keep the dashboard's source-consensus validation independent of the newest campaign's environment by varying only the source fingerprint of a fixed checkpoint.
+
 ### 25 November 2026 - Clarify Details draft and batch edit confirmations
 
 Details labels align with the first value line. Leaving an unsaved edit asks whether to discard the named field using native OK/Cancel, including before a refresh that clears the selection. Cancelling preserves the draft and the selection.

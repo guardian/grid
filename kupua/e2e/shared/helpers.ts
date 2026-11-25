@@ -1410,6 +1410,7 @@ export class KupuaHelpers {
       async ({ targetId, timeoutMs }) => {
         const deadline = performance.now() + timeoutMs;
         const selector = `[data-detail-image-id="${CSS.escape(targetId)}"]`;
+        let blocker = "no-frame-sampled";
         const stable = (left: DOMRect, right: DOMRect) =>
           Math.abs(left.top - right.top) <= 1
           && Math.abs(left.left - right.left) <= 1
@@ -1419,24 +1420,46 @@ export class KupuaHelpers {
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           const detail = document.querySelector(selector);
           const image = detail?.querySelector('img[fetchpriority="high"]') as HTMLImageElement | null;
-          if (!detail || !image || new URL(location.href).searchParams.get("image") !== targetId) continue;
-          if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) continue;
+          if (!detail || new URL(location.href).searchParams.get("image") !== targetId) {
+            blocker = "detail-identity-mismatch";
+            continue;
+          }
+          if (!image) {
+            blocker = "image-element-missing";
+            continue;
+          }
+          if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+            blocker = image.complete ? "image-has-no-intrinsic-size" : "image-load-pending";
+            continue;
+          }
           const source = image.currentSrc;
           const firstImage = image.getBoundingClientRect();
           const firstDetail = detail.getBoundingClientRect();
           if (firstImage.width <= 0 || firstImage.height <= 0
             || firstImage.bottom <= 0 || firstImage.top >= innerHeight
-            || firstImage.right <= 0 || firstImage.left >= innerWidth) continue;
-          try { await image.decode(); } catch { continue; }
+            || firstImage.right <= 0 || firstImage.left >= innerWidth) {
+            blocker = "image-not-visible-in-viewport";
+            continue;
+          }
+          try {
+            await image.decode();
+          } catch {
+            blocker = "image-decode-rejected";
+            continue;
+          }
           await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
           if (!image.isConnected || document.querySelector(selector) !== detail
             || detail.querySelector('img[fetchpriority="high"]') !== image
             || new URL(location.href).searchParams.get("image") !== targetId
-            || image.currentSrc !== source || !image.complete) continue;
+            || image.currentSrc !== source || !image.complete) {
+            blocker = "image-or-source-changed-during-check";
+            continue;
+          }
           if (stable(firstImage, image.getBoundingClientRect())
             && stable(firstDetail, detail.getBoundingClientRect())) return;
+          blocker = "image-or-detail-geometry-unstable";
         }
-        throw new Error("Expected detail image did not become decoded and visibly stable before the deadline");
+        throw new Error(`Expected detail image did not become decoded and visibly stable before the deadline (last blocker: ${blocker})`);
       },
       { targetId: expectedId, timeoutMs: timeout },
     );

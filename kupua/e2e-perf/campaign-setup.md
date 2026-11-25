@@ -93,6 +93,12 @@ The installed Playwright version can still write `error-context.md` from errors 
 code frames even with automatic page snapshots disabled. The filename alone does not
 establish that a page snapshot was captured. Treat generated error-context files as
 private; disabling snapshots is not a guarantee that all diagnostic files are absent.
+Decoded-detail timeouts include the last readiness condition that blocked the check,
+without logging the image identity or URL. That condition is not necessarily the cause.
+For P15's initial setup, the report also distinguishes a request awaiting headers
+from one awaiting its body. This unmeasured setup allows up to 30 seconds for the
+initial decoded, stable image and labels waits of 10 seconds or more as slow.
+The measured fullscreen steps retain their existing readiness deadlines.
 
 ### PP3 Private Debug Retention
 

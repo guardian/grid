@@ -102,7 +102,14 @@ test("checkpoint source comparison uses verified member consensus", () => {
     assert.equal(checkpoint.gitSha, entries[0].gitSha);
     assert.ok(entries.every(entry => entry.gitSha === checkpoint.gitSha));
   }
-  assert.match(context.KupuaPerfComparison.compare(current, data.checkpoints.recorded).reason, /source fingerprints differ/);
+  const recorded = data.checkpoints.recorded;
+  const changedSources = structuredClone(histories);
+  for (const id of recorded.members) {
+    const { family, timestamp } = data.entries[id];
+    changedSources[family].entries.find(entry => entry.timestamp === timestamp).environment.appSourceDirtyStateHash = "different";
+  }
+  const changedCheckpoint = api.build(changedSources).checkpoints.recorded;
+  assert.match(context.KupuaPerfComparison.compare(changedCheckpoint, recorded).reason, /source fingerprints differ/);
   for (const patch of [{ gitSha: "different" }, { gitSha: undefined },
     { environment: { ...histories.audit.entries.find(entry => entry.timestamp === api.members.audit).environment, appSourceDirtyStateHash: "different" } }]) {
     const changed = structuredClone(histories);

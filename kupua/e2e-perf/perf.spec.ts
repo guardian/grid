@@ -34,7 +34,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { test, expect, isMediaApiUrl } from "./helpers";
+import { test, expect, isMediaApiUrl, observeDetailMediaRequests } from "./helpers";
 import type { KupuaHelpers } from "../e2e/shared/helpers";
 import {
   GRID_ROW_HEIGHT,
@@ -2489,10 +2489,24 @@ test.describe("Rendering Performance Smoke", () => {
   // ─── P15: Image detail fullscreen persistence ─────────────────────
   // Tests fullscreen persistence across image changes (Fullscreen API).
   // Measures: jank during fullscreen toggle, CLS during image swap in fullscreen.
+  const initialDetailSetupTimeoutMs = 30_000;
   test("P15: image detail fullscreen — persists across image traversal", async ({ kupua }) => {
-    await gotoPerfSearch(kupua);
-    const startId = await kupua.openDetailForNthItem(3);
-    await kupua.waitForDecodedDetailImage(startId);
+    const mediaRequests = observeDetailMediaRequests(kupua.page);
+    let startId: string;
+    try {
+      await gotoPerfSearch(kupua);
+      startId = await kupua.openDetailForNthItem(3);
+      const waitStarted = performance.now();
+      await kupua.waitForDecodedDetailImage(startId, initialDetailSetupTimeoutMs);
+      const elapsedMs = Math.round(performance.now() - waitStarted);
+      console.log(`P15 initial detail ready: ${elapsedMs}ms${elapsedMs >= 10_000 ? " (slow setup; not measured)" : ""}`);
+    } catch (error) {
+      const evidence = await mediaRequests.summarize().catch(() => ({ state: "page-unavailable" }));
+      console.log(`P15 initial detail media evidence: ${JSON.stringify(evidence)}`);
+      throw error;
+    } finally {
+      mediaRequests.stop();
+    }
 
     await injectPerfProbes(kupua);
     await kupua.page.waitForTimeout(300);
