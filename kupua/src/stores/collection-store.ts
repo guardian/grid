@@ -239,7 +239,7 @@ async function collectionServiceUri(): Promise<string | null> {
  * Fetch the collection tree from the collections service.
  * Returns null on any error (network, non-2xx, unexpected shape).
  */
-async function fetchCollectionTree(base: string): Promise<CollectionNode | null> {
+export async function fetchCollectionTree(base: string, fresh = false): Promise<CollectionNode | null> {
   try {
     const hosted = isHostedBuild();
     const api = import.meta.env.VITE_USE_MEDIA_API === "true";
@@ -247,7 +247,7 @@ async function fetchCollectionTree(base: string): Promise<CollectionNode | null>
       ? gridServiceUrl("collections", `${base}/collections`, "/collections", base)
       : `${base}/collections`;
     if (!url) return null;
-    const res = await fetch(url, { credentials: "include" });
+    const res = await fetch(url, { credentials: "include", ...(fresh && { redirect: "error", cache: "no-store", signal: AbortSignal.timeout(15000) }) });
     if (!res.ok) return null;
     const json: CollectionsApiResponse = await res.json();
     // The API returns { data: { basename: "root", children: [...CollectionNode] } }.
@@ -255,7 +255,7 @@ async function fetchCollectionTree(base: string): Promise<CollectionNode | null>
     // it's a bare { basename, children } object. Synthesise a proper root so that
     // buildSubtreeCounts and CollectionTree can rely on the consistent node shape.
     const rootData = json?.data as unknown as { basename?: string; children?: CollectionNode[] };
-    if (!rootData?.children) return null;
+    if (!Array.isArray(rootData?.children)) return null;
     return {
       uri: "",
       data: {
@@ -264,7 +264,7 @@ async function fetchCollectionTree(base: string): Promise<CollectionNode | null>
         fullPath: [],
       },
       links: [],
-      actions: [],
+      actions: Array.isArray(json.actions) ? json.actions : [],
     };
   } catch {
     return null;

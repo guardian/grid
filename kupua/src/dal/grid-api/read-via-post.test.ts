@@ -236,8 +236,12 @@ it("admits only supported Vite transport shapes with startup-captured proxy targ
         fixedGuard({ method: "GET", url: "/session?target=https://unexpected.example.test" } as never, response as never, next);
         if (service === "collections") {
           fixedGuard({ method: "DELETE", url: "/collections" } as never, response as never, next);
-          fixedGuard({ method: "POST", url: "/collections" } as never, response as never, next);
           fixedGuard({ method: "GET", url: "/collections/other" } as never, response as never, next);
+          expect(next).not.toHaveBeenCalled();
+          for (const [method, url] of [["POST", "/collections"], ["POST", "/collections/Desk"], ["DELETE", "/collections/Desk/Finals"]]) {
+            fixedGuard({ method, url } as never, response as never, next);
+            expect(next).toHaveBeenCalledOnce(); next.mockClear();
+          }
         }
         if (service === "leases") {
           fixedGuard({ method: "POST", url: "/leases/media/fixture" } as never, response as never, next);

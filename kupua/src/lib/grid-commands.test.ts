@@ -26,11 +26,19 @@ describe("Grid command admission", () => {
     const { metadataIntent } = await import("../stores/metadata-editor-store");
     const targets = ["first", "second"];
     for (const action of ["add", "remove"]) expect(metadataIntent("collections", action, "desk/news", targets)).toEqual({ fieldId: "collections", action, value: ["desk/news"], targetIds: targets });
-    expect(metadataIntent("collections", "overwrite", ["desk/news", "front"], targets)).toEqual({ fieldId: "collections", action: "add", value: ["desk/news", "front"], targetIds: targets });
+    expect(metadataIntent("collections", "overwrite", ["desk/news", "front"], targets)).toEqual({ fieldId: "collections", action: "add", fillMissing: true, value: ["desk/news", "front"], targetIds: targets });
     expect(metadataIntent("collections", "overwrite", [], targets)).toEqual({ fieldId: "collections", action: "overwrite", value: [], targetIds: targets });
   });
-  it("admits only local collection membership routes, not tree writes", async () => {
+  it("separates collection membership routes from narrowly admitted tree writes", async () => {
     const { isCollectionMembershipRequest: admits } = await import("./grid-mutation-policy");
+    const { isCollectionTreeWrite: tree } = await import("./collection-tree-policy");
+    expect(tree("POST", "/collections")).toBe(true);
+    for (const method of ["POST", "DELETE"]) {
+      expect(tree(method, "/collections/Desk%20A/Finals%20%26%20pictures")).toBe(true);
+      for (const path of ["/collections/", "/collections/a//b", "/collections/%2e%2e", "/collections/a%2Fb", "/collections/a%5Cb", "/collections/x?y", "/collections/%", "/corrected-collections"]) expect(tree(method, path)).toBe(false);
+    }
+    expect(tree("DELETE", "/collections")).toBe(false);
+    expect(tree("PUT", "/collections/Desk")).toBe(false);
     expect(admits("GET", "/images/fixture")).toBe(true);
     expect(admits("POST", "/images/fixture")).toBe(true);
     expect(admits("DELETE", "/images/fixture/Kupua%20local/Election%20desk")).toBe(true);
@@ -59,7 +67,7 @@ describe("Grid command admission", () => {
       if (url === "/api" + image) return Response.json({ data: { id: "fixture", collections: stored ? [{ data: member, actions: [{ name: "remove", method: "DELETE", href: removeHref }] }] : [] }, actions: [{ name: "add-collection", method: "POST", href: origin + image }] });
       if (url === "/grid-local-collections" + image && !init?.method) return stored ? Response.json({ data: [member] }) : Response.json({ errorKey: "not-found", errorMessage: emptyRecord ? "No collections found" : "Unknown route" }, { status: 404 });
       writes.push([init?.method, url, init?.body]); stored = init?.method === "POST";
-      return new Response(null, { status: 200 });
+      return stored ? Response.json({ data: { ...member, actionData: { date: "2026-11-24T12:01:00Z" } } }) : new Response(null, { status: 200 });
     });
     const { executeGridCommand } = await import("./grid-commands");
     const { useCollectionStore } = await import("@/stores/collection-store");
@@ -69,12 +77,14 @@ describe("Grid command admission", () => {
     emptyRecord = true;
     expect((await change("add", ["Unknown"])).outcome).toBe("blocked");
     expect((await change("add")).outcome).toBe("acknowledged");
-    expect((await change("add")).outcome).toBe("unchanged");
+    expect(await change("add")).toMatchObject({ outcome: "acknowledged", expected: { "filed:desk a": "2026-11-24T12:01:00Z" } });
+    expect((await executeGridCommand({ operation: "edit-memberships", imageId: "fixture", action: "add", pathIds: [member.pathId], fillMissing: true })).outcome).toBe("unchanged");
     removeHref = `${origin}/images/other/Desk%20A`;
     expect((await change("remove")).outcome).toBe("blocked");
     removeHref = memberUri;
     expect((await change("remove")).outcome).toBe("acknowledged");
-    expect(writes).toEqual([["POST", "/grid-local-collections/images/fixture", JSON.stringify({ data: member.path })], ["DELETE", "/grid-local-collections/images/fixture/Desk%20A", undefined]]);
+    const post = ["POST", "/grid-local-collections/images/fixture", JSON.stringify({ data: member.path })];
+    expect(writes).toEqual([post, post, ["DELETE", "/grid-local-collections/images/fixture/Desk%20A", undefined]]);
   });
 
   it("sets and clears only the advertised photoshoot membership", async () => {

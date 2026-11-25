@@ -1,8 +1,8 @@
 # Collections — Architecture
 
 > Permanent reference for how the collections feature works in Kupua.
-> Covers browsing and editing image membership. Tree creation, deletion and
-> restructuring are separate work. Implementation history lives in the [changelog](../changelog.md).
+> Covers browsing, image membership, root/subcollection creation and leaf deletion.
+> Rename and move are not supported. Implementation history lives in the [changelog](../changelog.md).
 >
 > Companion: [`../01 Research/enrichment-strategy.md §D`](../01%20Research/enrichment-strategy.md)
 > for the full ES data model and sort mechanics.
@@ -35,10 +35,7 @@ Receipts distinguish a rejected change from an uncertain or partially completed 
   or fallback when discovery fails. Local direct-ES uses `http://localhost:9010`;
   direct-TEST leaves the tree unavailable. The service returns a pre-nested tree;
   no client-side tree builder is needed. Requests include credentials. Vite uses a
-  fixed proxy for the exact local Collections origin; tree access remains GET-only.
-  Per-image membership commands are separately admitted behind the startup editing preference;
-  tree writes are not admitted. Other advertised
-  HTTPS addresses remain direct requests with destination-owned CORS and cookies.
+  fixed proxy for the exact local Collections origin; supported tree and membership writes are gated at the command boundary by the startup editing preference. Vite uses direct credentialed commands for the exact advertised TEST Collections origin; hosted uses the validated service directly. This routing support is not a shared-environment trial. Direct-ES remains read-only.
 
 3. **Counts = whole-library ES agg in the checkbox's scope.** Terms agg on
    `collections.pathId` (size 6000, covers PROD's 5,350+ unique values), not scoped
@@ -355,7 +352,7 @@ designed but not needed until users report orientation loss in deep trees.
 
 ## 12. Explicit non-goals and deferred work (Phase 2)
 
-- **Tree editing** (create/delete nodes and decide populated-leaf behavior); rename/move is separate from membership edits.
+- **Tree restructuring:** rename, move, cascade and drag-to-reparent are not supported.
 - **Dual counts** (global + in-current-search, like `Getty (31/47)`) — worth
   user-testing demand first.
 - **Per-collection date on cells** — only differs from max-date when image belongs to
@@ -363,12 +360,49 @@ designed but not needed until users report orientation loss in deep trees.
   filters (e.g. `~sport` matching images in `sport/football`), there's no direct
   `sport` entry in `image.collections` anyway. Not worth the complexity.
 - **Cmd/Ctrl-A in collection** — same concerns as general select-all (scale).
-- **Multiple simultaneous collection filters** — Kahuna doesn't support this; excluded.
+- Plain browse replaces other collection filters. Shift-click adds an inclusive collection chip; Alt/Option-click adds an exclusion. Modified clicks preserve unrelated filters and other collection chips.
 - **Port 9010 SSH tunnel** — graceful-absence covers absence; add tunnel when needed.
 - **Full-depth sticky stacking** — designed (depth × 32px, z-index 20 - depth),
   not implemented. Depth-0 only for now.
 
+### Editing in Browse and Settings
+
+Browsing a parent includes photos filed in descendants, but membership commands target only the exact row. A photo can independently belong to `Sport`, `Sport/Football`, or both. Removing `Sport` leaves `Sport/Football` intact, so that photo can still appear while browsing `Sport`.
+
+**Browse Add follows Kahuna:** submit all selected photos, including existing direct members, without a duplicate prompt. Each permitted repeat POST refreshes the filing date; this can affect Added to collection ordering in other collections because sorting uses the latest membership date across paths. Add shows the selection size, not a count of new links. Upload's copy-memberships arrow remains fill-only; it is not an instruction to re-date the target batch. Remove uses known direct-member counts (e.g. **Remove 2/5 photos**), omits known zero, and avoids a numeric claim for unknown memberships. Opening the menu does not fetch permissions or membership lists. The command independently checks grants and current records; a repeat POST acknowledgement does not prove that its returned date has appeared in search.
+
+**Tree policy:** eligible leaf deletion, including leaves with photos, requires a path-specific confirmation. There is no membership cleanup, descendant deletion or supported undo by recreating a path. New segments are trimmed; punctuation and the exact existing parent path are preserved. Validation checks immediate siblings including structural rows and names that differ only by casing or outer whitespace. Ambiguous case-split paths cannot authorize deletion. Each command checks session, origin and a fresh full-tree action before one write. It refreshes the tree once afterward; rejection, uncertain submission, failed refresh and an observed change are distinct. An error does not clear the working tree or replay the write. Reload Browse's page if the receipt says readback failed.
+
+**Root collections:** Settings → Admin appears with current image evidence of the `delete-usages` capability; no image evidence means no Admin. This uses the crops/usages permission, not image-delete permission. Root submission checks authority again without executing the Usage action. The chooser starts empty and lists eligible root leaves only. This is a Kupua gate, not backend enforcement.
+
+In compact Browse the popup moves and fades with the drawer during a dismiss swipe and returns on cancellation or snap-back. An outside tap closes the popup first, then Browse on the next tap, including over expanded Details. Dismissing Browse does not collapse Details.
+
+Compact Search Browse has per-row dots or a touch hold on the name. Wide Browse has **Edit collections** for tree commands, and ordinary selection plus/minus controls for membership. Hover/focus uses cached counts without fetching; accessible names retain the target. Creation expands the intended parent and focuses the observed child; deletion focuses the surviving parent and retains the current search filter. Structural rows without node data are not edit targets.
+
+### Wired browser trial (25 November 2026)
+
+Verified all-local Grid (`runAll`, local ES/LocalStack/Collections, fixed local advertised root action) and used one unique disposable branch. Through the real Vite UI, Admin created a root from an outer-spaced name. In 390 × 844 touch emulation and wide desktop Edit mode, created same-named leaves under different parents, rejected case-only duplicates and corrected the draft in place. Nested create focused the child, Cancel sent no deletion, confirmed deletion returned focus to the surviving parent, and deleting the active filter did not change the query. Cleared the query for Admin privilege evidence. Admin Cancel returned focus to the chooser without a DELETE; confirm sent one DELETE, reset the chooser and a fresh local tree read confirmed the root absent. No trial records left in the tree.
+
+Controlled in-browser fetch fixtures on the open compact leaf simulated 403 rejection, transport loss and an acknowledged DELETE followed by a failed GET. Each showed the corresponding receipt, retained the prior row and attempted one write; these writes were intercepted, not sent to Grid. A deferred simulated 403 after switching to another node did not transplant the old draft or error. Observers were restored or discarded with the test document. This was DOM-driven Chrome testing, not physical phone keyboard/scroll verification, a concurrent Grid race, or proof of shared-stage transport.
+
 ---
+
+### Local browser trial (24 November 2026)
+
+Conducted in the real local hosted browser (direct service calls) and compact Vite Browse (actual preview). Verified all-local Grid `runAll`, not `runMinimal`, local ES/LocalStack/Collections listeners, local Collections configuration pointing at loopback-backed LocalStack, and fixed local API/service origins. No proxy changes, shared service contacts or direct ES writes. One unique disposable root and one previously unfiled local photo; sequential service requests with no automatic write retries.
+
+| Check | Observation |
+|---|---|
+| Root and child creation; stale leaf action | Root and nested creates returned 200; path with spaces and `&` supported a grandchild. After child creation the full tree stopped offering root removal. The previously advertised canonical root removal returned 400 `invalid-tree-operation` and the parent survived. Not a check/delete race test. |
+| Names | Slash and double quote rejected (400). Leading and trailing spaces preserved by Grid; the spaced fixture was removable. Exact and case-only collisions returned 200, including the split between structural and real rows recorded in [GRID-030](../bug-backlog.md#grid-030). |
+| Empty leaf | 202, followed by absence from a fresh tree. |
+| Populated leaf | Added one exact membership and observed it on the canonical photo and in an exact-ID plus collection search (count one). Deleted the leaf (202); fresh tree omitted it, membership source and canonical photo retained it, and the same search still counted one. Recreating the same path returned 200 and surfaced the old membership without re-adding the photo. |
+| Compact UI stress | 24 open/name/preview/cancel cycles on the disposable parent, rotating exact duplicate, case-only duplicate, slash, quote, blank and valid names. Duplicate/invalid/not-sent messages matched, each new draft was empty and focused, Cancel restored row focus, search URL unchanged. In-page fetch observer recorded zero collection-tree writes and was removed. Simulated DOM interaction in compact Chrome; not a physical phone keyboard trial. |
+| Cleanup | Removed the fixture image membership through its advertised action (200), verified source list empty, deleted tree records child-first (four 202 responses), verified root absent. Immediate canonical image/search still had the membership, unlike the source. A later read, with no further writes, confirmed the root and canonical membership absent, source empty and search count zero. |
+
+The 24 November service trial did not exercise wired Kupua commands. It informed the selected populated-leaf policy; the subsequent wired UI trial is recorded above.
+
+**Deletion history (local Git):** `ef88b0742a` (December 2015) withheld the tree's delete action for nodes with children. `82ff09977a` (March 2016) added a server recheck specifically because the UI's tree could be out of sync. `3ae9708f63` (September 2018) added Kahuna confirmation because people accidentally deleted collections beside the add-subcollection button. A search of the local controller, store, tests and Git history found no former photo-count guard, cascade or reversal, nor a statement that preserving photo memberships was intended as undo. This is not evidence about unrecorded discussions or the number of affected photos in production.
 
 ## 13. PROD scale context
 

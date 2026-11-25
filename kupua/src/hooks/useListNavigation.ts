@@ -586,6 +586,7 @@ export function useListNavigation(config: ListNavigationConfig): void {
      */
     const handleCapture = (e: KeyboardEvent) => {
       const c = configRef.current;
+      if (e.target instanceof Element && e.target.closest('[role="dialog"], [role="menu"]')) return;
       if (c.imageParam) return;
       if (imageFullscreenElement()) return;
       if (isNativeInputTarget(e)) return;

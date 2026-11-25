@@ -55,6 +55,46 @@ test.describe("U3 isolated uploads", () => {
     }
   });
 
+  test("tree submission distinguishes rejection, uncertainty and failed readback without replay", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-editing", "true"));
+    await page.request.post(`${origin}/__upload-control`, { data: { reset: true, editing: true } });
+    const href = "https://media-collections.local.dev-gutools.co.uk/collections/Desk";
+    const node = { uri: href, data: { basename: "Desk", fullPath: ["Desk"], data: { path: ["Desk"], pathId: "desk" }, children: [] }, links: [], actions: [{ name: "add-child", method: "POST", href }] };
+    let mode = "denied", writes = 0, failRead = false;
+    await page.route("**/grid-local-collections/collections**", route => {
+      if (route.request().method() === "GET") {
+        if (failRead) { failRead = false; return route.fulfill({ status: 503 }); }
+        return route.fulfill({ json: { data: { children: [node] }, actions: [] } });
+      }
+      expect(route.request().method()).toBe("POST");
+      expect(new URL(route.request().url()).pathname).toBe("/grid-local-collections/collections/Desk");
+      writes++;
+      if (mode === "lost") return route.abort();
+      failRead = mode === "refresh";
+      return route.fulfill({ status: failRead ? 200 : 403 });
+    });
+    await page.goto(`${origin}/__readback?density=grid`);
+    if (await page.getByRole("button", { name: "Show Browse panel" }).count()) await page.getByRole("button", { name: "Show Browse panel" }).click();
+    const header = page.getByRole("button", { name: "Collections", exact: true });
+    if (await header.getAttribute("aria-expanded") === "false") await header.click();
+    await page.getByRole("button", { name: "Edit collections", exact: true }).click();
+    const trigger = page.getByRole("button", { name: "Actions for Desk", exact: true });
+    const popup = page.getByRole("dialog", { name: "Collection actions for Desk" });
+    for (const [outcome, receipt] of [["denied", "Grid rejected the change (403)."], ["lost", "Submission uncertain."], ["refresh", "Grid accepted the change. Reload the page"]]) {
+      mode = outcome;
+      const previous = writes;
+      await trigger.click();
+      await popup.getByRole("button", { name: "New subcollection" }).click();
+      await popup.getByRole("textbox").fill("Pictures");
+      await popup.getByRole("button", { name: "Create", exact: true }).click();
+      await expect(popup.getByRole("status")).toContainText(receipt);
+      await popup.getByRole("button", { name: "Cancel" }).click();
+      await expect(trigger).toBeFocused();
+      await expect(page.locator(".collection-actions-shell")).toHaveCount(0);
+      expect(writes).toBe(previous + 1);
+    }
+  });
+
   test("selection draft follows the open panel and protects the last selected body double-click", async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem("kupua-allow-editing", "true"));
     await page.request.post(`${origin}/__upload-control`, { data: { reset: true, editing: true } });

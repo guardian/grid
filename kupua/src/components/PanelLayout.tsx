@@ -218,6 +218,8 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
     if (!g.locked) return;
     const offset = Math.max(0, dx * sign);
     el.style.transition = "none";
+    el.style.setProperty("--browse-popup-opacity", String(Math.max(0, 1 - offset / el.offsetWidth * 2)));
+    el.style.setProperty("--browse-popup-fade", "0s");
     el.style.translate = `${offset * sign}px 0`;
   };
   const onTouchEnd = (e: TouchEvent) => {
@@ -225,13 +227,21 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
     const el = ref.current;
     gesture.current = null;
     if (!g?.locked || !el) return;
-    const offset = Math.max(0, (e.changedTouches[0].clientX - g.x) * sign);
+    const offset = e.type === "touchcancel" ? 0 : Math.max(0, (e.changedTouches[0].clientX - g.x) * sign);
     const velocity = offset / Math.max(1, performance.now() - g.t);
     el.style.transition = "translate 0.2s cubic-bezier(0.22, 1, 0.36, 1)";
+    el.style.setProperty("--browse-popup-fade", "0.2s");
     if (offset > el.offsetWidth / 3 || velocity > 0.5) {
+      el.style.setProperty("--browse-popup-opacity", "0");
       el.style.translate = `${sign * 100}% 0`;
-      el.addEventListener("transitionend", onDismiss, { once: true });
+      const finish = (event: TransitionEvent) => {
+        if (event.target !== el || event.propertyName !== "translate") return;
+        el.removeEventListener("transitionend", finish);
+        onDismiss();
+      };
+      el.addEventListener("transitionend", finish);
     } else {
+      el.style.setProperty("--browse-popup-opacity", "1");
       el.style.translate = "0 0";
     }
   };
@@ -239,7 +249,8 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
   return (
     <div
       ref={ref}
-      className={`absolute inset-y-0 z-50 overflow-y-auto overflow-x-hidden bg-grid-bg shadow-xl ${
+      data-side-sheet={side}
+      className={`absolute inset-y-0 z-[52] bg-grid-bg shadow-xl ${
         side === "left" ? "left-0 border-r anim-sheet-left" : "right-0 border-l anim-sheet-right"
       } border-grid-separator`}
       style={{ width: "min(85vw, 360px)", overflowAnchor: "none", touchAction: "pan-y" }}
@@ -248,7 +259,7 @@ function SideSheet({ side, onDismiss, children }: { side: PanelSide; onDismiss: 
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
     >
-      {children}
+      <div className="h-full overflow-y-auto overflow-x-hidden" style={{ overflowAnchor: "none" }}>{children}</div>
     </div>
   );
 }
@@ -309,7 +320,7 @@ export function PanelLayout({ leftPanel, rightPanel, scrubber, children }: Panel
         </div>
         {showLeft && (
           <div
-            className="absolute inset-0 z-40 bg-black/50 anim-scrim"
+            className="absolute inset-0 z-[51] bg-black/50 anim-scrim"
             data-testid="panel-scrim"
             aria-hidden="true"
             onClick={() => togglePanel("left")}

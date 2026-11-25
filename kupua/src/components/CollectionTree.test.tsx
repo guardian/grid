@@ -8,16 +8,19 @@ vi.mock("@tanstack/react-router", () => ({ useSearch: () => route.search }));
 const { updateSearch, commit } = vi.hoisted(() => ({ updateSearch: vi.fn(), commit: vi.fn() }));
 vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => updateSearch }));
 vi.mock("./LabelEditor", () => ({ SelectedEditStatus: () => null }));
-vi.mock("./SelectionFab", () => ({ SelectionFab: () => null }));
+vi.mock("./SelectionFab", async importOriginal => ({ ...await importOriginal<typeof import("./SelectionFab")>(), SelectionFab: () => null }));
 vi.mock("./BottomSheet", () => ({ BottomSheet: () => null }));
 vi.mock("@/lib/browsing-context", () => ({ useBrowsingContext: () => route }));
 const editing = vi.hoisted(() => ({ connected: false }));
+const compact = vi.hoisted(() => vi.fn(() => false));
+vi.mock("@/hooks/useShell", async importOriginal => ({ ...await importOriginal<typeof import("@/hooks/useShell")>(), useIsCompact: compact }));
 vi.mock("./MetadataEditing", async () => ({
   MetadataEditorContext: (await import("react")).createContext({ getState: () => editing, getInitialState: () => editing, subscribe: () => () => {} }),
   useMetadataCommit: () => commit,
 }));
 
 import { CollectionTree, CollectionsSection } from "./CollectionTree";
+import type { Image } from "@/types/image";
 import { usePanelStore } from "@/stores/panel-store";
 import { useCollectionStore, type CollectionNode } from "@/stores/collection-store";
 import { useSearchStore } from "@/stores/search-store";
@@ -82,6 +85,66 @@ it("adds the drag-start images once to the clicked row's collection only for a c
   }
 });
 const tree: CollectionNode = { uri: "", links: [], actions: [], data: { basename: "root", children: [node("sport")], fullPath: [] } };
+
+it("opens collection actions without browsing and adds the selection to the exact row", () => {
+  vi.spyOn(useCollectionStore.getState(), "loadCounts").mockResolvedValue();
+  editing.connected = true;
+  useSelectionStore.setState({ selectedIds: new Set(["first", "second"]) });
+  useCollectionStore.setState({ tree, status: "ready" });
+  const view = render(<CollectionTree />);
+  expect(view.queryByRole("button", { name: "Actions for sport" })).toBeNull();
+  const plus = view.getByRole("button", { name: "Add selected images to sport" });
+  fireEvent.focus(plus);
+  expect(plus.title).toBe("Add 2 photos");
+  compact.mockReturnValue(true);
+  view.rerender(<CollectionTree />);
+  fireEvent.click(view.getByRole("button", { name: "Actions for sport" }));
+  expect(view.getByRole("button", { name: "Remove selected photos" })).toBeTruthy();
+  const cache = useSelectionStore.getState().metadataCache;
+  const cachePhoto = (id: string, pathId: string) => cache.set(id, { id, collections: [{ pathId }] } as Image);
+  cachePhoto("first", "sport/football");
+  cachePhoto("second", "sport");
+  act(() => useSelectionStore.setState(state => ({ metadataRevision: state.metadataRevision + 1 })));
+  expect(view.getByRole("button", { name: "Remove 1/2 photos" })).toBeTruthy();
+  cachePhoto("second", "sport/football");
+  act(() => useSelectionStore.setState(state => ({ metadataRevision: state.metadataRevision + 1 })));
+  expect(view.queryByRole("button", { name: /^Remove .*photos?$/ })).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Add 2 photos" }));
+  expect(commit).toHaveBeenCalledExactlyOnceWith({ fieldId: "collections", action: "add", value: "sport", targetIds: ["first", "second"] });
+  expect(updateSearch).not.toHaveBeenCalled();
+  compact.mockReturnValue(false);
+  view.rerender(<CollectionTree />);
+  const minus = view.getByRole("button", { name: "Remove selected images from sport" });
+  fireEvent.mouseEnter(minus);
+  expect(minus.title).toBe("Remove 0 photos");
+  cachePhoto("first", "sport");
+  act(() => useSelectionStore.setState(state => ({ metadataRevision: state.metadataRevision + 1 })));
+  expect(minus.title).toBe("Remove 1/2 photos");
+});
+
+it("keeps a conflicting subcollection draft on its parent and returns focus on cancellation", () => {
+  vi.spyOn(useCollectionStore.getState(), "loadCounts").mockResolvedValue();
+  editing.connected = true;
+  const parent = node("sport");
+  parent.actions = [{ name: "add-child", method: "POST" }];
+  parent.data.children.push(node("Portraits "));
+  useCollectionStore.setState({ tree: { ...tree, data: { ...tree.data, children: [parent] } }, status: "ready" });
+  const view = render(<CollectionTree />);
+  const button = (name: string) => view.getByRole("button", { name });
+  fireEvent.click(button("Edit collections"));
+  const trigger = button("Actions for sport");
+  fireEvent.click(trigger);
+  fireEvent.click(button("New subcollection"));
+  const input = view.getByRole("textbox", { name: "Subcollection name" });
+  fireEvent.change(input, { target: { value: "portraits" } });
+  expect(view.getByText(/already exists here with a trailing space/)).toBeTruthy();
+  expect((button("Create") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.change(input, { target: { value: "Team arrivals" } });
+  expect((button("Create") as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.keyDown(input, { key: "Escape" });
+  expect(document.activeElement).toBe(trigger);
+  expect(view.queryByRole("dialog")).toBeNull();
+});
 
 it("edits the exact path with the live Search selection without browsing or using retained IDs on Upload", () => {
   vi.spyOn(useCollectionStore.getState(), "loadCounts").mockResolvedValue();

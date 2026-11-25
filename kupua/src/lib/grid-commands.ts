@@ -55,6 +55,7 @@ const collectionSchema = z.object({ operation: z.literal("edit-collection"), ima
 const collectionData = z.object({ pathId: z.string(), path: z.array(z.string()) });
 const membershipSchema = collectionSchema.omit({ path: true, action: true, operation: true }).extend({
   operation: z.literal("edit-memberships"), action: z.enum(["add", "remove", "overwrite"]), pathIds: z.array(z.string().min(1)),
+  fillMissing: z.literal(true).optional(),
 }).strict();
 export type MembershipCommand = z.infer<typeof membershipSchema>;
 const collectionAction = z.object({ name: z.string(), method: z.string(), href: z.string() });
@@ -249,7 +250,7 @@ async function executeCollectionChange(command: z.infer<typeof collectionSchema>
     const method = add ? "POST" : "DELETE";
     for (const key of command.action === "overwrite" ? current : keys) {
       const member = members.get(key);
-      if (add === !!member) continue;
+      if (!add && !member || add && member && command.operation === "edit-memberships" && command.fillMissing) continue;
       let endpoint = path, actions = image.actions, body: string | undefined;
       if (add) {
         const { tree, status, countServiceUri } = useCollectionStore.getState();
@@ -268,6 +269,8 @@ async function executeCollectionChange(command: z.infer<typeof collectionSchema>
       if (!url || !isCollectionMembershipRequest(method, endpoint)) return blocked;
       steps.push({ key, url, body });
     }
+    const filingDates: Record<string, string> = {};
+    const expected = () => ({ collections: [...current], ...filingDates });
     for (const [index, step] of steps.entries()) {
       const labelSteps = { acknowledged: index, rejected: 0, uncertain: 0, notSent: steps.length - index };
       if (options.signal.aborted || isGridSessionInvalidated()) return index ? { outcome: "partial", expected: { collections: [...current] }, labelSteps, reason: isGridSessionInvalidated() ? "reload-required" : "unavailable" } : blocked;
@@ -276,12 +279,20 @@ async function executeCollectionChange(command: z.infer<typeof collectionSchema>
       try {
         const response = await fetch(step.url, { ...options, method, ...(step.body && { headers: { "Content-Type": "application/json" }, body: step.body }) });
         if (!response.ok) failed = await failure(response, true);
+        if (response.ok && add && members.has(step.key)) {
+          const body = await response.json().catch(() => undefined);
+          const date = body?.data?.pathId === step.key && body?.data?.actionData?.date;
+          filingDates[`filed:${step.key}`] = typeof date === "string" ? date : "";
+        }
       } catch { failed = { outcome: "unknown" }; }
       if (failed?.outcome === "rejected") return index ? { ...failed, outcome: "partial", expected: { collections: [...current] }, labelSteps: { ...labelSteps, rejected: 1, notSent: labelSteps.notSent - 1 } } : failed;
       if (add) current.add(step.key); else current.delete(step.key);
-      if (failed) return { ...failed, expected: { collections: [...current] }, labelSteps: { ...labelSteps, uncertain: 1, notSent: labelSteps.notSent - 1 } };
+      if (failed) {
+        if (add && members.has(step.key)) filingDates[`filed:${step.key}`] = "";
+        return { ...failed, expected: expected(), labelSteps: { ...labelSteps, uncertain: 1, notSent: labelSteps.notSent - 1 } };
+      }
     }
-    return { outcome: steps.length ? "acknowledged" : "unchanged", expected: { collections: [...current] } };
+    return { outcome: steps.length ? "acknowledged" : "unchanged", expected: expected() };
   } catch { return dispatched ? { outcome: "unknown" } : blocked; }
 }
 

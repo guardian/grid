@@ -18,6 +18,7 @@ import { readHomeView, writeHomeView, type HomeView } from "@/lib/home-view";
 import { useIsCompact } from "@/hooks/useShell";
 import { pressFeedback } from "@/lib/dom-utils";
 import { HiJoshuaContext } from "./HiJoshua";
+import { RootCollectionsAdmin } from "./RootCollectionsAdmin";
 import { RecentUploadsEntry, UploadEntry } from "./UploadActivity";
 import { activeUploadPhases, useUploadJobsStore } from "@/stores/upload-jobs-store";
 
@@ -271,6 +272,7 @@ export function SettingsMenu({ inset = false, showViewControls = false, uploadMe
           </label>
 
           <div className="my-1 border-t border-grid-border" />
+          <RootCollectionsAdmin />
           <button role="menuitem" onClick={() => { setOpen(false); buttonRef.current?.focus(); openJoshua(); }}
             className="w-full px-3 py-2 text-left text-sm flex items-center gap-2 text-grid-text hover:bg-grid-hover/15">
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

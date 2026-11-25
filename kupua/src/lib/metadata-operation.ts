@@ -47,7 +47,7 @@ export function createRightsReadback(readImages: MetadataEditObservation["readIm
 }
 
 export type MetadataIntent = (Pick<MetadataCommand, "fieldId" | "action" | "value">
-  | { fieldId: "collections"; action: "add" | "remove" | "overwrite"; value: string[] }
+  | { fieldId: "collections"; action: "add" | "remove" | "overwrite"; value: string[]; fillMissing?: true }
   | { fieldId: "photoshoot"; action: "overwrite"; value: string }
   | { fieldId: "usageRights_category"; action: "overwrite"; value: RightsCommand["value"] }
   | { fieldId: "leases"; action: "overwrite"; value: LeaseChange }
@@ -76,7 +76,7 @@ export function createMetadataOperation(
       ? undefined : metadataWriteFingerprint(image.userMetadata?.metadata),
     command: (input, imageId, resource) => {
       const intent = perImageIntents?.get(imageId) ?? input;
-      if (intent.fieldId === "collections") return { operation: "edit-memberships", action: intent.action, pathIds: intent.value, imageId };
+      if (intent.fieldId === "collections") return { operation: "edit-memberships", action: intent.action, pathIds: intent.value, imageId, ...(intent.fillMissing && { fillMissing: true }) };
       if (intent.fieldId === "photoshoot") return { operation: "edit-photoshoot", imageId, resource, value: intent.value, projectionMatches: execution?.matchingPhotoshoots?.has(imageId) === true };
       if (intent.fieldId === "leases") return { operation: "edit-leases", imageId, resource, value: leaseChangeForImage(intent.value, imageId) };
       if (intent.fieldId === "usageRights_category") return { operation: "edit-rights", imageId, resource, value: intent.value };
@@ -94,7 +94,11 @@ export function createMetadataOperation(
       if (intent.fieldId === "collections") {
         const expected = result && "expected" in result && result.expected?.collections;
         const actual = image.collections?.map(member => member.pathId);
-        return Array.isArray(expected) && !!actual && actual.length === expected.length && new Set(actual).size === actual.length && expected.every(path => actual.includes(path));
+        return Array.isArray(expected) && !!actual && actual.length === expected.length && new Set(actual).size === actual.length && expected.every(path => {
+          if (!actual.includes(path)) return false;
+          const date = result && "expected" in result && result.expected?.[`filed:${path}`];
+          return date === undefined || typeof date === "string" && Number.isFinite(Date.parse(date)) && image.collections?.some(member => member.pathId === path && Date.parse(member.actionData?.date ?? "") === Date.parse(date));
+        });
       }
       if (intent.fieldId === "photoshoot") return matchesPhotoshoot(image, intent.value);
       if (intent.fieldId === "leases") {

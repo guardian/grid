@@ -24,23 +24,19 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
-### 24 November 2026 - Connect collection membership in Details, Upload and the tree
+### 25 November 2026 - Edit collection trees and photo memberships in Kupua
 
-Details captures affected images for membership pills; Upload copies memberships additively or confirms a peer clear. Tree-row controls and same-tab drops reuse the command path. Counts are invalidated once per save group, including when an acknowledged change cannot be confirmed in search. During temporary readback, Details retains the settled layout without retaining permission to write. Tree suggestions keep the displayed spelling while commands use canonical identities.
+Editors can create subcollections and delete eligible leaves from Browse; Settings → Admin reserves top-level creation and deletion for users with Grid's crops/usages deletion capability. Tree commands follow the advertised action for the exact path, reject known sibling-name collisions, and distinguish acknowledgement from a change observed in a refreshed tree. Deleting a leaf does not remove it from photo records. Hosted commands use the validated service origin; the local Vite proxy admits only supported tree and per-image routes. See the [Collections guide](00%20Architecture%20and%20philosophy/06-collections.md) for the workflow and backend limits.
 
-Image and crop drags use compact transparent previews when loaded artwork is available; otherwise the browser retains its native preview. Laptop saved-crop drags can read the canonical crop list through a fixed read-only local cropper proxy.
+Explicit Browse Add files the whole selection, refreshing existing filing dates; Remove affects only direct memberships. Details edits the affected images, while Upload copies missing memberships or confirms a peer clear. Search visibility is checked separately, including the filing timestamp for repeat adds, and a save group invalidates cached counts once. Desktop plus/minus tooltips use cached membership counts; Shift-click includes and Alt-click excludes a collection without discarding other chips. On phones, dots or a long press open the anchored Actions menu, which follows the swiping drawer and dismisses before Browse on an outside tap. A same-tab image drag can open a closed branch without browsing or writing; only dropping adds membership.
+
+The compact Browse backdrop is confined to the results area: it takes dismissal taps over expanded Details without dimming the toolbar or status bar.
 
 ### 24 November 2026 - External image and saved crop drag data
 
 Retain the returned image entity data for lazy Kahuna-compatible drag serialization, including singleton selections. Detail original and saved crop drags carry the Grid UI route separately from the media-api URI; crop drags require a matching cropper response and its returned assets rather than synthesizing a crop from the indexed export.
 
-### 24 November 2026 - Spring-open Collections during image drags
-
-Holding a same-tab image drag over the closed Collections header or a closed branch reveals its children when editing is connected. Passing over a row briefly leaves it alone. Expansion never selects a filter, changes membership or collapses another branch.
-
-### 24 November 2026 - Admit local per-image collection membership commands
-
-The API-mode command boundary gates collection membership with the existing startup editing preference. The local Collections proxy admits per-image reads, additions and member removals but no tree mutations. Commands check the advertised image or membership action and compare source with projection before writing. Local pressure evidence does not select a separate collection limiter. Selection controls and batch clear are not connected by this change.
+Image and crop drags use compact transparent previews when loaded artwork is available; otherwise the browser retains its native preview. Laptop saved-crop drags can read the canonical crop list through a fixed read-only local cropper proxy.
 
 ### 24 November 2026 - Connect Photoshoot membership editing
 

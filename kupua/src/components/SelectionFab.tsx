@@ -6,7 +6,7 @@ import { ImageActions, SelectionImageActions } from "./ImageActions";
 import type { ImageActionContext } from "@/lib/image-actions";
 import { useActionPopupPlacement } from "@/hooks/useActionPopupPlacement";
 
-function ActionSurface({ strip, popup, visible, below, shiftX, maxHeight }: {
+export function ActionSurface({ strip, popup, visible, below, shiftX, maxHeight }: {
   strip: RefObject<HTMLDivElement | null>; popup: RefObject<HTMLDivElement | null>;
   visible: boolean; below: boolean; shiftX: number; maxHeight: number;
 }) {

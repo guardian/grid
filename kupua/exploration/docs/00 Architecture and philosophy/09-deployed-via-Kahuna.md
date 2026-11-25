@@ -237,8 +237,7 @@ authorization. Thumbnail/full-image delivery does not change operation support.
 The actual API-mode single/multi metadata panels also expose the ordinary text/date,
 Location, People, Keywords, Photoshoot and collection-membership controls described in
 the [UI register](../gradually-growing-teeth.kupua-edits-steps.md#ordinary-metadata-ui-coverage).
-Ordinary metadata, Labels, Guardian Rights and [manual Leases](07-syndication-and-leases.md#manual-editing-in-api-backed-kupua) use the shared editing preference, pacing and per-image authority. The label matrix below describes topology support, not a separate rollout flag for each field. Hosted commands follow discovered service origins directly; the Vite Leases proxy admits only supported methods and paths on its fixed destination. Collections and
-Photoshoot preparation remains **Not sent**. Archive/unarchive, configured-domain editors and
+Ordinary metadata, Labels, Guardian Rights and [manual Leases](07-syndication-and-leases.md#manual-editing-in-api-backed-kupua) use the shared editing preference, pacing and per-image authority. The label matrix below describes topology support, not a separate rollout flag for each field. Hosted commands follow discovered service origins directly; the Vite Leases proxy admits only supported methods and paths on its fixed destination. Collections membership, tree commands and Photoshoot are connected behind the same editing preference. Archive/unarchive, configured-domain editors and
 other workflow families retain their separately selected roadmap work.
 
 | Frontend path | Add label | Remove label | Enablement source |
@@ -357,7 +356,7 @@ nonempty results; replacing an index behind the same addresses is not detected. 
 the [Collections guide](06-collections.md#4-store-shape-collection-storets) for cache
 identity, request coordination and a targeted development reset. Cropper remains a
 dry-run editor that prepares but does not send its request. Connecting cropper saves,
-collection mutations, leases or other workflows requires that service's own validated
+or other new workflows requires that service's own validated
 resource/command path and authentication/CORS checks. Reuse the transport principle,
 not an unrestricted forwarding mechanism; this section does not enable those writes.
 
@@ -429,8 +428,7 @@ Hosted builds pin hosted/API mode even if the invoking shell has laptop-mode fla
 Kahuna no longer reads or injects Kupua editing rollout, metadata-editor or auth fields.
 Its ordinary editing, opt-in hosting, stage/iframe restrictions and existing CSP remain.
 The startup preference connects existing Labels execution; otherwise Labels remains
-disconnected. The other new metadata/membership editors remain preparation-only in
-either preference state.
+disconnected. Connected metadata, membership and tree commands also require their own validated target and authority; the preference alone is not authorization.
 No shared-system enablement is approved. The selected local trial and deployment limits belong to
 [Step 5](../gradually-growing-teeth.kupua-edits-steps.md#step-5-give-one-label-operation-real-teeth).
 

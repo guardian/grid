@@ -86,6 +86,10 @@ class LruMap<K, V> {
   has(key: K): boolean {
     return this.map.has(key);
   }
+
+  peek(key: K): V | undefined {
+    return this.map.get(key);
+  }
 }
 
 // ---------------------------------------------------------------------------

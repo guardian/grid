@@ -1670,6 +1670,17 @@ test("integrated selection Actions preserve their hit areas and leave the page i
   await card.evaluate(async card => { await Promise.all(card.getAnimations().map(animation => animation.finished.catch(() => {}))); });
   const expandedCard = (await card.boundingBox())!;
   const expandedFab = (await fab.boundingBox())!;
+  await page.getByRole("button", { name: "Show Browse panel", exact: true }).tap();
+  const backdrop = page.getByTestId("panel-scrim");
+  const drawer = page.locator('[data-side-sheet="left"]');
+  await expect(drawer).toBeVisible();
+  const bounds = (await drawer.boundingBox())!;
+  const shade = (await backdrop.boundingBox())!;
+  expect(shade.y).toBeCloseTo(bounds.y, 0);
+  expect(shade.height).toBeCloseTo(bounds.height, 0);
+  await page.touchscreen.tap(shade.x + shade.width - 8, Math.max(shade.y, expandedCard.y) + 12);
+  await expect(drawer).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Collapse Details" })).toBeVisible();
   expect(expandedFab.y - expandedCard.y).toBeCloseTo(collapsedFab.y - collapsedCard.y, 0);
   expect(expandedFab.y).toBeLessThan(collapsedFab.y - 100);
   await page.setViewportSize({ width: 852, height: 393 });

@@ -20,13 +20,22 @@ Hosted Kupua does not use this route.
 
 ## From Grid / Kahuna
 
+### Collection name safeguards
+
+- **Creation:** preserve display spelling, trim outer whitespace, reject empty names and unaddressable path segments, and compare the proposed name with *all immediate siblings* case-insensitively, including structural rows. The same name in a different parent is fine. Kahuna delegates creation to Grid; Grid can replace the record at the lowercase key, changing its date and spelling. With children, the old spelling can still appear as a separate structural branch. Rejecting a known collision is cheap; it does not guarantee uniqueness across editors. Do not silently rename, case-fold the displayed name, or merge the two branches. See [GRID-030](bug-backlog.md#grid-030).
+
+The [local browser trial](00%20Architecture%20and%20philosophy/06-collections.md#local-browser-trial-24-november-2026) separates service observations from actual Kupua behavior.
+
+**Creation versus existing names:** trim only a newly entered segment, not an existing parent or an advertised action. Preserve internal spaces. Rejecting a new sibling that looks identical to an existing outer-spaced name is a UI guard, not a new identity rule for Grid.
+
+
 **Spring-open Collections:** Kahuna highlights a collection row during drag-over. Kupua also opens a collapsed Collections header or branch after a 600 ms same-tab image drag dwell, so a nested destination need not be prepared before starting the drag. Only a drop on a collection adds membership. Opened branches stay open until manually collapsed; this favours predictable movement into children over automatically restoring the old tree shape. Pills and buttons remain the non-drag alternative.
 
 **Photoshoot batch editing:** Kahuna broadcasts the title to mounted Upload editors, including the source. Kupua captures the other known batch images, trims outer whitespace, and requires a second click for a batch clear. The 100-target limit and serial writes trade batch speed for bounded client pressure on Grid's shoot-wide rights recalculation; they do not bound the number of indirectly affected images.
 
 ### Empty Collections in Details
 
-Kahuna renders its Collections section for a single image only. Kupua supports settled selections as well: in Details and Form, existing memberships remain readable, and an empty row is offered only when Grid advertises `add-collection` (POST) for every intended recipient. The metadata `edits` link is neither required nor sufficient. Filling a partial membership checks the missing images; removal checks the nested `remove` (DELETE) action on every affected membership. Withdrawing either action withdraws its corresponding preparation control or disables it, without hiding readable data. Direct-ES supplies no grants. Collection writes and batch execution remain disconnected. Keywords, in contrast, use metadata write authority: empty read-only Keywords stay hidden and populated values remain searchable.
+Kahuna renders its Collections section for a single image only. Kupua supports settled selections as well: in Details and Form, existing memberships remain readable, and an empty row is offered only when Grid advertises `add-collection` (POST) for every intended recipient. The metadata `edits` link is neither required nor sufficient. Filling a partial membership checks the missing images; removal checks the nested `remove` (DELETE) action on every affected membership. Withdrawing either action withdraws its corresponding preparation control or disables it, without hiding readable data. Direct-ES supplies no grants. Keywords, in contrast, use metadata write authority: empty read-only Keywords stay hidden and populated values remain searchable.
 
 ### Bounded Subjects editing
 

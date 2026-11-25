@@ -32,7 +32,7 @@ export interface MetadataSave {
 
 export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[], removed?: string[]): MetadataIntent | undefined {
   if (fieldId === "collections") {
-    if (action === "overwrite" && Array.isArray(value) && value.every(path => path.length > 0)) return { fieldId, action: value.length ? "add" : "overwrite", value: [...new Set(value)], targetIds };
+    if (action === "overwrite" && Array.isArray(value) && value.every(path => path.length > 0)) return { fieldId, action: value.length ? "add" : "overwrite", ...(value.length && { fillMissing: true as const }), value: [...new Set(value)], targetIds };
     if ((action === "add" || action === "remove") && typeof value === "string" && value.length) return { fieldId, action, value: [value], targetIds };
     return;
   }
@@ -371,7 +371,7 @@ export function createMetadataEditorStore(
           const intent = owners.get(image.id)!.intent;
           const held = new Set(image.collections?.map(member => member.pathId));
           const target = { resource: overlay?.resource, ...(intent.fieldId === "collections" && { collectionGrant: Array.isArray(image.collections) && (
-            intent.action === "add" ? intent.value.every(key => held.has(key)) || !!overlay?.actions?.some(action => action.name === "add-collection" && action.method === "POST" && !!action.href)
+            intent.action === "add" ? intent.fillMissing && intent.value.every(key => held.has(key)) || !!overlay?.actions?.some(action => action.name === "add-collection" && action.method === "POST" && !!action.href)
               : (intent.action === "overwrite" ? [...held] : intent.value).every(key => !held.has(key) || !!key && overlay?.removableCollections?.has(key))) }) };
           if (metadataEditTargetCounts({ targetIds: [image.id], targets: new Map([[image.id, target]]) }).eligible) targets.set(image.id, target);
         }

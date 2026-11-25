@@ -971,7 +971,7 @@ their operation implementations or authorizing activation.
 | --- | --- | --- |
 | 7: Labels, Archive, collection addition | Labels and collection additions connected, including selected images. Library actions prepare Not sent intent. | Archive/unarchive. |
 | 8: Ordinary/configured metadata | U5 connects ordinary fields through fresh override merges, readback and publication. KUP-051 adds bounded Subjects. Changed Details drafts follow the open editor; Form autosaves per image and field. | Configured-domain schema and editors. Replacing Taken on works; clearing an embedded date remains disabled (GRID-025). |
-| 12: Collection removal/tree | Membership removal and partial apply-to-all controls use canonical path IDs. Same-tab tree drops and hover controls are connected. | Tree create/delete and populated-leaf decisions; GRID-011 accepted for the single-operator prototype. |
+| 12: Collection removal/tree | Exact memberships, root/subcollection creation and permitted leaf deletion are connected. | No cascade, rename or move; GRID-011 accepted for the single-operator prototype. |
 | 13: Full frame / Crop entry | Saved-export rail/preview and replace-only crop URLs; shared ratio restrictions; demand-driven mobile lists; enriched eligibility/source/notices in normal, direct and fullscreen editor. Full-frame preparation skips existing/known-ineligible targets with count feedback. All preparation remains Not sent. | Cropper submission/outcomes, returned export identity/readback/publication and canonical result delivery. |
 | 14: Download | Advertised download relation retained; single/selection action prepares Not sent intent. | File delivery, names, ZIP generation, resource limits, failures and usage publication. |
 | 16: Photoshoots and syndication | Photoshoot assignment and clearing connected; readback confirms target membership only. | Syndication and Photo Sales workflows. |
@@ -1296,7 +1296,7 @@ later in upload completion; do not implement a second template engine there.
 
 **Depends on:** step 7; resolve GRID-011 before claiming safe concurrent membership removal.
 
-**Membership connected; no tree CRUD.** Per-image, selection and Upload controls add and remove
+**Membership and tree commands connected.** Per-image, selection and Upload controls add and remove
 memberships. A tree row's hover controls add or remove the selected images. Dropping a
 same-tab image drag on an existing tree row adds membership; hovering
 over the closed header or a closed branch opens it without selecting a filter or writing.
@@ -1305,8 +1305,7 @@ when the server replaces memberships during removal.
 
 Support root/child creation and permitted leaf deletion. Preserve case-insensitive path IDs,
 tree name validation, non-leaf refusal and independent tree/membership/count refresh. Current
-tree deletion does not cascade memberships. Show its consequence and require a product decision
-for populated leaves; do not silently invent cascading deletion, rename or move.
+tree deletion does not cascade memberships. Populated leaves may be deleted with a path-specific confirmation; photo records and an active search filter are left alone. See the [wired local trial and limitations](00%20Architecture%20and%20philosophy/06-collections.md#wired-browser-trial-25-november-2026).
 
 **Executor pointers:** [GRID-011](bug-backlog.md#grid-011),
 [Kahuna collections](../../../kahuna/public/js/services/api/collections-api.js),
@@ -1722,7 +1721,7 @@ operation is not a deployment sign-off; a preview is not a connected operation.
 | Lease add/remove/replace/clear and batch addition | 9 | Connected; deployed acceptance separate |
 | Guardian rights category/properties/restrictions and clearing | 10 | Done for Guardian: filtered catalogue and derived metadata; no category-triggered leases |
 | Metadata templates and preview/cancel | 11 | Deferred for Upload; no template execution |
-| Collection membership removal and tree create/delete | 12 | Membership removal connected under accepted GRID-011 limitation; no tree CRUD |
+| Collection membership removal and tree create/delete | 12 | Membership removal and bounded tree create/delete connected; GRID-011 concurrency limitation accepted |
 | Crop creation, ratio constraints, existing crop selection | 13 | KUP-044 image facts and KUP-047 read-only UI done; canonical source, creation and export identity remain |
 | Full-frame export, single and batch | 13 | Separate crop creation, not original download |
 | Original/optimised/crop download and selected ZIP | 14 | Download policy, usage side effects, byte bounds |

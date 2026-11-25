@@ -18,8 +18,21 @@
   pointer-events: auto;
 }
 
-.collection-tree-action:hover,
 .collection-tree-action:focus-visible {
   color: var(--color-grid-accent);
   outline: 1px solid currentColor;
+}
+
+.collection-tree-more { display: grid; place-items: center; width: 32px; height: 32px; flex: none; cursor: pointer; }
+.collection-actions-shell { position: fixed; z-index: 1000; }
+[data-side-sheet] > .collection-actions-shell { position: absolute; opacity: var(--browse-popup-opacity, 1); transition: opacity var(--browse-popup-fade, 0s) ease-out; }
+.collection-actions-cap { display: grid; place-items: center; height: 100%; width: 100%; color: white; cursor: pointer; }
+.collection-actions-popup { width: min(214px, calc(100vw - 16px)); overflow: auto; overscroll-behavior: contain; }
+.collection-action-path, .collection-actions-popup form { padding: 6px 10px; font-size: 13px; overflow-wrap: anywhere; }
+.collection-actions-popup input { width: 100%; padding: 6px; margin: 4px 0; font-size: 16px; border: 1px solid currentColor; }
+.collection-actions-popup button { cursor: pointer; }
+.collection-membership-options { display: grid; border-top: 1px solid #ffffff45; }
+@media (pointer: coarse) {
+  .collection-tree-row:has(.collection-tree-more) { min-height: 44px; }
+  .collection-tree-more { width: 44px; height: 44px; }
 }

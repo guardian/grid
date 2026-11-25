@@ -33,6 +33,7 @@ export interface UseLongPressOptions {
    */
   containerRef: RefObject<HTMLElement | null>;
   enabled?: boolean;
+  resolveTarget?: (target: EventTarget | null) => string | null;
 
   /**
    * Fired when a long-press commits (threshold reached, no excessive movement).
@@ -70,6 +71,7 @@ function getCellId(target: EventTarget | null): string {
 export function useLongPress({
   containerRef,
   enabled = true,
+  resolveTarget,
   onLongPressStart,
   onDragEnterCell,
   onDragEnd,
@@ -77,6 +79,8 @@ export function useLongPress({
   // Store callbacks in refs so the effect never needs to re-attach listeners
   // when callbacks change identity (e.g. from useCallback recreations).
   const startRef = useRef(onLongPressStart);
+  const resolveRef = useRef(resolveTarget);
+  resolveRef.current = resolveTarget;
   startRef.current = onLongPressStart;
   const dragRef = useRef(onDragEnterCell);
   dragRef.current = onDragEnterCell;
@@ -219,7 +223,9 @@ export function useLongPress({
       startX = e.clientX;
       startY = e.clientY;
       pointerId = e.pointerId;
-      cellId = getCellId(e.target);
+      const resolved = resolveRef.current ? resolveRef.current(e.target) : getCellId(e.target);
+      if (resolved === null) return;
+      cellId = resolved;
       committed = false;
 
       timer = setTimeout(() => {

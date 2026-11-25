@@ -144,6 +144,14 @@ test.describe("CollectionTree — with mock service", () => {
     await kupua.page.waitForTimeout(500);
     expect(kupua.page.url()).toBe(urlAfterFirstClick);
 
+    const sportNode = kupua.page.getByText("Sport", { exact: true });
+    await sportNode.click({ modifiers: ["Shift"] });
+    await kupua.page.waitForURL((url: URL) => url.searchParams.get("query") === "collection:travel collection:sport");
+    await sportNode.click({ modifiers: ["Alt"] });
+    await kupua.page.waitForURL((url: URL) => url.searchParams.get("query") === "collection:travel -collection:sport");
+    await sportNode.click();
+    await kupua.page.waitForURL((url: URL) => url.searchParams.get("query") === "collection:sport");
+
     // Clear query via the clear button → sort should revert
     await kupua.page.getByRole("button", { name: /clear/i }).click();
     await kupua.page.waitForURL(

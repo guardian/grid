@@ -299,7 +299,7 @@
 [data-editable-pill] > span { overflow-wrap: anywhere; }
 [data-retained-reading] :is(.metadata-add-tool, [data-editable-pill] > button, .metadata-edit-tool):disabled:not(.metadata-pencil) { opacity: 1; }
 @media (hover: hover) and (pointer: fine) {
-  .metadata-edit-tool:enabled:hover { background: #555; color: white; border-radius: 50%; }
+  :is(.metadata-edit-tool, .collection-tree-action):enabled:hover { background: #555; color: white; border-radius: 50%; }
   [data-metadata-field] .metadata-pencil { opacity: 0; }
   [data-metadata-field]:hover .metadata-pencil, [data-metadata-field] .metadata-pencil:focus-visible { opacity: 1; }
   [data-search-pill]:not([data-accent]):hover,

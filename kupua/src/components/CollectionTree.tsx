@@ -13,7 +13,11 @@
  * See kupua/exploration/docs/00 Architecture and philosophy/06-collections.md for architecture.
  */
 
-import { useState, useCallback, useContext, useEffect, useSyncExternalStore } from "react";
+import { useState, useCallback, useContext, useEffect, useRef, useSyncExternalStore } from "react";
+import { useLongPress } from "@/hooks/useLongPress";
+import { useIsCompact } from "@/hooks/useShell";
+import { directMembershipCounts, membershipActionLabel } from "@/lib/collection-eligibility";
+import { CollectionActionPopup } from "./CollectionActionPopup";
 import { useStore } from "zustand";
 import { useSearch } from "@tanstack/react-router";
 import { collectionCountScope, useCollectionStore, type CollectionNode } from "@/stores/collection-store";
@@ -78,18 +82,34 @@ export function CollectionTree() {
 
   // Local expand state — collapsed by default, keyed by pathId.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const panel = useRef<HTMLDivElement>(null);
+  const [menu, setMenu] = useState<{ node: CollectionNode; trigger: HTMLButtonElement } | null>(null);
+  const compact = useIsCompact();
+  const [managing, setManaging] = useState(false);
+  const showActions = (compact || managing) && connected && path === "/search" && !dragging;
+  useLongPress({ containerRef: panel, enabled: showActions && status === "ready" && !!tree, resolveTarget: target =>
+    target instanceof Element ? target.closest<HTMLElement>("[data-collection-name]")?.dataset.collectionName ?? null : null,
+    onLongPressStart: pathId => panel.current?.querySelector<HTMLButtonElement>(`[data-collection-actions="${CSS.escape(pathId)}"]`)?.click() });
+  useEffect(() => { if (!showActions) setMenu(null); }, [showActions]);
 
   // Handle click on a collection node name: toggle collection filter in query.
   // Sort auto-switching is handled atomically by useUpdateSearchParams() in useUrlSearchSync.ts.
   const handleNodeClick = useCallback(
-    (pathId: string) => {
+    (pathId: string, event: React.MouseEvent) => {
+      if (event.shiftKey || event.altKey) {
+        event.preventDefault();
+        const query = upsertFieldTerm(currentQuery, "collection", pathId, event.altKey);
+        if (query !== currentQuery) updateSearch({ query });
+        return;
+      }
       const existing = findFieldTerm(currentQuery, "collection", pathId);
 
-      // Already active — clicking the selected collection is a no-op.
-      if (existing) return;
+      if (existing && !existing.negated) {
+        const rest = currentQuery.slice(0, existing.start) + currentQuery.slice(existing.end);
+        if (removeAllFieldTerms(rest, "collection") === rest) return;
+      }
 
-      // Remove any other collection filters first — collections are exclusive
-      // (you can only browse one at a time, same as kahuna).
+      // Plain browse replaces other collection chips, preserving unrelated search terms.
       const stripped = removeAllFieldTerms(currentQuery, "collection");
       const newQuery = upsertFieldTerm(stripped, "collection", pathId, false);
 
@@ -116,7 +136,7 @@ export function CollectionTree() {
   }
 
   return (
-    <div className="py-1" onDragOverCapture={event => {
+    <div ref={panel} className="py-1" onDragOverCapture={event => {
       const signal = imageDragSignal(event.dataTransfer);
       const pathId = signal && event.target instanceof Element ? event.target.closest<HTMLElement>(".collection-tree-row")?.dataset.pathId : undefined;
       setHover(previous => previous && previous.signal === signal && previous.pathId === pathId ? previous : { signal, pathId });
@@ -125,6 +145,7 @@ export function CollectionTree() {
       if (row && event.relatedTarget instanceof Node && row.contains(event.relatedTarget)) return;
       setHover(undefined);
     }} onDropCapture={() => setHover(undefined)}>
+      {!compact && connected && path === "/search" && <button className="ml-2 px-2 py-1 text-xs text-grid-text-muted hover:bg-grid-hover" aria-pressed={managing} onClick={() => setManaging(!managing)}>{managing ? "Done editing" : "Edit collections"}</button>}
       {tree.data.children.map((child) => (
         <CollectionTreeNode
           key={child.data.data?.pathId ?? child.data.basename}
@@ -136,9 +157,16 @@ export function CollectionTree() {
           currentQuery={currentQuery}
           onNodeClick={handleNodeClick}
           editSelection={editSelection}
+          openMenu={showActions ? (node, trigger) => setMenu(current => current?.trigger === trigger ? null : { node, trigger }) : undefined}
           dropPath={connected && gesture && gesture === hover?.signal ? hover.pathId : undefined}
         />
       ))}
+      {showActions && menu && <CollectionActionPopup key={menu.node.data.data?.pathId} {...menu}
+        onDismiss={() => setMenu(null)} editSelection={editSelection} onObserved={(parts, deleted) => {
+          const key = parts.join("/").toLowerCase();
+          if (!deleted) setExpanded(prev => new Set(prev).add(parts.slice(0,-1).join("/").toLowerCase()));
+          requestAnimationFrame(() => { const button = panel.current?.querySelector<HTMLButtonElement>(`[data-collection-actions="${CSS.escape(key)}"]`); button?.focus({ preventScroll: true }); button?.scrollIntoView({ block: "nearest" }); });
+        }} />}
     </div>
   );
 }
@@ -147,6 +175,28 @@ export function CollectionTree() {
 // CollectionTreeNode — recursive single node
 // ---------------------------------------------------------------------------
 
+function MembershipButton({ action, pathId, edit }: { action: "add" | "remove"; pathId: string; edit: (action: "add" | "remove", pathId: string) => void }) {
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const active = hovered || focused;
+  const [impact, setImpact] = useState("");
+  useEffect(() => {
+    if (!active) return;
+    const update = ({ selectedIds, metadataCache }: ReturnType<typeof useSelectionStore.getState>) => {
+      setImpact(membershipActionLabel(action, directMembershipCounts(selectedIds, pathId, id => metadataCache.peek(id))));
+    };
+    update(useSelectionStore.getState());
+    return useSelectionStore.subscribe((state, previous) => {
+      if (state.selectedIds !== previous.selectedIds || state.metadataRevision !== previous.metadataRevision) update(state);
+    });
+  }, [active, pathId, action]);
+  const add = action === "add";
+  return <button type="button" className="collection-tree-action" aria-label={`${add ? "Add selected images to" : "Remove selected images from"} ${pathId}`}
+    title={active && impact || `${add ? "Add" : "Remove"} selected photos`}
+    onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+    onClick={event => { event.stopPropagation(); edit(action, pathId); }}>{add ? "+" : "\u2212"}</button>;
+}
+
 interface CollectionTreeNodeProps {
   node: CollectionNode;
   depth: number;
@@ -154,9 +204,10 @@ interface CollectionTreeNodeProps {
   setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
   counts: Record<string, number> | undefined;
   currentQuery: string;
-  onNodeClick: (pathId: string) => void;
+  onNodeClick: (pathId: string, event: React.MouseEvent) => void;
   editSelection?: (action: "add" | "remove", pathId: string) => void;
   dropPath?: string;
+  openMenu?: (node: CollectionNode, trigger: HTMLButtonElement) => void;
 }
 
 function CollectionTreeNode({
@@ -169,6 +220,7 @@ function CollectionTreeNode({
   onNodeClick,
   editSelection,
   dropPath,
+  openMenu,
 }: CollectionTreeNodeProps) {
   const editor = useContext(MetadataEditorContext);
   const commit = useMetadataCommit();
@@ -226,7 +278,7 @@ function CollectionTreeNode({
         style={isSticky ? { top: 0, zIndex: 20 } : undefined}
         data-path-id={pathId ?? undefined}
         data-drop-target={dropPath === pathId || undefined}
-        onClick={pathId !== null ? () => onNodeClick(pathId) : undefined}
+        onClick={pathId !== null ? event => onNodeClick(pathId, event) : undefined}
         onDragLeave={spring.onDragLeave}
         onDragOver={event => {
           spring.onDragOver(event);
@@ -276,23 +328,23 @@ function CollectionTreeNode({
         <span
           className="flex-1 overflow-clip text-ellipsis whitespace-nowrap text-left text-xs"
           title={node.data.basename}
+          data-collection-name={pathId ?? undefined}
         >
           {node.data.basename}
         </span>
 
         {/* Subtree count */}
-        {pathId !== null && editSelection && (["add", "remove"] as const).map(action => {
-          const label = `${action === "add" ? "Add selected images to" : "Remove selected images from"} ${pathId}`;
-          return <button key={action} type="button" className="collection-tree-action" aria-label={label} title={label}
-            onClick={event => { event.stopPropagation(); editSelection(action, pathId); }}>
-            {action === "add" ? "+" : "\u2212"}
-          </button>;
-        })}
+        {pathId !== null && editSelection && !openMenu && (["add", "remove"] as const).map(action =>
+          <MembershipButton key={action} action={action} pathId={pathId} edit={editSelection} />)}
         {count !== null && count > 0 && (
           <span className="text-2xs text-grid-text-dim tabular-nums ml-auto shrink-0">
             {formatCount(count)}
           </span>
         )}
+        {pathId && openMenu && <button type="button" className="collection-tree-more" aria-label={`Actions for ${node.data.fullPath.join(" / ")}`} title="Collection actions"
+          data-collection-actions={pathId} aria-haspopup="dialog" onClick={event => { event.stopPropagation(); openMenu(node, event.currentTarget); }}>
+          <span className="compact:hidden text-xs">Edit</span><svg className="wide:hidden" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+        </button>}
         </div>
       </div>
 
@@ -311,6 +363,7 @@ function CollectionTreeNode({
               onNodeClick={onNodeClick}
               editSelection={editSelection}
               dropPath={dropPath}
+              openMenu={openMenu}
             />
           ))}
         </div>

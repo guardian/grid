@@ -3,6 +3,22 @@ import type { EnrichmentFields } from "@/stores/enrichment-store";
 
 type Grants = Pick<EnrichmentFields, "actions" | "removableCollections">;
 
+export function directMembershipCounts(ids: ReadonlySet<string>, pathId: string | undefined, peek: (id: string) => Image | undefined) {
+  let direct = 0, unknown = 0;
+  for (const id of ids) {
+    const image = peek(id);
+    if (!image || image.__availability || !Array.isArray(image.collections)) unknown++;
+    else if (image.collections.some(member => member.pathId === pathId)) direct++;
+  }
+  return { direct, unknown, selected: ids.size };
+}
+
+export function membershipActionLabel(action: "add" | "remove", { direct, unknown, selected }: ReturnType<typeof directMembershipCounts>) {
+  const verb = action === "add" ? "Add" : "Remove";
+  const count = action === "add" ? selected : direct;
+  return `${verb} ${unknown && action === "remove" ? "selected photos" : count > 0 && count < selected ? `${count}/${selected} photos` : `${count} photo${count === 1 ? "" : "s"}`}`;
+}
+
 export function collectionEligibility(images: readonly Image[], grants: (image: Image) => Grants | undefined) {
   const removable = new Set<string>();
   const blocked = new Set<string>();
