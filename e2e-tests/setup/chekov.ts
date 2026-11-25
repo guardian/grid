@@ -2,8 +2,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { GenericContainer, Wait } from 'testcontainers';
-import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
+import type { StartedTestContainer } from 'testcontainers';
 import { DOMAIN, IMGOPS_HOST, OIDC_HOST, SERVICE_CONFIGS } from './constants.ts';
 
 export const CHEKOV_IMAGE = 'ghcr.io/guardian/chekov/nginx:sha-4841ed355fb10451dc697ef164a59fba01f7dfbc';
@@ -66,37 +65,10 @@ export function prepareChekov(configDir: string): string {
   return path.resolve(caRoot);
 }
 
-export function chekovContainer(
-  network: StartedNetwork,
-  caRoot: string,
-): GenericContainer {
-  return new GenericContainer(CHEKOV_IMAGE)
-    .withName('grid-chekov-nginx')
-    .withNetwork(network)
-    .withExtraHosts([{ host: 'host.docker.internal', ipAddress: 'host-gateway' }])
-    .withLabels({ 'uk.co.guardian.grid.role': 'Chekov reverse proxy' })
-    .withBindMounts([
-      { source: process.env.TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE ?? '/var/run/docker.sock', target: '/var/run/docker.sock', mode: 'ro' },
-      { source: caRoot, target: '/etc/nginx/mkcert', mode: 'ro' },
-    ])
-    .withEnvironment({
-      BASE_DOMAIN: DOMAIN,
-      DOCKER_SOCKET: '/var/run/docker.sock',
-      NGINX_CONFIG_PATH: '/etc/nginx/conf.d/generated.conf',
-      TLS_CERT: '/etc/nginx/certs/wildcard.crt',
-      TLS_KEY: '/etc/nginx/certs/wildcard.key',
-      LOCAL_CA_CERT: '/etc/nginx/mkcert/rootCA.pem',
-      LOCAL_CA_KEY: '/etc/nginx/mkcert/rootCA-key.pem',
-      DEBOUNCE_MS: '500',
-    })
-    .withExposedPorts({ container: 80, host: 80 }, { container: 443, host: 443 })
-    .withWaitStrategy(Wait.forHealthCheck())
-    .withStartupTimeout(120_000);
-}
-
 export async function registerLocalstackAliases(
   container: StartedTestContainer,
   coreStackProps: Record<string, string>,
+  signal: AbortSignal,
 ): Promise<void> {
   await registerRoutes(container, [
     LOCALSTACK_ROUTE,
@@ -104,24 +76,26 @@ export async function registerLocalstackAliases(
       ...LOCALSTACK_ROUTE,
       alias,
     })),
-  ]);
+  ], signal);
 }
 
-export async function registerChekovAliases(container: StartedTestContainer): Promise<void> {
+export async function registerChekovAliases(container: StartedTestContainer, signal: AbortSignal): Promise<void> {
   await registerRoutes(container, [
     ...CHEKOV_ALIASES.filter(({ alias }) => alias !== LOCALSTACK_ROUTE.alias),
     { sourceHostname: undefined, alias: IMGOPS_HOST, healthPath: '/_' },
     { sourceHostname: undefined, alias: OIDC_HOST, healthPath: '/.well-known/openid-configuration' },
-  ]);
+  ], signal);
 }
 
 async function registerRoutes(
   container: StartedTestContainer,
   routes: { sourceHostname?: string; alias: string; healthPath: string }[],
+  signal: AbortSignal,
 ): Promise<void> {
   for (const { healthPath, alias, sourceHostname } of routes) {
     const deadline = Date.now() + 30_000;
     for (;;) {
+      signal.throwIfAborted();
       let result = sourceHostname ? await container.exec([
         'curl', '--fail-with-body', '--silent', '--show-error', '--max-time', '10',
         '--data', new URLSearchParams({ sourceHostname, alias }).toString(),
@@ -141,7 +115,7 @@ async function registerRoutes(
         const diagnostics = await container.exec(['sh', '-c', 'tail -n 100 /var/log/chekov/*.log /var/log/devcontainer-nginx/*.log 2>/dev/null']);
         throw new Error(`Could not configure Chekov route ${alias}: ${result.output}\n${nginx.output}\n${diagnostics.output}`);
       }
-      await delay(500);
+      await delay(500, undefined, { signal });
     }
   }
 }

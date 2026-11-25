@@ -1,100 +1,68 @@
-/**
- * Boots the Grid stack outside Playwright and holds it open until Ctrl-C.
- *
- * Chekov serves the https://*.media.<domain> domains by default.
- * Set `GRID_PROXY=false` to use an external dev-nginx instead.
- */
+/** Hold a local Grid stack open until Ctrl-C. Chekov serves the HTTPS routes by default. */
 import {
-  CONFIG_DIR,
-  DOMAIN,
-  E2E_ROOT,
-  ELASTICSEARCH_PORT,
-  LOCALSTACK_PORT,
-  OIDC_ISSUER,
-  SERVICE_CONFIGS,
+  API_KEY, E2E_ROOT, ELASTICSEARCH_URL, LOCALSTACK_URL, OIDC_CLIENT_SECRET, OIDC_ISSUER, SERVICE_CONFIGS,
 } from './constants.ts';
+import { probeStack, unavailableStackError } from './shared-stack.ts';
+import { startStack } from './stack-containers.ts';
 import { createStackDiagnostics } from './stack-diagnostics.ts';
-import { probeStack, startStack, stopStack } from './stack.ts';
 import type { GridEnvironment } from './state.ts';
 
-const diagnostics = createStackDiagnostics(E2E_ROOT);
-
-function banner(elapsedMs: number): string {
-  const services = Object.keys(SERVICE_CONFIGS)
-    .sort()
-    .map((service) => `    ${service.padEnd(16)} http://localhost:${SERVICE_CONFIGS[service].port}`)
-    .join('\n');
-
-  return [
-    '',
-    `  Grid is up in ${Math.round(elapsedMs / 1000)}s at https://media.${DOMAIN}`,
-    '',
-    '  Services:',
-    services,
-    '',
-    '  Infrastructure:',
-    `    localstack       http://localhost:${LOCALSTACK_PORT}`,
-    `    elasticsearch    http://localhost:${ELASTICSEARCH_PORT}`,
-    `    oidc-provider    ${OIDC_ISSUER}`,
-    '',
-    `  Config at ${CONFIG_DIR}`,
-    '',
-    '  Press Ctrl-C to tear everything down.',
-    '',
-  ].join('\n');
-}
-
 async function dev(): Promise<void> {
+  const diagnostics = createStackDiagnostics(E2E_ROOT);
+  diagnostics.addSecrets([API_KEY, OIDC_CLIENT_SECRET]);
+  const shutdown = new AbortController();
+  const stopped = Promise.withResolvers<void>();
   let environment: GridEnvironment | undefined;
-  let shuttingDown = false;
+  let keepAlive: NodeJS.Timeout | undefined;
 
-  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-    // A second Ctrl-C exits immediately; Testcontainers' Ryuk reaper cleans up the rest.
-    if (shuttingDown) {
-      console.log('\nForcing exit.');
-      diagnostics.flush();
-      process.exit(130);
-    }
-    shuttingDown = true;
-
-    if (!environment) {
-      // Interrupted mid-boot: startStack owns the containers, so leave them to Ryuk.
-      console.log(`\nReceived ${signal} during startup; leaving cleanup to the Ryuk reaper.`);
-      diagnostics.flush();
-      process.exit(130);
-    }
-
-    console.log(`\nReceived ${signal}, stopping the Grid stack...`);
-    await stopStack(environment);
-    diagnostics.flush();
-    console.log('Done.');
-    process.exit(0);
+  const interrupt = (signal: NodeJS.Signals): void => {
+    const exitCode = signal === 'SIGINT' ? 130 : 143;
+    if (shutdown.signal.aborted) process.exit(exitCode);
+    if (!environment) process.exitCode = exitCode;
+    diagnostics.log(`Received ${signal}, stopping Grid`);
+    shutdown.abort(new Error(`Grid interrupted by ${signal}`));
+    stopped.resolve();
   };
 
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', interrupt);
+  process.on('SIGTERM', interrupt);
 
-  // The host ports are fixed, so a second stack cannot coexist with the first.
-  const { state, healthy } = await probeStack();
-  if (state !== 'none') {
-    throw new Error(
-      `Ports ${healthy.join(', ')} are already serving Grid. Stop that stack before starting another.`,
-    );
+  try {
+    const probe = await probeStack(shutdown.signal);
+
+    if (probe.state === 'unavailable') throw unavailableStackError(probe.ports);
+    if (probe.state === 'healthy') {
+      throw new Error('Grid is already running. Stop that stack before starting another.');
+    }
+
+
+    environment = await startStack({}, diagnostics, shutdown.signal);
+
+    for (const [name, { port }] of Object.entries(SERVICE_CONFIGS)) {
+      diagnostics.log(`${name.padEnd(24)} http://localhost:${port}`);
+    }
+
+    diagnostics.log(`${'localstack'.padEnd(24)} ${LOCALSTACK_URL}`);
+    diagnostics.log(`${'elasticsearch'.padEnd(24)} ${ELASTICSEARCH_URL}`);
+    diagnostics.log(`${'oidc-provider'.padEnd(24)} ${OIDC_ISSUER}`);
+    diagnostics.log(`Config at ${environment.configDir}\nPress Ctrl-C to stop Grid.`);
+    keepAlive = setInterval(() => { }, 2_000_000_000);
+    await stopped.promise;
+  } catch (error) {
+    if (error !== shutdown.signal.reason) {
+      diagnostics.error('setup:stack', error);
+      process.exitCode = 1;
+    }
+  } finally {
+    clearInterval(keepAlive);
+    try {
+      await environment?.stop();
+    } finally {
+      process.off('SIGINT', interrupt);
+      process.off('SIGTERM', interrupt);
+      diagnostics.flush();
+    }
   }
-
-  const startedAt = Date.now();
-  environment = await diagnostics.step('startup', () => startStack({
-    proxy: process.env.GRID_PROXY !== 'false',
-    diagnostics,
-  }));
-  console.log(banner(Date.now() - startedAt));
-
-  // Hold the process open indefinitely.
-  setInterval(() => {}, 2_000_000_000);
 }
 
-dev().catch((error) => {
-  diagnostics.error('setup:stack', error);
-  diagnostics.flush();
-  process.exit(1);
-});
+await dev();

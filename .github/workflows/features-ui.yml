@@ -31,7 +31,7 @@ jobs:
       run: npm ci
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
     # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
-    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # e2e-tests/setup/stack/containers.ts, bind-mounts these host dirs into the container.
     # Without this the container re-downloads the whole dependency tree from Maven
     # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
     # build files, with a prefix restore-key so an unrelated build change only
