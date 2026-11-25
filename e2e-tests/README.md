@@ -124,23 +124,24 @@ npm run test:report           # Playwright: http://localhost:9323
 npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
-Each run writes startup and cleanup messages to `target/logs/<timestamp>/stack.log`.
-A fresh stack also saves Docker build output in `builds/` and container output in
-`containers/`. Check `stack.log` first if startup fails. Set `E2E_DEBUG=1` to also
-see build and container output in the terminal.
+Each run prints a timestamped directory under `e2e-tests/target/logs/`. Start with
+`stack.log` to see which step failed and how long it ran. It has the same
+progress messages as the terminal, with timestamps. For more detail, look in
+`builds/<name>.log` or `containers/<name>.log`. Set `E2E_DEBUG=1` to see build and
+container output in the terminal too.
 
-CI splits the suite into 4 shards with Playwright's native `--shard` option. Each shard
-boots its own stack and writes a blob report instead of the HTML reports. A
-`merge-reports` job then combines the blobs with
-`playwright merge-reports --config playwright.config.ts`. To reproduce one shard locally,
-run, for example, `CI=true npm test -- --shard=2/4`. The `playwright-result` job passes
-only when every shard passes, so use it as the required status check.
+CI runs four Playwright shards. Each shard starts its own stack and writes a
+blob report. The `merge-reports` job combines them into the Playwright and
+Cucumber reports in the `e2e-report` artifact. To run one shard locally, use
+`CI=true npm test -- --shard=2/4` from `e2e-tests`. The `playwright-result`
+check passes only when all shards pass.
 
-CI also adds GitHub failure annotations. The merged reports and their captured attachments
-are uploaded together as `e2e-report`, retained for 14 days after successful or failed
-runs, excluding cancelled runs. Failures before report generation may leave no reports to
-upload. Each shard uploads its stack logs as `stack-logs-<shard>` when available.
-A failed shard links to its logs from an annotation on the job page.
+Each shard uploads `stack-logs-<shard>`. If a shard fails, its job annotation
+links to those logs. CI keeps the reports and stack logs for 14 days.
+
+Browser coverage is opt-in. From `e2e-tests`, use `GRID_ENABLE_COVERAGE=true npm test`
+to collect it locally. The Features UI job uses `npm run test:video:coverage`
+and uploads its Playwright report, coverage reports, and stack logs separately.
 
 ### Feature library
 
@@ -215,17 +216,19 @@ Chekov diagnostics are available at `https://chekov.local.dev-gutools.co.uk`.
 The proxy, aliases and generated leaf certificates are recreated on each fresh stack
 and torn down with it. Its built image is retained for Docker layer caching.
 
-Validate the proxy independently of Scala and the application databases:
+The stack builds the OIDC and imgops images while Elasticsearch and LocalStack
+start. It provisions LocalStack and generates Grid's config before starting the
+Grid services. With Chekov enabled, it checks the LocalStack routes before launch
+and the remaining HTTPS routes once the services are ready.
 
-```bash
-npm run test:setup      # endpoint rewriting and route registration; no Docker required
-npm run test:proxy      # route metadata and bucket rewrite unit tests
-npm run validate:proxy  # real Chekov with temporary HTTP backends; needs Docker and mkcert
-```
+[Stack startup](setup/stack-containers.ts) coordinates the
+[container definitions](setup/stack/containers.ts),
+[cleanup](setup/stack-lifecycle.ts), and [logging](setup/stack-diagnostics.ts).
 
-The smoke test checks every Grid alias, TLS hostname/CA verification, container-to-container
-DNS, S3 path/query preservation and nginx configuration, then removes its containers and
-network. It uses the same fixed ports as the stack, so stop the stack before running it.
+If startup fails or you press Ctrl-C, Grid waits for containers that are still
+starting. It stops the containers it started, removes the network, and deletes
+its generated config. From `e2e-tests`, `npm run test:stack` exercises failures
+such as interrupted startup and failed cleanup without running Docker.
 
 ### Running the tests against a stack you already started
 
@@ -234,8 +237,9 @@ multi-minute boot into a couple of seconds. Leave `npm run dev:e2e` running in o
 terminal, then use `npm test`, `npm run test:ui` or any of the others as normal — they
 attach automatically and leave the stack running when they finish.
 
-If only some services are up (usually because the stack is still booting), the run stops
-straight away and names the ports it is waiting on.
+Playwright starts a fresh stack only if every checked port refuses the connection.
+If only some services are ready, or an endpoint times out or returns an
+HTTP error, setup reports the affected ports. CI requires a fresh stack.
 
 | Variable           | Effect                                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |
@@ -246,5 +250,5 @@ bind-mounted and services run under `sbt run`), but _not_ changes to anything ap
 boot: generated service config, CloudFormation templates, bucket contents, OIDC users,
 permissions, Elasticsearch fixtures or seeded collections. After changing any of those, restart `dev:e2e`.
 
-Reuse also means state carries over between runs. The current suite is read-only, so this
-is harmless today, but a test that uploads or edits an image will want a fresh stack.
+Uploads and edits persist in a reused stack. Stop it before running the tests if
+you need fresh data.

@@ -36,11 +36,11 @@ export async function buildImage(options: {
   context: string;
   tag: string;
   diagnostics: StackDiagnostics;
-  signal?: AbortSignal;
+  signal: AbortSignal;
   env: NodeJS.ProcessEnv;
 }): Promise<GenericContainer> {
   const { name, context, tag, diagnostics, signal, env } = options;
-  signal?.throwIfAborted();
+  signal.throwIfAborted();
   return diagnostics.step(`build:${name}`, async () => {
     const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -58,7 +58,7 @@ export async function buildImage(options: {
       build.once('close', () => resolve());
     });
 
-    signal?.throwIfAborted();
+    signal.throwIfAborted();
     if (processError) throw processError;
     if (build.exitCode !== 0) {
       const logFile = `${diagnostics.directory}/builds/${name}.log`;

@@ -1,8 +1,7 @@
 /**
  * Playwright global teardown. Stops the stack started in `global-setup.ts`.
  */
-import { stopStack } from './stack.ts';
-import { getEnvironment } from './state.ts';
+import { getEnvironment, setEnvironment, waitForSetup } from './state.ts';
 import { readdir, readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import MCR from 'monocart-coverage-reports';
@@ -24,12 +23,24 @@ async function generateFeatureReports(): Promise<void> {
     const featureDir = `${FEATURE_COVERAGE_DIR}/${feature}`;
     await generateReport(featureDir);
     const scenariosDir = `${featureDir}/${SCENARIOS_DIR_NAME}`;
-    for (const scenario of await subdirs(scenariosDir)) await generateReport(`${scenariosDir}/${scenario}`);
+
+    for (const scenario of await subdirs(scenariosDir)) {
+      await generateReport(`${scenariosDir}/${scenario}`);
+    }
   }
 }
 
 async function globalTeardown(): Promise<void> {
+  await waitForSetup();
+
   const environment = getEnvironment();
+
+  if (!environment) return;
+
+  setEnvironment(undefined);
+  const { diagnostics } = environment;
+  let failedStage: 'coverage' | 'cleanup' | undefined;
+
   try {
     if (process.env.GRID_ENABLE_COVERAGE === 'true') {
       const results = await MCR(coverageOptions).generate();
@@ -38,9 +49,22 @@ async function globalTeardown(): Promise<void> {
       }
       await generateFeatureReports();
     }
-    await stopStack(environment);
+  } catch (error) {
+    diagnostics.error('coverage', error);
+    failedStage = 'coverage';
+  }
+
+  try {
+    await environment.stop();
+  } catch (error) {
+    diagnostics.error('cleanup:stack', error);
+    failedStage ??= 'cleanup';
   } finally {
-    environment?.diagnostics.flush();
+    diagnostics.flush();
+  }
+
+  if (failedStage) {
+    throw new Error(`Grid e2e ${failedStage} failed. See ${diagnostics.directory}/stack.log`);
   }
 }
 

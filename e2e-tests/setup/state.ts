@@ -1,37 +1,35 @@
-/**
- * Shared, process-scoped registry for the Testcontainers instances started by
- * `global-setup.ts`. Playwright runs global setup and global teardown in the same
- * Node process, so a module-level singleton is a reliable way to hand references
- * from setup to teardown.
- *
- * Ownership is structural: this process only holds handles to resources it created,
- * so teardown stops what it holds and deletes what it wrote. When attaching to a
- * stack someone else started, these are empty and teardown is a no-op.
- */
-import type { StartedTestContainer } from 'testcontainers';
-import type { StartedNetwork } from 'testcontainers';
 import type { StackDiagnostics } from './stack-diagnostics.ts';
 
 export interface GridEnvironment {
-  diagnostics: StackDiagnostics;
-  /** Absent when attached to a stack this process did not start. */
-  network?: StartedNetwork;
-  /** Every container this process started, in start order. Stopped in reverse on teardown. */
-  containers: StartedTestContainer[];
-  /** Absolute path to the generated config directory mounted into the app container. */
-  configDir?: string;
-  /** Base URL of the Kahuna UI, e.g. http://localhost:9005 */
   baseUrl: string;
-  /** Base URL of the media-api, e.g. http://localhost:9001 */
   mediaApiUrl: string;
+  configDir?: string;
+  /** Stops the resources this run owns. A borrowed stack has nothing to stop. */
+  stop(): Promise<void>;
 }
 
-let environment: GridEnvironment | undefined;
+// Playwright runs its global setup and teardown in the same process.
+type Session = GridEnvironment & { diagnostics: StackDiagnostics };
+let session: Session | undefined;
+let pendingSetup: Promise<void> | undefined;
 
-export function setEnvironment(env: GridEnvironment): void {
-  environment = env;
+// After Ctrl-C, Playwright can begin teardown before setup has finished cleaning up.
+export function trackSetup(work: Promise<void>): Promise<void> {
+  pendingSetup = work;
+  return work.finally(() => {
+    if (pendingSetup === work) pendingSetup = undefined;
+  });
 }
 
-export function getEnvironment(): GridEnvironment | undefined {
-  return environment;
+export async function waitForSetup(): Promise<void> {
+  // Global setup handles partial cleanup and reports its own failure to Playwright.
+  await pendingSetup?.catch(() => {});
+}
+
+export function setEnvironment(environment: Session | undefined): void {
+  session = environment;
+}
+
+export function getEnvironment(): Session | undefined {
+  return session;
 }

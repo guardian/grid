@@ -11,16 +11,15 @@ export const E2E_COLLECTION = 'e2e-batch';
 const COLLECTIONS_URL = `http://localhost:${SERVICE_CONFIGS.collections.port}/collections`;
 
 /** Create the fixture collections at the root. Re-adding an existing one is a no-op. */
-export async function seedCollections(report: (message: string) => void): Promise<void> {
+export async function seedCollections(signal?: AbortSignal): Promise<void> {
   const response = await fetch(COLLECTIONS_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Gu-Media-Key': API_KEY },
     body: JSON.stringify({ data: E2E_COLLECTION }),
+    signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]),
   });
 
   if (!response.ok) {
     throw new Error(`Collections seed failed: HTTP ${response.status} ${await response.text()}`);
   }
-
-  report(`Seeded collection '${E2E_COLLECTION}'`);
 }
