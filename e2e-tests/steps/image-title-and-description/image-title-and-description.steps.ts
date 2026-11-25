@@ -7,6 +7,7 @@ import type { ImageSource } from '../../setup/image-fixtures.ts';
 import { DOMAIN } from '../../setup/constants.ts';
 import { E2E_METADATA_FIELD_TEMPLATES } from '../../setup/config.ts';
 import { isSearchRun } from '../search/search-box.ts';
+import { chooseMetadataTemplate, expectMetadataTemplateOffered } from '../utils/metadata-templates.ts';
 
 type Field = 'title' | 'description';
 interface ImageMetadata {
@@ -64,11 +65,6 @@ const descriptionOption = (page: Page, option: string): Locator =>
   metadataLine(page, 'description').getByRole('radio', { name: option, includeHidden: true });
 const descriptionOptionLabel = (page: Page, option: string): Locator =>
   metadataLine(page, 'description').locator('gr-radio-list label').filter({ hasText: option });
-
-const metadataTemplateSelect = (page: Page): Locator =>
-  page
-    .getByRole('region', { name: 'Metadata templates', exact: true })
-    .getByRole('combobox', { name: 'Metadata template' });
 
 const searchResult = (page: Page, id: string): Locator =>
   page
@@ -214,27 +210,11 @@ function findTemplate(fields: Partial<Record<Field, string>>): string {
   return template.templateName;
 }
 
-/**
- * Kahuna applies a template's selection once it has fetched the collections tree, which it
- * only requests on the first selection after the page loads.
- */
 async function selectTemplate(page: Page, testContext: TestContext): Promise<void> {
   const name = testContext.metadataTemplateName;
   if (!name) throw new Error('No metadata template was chosen by an earlier step');
-  const select = metadataTemplateSelect(page);
-  // Templates are baked into Kahuna's config at boot, so a stale stack won't list this one.
-  await expect(
-    select.getByRole('option', { name, exact: true }),
-    'restart the stack if the template is missing',
-  ).toHaveCount(1);
-  const [collections] = await Promise.all([
-    page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return url.hostname === `media-collections.${DOMAIN}` && url.pathname === '/collections';
-    }),
-    select.selectOption({ label: name }),
-  ]);
-  expect(collections.ok(), 'fetching collections for the metadata template').toBeTruthy();
+  await expectMetadataTemplateOffered(page, name);
+  await chooseMetadataTemplate(page, name);
 }
 
 async function expectHighlightedPreview(page: Page, field: Field, value: string): Promise<void> {
