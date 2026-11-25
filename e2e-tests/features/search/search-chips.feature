@@ -125,32 +125,52 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 90-110
 
-  Scenario: Disabling optional search features removes the persisted field
-    Given optional search suggestion features are disabled
+  Scenario: Disabling the reaper removes the persisted field
+    Given the reaper feature is disabled
+    And the search box is empty
     When I type "+per" into the search box
     Then the filter suggestions should include "person"
     And the filter suggestions should not include "persisted"
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 54-72, 164-168
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 58-73, 164-168
   # Evidence: kahuna/app/views/main.scala.html lines 103
 
-  Scenario: Disabling optional search features removes conditional is suggestions
-    Given optional search suggestion features are disabled
+  Scenario: Disabling the reaper removes the reapable suggestion
+    Given the reaper feature is disabled
+    And the search box is empty
     When I type "+is:" into the search box
     Then the filter suggestions should include "deleted"
     And the filter suggestions should not include "reapable"
-    And the filter suggestions should not include "agency-pick"
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 46-77
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 46-56
   # Evidence: kahuna/app/views/main.scala.html lines 103
 
-  Scenario: Disabling optional usage features retains only print and digital suggestions
-    Given optional search suggestion features are disabled
+  Scenario: Disabling agency picks removes the agency-pick suggestion
+    Given the agency picks feature is disabled
+    And the search box is empty
+    When I type "+is:" into the search box
+    Then the filter suggestions should include "deleted"
+    And the filter suggestions should not include "agency-pick"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 46-52, 75-77
+  # Evidence: kahuna/app/views/main.scala.html lines 103
+
+  Scenario: Disabling recording downloads as usages removes the download platform suggestion
+    Given the record downloads as usages feature is disabled
+    And the search box is empty
     When I type "+usages@platform:" into the search box
     Then the filter suggestions should include "print"
     And the filter suggestions should include "digital"
     And the filter suggestions should not include "download"
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 277-282
+  # Evidence: kahuna/app/views/main.scala.html lines 103
+
+  Scenario: Disabling Photo Sales removes its usage platform suggestion
+    Given the send to Photo Sales feature is disabled
+    And the search box is empty
+    When I type "+usages@platform:" into the search box
+    Then the filter suggestions should include "print"
+    And the filter suggestions should include "digital"
     And the filter suggestions should not include "Added to Photo Sales"
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 277-288
-  # Evidence: kahuna/app/views/main.scala.html lines 103
+  # Evidence: e2e-tests/steps/image-usages/image-usages.steps.ts lines 239-241
 
   Scenario: A credit without a completion remains a valid manually entered chip value
     Given the search box is empty

@@ -79,15 +79,19 @@ Given('I am choosing a photoshoot value starting with {string}', async ({ page }
     await chooseIndexedValue(page, 'photoshoot', prefix);
 });
 
-Given('optional search suggestion features are disabled', async ({ page }) => {
-    await setTestClientConfig(page, {
-        useReaper: false,
-        agencyPicksIngredients: null,
-        recordDownloadAsUsage: false,
-        showSendToPhotoSales: false,
-    });
+Given('the reaper feature is disabled', async ({ page }) => {
+    await setTestClientConfig(page, { useReaper: false });
     await searchBoxReady(page);
-    await expectSearchBoxEmpty(page);
+});
+
+Given('the agency picks feature is disabled', async ({ page }) => {
+    await setTestClientConfig(page, { agencyPicksIngredients: null });
+    await searchBoxReady(page);
+});
+
+Given('the record downloads as usages feature is disabled', async ({ page }) => {
+    await setTestClientConfig(page, { recordDownloadAsUsage: false });
+    await searchBoxReady(page);
 });
 
 Given('I opened a chip search URL for {string}', async ({ page, testContext }, query: string) => {
