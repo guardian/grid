@@ -29,16 +29,19 @@ jobs:
       with:
         node-version: lts/*
         # Cache downloads for both the host-side e2e install and the Kahuna install
-        # performed inside grid-e2e-ci. stack.ts mounts this cache into the container.
+        # performed inside grid-e2e-ci, which mounts this cache from the host.
         cache: npm
         cache-dependency-path: |
           e2e-tests/package-lock.json
           kahuna/package-lock.json
     - name: Install dependencies
       run: npm ci
+    - name: Check stack lifecycle and diagnostics
+      if: ${{ matrix.shardIndex == 1 }}
+      run: npm run test:stack
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
     # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
-    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # e2e-tests/setup/stack/containers.ts, bind-mounts these host dirs into the container.
     # Without this the container re-downloads the whole dependency tree from Maven
     # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
     # build files, with a prefix restore-key so an unrelated build change only
@@ -69,6 +72,7 @@ jobs:
       with:
         path: |
           **/target
+          !e2e-tests/target
           ~/.sbt
         key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
         restore-keys: |
@@ -139,24 +143,20 @@ jobs:
         path: e2e-tests/blob-report/
         retention-days: 1
         if-no-files-found: ignore
-    - name: Upload testcontainers log
-      id: testcontainers-log
+    - name: Upload stack logs
+      id: stack-logs
       uses: actions/upload-artifact@v7
-      if: ${{ failure() }}
+      if: ${{ !cancelled() }}
       with:
-        name: testcontainers-log-${{ matrix.shardIndex }}
-        path: e2e-tests/logs/
+        name: stack-logs-${{ matrix.shardIndex }}
+        path: e2e-tests/target/logs/
         retention-days: 14
         if-no-files-found: ignore
-    # Annotations show on the job page, which doesn't list the run's artifacts.
-    - name: Show testcontainers debug log
-      if: ${{ failure() && steps.testcontainers-log.outputs.artifact-url != '' }}
+    - name: Link failure diagnostics
+      if: ${{ failure() && steps.stack-logs.outputs.artifact-url != '' }}
       env:
-        ARTIFACT_URL: ${{ steps.testcontainers-log.outputs.artifact-url }}
-      run: |
-        echo "::error title=Testcontainers debug log::If the stack failed to start, see the testcontainers log to help debug. It's printed below, and also available for download at $ARTIFACT_URL"
-        cat logs/*/testcontainers.log
-
+        ARTIFACT_URL: ${{ steps.stack-logs.outputs.artifact-url }}
+      run: echo "::error title=Grid e2e diagnostics::See the stack logs at $ARTIFACT_URL"
 
   merge-reports:
     # Merge even when shards fail, so failures appear in the combined reports.

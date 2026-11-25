@@ -31,7 +31,7 @@ jobs:
       run: npm ci
     # Persist the sbt ivy/coursier caches across runs. The grid-e2e-ci container
     # runs `sbt e2eStage` at run time and, via dependencyCacheBindMounts() in
-    # e2e-tests/setup/stack.ts, bind-mounts these host dirs into the container.
+    # e2e-tests/setup/stack/containers.ts, bind-mounts these host dirs into the container.
     # Without this the container re-downloads the whole dependency tree from Maven
     # Central every run, which trips Central's 429 rate limiting. Keyed on the sbt
     # build files, with a prefix restore-key so an unrelated build change only
@@ -62,6 +62,7 @@ jobs:
       with:
         path: |
           **/target
+          !e2e-tests/target
           ~/.sbt
         key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
         restore-keys: |
@@ -133,6 +134,20 @@ jobs:
         path: e2e-tests/coverage-reports/
         retention-days: 30
         if-no-files-found: ignore
+    - name: Upload stack logs
+      id: stack-logs
+      uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: stack-logs
+        path: e2e-tests/target/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    - name: Link failure diagnostics
+      if: ${{ failure() && steps.stack-logs.outputs.artifact-url != '' }}
+      env:
+        ARTIFACT_URL: ${{ steps.stack-logs.outputs.artifact-url }}
+      run: echo "::error title=Grid e2e diagnostics::See the stack logs at $ARTIFACT_URL"
     - name: Build features UI
       run: npm run features:build
     - uses: actions/upload-artifact@v7
