@@ -555,13 +555,6 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           },
         ]),
     },
-    {
-      title: 'Register Chekov routes',
-      skip: () => !proxy && 'using external dev-nginx',
-      task: async (ctx) => {
-        await registerChekovAliases(ctx.chekov!);
-      },
-    },
   ];
 
   const tasks: ListrTask<BootContext>[] = [
@@ -610,6 +603,13 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
           ],
           { concurrent: true },
         ),
+    },
+    {
+      title: 'Register Chekov routes',
+      skip: () => !proxy && 'using external dev-nginx',
+      task: async (ctx) => {
+        await registerChekovAliases(ctx.chekov!);
+      },
     },
   ];
 
