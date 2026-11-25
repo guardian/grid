@@ -138,7 +138,7 @@ export async function ensureStack(
     await diagnostics.step('seed:elasticsearch', () => seedElasticsearch(ELASTICSEARCH_URL, 60_000, signal));
     await diagnostics.step('seed:images', async () => {
       const { cfn, s3 } = provisioningClients(LOCALSTACK_URL);
-      await seedImageFiles(s3, await describeCoreStack(cfn));
+      await seedImageFiles(s3, await describeCoreStack(cfn, signal), signal);
     });
     await diagnostics.step('seed:collections', () => seedCollections(signal));
   }

@@ -33,6 +33,7 @@ function keyOf(asset: Asset | undefined): string | undefined {
 export async function seedImageFiles(
   s3: S3Client,
   coreStackProps: StackProps,
+  signal?: AbortSignal,
 ): Promise<void> {
   const body = fs.readFileSync(PLACEHOLDER_PATH);
   const { ImageBucket, ThumbBucket } = coreStackProps;
@@ -50,6 +51,7 @@ export async function seedImageFiles(
     toUpload.map(({ bucket, key }) =>
       s3.send(
         new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: PLACEHOLDER_MIME_TYPE }),
+        { abortSignal: signal },
       ),
     ),
   );

@@ -199,11 +199,11 @@ export async function startStack(
     const core = await step('provision:core', () => createCoreStack(cfn, signal));
     const auth = await step('provision:auth', () => createAuthStack(cfn, signal));
 
-    await step('seed:config', () => seedBuckets(s3, core));
-    await step('seed:auth', () => seedAuthBuckets(s3, auth, getOidcIssuer(proxy), diagnostics.addSecrets));
+    await step('seed:config', () => seedBuckets(s3, core, signal));
+    await step('seed:auth', () => seedAuthBuckets(s3, auth, getOidcIssuer(proxy), diagnostics.addSecrets, signal));
 
     if (seed) {
-      await step('seed:images', () => seedImageFiles(s3, core));
+      await step('seed:images', () => seedImageFiles(s3, core, signal));
     }
 
     await step('seed:kcl', () => settleAll([

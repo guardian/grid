@@ -92,8 +92,8 @@ export function createCoreStack(cfn: CloudFormationClient, signal: AbortSignal):
   );
 }
 
-export function describeCoreStack(cfn: CloudFormationClient): Promise<StackProps> {
-  return describeStack(cfn, CORE_STACK_NAME);
+export function describeCoreStack(cfn: CloudFormationClient, signal?: AbortSignal): Promise<StackProps> {
+  return describeStack(cfn, CORE_STACK_NAME, signal);
 }
 
 export function createAuthStack(cfn: CloudFormationClient, signal: AbortSignal): Promise<StackProps> {
@@ -110,25 +110,27 @@ async function putObject(
   bucket: string,
   key: string,
   body: Buffer | string,
+  signal: AbortSignal,
 ): Promise<void> {
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }));
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }), { abortSignal: signal });
 }
 
-export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void> {
+export async function seedBuckets(s3: S3Client, props: StackProps, signal: AbortSignal): Promise<void> {
   const devConfig = path.join(REPO_ROOT, 'dev', 'config');
 
   await Promise.all([
     // API key used by the machine authentication provider.
-    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key'),
+    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key', signal),
     // Static config consumed by the services.
     ...['photographers.json', 'rcs-quota.json', 'usage_rights.json'].map((file) =>
-      putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file))),
+      putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file)), signal),
     ),
     putObject(
       s3,
       props.UsageMailBucket,
       'usages.eml',
       fs.readFileSync(path.join(devConfig, 'usages.eml')),
+      signal,
     ),
   ]);
 }
@@ -142,6 +144,7 @@ export async function seedAuthBuckets(
   props: StackProps,
   oidcIssuer: string,
   addSecrets: (values: readonly string[]) => void,
+  signal: AbortSignal,
 ): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
@@ -162,13 +165,14 @@ export async function seedAuthBuckets(
   ].join('\n');
 
   await Promise.all([
-    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings`, settings),
-    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings.public`, `publicKey=${publicKeyBody}\n`),
+    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings`, settings, signal),
+    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings.public`, `publicKey=${publicKeyBody}\n`, signal),
     putObject(
       s3,
       props.PermissionsBucket,
       'permissions.json',
       fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
+      signal,
     ),
   ]);
 }
@@ -203,10 +207,14 @@ export async function seedKclLeaseTable(
       AttributeDefinitions: [{ AttributeName: 'leaseKey', AttributeType: 'S' }],
       BillingMode: 'PAY_PER_REQUEST',
     }),
+    { abortSignal: signal },
   );
   await waitUntilTableExists({ client: dynamo, maxWaitTime: 60, minDelay: 1, abortSignal: signal }, { TableName: streamName });
 
-  const { Shards = [] } = await kinesis.send(new ListShardsCommand({ StreamName: streamName }));
+  const { Shards = [] } = await kinesis.send(
+    new ListShardsCommand({ StreamName: streamName }),
+    { abortSignal: signal },
+  );
 
   await Promise.all(
     Shards.map((shard) =>
@@ -224,6 +232,7 @@ export async function seedKclLeaseTable(
             endingHashKey: { S: shard.HashKeyRange!.EndingHashKey! },
           },
         }),
+        { abortSignal: signal },
       ),
     ),
   );
