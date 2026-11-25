@@ -50,7 +50,7 @@ export function localstackContainer(network: StartedNetwork): LocalstackContaine
       SQS_ENDPOINT_STRATEGY: 'path',
     })
     .withWaitStrategy(
-      Wait.forHttp('/_localstack/health', LOCALSTACK_PORT)
+      Wait.forHttp('/_localstack/health', LOCALSTACK_PORT, { abortOnContainerExit: true })
         .forStatusCode(200)
         .forResponsePredicate((response) => {
           const { services } = JSON.parse(response) as { services?: Record<string, string> };
@@ -180,7 +180,7 @@ export function oidcContainer(image: GenericContainer, network: StartedNetwork, 
     ])
     .withExposedPorts({ container: OIDC_PORT, host: OIDC_PORT })
     .withWaitStrategy(
-      Wait.forHttp('/.well-known/openid-configuration', OIDC_PORT)
+      Wait.forHttp('/.well-known/openid-configuration', OIDC_PORT, { abortOnContainerExit: true })
         .withHeaders(proxy ? { Host: OIDC_HOST, 'X-Forwarded-Proto': 'https' } : {})
         .forStatusCode(200),
     )

@@ -89,9 +89,8 @@ async function checkBorrowedRoute(url: URL, signal?: AbortSignal, issuer?: strin
     const options = { signal: signal ? AbortSignal.any([timeout, signal]) : timeout };
     const response = await new Promise<IncomingMessage>((resolve, reject) => {
       const request = url.protocol === 'https:'
-        // Verify HTTPS certificates when Node is configured with the local CA.
-        // Otherwise match Playwright's local HTTPS settings.
-        ? https.get(url, { ...options, rejectUnauthorized: !!process.env.NODE_EXTRA_CA_CERTS }, resolve)
+        // Match Playwright's local HTTPS settings.
+        ? https.get(url, { ...options, rejectUnauthorized: false }, resolve)
         // Connect via localhost so Node can reach OIDC even if oidc.localhost
         // isn't in DNS. The Host header keeps the name the provider expects.
         : http.get(url, { ...options, hostname: 'localhost', headers: { Host: url.host } }, resolve);

@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
+import type DockerModem from 'docker-modem';
 import { GenericContainer, Network, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
@@ -50,18 +51,48 @@ async function removeFailedContainer(attempt: string): Promise<void> {
   }
 }
 
+async function dockerBuildEnvironment(): Promise<NodeJS.ProcessEnv> {
+  const { container, compose } = await getContainerRuntimeClient();
+  const { socketPath, host, port, protocol } = container.dockerode.modem as DockerModem.ConstructorOptions;
+  // Testcontainers keeps the CLI connection settings it resolved for Compose here.
+  const { environment } = compose as typeof compose & { environment?: NodeJS.ProcessEnv };
+  let dockerHost = environment?.DOCKER_HOST;
+
+  if (socketPath) {
+    const scheme = process.platform === 'win32' ? 'npipe' : 'unix';
+    dockerHost = `${scheme}://${socketPath}`;
+  } else if (host && protocol !== 'ssh') {
+    dockerHost = `tcp://${host}:${port || (protocol === 'https' ? 443 : 80)}`;
+  }
+  if (!dockerHost) {
+    throw new Error('Could not determine the Docker endpoint selected by Testcontainers.');
+  }
+
+  return {
+    ...process.env,
+    DOCKER_HOST: dockerHost,
+    DOCKER_CONTEXT: undefined,
+    BUILDX_BUILDER: undefined,
+    DOCKER_TLS: undefined,
+    DOCKER_TLS_VERIFY: protocol === 'https' ? '1' : undefined,
+    DOCKER_CERT_PATH: environment?.DOCKER_CERT_PATH ?? process.env.DOCKER_CERT_PATH,
+  };
+}
+
 export async function buildImage(
   name: string,
   context: string,
   tag: string,
   diagnostics: StackDiagnostics,
   signal: AbortSignal,
+  env: NodeJS.ProcessEnv,
 ): Promise<GenericContainer> {
   signal.throwIfAborted();
   return diagnostics.step(`build:${name}`, async () => {
     const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {
       stdio: ['ignore', 'pipe', 'pipe'],
       signal,
+      env,
     });
 
     diagnostics.capture('builds', name, build.stdout);
@@ -258,14 +289,16 @@ export async function startStack(
   try {
     return await diagnostics.step('startup', async () => {
       const network = await resources.startNetwork(() => new Network().start());
+      signal.throwIfAborted();
+      const buildEnv = await dockerBuildEnvironment();
       const [gridConfig] = await settleAll([
         () => startGrid(network),
         async () => {
-          const image = await buildImage('imgops', IMGOPS_CONTEXT, IMGOPS_IMAGE, diagnostics, signal);
+          const image = await buildImage('imgops', IMGOPS_CONTEXT, IMGOPS_IMAGE, diagnostics, signal, buildEnv);
           await startContainer('imgops', imgopsContainer(image, network, proxy));
         },
         async () => {
-          const image = await buildImage('oidc', OIDC_CONTEXT, OIDC_IMAGE, diagnostics, signal);
+          const image = await buildImage('oidc', OIDC_CONTEXT, OIDC_IMAGE, diagnostics, signal, buildEnv);
           await startContainer('oidc', oidcContainer(image, network, proxy));
         },
       ], startup);
