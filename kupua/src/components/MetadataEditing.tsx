@@ -139,13 +139,17 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const removed = useStore(store, state => state.removedPills.get(key));
   const sourcePending = useStore(store, state => Array.isArray(value) && state.hasPendingField(imageId, pillCommandField(fieldId)));
   const [confirming, setConfirming] = useState<typeof batch>();
+  const confirmButton = useRef<HTMLButtonElement>(null);
   const pill = Array.isArray(value) && ["labels", "keywords", "people", "subjects", "collections"].includes(fieldId);
   const emptyPills = pill && value.length === 0;
-  const confirmClear = emptyPills || fieldId === "photoshoot" && typeof value === "string" && !value.trim();
+  const emptyLeases = fieldId === "leases" && typeof value === "object" && !Array.isArray(value) && value.kind === "replace" && value.leases?.length === 0;
+  const confirmClear = emptyPills || emptyLeases || fieldId === "photoshoot" && typeof value === "string" && !value.trim();
   useEffect(() => {
     if (!confirming) return;
     if (confirming !== batch || !confirmClear || disabled || sourcePending) { setConfirming(undefined); return; }
-    const timer = setTimeout(() => setConfirming(undefined), 5000);
+    const timer = setTimeout(() => {
+      if (document.activeElement !== confirmButton.current) setConfirming(undefined);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [confirming, batch, confirmClear, disabled, sourcePending]);
   const disclosure = useEditDisclosure();
@@ -161,10 +165,8 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   if (hideWhenDisabled && disabled && !busy && !needsAttention) return null;
   if (!source && !busy && !needsAttention && !valid && fieldId !== "metadata_dateTaken" && fieldId !== "subjects") return null;
   const clear = confirmClear || value === "" || (Array.isArray(value) ? !value.length : typeof value === "object" && (
-    fieldId === "leases" && value.kind === "replace" && value.leases?.length === 0 ||
     fieldId === "usageRights_category" && "category" in value && value.category === ""
   ));
-  const peers = `${peerCount} ${peerCount === 1 ? "image" : "images"}`;
   const others = `${peerCount} other ${peerCount === 1 ? "image" : "images"}`;
   const removals = pill && !emptyPills ? removed?.filter(item => !value.includes(item)) : undefined;
   const noun = fieldId;
@@ -186,8 +188,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const showConfirmation = confirming === batch && confirmClear && !disabled && !sourcePending && !busy;
   const apply = (confirmed = false) => {
     if (confirmClear && !confirmed) { setConfirming(batch); return; }
-    if (clear && !confirmClear && !window.confirm(`${applyLabel}?`)) return;
-    if (!clear && fieldId === "leases" && !window.confirm(`Replace all leases on ${peers}?`)) return;
+    if (clear && !confirmClear && typeof value !== "string" && !window.confirm(`${applyLabel}?`)) return;
     const intent = metadataIntent(fieldId, "overwrite", value, batch.ids.filter(id => id !== imageId));
     if (intent) store.getState().submitArrow(removals?.length ? { ...intent, removed: removals } : intent, key);
   };
@@ -202,7 +203,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
         <path d="M7,21L2,16l5-5l1.43,1.4L5.83,15H21v2H5.83l2.6,2.6L7,21Zm10-8l-1.42-1.4L18.18,9H3V7H18.18l-2.6-2.6L17,3l5,5l-5,5Z" />
       </svg>}
     </button>
-    {showConfirmation && <div id={disclosure.popId} role="group" aria-label={question} className="metadata-batch-popover text-xs"><button type="button" className="bg-grid-error text-white p-1" onClick={() => { setConfirming(undefined); apply(true); disclosure.focusTrigger(); }}>{question}</button></div>}
+    {showConfirmation && <div id={disclosure.popId} role="group" aria-label={question} className="metadata-batch-popover text-xs"><button ref={confirmButton} type="button" className="bg-grid-error text-white p-1" onBlur={() => setConfirming(undefined)} onClick={() => { setConfirming(undefined); apply(true); disclosure.focusTrigger(); }}>{question}</button></div>}
     <span className="sr-only" role="status">{needsAttention || sourceIssue || showBusy || showSourceBusy ? tooltip : ""}</span>
     {expanded && <div id={disclosure.popId} role="group" aria-label={`${label} update`} className="metadata-batch-popover text-xs">
       {source && <p>{sourceText} on this image.{source.detail && ` ${source.detail}`}{source.state === "Not confirmed" && " It may have saved."}</p>}

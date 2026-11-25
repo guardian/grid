@@ -2,12 +2,17 @@ import { resetScrollAndFocusSearch } from "@/lib/orchestration/search";
 import { useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { SELECTIONS_PERSIST_ACROSS_NAVIGATION } from "@/constants/tuning";
+import { afterDetailsDeparture } from "@/lib/details-departure";
 
 /** Re-run the current search from the top (the "N new" ticker and pull-to-refresh). */
 export function refreshResults(): void {
-  resetScrollAndFocusSearch({ skipEagerScroll: true });
-  // Clear before reSearch so the multi-panel doesn't flash old reconciled state.
+  const refresh = () => {
+    resetScrollAndFocusSearch({ skipEagerScroll: true });
+    if (clearSelection) useSelectionStore.getState().clear();
+    void useSearchStore.getState().search();
+  };
   const params = useSearchStore.getState().params;
-  if (!SELECTIONS_PERSIST_ACROSS_NAVIGATION && !params.imageScope && !params.recentUploadScope) useSelectionStore.getState().clear();
-  void useSearchStore.getState().search();
+  const clearSelection = !SELECTIONS_PERSIST_ACROSS_NAVIGATION && !params.imageScope && !params.recentUploadScope;
+  if (clearSelection) afterDetailsDeparture("Discard edit", refresh);
+  else refresh();
 }

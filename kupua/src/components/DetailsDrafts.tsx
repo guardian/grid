@@ -1,6 +1,6 @@
-import { createContext, Fragment, useContext, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useLayoutEffect, useState, type ReactNode } from "react";
 import { useBlocker } from "@tanstack/react-router";
-import { allowDetailsDeparture, registerDetailsGuard, type Departure } from "@/lib/details-departure";
+import { allowDetailsDeparture, registerDetailsGuard } from "@/lib/details-departure";
 
 type Entry = { label: string; value: unknown };
 const DetailsDraftContext = createContext<{ entries: Map<string, Entry>; selection: boolean; sync: () => void } | null>(null);
@@ -17,38 +17,26 @@ export function DetailsDrafts({ children, routed = false, selection = false }: {
   const [entries] = useState(() => new Map<string, Entry>());
   const [dirty, setDirty] = useState(false);
   const [generation, setGeneration] = useState(0);
-  const [action, setAction] = useState<Departure>();
-  const resolver = useRef<((allow: boolean) => void) | undefined>(undefined);
-  const dialog = useRef<HTMLDialogElement>(null);
   useLayoutEffect(() => {
     if (!dirty) return;
-    const unregister = registerDetailsGuard(reason => new Promise(resolve => {
-      if (!entries.size) { resolve(true); return; }
-      if (resolver.current) { resolve(false); return; }
-      resolver.current = resolve;
-      setAction(reason);
-    }));
+    const unregister = registerDetailsGuard(async () => {
+      if (!entries.size) return true;
+      const label = entries.values().next().value?.label;
+      const name = label === "By" ? "Byline" : label?.toLowerCase() === "taken on" ? "Date Taken" : label;
+      if (!window.confirm(entries.size === 1 ? `Discard your ${name} edit?` : "Discard your edits?")) return false;
+      entries.clear();
+      setDirty(false);
+      setGeneration(value => value + 1);
+      return true;
+    });
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
-    return () => { unregister(); window.removeEventListener("beforeunload", warn); resolver.current?.(false); resolver.current = undefined; };
+    return () => { unregister(); window.removeEventListener("beforeunload", warn); };
   }, [dirty]);
-  useLayoutEffect(() => { if (action) dialog.current?.showModal(); }, [action]);
-  const finish = (allow: boolean) => {
-    const resolve = resolver.current;
-    resolver.current = undefined;
-    dialog.current?.close();
-    setAction(undefined);
-    if (allow) { entries.clear(); setDirty(false); setGeneration(value => value + 1); }
-    resolve?.(allow);
-  };
   const [scope] = useState(() => ({ entries, selection, sync: () => setDirty(entries.size > 0) }));
-  const question = entries.size === 1 ? `Discard your ${entries.values().next().value?.label} edit?` : "Discard your edits?";
   return <DetailsDraftContext.Provider value={scope}><Fragment key={generation}>{children}</Fragment>
     {dirty && routed && <DraftNavigationGuard />}
-    {action && <dialog ref={dialog} aria-label={question} className="m-auto rounded border border-grid-border bg-grid-bg p-4 text-grid-text backdrop:bg-black/50" onCancel={event => { event.preventDefault(); finish(false); }}>
-      <p>{question}</p><div className="mt-4 flex justify-end gap-4"><button autoFocus type="button" onClick={() => finish(false)}>Keep editing</button>
-        <button type="button" onClick={() => finish(true)}>{action}</button></div>
-    </dialog>}</DetailsDraftContext.Provider>;
+  </DetailsDraftContext.Provider>;
 }
 
 export function DetailsTargetCount({ count }: { count: number }) {

@@ -153,16 +153,18 @@ describe("metadata field preparation", () => {
   });
 
   it("shows progress independently for both accepted batch arrows while they wait", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     const editor = createMetadataEditorStore(vi.fn(), { readImages: vi.fn(), publishImages: vi.fn() });
     render(<MetadataEditorContext value={editor}>
       <EditLifecycle />
       <FormBatchContext value={{ key: "batch", ids: ["source", "peer"] }}>
-        <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
+        <MetadataBatchArrow imageId="source" fieldId="metadata_credit" label="Credit" value="" disabled={false} />
         <MetadataBatchArrow imageId="source" fieldId="metadata_byline" label="Byline" value="Author" disabled={false} />
       </FormBatchContext>
     </MetadataEditorContext>);
     try {
-      fireEvent.click(screen.getByRole("button", { name: "Apply Credit to 1 other image" }));
+      fireEvent.click(screen.getByRole("button", { name: "Clear Credit on 1 other image" }));
+      expect(confirm).not.toHaveBeenCalled();
       fireEvent.click(screen.getByRole("button", { name: "Apply Byline to 1 other image" }));
       expect(window.dispatchEvent(new Event("beforeunload", { cancelable: true }))).toBe(false);
       for (const label of ["Credit", "Byline"]) {
@@ -174,7 +176,7 @@ describe("metadata field preparation", () => {
       fireEvent.click(screen.getByRole("button", { name: "Applying Credit to 1 other image" }));
       expect(screen.queryByRole("button", { name: "Stop batch save" })).toBeNull();
       expect(screen.getByRole("button", { name: "Applying Credit to 1 other image" }).getAttribute("aria-expanded")).toBe("true");
-    } finally { editor.getState().dispose(); }
+    } finally { confirm.mockRestore(); editor.getState().dispose(); }
   });
 
   it("opens uncertain batch arrow details without replay when the value was observed", async () => {

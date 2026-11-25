@@ -151,10 +151,10 @@ export function MetadataRow({ label, children, ref, tabIndex, fill, action }: Me
   return (
     <div ref={ref} tabIndex={tabIndex} data-metadata-field={action ? "" : undefined} data-suggestion-width={action ? "" : undefined}
       className={`metadata-row flex gap-1 py-0.75 leading-snug${action ? " relative min-h-6 pointer-coarse:min-h-[var(--mobile-edit-control-size)]" : ""}`}>
-      <dt className={`text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere${action ? " flex min-h-6 self-start items-center justify-between gap-1 pointer-coarse:min-h-[var(--mobile-edit-control-size)]" : ""}`}>
+      <dt className={`text-xs font-bold text-grid-text-dim shrink-0 w-[30%] wrap-anywhere${action ? " flex min-h-6 self-start items-start justify-between gap-1 pointer-coarse:min-h-[var(--mobile-edit-control-size)]" : ""}`}>
         {label}{action && <span className="absolute right-0 top-0.75">{action}</span>}
       </dt>
-      <dd className={`text-xs text-grid-text wrap-anywhere min-w-0${fill ? " flex-1" : ""}${action ? " self-center pr-7 pointer-coarse:pr-10" : ""}`}>
+      <dd className={`text-xs text-grid-text wrap-anywhere min-w-0${fill ? " flex-1" : ""}${action ? " self-start pr-7 pointer-coarse:pr-10" : ""}`}>
         {children}
       </dd>
     </div>

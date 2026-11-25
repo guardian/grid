@@ -24,6 +24,12 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 25 November 2026 - Clarify Details draft and batch edit confirmations
+
+Details labels align with the first value line. Leaving an unsaved edit asks whether to discard the named field using native OK/Cancel, including before a refresh that clears the selection. Cancelling preserves the draft and the selection.
+
+Batch arrows apply blank scalar values and populated lease lists immediately. Empty lists, leases and Photoshoot use an inline second click that stays available while focused. Saving over an existing syndication lease retains its separate warning.
+
 ### 25 November 2026 - Edit collection trees and photo memberships in Kupua
 
 Editors can create subcollections and delete eligible leaves from Browse; Settings → Admin reserves top-level creation and deletion for users with Grid's crops/usages deletion capability. Tree commands follow the advertised action for the exact path, reject known sibling-name collisions, and distinguish acknowledgement from a change observed in a refreshed tree. Deleting a leaf does not remove it from photo records. Hosted commands use the validated service origin; the local Vite proxy admits only supported tree and per-image routes. See the [Collections guide](00%20Architecture%20and%20philosophy/06-collections.md) for the workflow and backend limits.

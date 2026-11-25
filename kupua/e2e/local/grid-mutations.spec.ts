@@ -112,10 +112,16 @@ test.describe("U3 isolated uploads", () => {
     await body("local-0").click();
     await expect.poll(selected).toEqual(["local-1"]);
     await expect(input).toHaveValue("Selection draft");
-    await body("local-1").dblclick();
-    const dialog = page.getByRole("dialog", { name: "Discard your Description edit?" });
-    await expect(dialog.getByRole("button", { name: "Discard and open" })).toBeVisible();
-    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    const departure = async (accept: boolean, attempt: () => Promise<unknown>) => {
+      await Promise.all([page.waitForEvent("dialog", { timeout: 5000 }).then(async prompt => {
+        const observed = [prompt.type(), prompt.message()];
+        if (accept) await prompt.accept(); else await prompt.dismiss();
+        expect(observed).toEqual(["confirm", "Discard your Description edit?"]);
+      }), attempt()]);
+    };
+    await departure(false, () => body("local-1").dblclick());
+    await page.evaluate(() => (window as CommandWindow).__kupua_store__.setState({ newCount: 1 }));
+    await departure(false, () => page.getByRole("button", { name: "1 new", exact: true }).click());
     expect(await selected()).toEqual(["local-1"]);
     await expect(input).toHaveValue("Selection draft");
     expect(await writes()).toEqual([]);
@@ -124,21 +130,16 @@ test.describe("U3 isolated uploads", () => {
     const edit = page.getByRole("button", { name: "Edit Description", exact: true });
     await edit.click();
     await input.fill("Not saved");
-    await page.getByRole("button", { name: "Deselect", exact: true }).click();
-    await expect(dialog.getByRole("button", { name: "Discard and deselect" })).toBeVisible();
-    await dialog.getByRole("button", { name: "Keep editing" }).click();
-    await body("local-1").dblclick();
-    await dialog.getByRole("button", { name: "Discard and open" }).click();
+    await departure(false, () => page.getByRole("button", { name: "Deselect", exact: true }).click());
+    await departure(true, () => body("local-1").dblclick());
     await expect(page.locator('[data-detail-image-id="local-1"]')).toBeVisible();
     await edit.click();
     await expect(input).toHaveValue("Selection draft");
     await input.fill("Full Detail only");
-    await page.evaluate(() => history.back());
-    await dialog.getByRole("button", { name: "Keep editing" }).click();
+    await departure(false, () => page.evaluate(() => history.back()));
     await expect(page).toHaveURL(/image=local-1/);
     await expect(input).toHaveValue("Full Detail only");
-    await page.evaluate(() => history.back());
-    await dialog.getByRole("button", { name: "Discard edit" }).click();
+    await departure(true, () => page.evaluate(() => history.back()));
     await expect(page).not.toHaveURL(/image=local-1/);
     await expect(input).toHaveCount(0);
     await edit.click();
@@ -417,14 +418,23 @@ test.describe("U3 isolated uploads", () => {
     await first.getByRole("button", { name: "Delete Deny syndication lease" }).click();
     await first.getByRole("button", { name: "Confirm delete Deny syndication lease" }).click();
     await expect(first.getByRole("button", { name: /delete deny syndication lease/i })).toHaveCount(0);
-    page.once("dialog", dialog => dialog.accept());
     await copyLeases.click();
     await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(3);
     await first.getByRole("button", { name: "Delete Allow use lease" }).click();
     await first.getByRole("button", { name: "Confirm delete Allow use lease" }).click();
     await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(2);
-    page.once("dialog", dialog => dialog.accept());
+    await page.clock.install();
     await clearLeases.click();
+    const confirmLeaseClear = first.getByRole("button", { name: "Remove ALL leases from the 2 other images?", exact: true });
+    await expect(confirmLeaseClear).toBeVisible();
+    await confirmLeaseClear.focus();
+    await page.clock.fastForward(5100);
+    await expect(confirmLeaseClear).toBeFocused();
+    await confirmLeaseClear.press("Escape");
+    await expect(clearLeases).toBeFocused();
+    await clearLeases.click();
+    await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(2);
+    await confirmLeaseClear.click();
     await expect(page.getByText("Fixture desk lease", { exact: true })).toHaveCount(0);
     await page.locator('input[type="file"]').setInputFiles({ name: "newer.jpg", mimeType: "image/jpeg", buffer: Buffer.from("U5 newer image") });
     await expect.poll(() => new URL(page.url()).searchParams.get("batch")).not.toBe(batch);
@@ -4520,9 +4530,11 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await expect(page.getByText("Not sent - Add label: cold-detail", { exact: true })).toBeVisible();
     await realPlus.click();
     await realInput.fill("keep this input");
-    const leaveDetail = page.evaluate(() => (window as CommandWindow).editorFixture.navigate());
-    await page.getByRole("dialog", { name: "Discard your Labels edit?" }).getByRole("button", { name: "Discard edit" }).click();
-    await leaveDetail;
+    await Promise.all([page.waitForEvent("dialog").then(async prompt => {
+      const observed = [prompt.type(), prompt.message()];
+      await prompt.accept();
+      expect(observed).toEqual(["confirm", "Discard your Labels edit?"]);
+    }), page.evaluate(() => (window as CommandWindow).editorFixture.navigate())]);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture"]));
     await realPlus.click();
     await expect(realInput).toHaveValue("");
@@ -4570,10 +4582,21 @@ test("built hosted commands fail closed, use direct service origins and stop aft
       const label = button.closest("dt")!;
       const labelBounds = label.getBoundingClientRect();
       const valueBounds = label.nextElementSibling!.getBoundingClientRect();
+      const firstLine = (element: Element) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        for (let text = walker.nextNode(); text; text = walker.nextNode()) {
+          if (!text.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(text);
+          const rect = range.getClientRects()[0];
+          if (rect?.height) return rect.top;
+        }
+        return NaN;
+      };
       const readOnlyValues = [...label.closest("dl")!.querySelectorAll(".metadata-row:not([data-metadata-field]) > dd")]
         .filter(value => !value.closest('[aria-label="Additional metadata"]') && value.getClientRects().length > 0);
       return labelBounds.right <= valueBounds.left
-        && Math.abs(labelBounds.top + labelBounds.height / 2 - valueBounds.top - valueBounds.height / 2) < 1
+        && Math.abs(firstLine(label) - firstLine(label.nextElementSibling!)) <= 1
         && readOnlyValues.length > 0
         && readOnlyValues.every(value => Math.abs(value.getBoundingClientRect().left - valueBounds.left) < 1);
     })).toBe(true);
