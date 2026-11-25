@@ -271,10 +271,6 @@ Given('I have selected the image', async ({ page, testContext }) => {
 // Display
 // ---------------------------------------------------------------------------
 
-Then('I see {string} in the {string} region', async ({ page }, text: string, region: string) => {
-  await expect(page.getByRole('region', { name: region, exact: true })).toContainText(text);
-});
-
 Then('I see {string} as the description', async ({ page }, description: string) => {
   await expect(shownValue(page, 'description')).toHaveText(description);
 });
@@ -337,14 +333,14 @@ When(/^I click the (title|description) edit button$/, async ({ page }, field: st
   await openEditor(page, asField(field));
 });
 
-Then('a text field containing {string} is shown', async ({ page }, value: string) => {
+Then('the title editor shows a text field containing {string}', async ({ page }, value: string) => {
   const field = editor(page, 'title');
   await expect(field).toBeVisible();
   await expect(field).toHaveJSProperty('tagName', 'INPUT');
   await expect(field).toHaveValue(value);
 });
 
-Then('a text area containing {string} is shown', async ({ page }, value: string) => {
+Then('the description editor shows a text area containing {string}', async ({ page }, value: string) => {
   const field = editor(page, 'description');
   await expect(field).toBeVisible();
   await expect(field).toHaveJSProperty('tagName', 'TEXTAREA');
@@ -364,7 +360,7 @@ Then('the cursor is at the end of the description', async ({ page }) => {
     .toBe(true);
 });
 
-Then('{string} and {string} buttons are shown', async ({ page }, first: string, second: string) => {
+Then('the description editor shows {string} and {string} buttons', async ({ page }, first: string, second: string) => {
   for (const name of [first, second]) {
     await expect(editorButton(page, 'description', name)).toBeVisible();
   }

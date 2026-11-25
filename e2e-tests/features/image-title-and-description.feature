@@ -107,7 +107,7 @@ Feature: Viewing and editing an image's title and description
     And the image has the title "Harbour at dawn"
     And I have opened the single image view of the image
     When I click the title edit button
-    Then a text field containing "Harbour at dawn" is shown
+    Then the title editor shows a text field containing "Harbour at dawn"
     And the title edit button is hidden
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 142-153
 
@@ -150,9 +150,9 @@ Feature: Viewing and editing an image's title and description
     And the image has the description "Boats moored in the harbour"
     And I have opened the single image view of the image
     When I click the description edit button
-    Then a text area containing "Boats moored in the harbour" is shown
+    Then the description editor shows a text area containing "Boats moored in the harbour"
     And the cursor is at the end of the description
-    And "Cancel" and "Save" buttons are shown
+    And the description editor shows "Cancel" and "Save" buttons
     And the description edit button is hidden
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.html lines 205-211, 238-247, 259-267
   # Evidence: kahuna/public/js/components/gr-image-metadata/gr-image-metadata.js lines 137-167

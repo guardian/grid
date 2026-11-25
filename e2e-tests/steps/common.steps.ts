@@ -1,4 +1,4 @@
-import { Given, KAHUNA_APP_URL, expect } from './setup.ts';
+import { Given, Then, KAHUNA_APP_URL, expect } from './setup.ts';
 import type { TestAccount } from '../setup/constants.ts';
 import type { Page } from '@playwright/test';
 import { switchAccount } from './utils/auth.ts';
@@ -17,6 +17,21 @@ Given('I am signed in through pan-domain auth', async ({ page }) => {
   await page.goto(KAHUNA_APP_URL);
   // A missing or expired session would have redirected us to the OIDC provider.
   await expect(page).toHaveURL((url) => url.origin === KAHUNA_APP_URL);
+});
+
+Then('I see {string} in the {string} region', async ({ page }, text: string, region: string) => {
+  await expect(page.getByRole('region', { name: region, exact: true })).toContainText(text);
+});
+
+Then('I see a {string} region', async ({ page, testContext }, name: string) => {
+  testContext.region = page.getByRole('region', { name, exact: true });
+  await expect(testContext.region).toBeVisible();
+});
+
+Then('it is headed {string}', async ({ testContext }, heading: string) => {
+  expect(testContext.region, 'no region was found by an earlier step').toBeDefined();
+  // Kahuna heads metadata regions with the key (<dt>) of their description list.
+  await expect(testContext.region!.getByRole('term').first()).toHaveText(heading);
 });
 
 /** From the search page, go to the upload page. */

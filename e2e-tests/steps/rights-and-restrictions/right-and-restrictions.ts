@@ -726,21 +726,6 @@ Then("the Metadata tab is selected", async ({ page }) => {
   await expect(metadataTab).toBeChecked();
 });
 
-Then("I see a {string} region", async ({ page, testContext }, name: string) => {
-  testContext.region = page.getByRole("region", { name, exact: true });
-  await expect(testContext.region).toBeVisible();
-});
-
-Then("it is headed {string}", async ({ testContext }, heading: string) => {
-  expect(
-    testContext.region,
-    "no region was found by an earlier step",
-  ).toBeDefined();
-  // Kahuna heads metadata regions with the key (<dt>) of their description list.
-  await expect(testContext.region!.getByRole("term").first()).toHaveText(
-    heading,
-  );
-});
 // ---------------------------------------------------------------------------
 // Metadata templates driving the rights editor
 // ---------------------------------------------------------------------------
