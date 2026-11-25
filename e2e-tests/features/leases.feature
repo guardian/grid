@@ -246,7 +246,7 @@ Feature: Viewing and managing an image's leases in the single image view
   # Note: known bug. batchAdd runs the save through trackAll (kahuna/public/js/util/batch-tracking.js),
   # which logs the failure and resolves, so this alert is never raised: the form closes with no
   # lease and no message. Tagged @todo until the alert is restored.
-  @todo
+  @fail
   Scenario: A failed save tells the user to try again
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
