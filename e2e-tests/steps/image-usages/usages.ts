@@ -11,7 +11,7 @@ import type { Locator, Page } from '@playwright/test';
 import { defineParameterType } from 'playwright-bdd';
 import type { SeedImage } from '../setup.ts';
 import { openSingleImageView } from '../utils/image-view.ts';
-import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
+import { imageWithoutUsageRights } from '../../setup/image-fixtures.ts';
 
 const USAGE_PLATFORMS = ['print', 'digital', 'syndication', 'download', 'derivative', 'replaced'] as const;
 const USAGE_STATUSES = [
@@ -132,7 +132,7 @@ const STATUS_HEADINGS: Partial<Record<UsageStatus, string>> = {
 };
 export const statusHeading = (status: UsageStatus): string => STATUS_HEADINGS[status] ?? status;
 
-const SOURCE_IMAGE = findSeededImage('with no usage rights category', hasNoUsageRights)._source;
+const SOURCE_IMAGE = imageWithoutUsageRights()._source;
 
 /** `usages` as stored on the image with id `media`. */
 export const storedUsages = (usages: SeedUsage[], media: string) => usages.map((u) => ({ ...u, media }));

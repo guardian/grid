@@ -7,9 +7,8 @@ import type {
 import { Given, When, Then, expect } from "../setup.ts";
 import { imageInformation, openSingleImageView } from "../utils/image-view.ts";
 import {
-  findSeededImage,
   findSeededImageId,
-  hasNoUsageRights,
+  imageWithoutUsageRights,
   loadImageFixtures,
 } from "../../setup/image-fixtures.ts";
 import { usageRightsCategories } from "../utils/api/metadata-editor.queries.ts";
@@ -28,10 +27,7 @@ import {
 } from "../utils/metadata-templates.ts";
 
 /** An image seeded into Elasticsearch from fixtures/elasticsearch/images.json. */
-const IMAGE_WITHOUT_RIGHTS = findSeededImage(
-  "with no usage rights category",
-  hasNoUsageRights,
-);
+const IMAGE_WITHOUT_RIGHTS = imageWithoutUsageRights();
 const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
 const rightsAndRestrictions = (page: Page) =>

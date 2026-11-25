@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { Locator, Page, Response } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
-import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
+import { imageWithoutUsageRights } from '../../setup/image-fixtures.ts';
 import type { ImageSource } from '../../setup/image-fixtures.ts';
 import { DOMAIN } from '../../setup/constants.ts';
 import { E2E_METADATA_FIELD_TEMPLATES } from '../../setup/config.ts';
@@ -18,7 +18,7 @@ interface ImageMetadata {
 }
 
 /** Uploaded by someone other than the test accounts, so only full access may edit it. */
-const SOURCE_IMAGE = findSeededImage('with no usage rights category', hasNoUsageRights)._source;
+const SOURCE_IMAGE = imageWithoutUsageRights()._source;
 const SOURCE_METADATA = SOURCE_IMAGE.metadata as ImageMetadata;
 
 const FIELD_TERMS: Record<Field, string> = { title: 'Title', description: 'Description' };

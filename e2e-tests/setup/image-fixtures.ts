@@ -65,3 +65,7 @@ export function findSeededImageId(description: string, predicate: (source: Image
 
 /** NoRights is stored as `{}`, so an image without a category has no usage rights. */
 export const hasNoUsageRights = (source: ImageSource): boolean => !source.usageRights?.category;
+
+/** The seeded image that steps copy when they need an image without usage rights. */
+export const imageWithoutUsageRights = (): EsHit =>
+  findSeededImage('with no usage rights category', hasNoUsageRights);
