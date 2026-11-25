@@ -1,6 +1,10 @@
 import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { Given, When, Then, expect } from "../setup.ts";
-import { imageInformation, openSingleImageView } from "../utils/image-view.ts";
+import {
+  imageInformation,
+  openSingleImageView,
+  revealEditButton,
+} from "../utils/image-view.ts";
 import {
   findSeededImageId,
   imageWithoutUsageRights,
@@ -34,11 +38,8 @@ const usageSummary = (page: Page) =>
 const rightsEditor = (page: Page) =>
   page.getByRole("form", { name: "Image usage rights" });
 
-/** Kahuna only reveals the edit button while the section is hovered. */
 async function openRightsEditor(page: Page): Promise<void> {
-  const section = rightsAndRestrictions(page);
-  await section.hover();
-  await section.getByRole("button", { name: "✎" }).click();
+  await (await revealEditButton(rightsAndRestrictions(page))).click();
 }
 
 async function openSummaryImage(
@@ -217,8 +218,7 @@ Then(
     await expectEditPermissionForImage(page, image.id, image.uploadedBy);
     const section = rightsAndRestrictions(page);
     await expect(section.getByRole("definition")).toContainText(/\S/);
-    await section.hover();
-    const button = section.getByRole("button", { name: "✎" });
+    const button = await revealEditButton(section);
     await expect(button).toBeVisible();
     await expect(button).toBeEnabled();
   },
@@ -545,10 +545,8 @@ Then(
 );
 
 Then("the edit rights and restrictions button is hidden", async ({ page }) => {
-  const section = rightsAndRestrictions(page);
-  await section.hover();
   await expect(
-    section.getByRole("button", { name: "✎", includeHidden: true }),
+    await revealEditButton(rightsAndRestrictions(page)),
   ).toBeHidden();
 });
 
@@ -584,10 +582,7 @@ Then(
   async ({ page }) => {
     const section = rightsAndRestrictions(page);
     await expect(section.getByRole("definition")).toContainText(/\S/);
-    await section.hover();
-    await expect(
-      section.getByRole("button", { name: "✎", includeHidden: true }),
-    ).toBeHidden();
+    await expect(await revealEditButton(section)).toBeHidden();
     await expect(
       page.getByRole("form", { name: "Image usage rights" }),
     ).toBeHidden();
@@ -714,10 +709,7 @@ Then(
 
 Then("Source field is {string}", async ({ page }, source: string) => {
   // The view mode shows only the category; the remapped `source` is a field of the rights editor.
-  // Kahuna only reveals the edit button while the section is hovered.
-  const section = rightsAndRestrictions(page);
-  await section.hover();
-  await section.getByRole("button", { name: "✎" }).click();
+  await openRightsEditor(page);
   const editor = page.getByRole("form", { name: "Image usage rights" });
   await expect(editor.getByLabel("Source", { exact: true })).toHaveValue(
     source,

@@ -26,6 +26,16 @@ export async function expectSearchBoxEmpty(page: Page): Promise<void> {
   await expect(cqlInput(page)).toHaveAttribute('value', '');
 }
 
+/** The search page's grid of results. */
+export const searchResults = (page: Page): Locator =>
+  page.getByRole('main', { name: 'Image search results' });
+
+/** The search result for the image with id `imageId`. */
+export const searchResult = (page: Page, imageId: string): Locator =>
+  searchResults(page)
+    .getByRole('listitem')
+    .filter({ has: page.locator(`a[href="/images/${imageId}"]`) });
+
 /**
  * Focus the search box and run `edit` against page.keyboard. locator.press re-runs
  * actionability checks on every keystroke; under V8 coverage those run slowly enough in the

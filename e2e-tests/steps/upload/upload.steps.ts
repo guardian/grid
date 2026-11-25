@@ -5,6 +5,7 @@ import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { E2E_UPLOAD_SUPPORT_EMAIL } from '../../setup/config.ts';
 import { switchAccount } from '../utils/auth.ts';
 import { expectNoUploadPermission, expectUploadPermission } from '../utils/api/media-api.assertions.ts';
+import { searchResults } from '../search/search-box.ts';
 import {
   BATCH_SIZE,
   batchJobs,
@@ -77,7 +78,7 @@ Given(
   'I had searched for {string} before opening the upload page',
   async ({ page, testContext }, query: string) => {
     await page.goto(`${KAHUNA_APP_URL}/search?query=${encodeURIComponent(query)}`);
-    await expect(page.getByRole('main', { name: 'Image search results' })).toBeVisible();
+    await expect(searchResults(page)).toBeVisible();
     testContext.previousSearchQuery = query;
 
     await page.getByRole('banner').getByRole('link', { name: 'My recent uploads' }).click();

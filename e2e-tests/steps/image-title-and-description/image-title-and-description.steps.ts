@@ -11,9 +11,9 @@ import {
   isMetadataSave,
 } from '../utils/api/media-api.assertions.ts';
 import { E2E_METADATA_FIELD_TEMPLATES } from '../../setup/config.ts';
-import { isSearchRun } from '../search/search-box.ts';
+import { isSearchRun, searchResult, searchResults } from '../search/search-box.ts';
 import { chooseMetadataTemplate, expectMetadataTemplateOffered } from '../utils/metadata-templates.ts';
-import { openSingleImageView } from '../utils/image-view.ts';
+import { openSingleImageView, revealEditButton } from '../utils/image-view.ts';
 
 type Field = 'title' | 'description';
 interface ImageMetadata {
@@ -51,9 +51,6 @@ const metadataLine = (page: Page, field: Field): Locator =>
 const shownValue = (page: Page, field: Field): Locator =>
   metadataLine(page, field).getByRole('definition').filter({ hasText: /\S/ });
 
-const editButton = (page: Page, field: Field): Locator =>
-  metadataLine(page, field).getByRole('button', { name: '✎', includeHidden: true });
-
 const editor = (page: Page, field: Field): Locator => metadataLine(page, field).getByRole('textbox');
 
 const editorButton = (page: Page, field: Field, name: string): Locator =>
@@ -71,12 +68,6 @@ const descriptionOption = (page: Page, option: string): Locator =>
   metadataLine(page, 'description').getByRole('radio', { name: option, includeHidden: true });
 const descriptionOptionLabel = (page: Page, option: string): Locator =>
   metadataLine(page, 'description').locator('gr-radio-list label').filter({ hasText: option });
-
-const searchResult = (page: Page, id: string): Locator =>
-  page
-    .getByRole('main', { name: 'Image search results' })
-    .getByRole('listitem')
-    .filter({ has: page.locator(`a[href="/images/${id}"]`) });
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -142,10 +133,8 @@ async function selectSearchResults(page: Page, testContext: TestContext, count: 
   await expect(titleRegion(page)).toBeVisible();
 }
 
-/** Kahuna only reveals a line's edit button while it is hovered. */
 async function openEditor(page: Page, field: Field): Promise<void> {
-  await metadataLine(page, field).hover();
-  await editButton(page, field).click();
+  await (await revealEditButton(metadataLine(page, field))).click();
   await expect(editor(page, field)).toBeVisible();
 }
 
@@ -298,11 +287,11 @@ async function expectEditButton(page: Page, field: Field, shown: boolean): Promi
   const line = metadataLine(page, field);
   // Wait for the line to render, so a missing button isn't just one not rendered yet.
   await expect(line).toBeVisible();
-  await line.hover();
+  const button = await revealEditButton(line);
   if (shown) {
-    await expect(editButton(page, field)).toBeVisible();
+    await expect(button).toBeVisible();
   } else {
-    await expect(editButton(page, field)).toBeHidden();
+    await expect(button).toBeHidden();
   }
 }
 
@@ -337,7 +326,7 @@ When(/^I (?:(shift|alt)-)?click the title$/, async ({ page }, modifier: string |
 
 Then('the search results are shown for the query {string}', async ({ page }, query: string) => {
   await expect(page).toHaveURL((url) => url.pathname === '/search' && url.searchParams.get('query') === query);
-  await expect(page.getByRole('main', { name: 'Image search results' })).toBeVisible();
+  await expect(searchResults(page)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------
