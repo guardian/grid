@@ -81,29 +81,23 @@ const searchResult = (page: Page, id: string): Locator =>
 // ---------------------------------------------------------------------------
 
 /**
- * Index a disposable copy of an image with `metadata` merged over the source's, recording its
- * id for later steps. Copies are uploaded "now" so they sort first in search results.
+ * Index a disposable copy of an image with `metadata` merged over the source's. `seedImage`
+ * records its id for later steps. Copies are uploaded "now" so they sort first in search results.
  */
-async function seedImageWithMetadata(
-  seedImage: SeedImage,
-  testContext: TestContext,
-  metadata: ImageMetadata,
-): Promise<string> {
+async function seedImageWithMetadata(seedImage: SeedImage, metadata: ImageMetadata): Promise<string> {
   const merged: ImageMetadata = { ...SOURCE_METADATA, ...metadata };
   for (const key of Object.keys(merged)) {
     if (merged[key] === undefined) delete merged[key];
   }
-  const id = await seedImage(SOURCE_IMAGE, {
+  return seedImage(SOURCE_IMAGE, {
     metadata: merged as ImageSource['metadata'],
     originalMetadata: merged,
     uploadTime: new Date().toISOString(),
   });
-  testContext.metadataImageIds = [...(testContext.metadataImageIds ?? []), id];
-  return id;
 }
 
 function seededImageIds(testContext: TestContext, count?: number): string[] {
-  const ids = testContext.metadataImageIds ?? [];
+  const ids = testContext.seededImageIds;
   if (ids.length === 0 || (count !== undefined && ids.length !== count)) {
     throw new Error(`Expected ${count ?? 'some'} image(s) seeded by an earlier step, got ${ids.length}`);
   }
@@ -258,21 +252,21 @@ const newToken = () => `e2e${randomBytes(6).toString('hex')}`;
 
 Given(
   'the image has the title {string} and the description {string}',
-  async ({ seedImage, testContext }, title: string, description: string) => {
-    await seedImageWithMetadata(seedImage, testContext, { title, description });
+  async ({ seedImage }, title: string, description: string) => {
+    await seedImageWithMetadata(seedImage, { title, description });
   },
 );
 
-Given('the image has the title {string}', async ({ seedImage, testContext }, title: string) => {
-  await seedImageWithMetadata(seedImage, testContext, { title });
+Given('the image has the title {string}', async ({ seedImage }, title: string) => {
+  await seedImageWithMetadata(seedImage, { title });
 });
 
-Given('the image has the description {string}', async ({ seedImage, testContext }, description: string) => {
-  await seedImageWithMetadata(seedImage, testContext, { description });
+Given('the image has the description {string}', async ({ seedImage }, description: string) => {
+  await seedImageWithMetadata(seedImage, { description });
 });
 
-Given('the image has no title and no description', async ({ seedImage, testContext }) => {
-  await seedImageWithMetadata(seedImage, testContext, { title: undefined, description: undefined });
+Given('the image has no title and no description', async ({ seedImage }) => {
+  await seedImageWithMetadata(seedImage, { title: undefined, description: undefined });
 });
 
 Given(
@@ -281,7 +275,7 @@ Given(
     // A token unique to this scenario, so its search finds only the images it seeded.
     const token = newToken();
     for (let i = 1; i <= count; i++) {
-      await seedImageWithMetadata(seedImage, testContext, {
+      await seedImageWithMetadata(seedImage, {
         title: `Title ${i} ${token}`,
         description: `Description ${i} ${token}`,
       });
@@ -295,7 +289,7 @@ Given(
   async ({ page, seedImage, testContext }, first: string, second: string) => {
     const token = newToken();
     for (const description of [first, second]) {
-      await seedImageWithMetadata(seedImage, testContext, { title: `Title ${token}`, description });
+      await seedImageWithMetadata(seedImage, { title: `Title ${token}`, description });
     }
     await showInSearchResults(page, testContext, token);
   },
@@ -304,7 +298,7 @@ Given(
 Given(
   'an image with the title {string} is shown in search results for {string}',
   async ({ page, seedImage, testContext }, title: string, query: string) => {
-    await seedImageWithMetadata(seedImage, testContext, { title, description: `${query} in the ${title}` });
+    await seedImageWithMetadata(seedImage, { title, description: `${query} in the ${title}` });
     await showInSearchResults(page, testContext, query);
   },
 );

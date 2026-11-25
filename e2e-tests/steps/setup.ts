@@ -58,8 +58,6 @@ export interface TestContext {
   usageGroup?: UsageStatus;
   /** URLs of the DELETE requests Kahuna sent to remove an image's usages. */
   deleteUsagesRequests?: string[];
-  /** Ids of the image copies a title and description scenario seeded, in the order seeded. */
-  metadataImageIds?: string[];
   /** The name of the metadata template a `Given` chose, for a later step to select. */
   metadataTemplateName?: string;
 }
