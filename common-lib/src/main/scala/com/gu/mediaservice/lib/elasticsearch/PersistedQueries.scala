@@ -2,7 +2,8 @@ package com.gu.mediaservice.lib.elasticsearch
 
 import com.gu.mediaservice.lib.ImageFields
 import com.gu.mediaservice.model._
-import com.sksamuel.elastic4s.ElasticApi.matchNoneQuery
+import com.sksamuel.elastic4s.ElasticApi.{existsQuery, matchNoneQuery}
+import com.sksamuel.elastic4s.requests.searches.queries.Query
 import scalaz.NonEmptyList
 
 object PersistedQueries extends ImageFields {
@@ -25,7 +26,8 @@ object PersistedQueries extends ImageFields {
   val hasCrops = filters.bool().must(filters.existsOrMissing("exports", exists = true))
   val usedInContent = filters.nested("usages", filters.exists(NonEmptyList("usages")))
 
-  def hasPersistedIdentifier(persistenceIdentifiers: NonEmptyList[String]) = filters.exists(persistenceIdentifiers.map(identifierField))
+  def hasPersistedIdentifier(persistenceIdentifiers: NonEmptyList[String]): Query =
+    filters.or(persistenceIdentifiers.map(id => existsQuery(identifierField(id)): Query))
 
   val addedToLibrary = filters.bool().must(filters.boolTerm(editsField("archived"), value = true))
   val hasUserEditsToImageMetadata = filters.exists(NonEmptyList(editsField("metadata")))
