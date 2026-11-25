@@ -153,6 +153,8 @@ function kahunaE2eConfig(): string {
 /** Render the e2e-only media-api settings as HOCON to append to the generated `media-api.conf`. */
 function mediaApiE2eConfig(): string {
   return [
+    // Quota counts are cached at startup, before fixtures are seeded, so refresh them quickly.
+    'quota.usage.refreshInterval = 5 seconds',
     "usageInstructions {",
     `  ${E2E_USAGE_INSTRUCTIONS.category} = "${E2E_USAGE_INSTRUCTIONS.text}"`,
     "}",

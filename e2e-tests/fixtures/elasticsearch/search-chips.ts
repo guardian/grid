@@ -40,6 +40,8 @@ const SUPPLEMENTAL_ROLES = [
     'commissioned-illustrator',
     'assorted-usages-with-reference',
     'old-agency-pick',
+    'aap-quota-usage-1',
+    'aap-quota-usage-2',
     ...EXTRA_SUPPLIERS.map(supplierRole),
 ];
 
@@ -330,6 +332,11 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
         }),
         ...EXTRA_SUPPLIERS.map((supplier) => image(supplierRole(supplier), {
             usageRights: { category: 'agency', supplier },
+        })),
+        // Quota counts only include usages added in the last 30 days, so these must be dated at seed time.
+        ...['aap-quota-usage-1', 'aap-quota-usage-2'].map((role) => image(role, {
+            usageRights: { category: 'agency', supplier: 'AAP' },
+            usages: [usage(role, 'print', 'published', new Date().toISOString())],
         })),
     ];
 

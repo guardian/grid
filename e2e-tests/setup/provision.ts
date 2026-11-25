@@ -126,7 +126,7 @@ export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void
     ...['photographers.json', 'usage_rights.json'].map((file) =>
       putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file))),
     ),
-    // AAP quota of 0 makes AAP over quota with no seeded usages (count >= quota).
+    // AAP quota of 1 is exceeded by the two seeded `aap-quota-usage-*` fixtures.
     putObject(
       s3,
       props.ConfigBucket,
