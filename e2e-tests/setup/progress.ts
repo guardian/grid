@@ -24,8 +24,8 @@ export async function runTasks<Ctx extends object>(
   const runner = new Listr<Ctx>(tasks, {
     ctx: context,
     exitOnError: options.exitOnError ?? true,
-    // The animated renderer redraws in place, which CI logs record as a wall of escape codes.
-    fallbackRendererCondition: () => !!process.env.CI,
+    // Use plain output in CI and let debug logs stream as the tasks run.
+    fallbackRendererCondition: () => !!process.env.CI || process.env.E2E_DEBUG === '1',
     rendererOptions: {
       timer: PRESET_TIMER,
       // Keep finished containers and services on screen: the completed list is the summary.

@@ -18,7 +18,8 @@
     "features:test:browser": "npm run features:build && tsx --test feature-library/app.test.ts",
     "features:typecheck": "tsc --project feature-library/tsconfig.json",
     "test:ui": "bddgen && playwright test --ui-port 6080",
-    "test:log": "bddgen && DEBUG=testcontainers* playwright test --ui-port 6080",
+    "test:stack": "node --import tsx --test setup/stack-diagnostics.test.ts",
+    "test:log": "bddgen && E2E_DEBUG=1 playwright test --ui-port 6080",
     "debug:chekov": "sh ./setup/chekov-proxy.sh 6080"
   },
   "engines": {
@@ -36,11 +37,9 @@
     "@cucumber/messages": "^34.2.1",
     "@playwright/test": "^1.61.1",
     "@testcontainers/localstack": "^12.2.0",
-    "@types/debug": "^4.1.13",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "debug": "^4.4.3",
     "esbuild": "^0.25.10",
     "fflate": "^0.8.2",
     "json5": "^2.2.3",

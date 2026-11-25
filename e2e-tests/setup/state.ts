@@ -10,8 +10,10 @@
  */
 import type { StartedTestContainer } from 'testcontainers';
 import type { StartedNetwork } from 'testcontainers';
+import type { StackDiagnostics } from './stack-diagnostics.ts';
 
 export interface GridEnvironment {
+  diagnostics: StackDiagnostics;
   /** Absent when attached to a stack this process did not start. */
   network?: StartedNetwork;
   /** Every container this process started, in start order. Stopped in reverse on teardown. */

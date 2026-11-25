@@ -2,6 +2,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 export const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..');
+export const E2E_ROOT = path.join(REPO_ROOT, 'e2e-tests');
 
 export const DOMAIN = 'local.dev-gutools.co.uk';
 export const EMAIL_DOMAIN = 'guardian.co.uk';
