@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -8,35 +7,6 @@ import { setImmediate } from 'node:timers/promises';
 import globalTeardown from './global-teardown.ts';
 import { createStackDiagnostics } from './stack-diagnostics.ts';
 import { setEnvironment, trackSetup } from './state.ts';
-
-test('forced exit cleans up only the config it still owns', (t) => {
-  const root = mkdtempSync(join(tmpdir(), 'grid-forced-exit-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
-
-  const moduleUrl = new URL('./config.ts', import.meta.url);
-  const child = `
-    import { mkdirSync, writeSync } from 'node:fs';
-    import { createConfigDirectory } from ${JSON.stringify(moduleUrl.href)};
-    const active = createConfigDirectory(console.error);
-    const released = createConfigDirectory(console.error);
-    await released.remove();
-    // Another run can now use this path.
-    mkdirSync(released.path);
-    writeSync(1, JSON.stringify([active.path, released.path]));
-    process.exit(130);
-  `;
-  const result = spawnSync(process.execPath, ['--experimental-strip-types', '--input-type=module', '--eval', child], {
-    env: { ...process.env, TMPDIR: root },
-    encoding: 'utf8',
-  });
-
-  assert.equal(result.status, 130, result.stderr);
-
-  const [active, released] = JSON.parse(result.stdout);
-
-  assert.equal(existsSync(active), false);
-  assert.equal(existsSync(released), true);
-});
 
 test('teardown waits for interrupted setup', async () => {
   const setup = Promise.withResolvers<void>();

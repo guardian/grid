@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { rmSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { GenericContainer, Network, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
   CHEKOV_HOSTS, prepareChekov, registerChekovAliases, registerLocalstackAliases, s3BucketHosts,
 } from './chekov.ts';
-import { createConfigDirectory, generateServiceConfig, PLAY_HTTP_SECRET } from './config.ts';
+import { generateServiceConfig, PLAY_HTTP_SECRET } from './config.ts';
 import {
-  DOMAIN, ELASTICSEARCH_URL, IMGOPS_CONTEXT, IMGOPS_IMAGE, KAHUNA_URL, MEDIA_API_URL, OIDC_CONTEXT,
+  CONFIG_DIR, DOMAIN, ELASTICSEARCH_URL, IMGOPS_CONTEXT, IMGOPS_IMAGE, KAHUNA_URL, MEDIA_API_URL, OIDC_CONTEXT,
   OIDC_IMAGE, SERVICE_CONFIGS, getOidcIssuer,
 } from './constants.ts';
 import { buildImage, dockerBuildEnvironment } from './docker-build.ts';
@@ -182,10 +183,25 @@ export async function startStack(
     ], startup));
 
     const { configDir, caRoot } = await step('generate:config', async () => {
-      const directory = createConfigDirectory(diagnostics.log);
-      removeConfigDirectory = directory.remove;
-      generateServiceConfig(directory.path, core, auth, proxy);
-      return { configDir: directory.path, caRoot: proxy ? prepareChekov(directory.path) : undefined };
+      const removeConfig = () => rmSync(CONFIG_DIR, { recursive: true, force: true });
+      removeConfig();
+
+      // A forced exit cannot await stack teardown.
+      const removeConfigOnExit = () => {
+        try {
+          removeConfig();
+        } catch (error) {
+          diagnostics.error('remove:config', error);
+        }
+      };
+      process.once('exit', removeConfigOnExit);
+      removeConfigDirectory = async () => {
+        removeConfig();
+        process.off('exit', removeConfigOnExit);
+      };
+
+      generateServiceConfig(CONFIG_DIR, core, auth, proxy);
+      return { configDir: CONFIG_DIR, caRoot: proxy ? prepareChekov(CONFIG_DIR) : undefined };
     });
 
     if (!caRoot) return { configDir, proxyHosts: [] };

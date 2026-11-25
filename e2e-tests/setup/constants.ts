@@ -84,8 +84,10 @@ export const MEDIA_API_URL = `http://localhost:${MEDIA_API_PORT}`;
 export const ELASTICSEARCH_URL = `http://localhost:${ELASTICSEARCH_PORT}`;
 export const LOCALSTACK_URL = `http://localhost:${LOCALSTACK_PORT}`;
 
-/** Each owned run bind-mounts its own generated configuration into the Grid container. */
-export const CONFIG_DIR_PREFIX = path.join(os.tmpdir(), 'grid-e2e-config-');
+/**
+ * Generated per-service config, bind-mounted into the app container.
+ */
+export const CONFIG_DIR = path.join(os.tmpdir(), 'grid-e2e-config');
 
 /** The API key value uploaded to the KeyBucket (dev/.env API_KEY). */
 export const API_KEY = 'e2e-dev';

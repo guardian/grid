@@ -9,7 +9,6 @@ import * as path from "path";
 import { createRequire } from "module";
 import JSON5 from "json5";
 import {
-  CONFIG_DIR_PREFIX,
   DOMAIN,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
@@ -35,28 +34,6 @@ const GRID_SERVICES = Object.keys(SERVICE_CONFIGS);
 export const PLAY_HTTP_SECRET = "testcontainers-e2e-application-secret-0123456789";
 
 type StackProps = Record<string, string>;
-
-export function createConfigDirectory(log: (message: string) => void) {
-  const directory = fs.mkdtempSync(CONFIG_DIR_PREFIX);
-
-  // A forced second Ctrl-C calls process.exit(), which cannot await ordinary teardown.
-  function removeOnExit(): void {
-    try {
-      fs.rmSync(directory, { recursive: true, force: true });
-    } catch (error) {
-      log(`Could not remove generated config ${directory} on exit: ${String(error)}`);
-    }
-  }
-
-  process.once("exit", removeOnExit);
-  return {
-    path: directory,
-    async remove(): Promise<void> {
-      await fs.promises.rm(directory, { recursive: true, force: true });
-      process.off("exit", removeOnExit);
-    },
-  };
-}
 
 /**
  * Image types and a metadata template baked into the e2e Kahuna server so the
