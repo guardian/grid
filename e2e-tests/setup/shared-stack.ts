@@ -1,10 +1,7 @@
-import http, { type IncomingMessage } from 'node:http';
-import https from 'node:https';
-import { json } from 'node:stream/consumers';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
-  DOMAIN, ELASTICSEARCH_PORT, ELASTICSEARCH_URL, IMGOPS_PORT, KAHUNA_URL, LOCALSTACK_PORT,
-  LOCALSTACK_URL, MEDIA_API_URL, OIDC_PORT, SERVICE_CONFIGS, getOidcIssuer,
+  ELASTICSEARCH_PORT, ELASTICSEARCH_URL, IMGOPS_PORT, KAHUNA_URL, LOCALSTACK_PORT,
+  LOCALSTACK_URL, MEDIA_API_URL, OIDC_PORT, SERVICE_CONFIGS,
 } from './constants.ts';
 import { describeCoreStack, provisioningClients } from './provision.ts';
 import { seedCollections } from './seed-collections.ts';
@@ -82,38 +79,6 @@ export function unavailableStackError(ports: PortStatus[]): Error {
   return new Error(`Grid ports are in use or unavailable: ${details}. Wait for the stack or stop it before retrying.`);
 }
 
-// Check the URLs Playwright will use before reusing the stack or loading fixtures into it.
-async function checkBorrowedRoute(url: URL, signal?: AbortSignal, issuer?: string): Promise<void> {
-  try {
-    const timeout = AbortSignal.timeout(2_000);
-    const options = { signal: signal ? AbortSignal.any([timeout, signal]) : timeout };
-    const response = await new Promise<IncomingMessage>((resolve, reject) => {
-      const request = url.protocol === 'https:'
-        // Match Playwright's local HTTPS settings.
-        ? https.get(url, { ...options, rejectUnauthorized: false }, resolve)
-        // Connect via localhost so Node can reach OIDC even if oidc.localhost
-        // isn't in DNS. The Host header keeps the name the provider expects.
-        : http.get(url, { ...options, hostname: 'localhost', headers: { Host: url.host } }, resolve);
-      request.on('error', reject);
-    });
-
-    try {
-      if (response.statusCode !== 200) throw new Error(`HTTP ${response.statusCode}`);
-      if (issuer) {
-        const document = await json(response) as { issuer?: string } | null;
-        if (document?.issuer !== issuer) {
-          throw new Error(`Discovery document did not identify the expected issuer ${issuer}`);
-        }
-      }
-    } finally {
-      response.destroy();
-    }
-  } catch (error) {
-    signal?.throwIfAborted();
-    throw new Error(`Cannot reuse Grid: ${url.href} (${error instanceof Error ? error.message : String(error)}). Check the running stack and its proxy mode.`);
-  }
-}
-
 export async function ensureStack(
   diagnostics: StackDiagnostics,
   options: StartStackOptions = {},
@@ -127,11 +92,6 @@ export async function ensureStack(
   if (process.env.CI) {
     throw new Error('A healthy Grid stack is already running. CI requires a fresh stack on these fixed ports.');
   }
-  const issuer = getOidcIssuer(options.proxy ?? process.env.GRID_PROXY !== 'false');
-  await Promise.all([
-    checkBorrowedRoute(new URL(`https://${SERVICE_CONFIGS.kahuna.primaryHostname}.${DOMAIN}/management/healthcheck`), signal),
-    checkBorrowedRoute(new URL('/.well-known/openid-configuration', issuer), signal, issuer),
-  ]);
   diagnostics.log(`Reusing the healthy Grid stack at ${KAHUNA_URL}`);
   if (options.seed === true || process.env.GRID_RESEED === 'true') {
     await diagnostics.step('seed:elasticsearch', () => seedElasticsearch(ELASTICSEARCH_URL, 60_000, signal));
