@@ -102,9 +102,10 @@ Feature: Creating search filter chips
       | illustrator:Example Contracted Illustrator          | illustrator      | Example Contracted Illustrator     |
       | fixtureReference:search-chips-harbour-daylight-jpeg | fixtureReference | search-chips-harbour-daylight-jpeg |
       | usages@status:unknown                               | usages@status    | unknown                            |
+      | credit:Search Chips Manual Credit                   | credit           | Search Chips Manual Credit         |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 70-84, 115-122
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 134-137, 169-171, 188-199
+  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 134-137, 169-171, 188-199
   # Evidence: e2e-tests/setup/config.ts lines 50-58
 
   Scenario: A typed credit prefix retrieves a seeded completion that can be selected
@@ -171,14 +172,6 @@ Feature: Creating search filter chips
     And the filter suggestions should not include "Added to Photo Sales"
   # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 277-288
   # Evidence: e2e-tests/steps/image-usages/image-usages.steps.ts lines 239-241
-
-  Scenario: A credit without a completion remains a valid manually entered chip value
-    Given the search box is empty
-    When I type "credit:Search Chips Manual Credit" into the search box
-    Then the "credit" filter chip should have the value "Search Chips Manual Credit"
-    And the chip query should be 'credit:"Search Chips Manual Credit"'
-  # Evidence: kahuna/public/js/search/structured-query/query-suggestions.ts lines 124-127, 264-268
-  # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54, 115-122
 
   Scenario: Editing a supplier with a suggestion replaces rather than duplicates the chip
     Given the chip query is "supplier:Reuters"
