@@ -27,7 +27,7 @@ Feature: Creating search filter chips
   # Evidence: kahuna/public/js/components/gr-cql-input/gr-cql-input.ts lines 28-54
   # Evidence: kahuna/node_modules/@guardian/cql/dist/lib.js lines 11667-11685, 11819-11853, 13579-13589, 13605-13617, 13639-13647
 
-  Scenario: Selecting a local file type suggestion completes the chip value
+  Scenario: Selecting a chip value suggestion completes the chip value
     Given I am choosing a value for the "fileType" filter
     When I choose "png" from the filter value suggestions
     Then a "fileType" filter chip should be shown
