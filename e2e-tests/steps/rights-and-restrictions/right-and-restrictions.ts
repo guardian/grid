@@ -1,9 +1,4 @@
-import type {
-  APIRequestContext,
-  Locator,
-  Page,
-  Response,
-} from "@playwright/test";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 import { Given, When, Then, expect } from "../setup.ts";
 import { imageInformation, openSingleImageView } from "../utils/image-view.ts";
 import {
@@ -17,7 +12,9 @@ import { TEST_ACCOUNTS } from "../../setup/constants.ts";
 import { switchAccount } from "../utils/auth.ts";
 import {
   expectEditPermissionForImage,
+  expectNoResponsesDuring,
   expectUsageRightsSaveAccepted,
+  isUsageRightsSave,
 } from "../utils/api/media-api.assertions.ts";
 import { E2E_RIGHTS_TEMPLATE } from "../../setup/config.ts";
 import {
@@ -280,12 +277,7 @@ const restrictionsInput = (page: Page) =>
   rightsEditor(page).getByPlaceholder(RESTRICTIONS_PLACEHOLDER);
 
 const imageIdFromUrl = (page: Page) =>
-  new URL(page.url()).pathname.split("/").pop();
-
-const isUsageRightsSave =
-  (imageId: string | undefined) => (response: Response) =>
-    response.request().method() === "PUT" &&
-    new URL(response.url()).pathname === `/metadata/${imageId}/usage-rights`;
+  new URL(page.url()).pathname.split("/").pop() ?? "";
 
 async function selectCategory(page: Page, category: string): Promise<void> {
   // The category <select> is the editor's first control and has no label of its own.
@@ -435,21 +427,17 @@ When("I save the rights", async ({ page }) => {
 });
 
 When("I cancel the rights editor", async ({ page }) => {
-  const imageId = imageIdFromUrl(page);
-  const saves: string[] = [];
-  const recordSave = (response: Response) => {
-    if (isUsageRightsSave(imageId)(response)) saves.push(response.url());
-  };
-  page.on("response", recordSave);
-  try {
-    await rightsEditor(page)
-      .getByRole("button", { name: "Close usage rights form", exact: true })
-      .click();
-    await expect(rightsEditor(page)).toBeHidden();
-  } finally {
-    page.off("response", recordSave);
-  }
-  expect(saves, "cancelling must not save the rights").toEqual([]);
+  await expectNoResponsesDuring(
+    page,
+    isUsageRightsSave(imageIdFromUrl(page)),
+    async () => {
+      await rightsEditor(page)
+        .getByRole("button", { name: "Close usage rights form", exact: true })
+        .click();
+      await expect(rightsEditor(page)).toBeHidden();
+    },
+    "cancelling must not save the rights",
+  );
 });
 
 Then(

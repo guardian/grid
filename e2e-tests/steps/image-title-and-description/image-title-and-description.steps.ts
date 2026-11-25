@@ -1,10 +1,15 @@
 import { randomBytes } from 'node:crypto';
-import type { Locator, Page, Response } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 import { imageWithoutUsageRights } from '../../setup/image-fixtures.ts';
 import type { ImageSource } from '../../setup/image-fixtures.ts';
-import { DOMAIN } from '../../setup/constants.ts';
+import {
+  expectMetadataSavesAccepted,
+  expectNoResponsesDuring,
+  imageMetadata,
+  isMetadataSave,
+} from '../utils/api/media-api.assertions.ts';
 import { E2E_METADATA_FIELD_TEMPLATES } from '../../setup/config.ts';
 import { isSearchRun } from '../search/search-box.ts';
 import { chooseMetadataTemplate, expectMetadataTemplateOffered } from '../utils/metadata-templates.ts';
@@ -144,55 +149,10 @@ async function openEditor(page: Page, field: Field): Promise<void> {
   await expect(editor(page, field)).toBeVisible();
 }
 
-const isMetadataSave = (id: string) => (response: Response) => {
-  const url = new URL(response.url());
-  return (
-    response.request().method() === 'PUT' &&
-    url.hostname === `media-metadata.${DOMAIN}` &&
-    url.pathname === `/metadata/${id}/metadata`
-  );
-};
-
-/** Run `save` and check the metadata editor accepted the save of every seeded image. */
-async function expectSavesAccepted(page: Page, testContext: TestContext, save: () => Promise<void>): Promise<void> {
-  const ids = seededImageIds(testContext);
-  const [responses] = await Promise.all([
-    Promise.all(ids.map((id) => page.waitForResponse(isMetadataSave(id)))),
-    save(),
-  ]);
-  for (const response of responses) {
-    expect(response.ok(), `saving ${response.url()}: ${await response.text()}`).toBeTruthy();
-  }
-}
-
-/** Run `act` and check it sent no metadata save for any seeded image. */
-async function expectNoSaves(page: Page, testContext: TestContext, act: () => Promise<void>): Promise<void> {
-  const ids = seededImageIds(testContext);
-  const saves: string[] = [];
-  const recordSave = (response: Response) => {
-    if (ids.some((id) => isMetadataSave(id)(response))) saves.push(response.url());
-  };
-  page.on('response', recordSave);
-  try {
-    await act();
-  } finally {
-    page.off('response', recordSave);
-  }
-  expect(saves, 'cancelling must not save the metadata').toEqual([]);
-}
-
-/** The image's metadata as media-api serves it, which reflects an edit once thrall has applied it. */
-async function storedMetadata(page: Page, id: string): Promise<ImageMetadata> {
-  const response = await page.request.get(`https://api.media.${DOMAIN}/images/${id}`);
-  expect(response.ok(), `fetching image ${id}`).toBeTruthy();
-  const { data } = (await response.json()) as { data: { metadata: ImageMetadata } };
-  return data.metadata;
-}
-
 async function expectStoredValues(page: Page, testContext: TestContext, field: Field, values: string[]): Promise<void> {
   const ids = seededImageIds(testContext, values.length);
   await expect
-    .poll(async () => Promise.all(ids.map(async (id) => (await storedMetadata(page, id))[field])))
+    .poll(async () => Promise.all(ids.map(async (id) => (await imageMetadata(page, id))[field])))
     .toEqual(values);
 }
 
@@ -430,18 +390,24 @@ async function editField(
   saves: boolean,
   finish: (input: Locator) => Promise<void>,
 ): Promise<void> {
+  const ids = seededImageIds(testContext);
   await openEditor(page, field);
   const input = editor(page, field);
   await input.fill(value);
   if (saves) {
-    await expectSavesAccepted(page, testContext, () => finish(input));
+    await expectMetadataSavesAccepted(page, ids, () => finish(input));
     // Wait for thrall to apply the edit, so the scenario's cleanup can't race it.
-    await expectStoredValues(page, testContext, field, seededImageIds(testContext).map(() => value));
+    await expectStoredValues(page, testContext, field, ids.map(() => value));
   } else {
-    await expectNoSaves(page, testContext, async () => {
-      await finish(input);
-      await expect(input).toBeHidden();
-    });
+    await expectNoResponsesDuring(
+      page,
+      (response) => ids.some((id) => isMetadataSave(id)(response)),
+      async () => {
+        await finish(input);
+        await expect(input).toBeHidden();
+      },
+      'cancelling must not save the metadata',
+    );
   }
 }
 
@@ -511,7 +477,9 @@ When(
     await editor(page, 'description').fill(description);
     await descriptionOptionLabel(page, option).click();
     await expect(descriptionOption(page, option)).toBeChecked();
-    await expectSavesAccepted(page, testContext, () => editorButton(page, 'description', 'Save').click());
+    await expectMetadataSavesAccepted(page, seededImageIds(testContext), () =>
+      editorButton(page, 'description', 'Save').click(),
+    );
   },
 );
 

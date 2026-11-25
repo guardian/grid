@@ -21,6 +21,53 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
   );
 }
 
+const isRequest = (method: string, path: string) => (response: Response) =>
+  response.request().method() === method && new URL(response.url()).pathname === path;
+
+/** Whether a response is to the metadata editor saving an image's user metadata. */
+export const isMetadataSave = (imageId: string) => isRequest('PUT', `/metadata/${imageId}/metadata`);
+
+/** Whether a response is to the metadata editor saving an image's usage rights. */
+export const isUsageRightsSave = (imageId: string) => isRequest('PUT', `/metadata/${imageId}/usage-rights`);
+
+/**
+ * Run `save` and check the metadata editor accepted a metadata save for each of `imageIds`.
+ * This confirms the requests succeeded, not that thrall has applied them.
+ */
+export async function expectMetadataSavesAccepted(
+  page: Page,
+  imageIds: string[],
+  save: () => Promise<void>,
+): Promise<void> {
+  const [responses] = await Promise.all([
+    Promise.all(imageIds.map((id) => page.waitForResponse(isMetadataSave(id)))),
+    save(),
+  ]);
+  for (const response of responses) {
+    expect(response.ok(), `saving ${response.url()}: ${await response.text()}`).toBeTruthy();
+  }
+}
+
+/** Run `act` and check the page received no response matching `isUnwanted` meanwhile. */
+export async function expectNoResponsesDuring(
+  page: Page,
+  isUnwanted: (response: Response) => boolean,
+  act: () => Promise<void>,
+  message: string,
+): Promise<void> {
+  const unwanted: string[] = [];
+  const record = (response: Response) => {
+    if (isUnwanted(response)) unwanted.push(response.url());
+  };
+  page.on('response', record);
+  try {
+    await act();
+  } finally {
+    page.off('response', record);
+  }
+  expect(unwanted, message).toEqual([]);
+}
+
 /**
  * Run `save` and check the metadata editor accepted both requests a usage rights save makes:
  * the rights, then the metadata derived from them. This confirms the requests succeeded, not
@@ -31,10 +78,8 @@ export async function expectUsageRightsSaveAccepted(
   imageId: string,
   save: () => Promise<void>,
 ): Promise<void> {
-  const isRequest = (method: string, path: string) => (response: Response) =>
-    response.request().method() === method && new URL(response.url()).pathname === path;
   const [rights, derivedMetadata] = await Promise.all([
-    page.waitForResponse(isRequest('PUT', `/metadata/${imageId}/usage-rights`)),
+    page.waitForResponse(isUsageRightsSave(imageId)),
     page.waitForResponse(isRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
     save(),
   ]);
@@ -81,19 +126,30 @@ export async function expectEditPermissionForImage(
   expect(await imageLinksForUploader(page, imageId, expectedUploader)).toContain('edits');
 }
 
+/** An image as media-api serves it. Only the fields read here are typed. */
+interface MediaApiImage {
+  data: { uploadedBy: string; metadata: Record<string, unknown> };
+  links: { rel: string }[];
+  actions: { name: string }[];
+}
+
+async function fetchImage(page: Page, imageId: string): Promise<MediaApiImage> {
+  const response = await page.request.get(`${await getMediaApiUrl(page)}/images/${imageId}`);
+  expect(response.ok(), `fetching image ${imageId}`).toBeTruthy();
+  return (await response.json()) as MediaApiImage;
+}
+
+/** The image's metadata as media-api serves it, which reflects an edit once thrall has applied it. */
+export async function imageMetadata(page: Page, imageId: string): Promise<Record<string, unknown>> {
+  return (await fetchImage(page, imageId)).data.metadata;
+}
+
 async function imageLinksForUploader(
   page: Page,
   imageId: string,
   expectedUploader: string,
 ): Promise<string[]> {
-  const response = await page.request.get(
-    `${await getMediaApiUrl(page)}/images/${imageId}`,
-  );
-  expect(response.ok()).toBeTruthy();
-  const { data, links } = (await response.json()) as {
-    data: { uploadedBy: string };
-    links: { rel: string }[];
-  };
+  const { data, links } = await fetchImage(page, imageId);
 
   expect(data.uploadedBy).toBe(expectedUploader);
   return links.map((link) => link.rel);
@@ -105,14 +161,7 @@ export async function expectNoDeletePermission(
   imagePath: string,
   expectedUploader: string,
 ): Promise<void> {
-  const response = await page.request.get(
-    `${await getMediaApiUrl(page)}/images/${mediaIdOf(imagePath)}`,
-  );
-  expect(response.ok()).toBeTruthy();
-  const { data, actions } = (await response.json()) as {
-    data: { uploadedBy: string };
-    actions: { name: string }[];
-  };
+  const { data, actions } = await fetchImage(page, mediaIdOf(imagePath));
 
   expect(data.uploadedBy).toBe(expectedUploader);
   expect(actions.map((action) => action.name)).not.toContain('delete');
