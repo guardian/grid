@@ -37,7 +37,14 @@ test('an aborted build waits for Docker to exit and keeps its final output', asy
   };
 
   await assert.rejects(
-    buildImage('imgops', directory, 'grid-imgops', diagnostics, startup.signal, process.env),
+    buildImage({
+      name: 'imgops',
+      context: directory,
+      tag: 'grid-imgops',
+      diagnostics,
+      signal: startup.signal,
+      env: process.env,
+    }),
     (error) => error === failure,
   );
 

@@ -17,6 +17,7 @@ import {
 } from '@aws-sdk/client-dynamodb';
 import { KinesisClient, ListShardsCommand } from '@aws-sdk/client-kinesis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import type { PutObjectCommandInput } from '@aws-sdk/client-s3';
 import {
   API_KEY as API_KEY_PATH,
   AUTH_STACK_NAME,
@@ -45,12 +46,12 @@ export function provisioningClients(endpoint: string) {
   return { cfn, s3, dynamo, kinesis };
 }
 
-async function waitForProvisioning(
-  name: string,
-  timeoutMs: number,
-  signal: AbortSignal,
-  isReady: (signal: AbortSignal) => Promise<boolean>,
-): Promise<void> {
+async function waitForProvisioning({ name, timeoutMs, signal, isReady }: {
+  name: string;
+  timeoutMs: number;
+  signal: AbortSignal;
+  isReady: (signal: AbortSignal) => Promise<boolean>;
+}): Promise<void> {
   const deadline = AbortSignal.timeout(timeoutMs);
   const pollSignal = AbortSignal.any([signal, deadline]);
 
@@ -76,23 +77,30 @@ async function waitForProvisioning(
  */
 async function createStack(
   cfn: CloudFormationClient,
-  stackName: string,
-  templatePath: string,
-  signal: AbortSignal,
+  { stackName, templatePath, signal }: {
+    stackName: string;
+    templatePath: string;
+    signal: AbortSignal;
+  },
 ): Promise<StackProps> {
   const templateBody = fs.readFileSync(templatePath, 'utf8');
 
   await cfn.send(new CreateStackCommand({ StackName: stackName, TemplateBody: templateBody }), { abortSignal: signal });
 
-  await waitForProvisioning(`CloudFormation stack ${stackName}`, 180_000, signal, async (abortSignal) => {
-    const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stackName }), { abortSignal });
-    const stack = Stacks?.[0];
-    const status = stack?.StackStatus;
-    if (!status || status === 'CREATE_IN_PROGRESS') return false;
-    if (status === 'CREATE_COMPLETE') return true;
+  await waitForProvisioning({
+    name: `CloudFormation stack ${stackName}`,
+    timeoutMs: 180_000,
+    signal,
+    isReady: async (abortSignal) => {
+      const { Stacks } = await cfn.send(new DescribeStacksCommand({ StackName: stackName }), { abortSignal });
+      const stack = Stacks?.[0];
+      const status = stack?.StackStatus;
+      if (!status || status === 'CREATE_IN_PROGRESS') return false;
+      if (status === 'CREATE_COMPLETE') return true;
 
-    const reason = stack?.StackStatusReason;
-    throw new Error(`CloudFormation stack ${stackName} reached ${status}${reason ? ` (${reason})` : ''}`);
+      const reason = stack?.StackStatusReason;
+      throw new Error(`CloudFormation stack ${stackName} reached ${status}${reason ? ` (${reason})` : ''}`);
+    },
   });
 
   return describeStack(cfn, stackName, signal);
@@ -114,12 +122,11 @@ async function describeStack(cfn: CloudFormationClient, stackName: string, signa
 }
 
 export function createCoreStack(cfn: CloudFormationClient, signal: AbortSignal): Promise<StackProps> {
-  return createStack(
-    cfn,
-    CORE_STACK_NAME,
-    path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
+  return createStack(cfn, {
+    stackName: CORE_STACK_NAME,
+    templatePath: path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-core.yml'),
     signal,
-  );
+  });
 }
 
 export function describeCoreStack(cfn: CloudFormationClient, signal?: AbortSignal): Promise<StackProps> {
@@ -127,22 +134,15 @@ export function describeCoreStack(cfn: CloudFormationClient, signal?: AbortSigna
 }
 
 export function createAuthStack(cfn: CloudFormationClient, signal: AbortSignal): Promise<StackProps> {
-  return createStack(
-    cfn,
-    AUTH_STACK_NAME,
-    path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-auth.yml'),
+  return createStack(cfn, {
+    stackName: AUTH_STACK_NAME,
+    templatePath: path.join(REPO_ROOT, 'dev', 'cloudformation', 'grid-dev-auth.yml'),
     signal,
-  );
+  });
 }
 
-async function putObject(
-  s3: S3Client,
-  bucket: string,
-  key: string,
-  body: Buffer | string,
-  signal: AbortSignal,
-): Promise<void> {
-  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }), { abortSignal: signal });
+async function putObject(s3: S3Client, input: PutObjectCommandInput, signal: AbortSignal): Promise<void> {
+  await s3.send(new PutObjectCommand(input), { abortSignal: signal });
 }
 
 export async function seedBuckets(s3: S3Client, props: StackProps, signal: AbortSignal): Promise<void> {
@@ -150,18 +150,20 @@ export async function seedBuckets(s3: S3Client, props: StackProps, signal: Abort
 
   await Promise.all([
     // API key used by the machine authentication provider.
-    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key', signal),
+    putObject(s3, { Bucket: props.KeyBucket, Key: API_KEY_PATH, Body: 'DEV Key' }, signal),
     // Static config consumed by the services.
     ...['photographers.json', 'rcs-quota.json', 'usage_rights.json'].map((file) =>
-      putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file)), signal),
+      putObject(s3, {
+        Bucket: props.ConfigBucket,
+        Key: file,
+        Body: fs.readFileSync(path.join(devConfig, file)),
+      }, signal),
     ),
-    putObject(
-      s3,
-      props.UsageMailBucket,
-      'usages.eml',
-      fs.readFileSync(path.join(devConfig, 'usages.eml')),
-      signal,
-    ),
+    putObject(s3, {
+      Bucket: props.UsageMailBucket,
+      Key: 'usages.eml',
+      Body: fs.readFileSync(path.join(devConfig, 'usages.eml')),
+    }, signal),
   ]);
 }
 
@@ -172,9 +174,11 @@ function keyBody(pem: string): string {
 export async function seedAuthBuckets(
   s3: S3Client,
   props: StackProps,
-  oidcIssuer: string,
-  addSecrets: (values: readonly string[]) => void,
-  signal: AbortSignal,
+  { oidcIssuer, addSecrets, signal }: {
+    oidcIssuer: string;
+    addSecrets: (values: readonly string[]) => void;
+    signal: AbortSignal;
+  },
 ): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
@@ -195,15 +199,17 @@ export async function seedAuthBuckets(
   ].join('\n');
 
   await Promise.all([
-    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings`, settings, signal),
-    putObject(s3, props.PanDomainBucket, `${DOMAIN}.settings.public`, `publicKey=${publicKeyBody}\n`, signal),
-    putObject(
-      s3,
-      props.PermissionsBucket,
-      'permissions.json',
-      fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
-      signal,
-    ),
+    putObject(s3, { Bucket: props.PanDomainBucket, Key: `${DOMAIN}.settings`, Body: settings }, signal),
+    putObject(s3, {
+      Bucket: props.PanDomainBucket,
+      Key: `${DOMAIN}.settings.public`,
+      Body: `publicKey=${publicKeyBody}\n`,
+    }, signal),
+    putObject(s3, {
+      Bucket: props.PermissionsBucket,
+      Key: 'permissions.json',
+      Body: fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'permissions', 'permissions.json')),
+    }, signal),
   ]);
 }
 
@@ -224,12 +230,12 @@ export async function seedAuthBuckets(
  * neither the jitter nor the shard sync runs: the lease taker picks up the unowned leases
  * on its first pass instead.
  */
-export async function seedKclLeaseTable(
-  dynamo: DynamoDBClient,
-  kinesis: KinesisClient,
-  streamName: string,
-  signal: AbortSignal,
-): Promise<void> {
+export async function seedKclLeaseTable({ dynamo, kinesis, streamName, signal }: {
+  dynamo: DynamoDBClient;
+  kinesis: KinesisClient;
+  streamName: string;
+  signal: AbortSignal;
+}): Promise<void> {
   await dynamo.send(
     new CreateTableCommand({
       TableName: streamName,
@@ -239,14 +245,19 @@ export async function seedKclLeaseTable(
     }),
     { abortSignal: signal },
   );
-  await waitForProvisioning(`DynamoDB table ${streamName}`, 60_000, signal, async (abortSignal) => {
-    try {
-      const { Table } = await dynamo.send(new DescribeTableCommand({ TableName: streamName }), { abortSignal });
-      return Table?.TableStatus === 'ACTIVE';
-    } catch (error) {
-      if (error instanceof ResourceNotFoundException) return false;
-      throw error;
-    }
+  await waitForProvisioning({
+    name: `DynamoDB table ${streamName}`,
+    timeoutMs: 60_000,
+    signal,
+    isReady: async (abortSignal) => {
+      try {
+        const { Table } = await dynamo.send(new DescribeTableCommand({ TableName: streamName }), { abortSignal });
+        return Table?.TableStatus === 'ACTIVE';
+      } catch (error) {
+        if (error instanceof ResourceNotFoundException) return false;
+        throw error;
+      }
+    },
   });
 
   const { Shards = [] } = await kinesis.send(

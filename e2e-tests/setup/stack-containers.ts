@@ -79,14 +79,14 @@ async function dockerBuildEnvironment(): Promise<NodeJS.ProcessEnv> {
   };
 }
 
-export async function buildImage(
-  name: string,
-  context: string,
-  tag: string,
-  diagnostics: StackDiagnostics,
-  signal: AbortSignal,
-  env: NodeJS.ProcessEnv,
-): Promise<GenericContainer> {
+export async function buildImage({ name, context, tag, diagnostics, signal, env }: {
+  name: string;
+  context: string;
+  tag: string;
+  diagnostics: StackDiagnostics;
+  signal: AbortSignal;
+  env: NodeJS.ProcessEnv;
+}): Promise<GenericContainer> {
   signal.throwIfAborted();
   return diagnostics.step(`build:${name}`, async () => {
     const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {
@@ -231,15 +231,20 @@ export async function startStack(
     const auth = await step('provision:auth', () => createAuthStack(cfn, signal));
 
     await step('seed:config', () => seedBuckets(s3, core, signal));
-    await step('seed:auth', () => seedAuthBuckets(s3, auth, getOidcIssuer(proxy), diagnostics.addSecrets, signal));
+    await step('seed:auth', () => seedAuthBuckets(s3, auth, {
+      oidcIssuer: getOidcIssuer(proxy),
+      addSecrets: diagnostics.addSecrets,
+      signal,
+    }));
 
     if (seed) {
       await step('seed:images', () => seedImageFiles(s3, core, signal));
     }
 
+    const leaseTableOptions = { dynamo, kinesis, signal };
     await step('seed:kcl', () => settleAll([
-      () => seedKclLeaseTable(dynamo, kinesis, core.ThrallMessageStream, signal),
-      () => seedKclLeaseTable(dynamo, kinesis, core.ThrallLowPriorityMessageStream, signal),
+      () => seedKclLeaseTable({ ...leaseTableOptions, streamName: core.ThrallMessageStream }),
+      () => seedKclLeaseTable({ ...leaseTableOptions, streamName: core.ThrallLowPriorityMessageStream }),
     ], startup));
 
     const { configDir, caRoot } = await step('generate:config', async () => {
@@ -290,15 +295,25 @@ export async function startStack(
     return await diagnostics.step('startup', async () => {
       const network = await resources.startNetwork(() => new Network().start());
       signal.throwIfAborted();
-      const buildEnv = await dockerBuildEnvironment();
+      const buildOptions = { diagnostics, signal, env: await dockerBuildEnvironment() };
       const [gridConfig] = await settleAll([
         () => startGrid(network),
         async () => {
-          const image = await buildImage('imgops', IMGOPS_CONTEXT, IMGOPS_IMAGE, diagnostics, signal, buildEnv);
+          const image = await buildImage({
+            ...buildOptions,
+            name: 'imgops',
+            context: IMGOPS_CONTEXT,
+            tag: IMGOPS_IMAGE,
+          });
           await startContainer('imgops', imgopsContainer(image, network, proxy));
         },
         async () => {
-          const image = await buildImage('oidc', OIDC_CONTEXT, OIDC_IMAGE, diagnostics, signal, buildEnv);
+          const image = await buildImage({
+            ...buildOptions,
+            name: 'oidc',
+            context: OIDC_CONTEXT,
+            tag: OIDC_IMAGE,
+          });
           await startContainer('oidc', oidcContainer(image, network, proxy));
         },
       ], startup);

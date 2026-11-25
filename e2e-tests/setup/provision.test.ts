@@ -75,7 +75,10 @@ test('aborting startup stops DynamoDB from polling again', async (t) => {
     return {};
   });
 
-  const cancelled = assert.rejects(seedKclLeaseTable(dynamo, kinesis, 'test-table', startup.signal), { name: 'AbortError' });
+  const cancelled = assert.rejects(
+    seedKclLeaseTable({ dynamo, kinesis, streamName: 'test-table', signal: startup.signal }),
+    { name: 'AbortError' },
+  );
   await firstPoll.promise;
   await setImmediate();
   startup.abort();
