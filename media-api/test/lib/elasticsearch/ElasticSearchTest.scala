@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
+import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, Internal, ReadOnly, Syndication}
 import com.gu.mediaservice.lib.config.GridConfigResources
@@ -146,6 +147,54 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         imageIds.size shouldBe 2
         imageIds.contains("persisted-because-edited") shouldBe true
         imageIds.contains("persisted-because-usage") shouldBe true
+      }
+    }
+
+    describe("persistence identifiers") {
+      val identifierImages = Seq(
+        "none" -> Map.empty[String, String],
+        "primary" -> Map("picdarUrn" -> "urn-1"),
+        "derivative" -> Map(ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> "parent-1"),
+        "replaces" -> Map(ImageStorageProps.replacesMediaIdIdentifierKey -> "original-1"),
+        "derivative-and-replaces" -> Map(
+          ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> "parent-1",
+          ImageStorageProps.replacesMediaIdIdentifierKey -> "original-1"
+        )
+      ).map { case (suffix, identifiers) =>
+        createImageUploadedInThePast(s"persistence-identifier-$suffix").copy(identifiers = identifiers)
+      }
+
+      def expectMatches(queryText: String, expected: Set[String]): Unit = {
+        val identifierConfig = new MediaApiConfig(GridConfigResources(
+          Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++
+            Map("persistence.identifier" -> "picdarUrn")),
+          null,
+          applicationLifecycle
+        ))
+        val identifierSearch = new ElasticSearch(identifierConfig, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+        val params = SearchParams(
+          tier = Internal,
+          length = identifierImages.size,
+          ids = Some(identifierImages.map(_.id).toList),
+          structuredQuery = Parser.run(queryText)
+        )
+        try {
+          whenReady(identifierSearch.search(params), timeout, interval) { result =>
+            result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"persistence-identifier-$suffix")
+          }
+        } finally identifierSearch.client.close()
+      }
+
+      it("matches images carrying any one of the persistence identifiers") {
+        withQuotaImages(identifierImages) {
+          expectMatches("persisted:persistence-identifier", Set("primary", "derivative", "replaces", "derivative-and-replaces"))
+        }
+      }
+
+      it("does not treat images carrying any one of the persistence identifiers as reapable") {
+        withQuotaImages(identifierImages) {
+          expectMatches("is:reapable", Set("none"))
+        }
       }
     }
   }
