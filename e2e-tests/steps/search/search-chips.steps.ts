@@ -13,6 +13,10 @@ function chipValue(page: Page, key: string): Locator {
     return chip(page, key).getByTestId('chip-value');
 }
 
+function typeahead(page: Page): Locator {
+    return cqlInput(page).getByTestId('cql-input-typeahead');
+}
+
 async function enterChipQuery(page: Page, query: string) {
     await searchBoxEditable(page).fill(query);
     await expect(page).toHaveURL((url) => url.searchParams.get('query') === query);
@@ -32,20 +36,17 @@ async function chooseIndexedValue(page: Page, key: 'credit' | 'photoshoot', pref
 Given('I am choosing a filter field with the partial name {string}', async ({ page }, partialName: string) => {
     await expectSearchBoxEmpty(page);
     await searchBoxEditable(page).pressSequentially(`+${partialName}`);
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover')).toBeVisible();
+    await expect(typeahead(page)).toBeVisible();
 });
 
 Given('I am choosing a value for the {string} filter', async ({ page }, key: string) => {
     await expectSearchBoxEmpty(page);
     await searchBoxEditable(page).pressSequentially(`+${key}:`);
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover')).toBeVisible();
+    await expect(typeahead(page)).toBeVisible();
 });
 
 When('I choose {string} from the filter field/value suggestions', async ({ page }, suggestion: string) => {
-    await cqlInput(page)
-        .locator('.Cql__TypeaheadPopover')
-        .getByText(suggestion, { exact: true })
-        .click();
+    await typeahead(page).getByText(suggestion, { exact: true }).click();
 });
 
 Then('the {string} filter chip should have the value {string}', async ({ page }, key: string, value: string) => {
@@ -58,11 +59,11 @@ Then('the {string} filter chip should be waiting for a value', async ({ page }, 
 });
 
 Then('the filter suggestions should include {string}', async ({ page }, suggestion: string) => {
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover').getByText(suggestion, { exact: true })).toBeVisible();
+    await expect(typeahead(page).getByText(suggestion, { exact: true })).toBeVisible();
 });
 
 Then('the filter suggestions should not include {string}', async ({ page }, suggestion: string) => {
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover').getByText(suggestion, { exact: true })).toHaveCount(0);
+    await expect(typeahead(page).getByText(suggestion, { exact: true })).toHaveCount(0);
 });
 
 Given('the chip query is {string}', async ({ page, testContext }, query: string) => {
@@ -113,7 +114,7 @@ When('I enter the complete chip query {string}', async ({ page, testContext }, q
 
 When('I replace the {string} chip value with the prefix {string}', async ({ page }, key: string, prefix: string) => {
     await chipValue(page, key).fill(prefix);
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover')).toBeVisible();
+    await expect(typeahead(page)).toBeVisible();
 });
 
 When('I negate the {string} chip', async ({ page }, key: string) => {
@@ -121,7 +122,8 @@ When('I negate the {string} chip', async ({ page }, key: string) => {
 });
 
 When('I remove the {string} chip with its remove control', async ({ page }, key: string) => {
-    await chip(page, key).locator('.Cql__ChipWrapperDeleteHandle').click();
+    // @guardian/cql gives the delete handle no test id, role or label.
+    await chip(page, key).getByText('×', { exact: true }).click();
 });
 
 When('I move left into the final chip and press Backspace', async ({ page }) => {
@@ -133,7 +135,7 @@ When('I move left into the final chip and press Backspace', async ({ page }) => 
         return Boolean(selection?.isCollapsed && selection.anchorNode && element.contains(selection.anchorNode));
     });
     await editor.press('Escape');
-    await expect(cqlInput(page).locator('.Cql__TypeaheadPopover')).toBeHidden();
+    await expect(typeahead(page)).toBeHidden();
     await editor.press('Control+End');
     for (let attempt = 0; attempt < 3; attempt++) {
         await editor.press('ArrowLeft');
