@@ -83,25 +83,22 @@ Feature: Combining search filter chips
       | <Match> |
     # title-format: Persistence reason <Reason> returns <Match> rather than missing-metadata-unpersisted
 
-    @known-defect
     Examples: Persistence reason <Reason> returns <Match> rather than missing-metadata-unpersisted
-      | Reason                 | Match                      |
-      | persistence-identifier | tiff-identifier-over-quota |
-
-    Examples: Persistence reason <Reason> returns <Match> rather than missing-metadata-unpersisted
-      | Reason                 | Match                          |
-      | exports                | harbour-night-cropped-png      |
-      | usages                 | assorted-usages-with-reference |
-      | archived               | staff-photo-multi-persisted    |
-      | photographer-category  | staff-photo-multi-persisted    |
-      | illustrator-category   | contract-illustration-leased   |
-      | commissioned-agency    | legacy-commissioned-agency     |
-      | leases                 | contract-illustration-leased   |
-      | persisted-collection   | staff-photo-multi-persisted    |
-      | photoshoot             | staff-photo-multi-persisted    |
-      | labeled                | staff-photo-multi-persisted    |
-      | edited                 | edited-title                   |
-      # Known backend defect: the identifier query requires every configured identifier, not any one.
+      | Reason                 | Match                                |
+      | persistence-identifier | tiff-identifier-over-quota           |
+      | persistence-identifier | derivative-identifier                |
+      | persistence-identifier | replaces-and-persistence-identifiers |
+      | exports                | harbour-night-cropped-png            |
+      | usages                 | assorted-usages-with-reference       |
+      | archived               | staff-photo-multi-persisted          |
+      | photographer-category  | staff-photo-multi-persisted          |
+      | illustrator-category   | contract-illustration-leased         |
+      | commissioned-agency    | legacy-commissioned-agency           |
+      | leases                 | contract-illustration-leased         |
+      | persisted-collection   | staff-photo-multi-persisted          |
+      | photoshoot             | staff-photo-multi-persisted          |
+      | labeled                | staff-photo-multi-persisted          |
+      | edited                 | edited-title                         |
   # Evidence: kahuna/public/js/search/query.html lines 11-15
   # Evidence: media-api/app/lib/elasticsearch/QueryBuilder.scala lines 87-91, 140-148
   # Evidence: media-api/app/lib/ImagePersistenceReasons.scala lines 10-26, 34-149
@@ -196,9 +193,7 @@ Feature: Combining search filter chips
   # Evidence: media-api/app/lib/MediaApiConfig.scala lines 92-99
   # Evidence: e2e-tests/fixtures/elasticsearch/search-chips.ts lines 313-317
 
-  @known-defect
   Scenario: Reapable search excludes an old image with a persistence identifier
-    # Known backend defect: the same multi-identifier existence query currently allows tiff-identifier-over-quota through.
     Given I am searching chip fixtures "tiff-identifier-over-quota,old-agency-pick" with all usage rights included
     When I search for images using "is:reapable"
     Then the search results should contain exactly these chip fixtures:

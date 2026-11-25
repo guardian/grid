@@ -28,6 +28,8 @@ export const SEARCH_CHIP_CORE_ROLES = [
 
 const SUPPLEMENTAL_ROLES = [
     'tiff-identifier-over-quota',
+    'derivative-identifier',
+    'replaces-and-persistence-identifiers',
     'legacy-commissioned-agency',
     'edited-title',
     'pr-and-third-party',
@@ -256,6 +258,17 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 ],
             },
             usageRights: { category: 'agency', supplier: 'AAP' },
+        }),
+        image('derivative-identifier', {
+            identifiers: { 'derivative-of-media-ids': SEARCH_CHIP_IMAGE_IDS['harbour-daylight-jpeg'] },
+            usageRights: { category: 'agency', supplier: 'Reuters' },
+        }),
+        image('replaces-and-persistence-identifiers', {
+            identifiers: {
+                picdarUrn: 'search-chips-replaces-and-persistence-identifiers',
+                'replaces-media-id': SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png'],
+            },
+            usageRights: { category: 'agency', supplier: 'Reuters' },
         }),
         image('legacy-commissioned-agency', { usageRights: { category: 'commissioned-agency', supplier: 'Alamy' } }),
         image('edited-title', {
