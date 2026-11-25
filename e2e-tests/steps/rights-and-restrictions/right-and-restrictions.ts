@@ -4,7 +4,8 @@ import type {
   Page,
   Response,
 } from "@playwright/test";
-import { Given, When, Then, KAHUNA_APP_URL, expect } from "../setup.ts";
+import { Given, When, Then, expect } from "../setup.ts";
+import { imageInformation, openSingleImageView } from "../utils/image-view.ts";
 import {
   findSeededImage,
   findSeededImageId,
@@ -33,8 +34,6 @@ const IMAGE_WITHOUT_RIGHTS = findSeededImage(
 );
 const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
-const imageInformation = (page: Page) =>
-  page.getByRole("complementary", { name: "Image information" });
 const rightsAndRestrictions = (page: Page) =>
   page.getByRole("region", { name: "Rights and restrictions", exact: true });
 const usageSummary = (page: Page) =>
@@ -49,11 +48,6 @@ async function openRightsEditor(page: Page): Promise<void> {
   await section.getByRole("button", { name: "✎" }).click();
 }
 
-async function openImage(page: Page, imageId: string): Promise<void> {
-  await page.goto(`${KAHUNA_APP_URL}/images/${imageId}`);
-  await expect(imageInformation(page)).toBeVisible();
-}
-
 async function openSummaryImage(
   page: Page,
   imageId: string,
@@ -64,7 +58,7 @@ async function openSummaryImage(
       new URL(response.url()).pathname === `/images/${imageId}` &&
       response.request().resourceType() === "xhr",
   );
-  await openImage(page, imageId);
+  await openSingleImageView(page, imageId);
   const imageResponse = await response;
   expect(imageResponse.ok(), "fetching the summary image").toBeTruthy();
   const { data } = (await imageResponse.json()) as { data: { cost: string } };
@@ -191,7 +185,7 @@ Given(
 Given(
   "the image was uploaded by {string}",
   async ({ page }, uploader: string) => {
-    await openImage(
+    await openSingleImageView(
       page,
       findSeededImageId(
         `uploaded by "${uploader}"`,
@@ -214,7 +208,7 @@ Given("the image was uploaded by me", async ({ page, testContext }) => {
     "owned by the restricted account",
     (source) => source.uploadedBy === TEST_ACCOUNTS.restricted,
   );
-  await openImage(page, imageId);
+  await openSingleImageView(page, imageId);
   testContext.permissionImage = {
     id: imageId,
     uploadedBy: TEST_ACCOUNTS.restricted,
@@ -593,7 +587,7 @@ Given(
         "No seeded image uploaded by someone other than the test accounts",
       );
     }
-    await openImage(page, image._id);
+    await openSingleImageView(page, image._id);
     testContext.permissionImage = {
       id: image._id,
       uploadedBy: image._source.uploadedBy,
@@ -669,7 +663,7 @@ Then(
 );
 
 Given("I have opened the single image view of an image", async ({ page }) => {
-  await openImage(page, SEEDED_IMAGE_ID);
+  await openSingleImageView(page, SEEDED_IMAGE_ID);
 });
 
 Given(
@@ -681,7 +675,7 @@ Given(
       `in the "${category}" usage rights category`,
       (source) => source.usageRights?.category === code,
     );
-    await openImage(page, imageId);
+    await openSingleImageView(page, imageId);
   },
 );
 
@@ -699,13 +693,13 @@ Given(
         source.usageRights?.category === category &&
         source.usageRights?.suppliers === suppliers,
     );
-    await openImage(page, imageId);
+    await openSingleImageView(page, imageId);
   },
 );
 
 Given("the image has no usage rights category", async ({ page, seedImage }) => {
   // A disposable copy, so scenarios that save rights don't change a shared fixture.
-  await openImage(
+  await openSingleImageView(
     page,
     await seedImage(IMAGE_WITHOUT_RIGHTS._source, { usageRights: {} }),
   );

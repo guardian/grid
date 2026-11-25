@@ -8,6 +8,7 @@ import { DOMAIN } from '../../setup/constants.ts';
 import { E2E_METADATA_FIELD_TEMPLATES } from '../../setup/config.ts';
 import { isSearchRun } from '../search/search-box.ts';
 import { chooseMetadataTemplate, expectMetadataTemplateOffered } from '../utils/metadata-templates.ts';
+import { openSingleImageView } from '../utils/image-view.ts';
 
 type Field = 'title' | 'description';
 interface ImageMetadata {
@@ -100,10 +101,9 @@ function seededImageIds(testContext: TestContext, count?: number): string[] {
   return ids;
 }
 
-async function openSingleImageView(page: Page, testContext: TestContext): Promise<void> {
+async function openSeededImage(page: Page, testContext: TestContext): Promise<void> {
   const [id] = seededImageIds(testContext, 1);
-  await page.goto(`${KAHUNA_APP_URL}/images/${id}`);
-  await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
+  await openSingleImageView(page, id);
   await expect(titleRegion(page)).toBeVisible();
 }
 
@@ -299,11 +299,11 @@ Given('a metadata template sets only the title {string}', async ({ testContext }
 // ---------------------------------------------------------------------------
 
 When('I open the single image view of the image', async ({ page, testContext }) => {
-  await openSingleImageView(page, testContext);
+  await openSeededImage(page, testContext);
 });
 
 Given('I have opened the single image view of the image', async ({ page, testContext }) => {
-  await openSingleImageView(page, testContext);
+  await openSeededImage(page, testContext);
 });
 
 When('I select both images', async ({ page, testContext }) => {
