@@ -123,8 +123,15 @@ export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void
     // Administrator-tier key for cleanup (see ADMIN_API_KEY): the key's name, then its tier.
     putObject(s3, props.KeyBucket, ADMIN_API_KEY, `${ADMIN_API_KEY_NAME}\nadministrator`),
     // Static config consumed by the services.
-    ...['photographers.json', 'rcs-quota.json', 'usage_rights.json'].map((file) =>
+    ...['photographers.json', 'usage_rights.json'].map((file) =>
       putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file))),
+    ),
+    // AAP quota of 0 makes AAP over quota with no seeded usages (count >= quota).
+    putObject(
+      s3,
+      props.ConfigBucket,
+      'rcs-quota.json',
+      fs.readFileSync(path.join(REPO_ROOT, 'e2e-tests', 'fixtures', 'quotas', 'rcs-quota.json')),
     ),
     putObject(
       s3,
