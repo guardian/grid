@@ -1,4 +1,3 @@
-import { setTimeout as delay } from 'node:timers/promises';
 import {
   ELASTICSEARCH_PORT, ELASTICSEARCH_URL, IMGOPS_PORT, KAHUNA_URL, LOCALSTACK_PORT,
   LOCALSTACK_URL, MEDIA_API_URL, OIDC_PORT, SERVICE_CONFIGS,
@@ -51,18 +50,12 @@ async function probePort([port, path]: [number, string], signal?: AbortSignal): 
 }
 
 // A timeout or an HTTP error can mean a stack is still starting. Try a fresh
-// start only if every checked port refuses the connection twice.
+// start only if every checked port refuses the connection.
 export async function probeStack(signal?: AbortSignal) {
-  const probe = () => Promise.all(endpoints.map((endpoint) => probePort(endpoint, signal)));
-  let ports = await probe();
+  const ports = await Promise.all(endpoints.map((endpoint) => probePort(endpoint, signal)));
 
   if (ports.every((result) => result.state === 'refused')) {
-    await delay(150);
-    signal?.throwIfAborted();
-    ports = await probe();
-    if (ports.every((result) => result.state === 'refused')) {
-      return { state: 'none' as const, ports };
-    }
+    return { state: 'none' as const, ports };
   }
 
   if (ports.every((result) => result.state === 'healthy')) {

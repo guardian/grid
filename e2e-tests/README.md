@@ -237,11 +237,9 @@ multi-minute boot into a couple of seconds. Leave `npm run dev:e2e` running in o
 terminal, then use `npm test`, `npm run test:ui` or any of the others as normal — they
 attach automatically and leave the stack running when they finish.
 
-Playwright starts a fresh stack only if every checked port refuses connections
-twice. If only some services are ready, or an endpoint times out or returns an
-HTTP error, setup reports the affected ports. Before reusing a stack, Playwright
-also checks Kahuna's HTTPS URL and the sign-in provider's OIDC issuer. CI
-requires a fresh stack.
+Playwright starts a fresh stack only if every checked port refuses the connection.
+If only some services are ready, or an endpoint times out or returns an
+HTTP error, setup reports the affected ports. CI requires a fresh stack.
 
 | Variable           | Effect                                                                                                        |
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |

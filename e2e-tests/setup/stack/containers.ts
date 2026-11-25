@@ -14,7 +14,7 @@ import {
 } from '../constants.ts';
 
 const ROLE_LABEL = 'uk.co.guardian.grid.role';
-const LOCALSTACK_SERVICES = ['cloudformation', 'cloudwatch', 'dynamodb', 'kinesis', 's3', 'sns', 'sqs', 'iam'];
+const LOCALSTACK_SERVICES = 'cloudformation,cloudwatch,dynamodb,kinesis,s3,sns,sqs,iam';
 
 export function elasticsearchContainer(network: StartedNetwork): GenericContainer {
   return new GenericContainer(ELASTICSEARCH_IMAGE)
@@ -41,7 +41,7 @@ export function localstackContainer(network: StartedNetwork): LocalstackContaine
     .withLabels({ [ROLE_LABEL]: 'LocalStack', 'devcontainer.hostname': 'grid-localstack', 'devcontainer.application.port': String(LOCALSTACK_PORT) })
     .withExposedPorts({ container: LOCALSTACK_PORT, host: LOCALSTACK_PORT })
     .withEnvironment({
-      SERVICES: LOCALSTACK_SERVICES.join(','),
+      SERVICES: LOCALSTACK_SERVICES,
       DEFAULT_REGION: REGION,
       KINESIS_ERROR_PROBABILITY: '0.0',
       // Make resource URLs resolve via the network alias so the
@@ -49,16 +49,6 @@ export function localstackContainer(network: StartedNetwork): LocalstackContaine
       LOCALSTACK_HOST: `${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`,
       SQS_ENDPOINT_STRATEGY: 'path',
     })
-    .withWaitStrategy(
-      Wait.forHttp('/_localstack/health', LOCALSTACK_PORT, { abortOnContainerExit: true })
-        .forStatusCode(200)
-        .forResponsePredicate((response) => {
-          const { services } = JSON.parse(response) as { services?: Record<string, string> };
-          return LOCALSTACK_SERVICES.every((service) =>
-            services?.[service] === 'available' || services?.[service] === 'running',
-          );
-        }),
-    )
     .withStartupTimeout(120_000);
 }
 
