@@ -7,18 +7,9 @@ const BOUNDARY = '2024-06-15T12:00:00.000Z';
 
 const SEARCH_CHIP_COLLECTION = 'search-chips';
 
-const SEARCH_CHIP_ROLES = [
-    'harbour-daylight-jpeg',
-    'staff-photo-multi-persisted',
-];
-
-export const SEARCH_CHIP_IMAGE_IDS: Record<string, string> = Object.fromEntries(
-    SEARCH_CHIP_ROLES.map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
-);
-
 export function searchChipImageFixtures(template: EsHit): EsHit[] {
     function image(role: string, overrides: ImageSource = {}): EsHit {
-        const id = SEARCH_CHIP_IMAGE_IDS[role];
+        const id = createHash('sha1').update(`search-chips-${role}`).digest('hex');
         const metadata = {
             title: `Search chips image ${role}`,
             description: `Search chips fixture ${role}`,
@@ -67,19 +58,15 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
         return { _id: id, _source: imageSource };
     }
 
-    const sharedMetadata = {
-        description: 'Harbour festival at the waterfront',
-        credit: 'Search Chips Shared Credit',
-        city: 'Bristol',
-        state: 'Somerset',
-        country: 'United Kingdom',
-        subLocation: 'Harbourside',
-    };
-
     const fixtures = [
         image('harbour-daylight-jpeg', {
             metadata: {
-                ...sharedMetadata,
+                description: 'Harbour festival at the waterfront',
+                credit: 'Search Chips Shared Credit',
+                city: 'Bristol',
+                state: 'Somerset',
+                country: 'United Kingdom',
+                subLocation: 'Harbourside',
                 keywords: ['harbour', 'daylight'],
                 subjects: ['arts'],
                 peopleInImage: ['Alex Example'],
