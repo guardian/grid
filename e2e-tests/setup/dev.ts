@@ -7,14 +7,17 @@
 import {
   CONFIG_DIR,
   DOMAIN,
+  E2E_ROOT,
   ELASTICSEARCH_PORT,
   LOCALSTACK_PORT,
   OIDC_ISSUER,
   SERVICE_CONFIGS,
 } from './constants.ts';
-import { captureDebugLog, stopContainerLogCapture } from './debug-log.ts';
+import { createStackDiagnostics } from './stack-diagnostics.ts';
 import { probeStack, startStack, stopStack } from './stack.ts';
 import type { GridEnvironment } from './state.ts';
+
+const diagnostics = createStackDiagnostics(E2E_ROOT);
 
 function banner(elapsedMs: number): string {
   const services = Object.keys(SERVICE_CONFIGS)
@@ -42,7 +45,6 @@ function banner(elapsedMs: number): string {
 }
 
 async function dev(): Promise<void> {
-  captureDebugLog();
   let environment: GridEnvironment | undefined;
   let shuttingDown = false;
 
@@ -50,6 +52,7 @@ async function dev(): Promise<void> {
     // A second Ctrl-C exits immediately; Testcontainers' Ryuk reaper cleans up the rest.
     if (shuttingDown) {
       console.log('\nForcing exit.');
+      diagnostics.flush();
       process.exit(130);
     }
     shuttingDown = true;
@@ -57,11 +60,13 @@ async function dev(): Promise<void> {
     if (!environment) {
       // Interrupted mid-boot: startStack owns the containers, so leave them to Ryuk.
       console.log(`\nReceived ${signal} during startup; leaving cleanup to the Ryuk reaper.`);
+      diagnostics.flush();
       process.exit(130);
     }
 
     console.log(`\nReceived ${signal}, stopping the Grid stack...`);
     await stopStack(environment);
+    diagnostics.flush();
     console.log('Done.');
     process.exit(0);
   };
@@ -78,8 +83,10 @@ async function dev(): Promise<void> {
   }
 
   const startedAt = Date.now();
-  environment = await startStack({ proxy: process.env.GRID_PROXY !== 'false' });
-  stopContainerLogCapture();
+  environment = await diagnostics.step('startup', () => startStack({
+    proxy: process.env.GRID_PROXY !== 'false',
+    diagnostics,
+  }));
   console.log(banner(Date.now() - startedAt));
 
   // Hold the process open indefinitely.
@@ -87,6 +94,7 @@ async function dev(): Promise<void> {
 }
 
 dev().catch((error) => {
-  console.error(error);
+  diagnostics.error('setup:stack', error);
+  diagnostics.flush();
   process.exit(1);
 });

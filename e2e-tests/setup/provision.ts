@@ -134,13 +134,21 @@ function keyBody(pem: string): string {
   return pem.replace(/-----[^-]+-----|\s/g, '');
 }
 
-export async function seedAuthBuckets(s3: S3Client, props: StackProps, oidcIssuer = OIDC_ISSUER): Promise<void> {
+export async function seedAuthBuckets(
+  s3: S3Client,
+  props: StackProps,
+  { oidcIssuer = OIDC_ISSUER, addSecrets }: {
+    oidcIssuer?: string;
+    addSecrets?: (values: readonly string[]) => void;
+  } = {},
+): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
     publicKeyEncoding: { type: 'spki', format: 'pem' },
   });
   const privateKeyBody = keyBody(privateKey);
+  addSecrets?.([privateKey, privateKeyBody]);
   const publicKeyBody = keyBody(publicKey);
   const settings = [
     `privateKey=${privateKeyBody}`,

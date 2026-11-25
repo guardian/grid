@@ -124,12 +124,10 @@ npm run test:report           # Playwright: http://localhost:9323
 npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
-Testcontainers' debug output (image builds, pulls, and container logs until the stack is
-up) is written to `logs/<timestamp>/testcontainers.log` on every run, in a new folder per
-session so earlier logs are kept. Check the latest one first when the stack
-fails to boot, for example with an opaque `Failed to build image`. Set
-`DEBUG=testcontainers*` to also print it to the terminal and keep container logs for the
-whole run.
+Each run writes startup and cleanup messages to `target/logs/<timestamp>/stack.log`.
+A fresh stack also saves Docker build output in `builds/` and container output in
+`containers/`. Check `stack.log` first if startup fails. Set `E2E_DEBUG=1` to also
+see build and container output in the terminal.
 
 CI splits the suite into 4 shards with Playwright's native `--shard` option. Each shard
 boots its own stack and writes a blob report instead of the HTML reports. A
@@ -141,8 +139,8 @@ only when every shard passes, so use it as the required status check.
 CI also adds GitHub failure annotations. The merged reports and their captured attachments
 are uploaded together as `e2e-report`, retained for 14 days after successful or failed
 runs, excluding cancelled runs. Failures before report generation may leave no reports to
-upload. Each failed shard also uploads its debug log as `testcontainers-log-<shard>`,
-linked from an annotation on that shard's job page.
+upload. Each shard uploads its stack logs as `stack-logs-<shard>` when available.
+A failed shard links to its logs from an annotation on the job page.
 
 ### Feature library
 

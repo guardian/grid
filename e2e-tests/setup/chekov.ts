@@ -66,10 +66,10 @@ export function prepareChekov(configDir: string): string {
   return path.resolve(caRoot);
 }
 
-export async function startChekov(
+export function chekovContainer(
   network: StartedNetwork,
   caRoot: string,
-): Promise<StartedTestContainer> {
+): GenericContainer {
   return new GenericContainer(CHEKOV_IMAGE)
     .withName('grid-chekov-nginx')
     .withNetwork(network)
@@ -91,8 +91,7 @@ export async function startChekov(
     })
     .withExposedPorts({ container: 80, host: 80 }, { container: 443, host: 443 })
     .withWaitStrategy(Wait.forHealthCheck())
-    .withStartupTimeout(120_000)
-    .start();
+    .withStartupTimeout(120_000);
 }
 
 export async function registerLocalstackAliases(

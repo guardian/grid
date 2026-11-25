@@ -31,6 +31,7 @@ const GENERATE_CONFIG_DIR = path.join(
 );
 
 const GRID_SERVICES = Object.keys(SERVICE_CONFIGS);
+export const PLAY_HTTP_SECRET = "testcontainers-e2e-application-secret-0123456789";
 
 type StackProps = Record<string, string>;
 
@@ -189,7 +190,7 @@ export function generateServiceConfig(
   fs.writeFileSync(
     path.join(configDir, "common.conf"),
     [
-      'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
+      `play.http.secret.key = "${PLAY_HTTP_SECRET}"`,
       "enforceUploadImagesPermission = true",
       `usageRights.applicable = ${JSON.stringify([
         "com.gu.mediaservice.model.NoRights",

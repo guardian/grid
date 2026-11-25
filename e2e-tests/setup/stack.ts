@@ -17,8 +17,10 @@ import { LocalstackContainer } from '@testcontainers/localstack';
 import { GenericContainer, Network, Wait, getContainerRuntimeClient } from 'testcontainers';
 import type { StartedNetwork, StartedTestContainer } from 'testcontainers';
 import {
+  API_KEY,
   CONFIG_DIR,
   DOMAIN,
+  E2E_ROOT,
   EMAIL_DOMAIN,
   ELASTICSEARCH_ALIAS,
   ELASTICSEARCH_IMAGE,
@@ -45,9 +47,9 @@ import {
   SERVICE_CONFIGS,
   getOidcIssuer,
 } from './constants.ts';
-import { generateServiceConfig } from './config.ts';
-import { DEBUG_LOG_PATH } from './debug-log.ts';
-import { CHEKOV_HOSTS, gridRouteLabels, prepareChekov, registerChekovAliases, registerLocalstackAliases, s3BucketHosts, startChekov } from './chekov.ts';
+import { generateServiceConfig, PLAY_HTTP_SECRET } from './config.ts';
+import { CHEKOV_HOSTS, chekovContainer, gridRouteLabels, prepareChekov, registerChekovAliases, registerLocalstackAliases, s3BucketHosts } from './chekov.ts';
+import { buildImage, dockerBuildEnvironment } from './docker-build.ts';
 import { reportTo, runTasks } from './progress.ts';
 import type { ListrTask } from './progress.ts';
 import {
@@ -63,6 +65,7 @@ import type { StackProps } from './provision.ts';
 import { seedCollections } from './seed-collections.ts';
 import { seedElasticsearch } from './seed-elasticsearch.ts';
 import { seedImageFiles } from './seed-image-files.ts';
+import { createStackDiagnostics, type StackDiagnostics } from './stack-diagnostics.ts';
 import type { GridEnvironment } from './state.ts';
 import type { ListrTaskFn } from 'listr2';
 
@@ -84,6 +87,7 @@ export interface StartStackOptions {
   proxy?: boolean;
   /** Seed Elasticsearch with the image fixtures (and S3 with their files). Defaults to true. */
   seed?: boolean;
+  diagnostics?: StackDiagnostics;
 }
 
 // Every service is bound to a fixed host port, so its URL is the same whether this process
@@ -109,6 +113,7 @@ const ROLE_LABEL = 'uk.co.guardian.grid.role';
 
 /** The subset of a started stack that teardown needs; a partially-booted stack also fits. */
 interface StoppableStack {
+  diagnostics: StackDiagnostics;
   network?: StartedNetwork;
   containers: StartedTestContainer[];
   configDir?: string;
@@ -242,7 +247,7 @@ function gridContainer(
   startupTimeoutMs: number,
   proxyHosts: string[],
 ): GenericContainer {
-  const container = new GenericContainer(GRID_IMAGE)
+  return new GenericContainer(GRID_IMAGE)
     .withNetwork(network)
     .withExtraHosts(proxyHosts.map((host) => ({ host, ipAddress: 'host-gateway' })))
     .withLabels({ [ROLE_LABEL]: 'the Grid services', ...gridRouteLabels() })
@@ -270,16 +275,6 @@ function gridContainer(
     // the first line of output is enough to hand over to the per-service checks below.
     .withWaitStrategy(Wait.forLogMessage(/./))
     .withStartupTimeout(10_000);
-
-  if (!process.env.GRID_DEBUG) {
-    return container;
-  }
-
-  const logStream = fs.createWriteStream(path.join(os.tmpdir(), 'grid-boot.log'));
-  return container.withLogConsumer((stream) => {
-    stream.on('data', (line) => logStream.write(line));
-    stream.on('err', (line) => logStream.write(line));
-  });
 }
 
 /**
@@ -352,6 +347,15 @@ async function waitForHealthy(
   }
 }
 
+function startContainer<T extends StartedTestContainer>(
+  name: string,
+  definition: Pick<GenericContainer, 'withLogConsumer'> & { start(): Promise<T> },
+  diagnostics: StackDiagnostics,
+): Promise<T> {
+  definition.withLogConsumer((stream) => diagnostics.capture('containers', name, stream));
+  return diagnostics.step(`start:${name}`, () => definition.start());
+}
+
 /**
  * Start LocalStack and provision everything held in it. Sequential: each step needs the
  * resources the one before it created.
@@ -363,7 +367,7 @@ function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[
     {
       title: 'Start container',
       task: async (ctx) => {
-        const localstack = await localstackContainer(ctx.network!).start();
+        const localstack = await startContainer('localstack', localstackContainer(ctx.network!), ctx.diagnostics);
         ctx.containers.push(localstack);
         clients = provisioningClients(localstack.getConnectionUri());
       },
@@ -386,7 +390,10 @@ function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[
     },
     {
       title: 'Seed auth buckets',
-      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!, getOidcIssuer(proxy)),
+      task: (ctx) => seedAuthBuckets(clients.s3, ctx.authStackProps!, {
+        oidcIssuer: getOidcIssuer(proxy),
+        addSecrets: ctx.diagnostics.addSecrets,
+      }),
     },
     {
       title: 'Seed image files',
@@ -409,10 +416,11 @@ function localstackTasks(seed: boolean, proxy: boolean): ListrTask<BootContext>[
 
 /** Start the whole stack, tearing down anything already started if a later step fails. */
 export async function startStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
-  const { proxy = process.env.GRID_PROXY !== 'false', seed = true } = options;
+  const { proxy = process.env.GRID_PROXY !== 'false', seed = true, diagnostics = createStackDiagnostics(E2E_ROOT) } = options;
+  diagnostics.addSecrets([API_KEY, OIDC_CLIENT_SECRET, PLAY_HTTP_SECRET]);
 
   const startupTimeoutMs = Number(process.env.GRID_STARTUP_TIMEOUT_MS ?? 300_000);
-  const context: BootContext = { containers: [] };
+  const context: BootContext = { containers: [], diagnostics };
 
   const gridTasks: ListrTask<BootContext>[] = [
     {
@@ -425,7 +433,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             {
               title: 'Elasticsearch',
               task: async (ctx) => {
-                ctx.containers.push(await elasticsearchContainer(ctx.network!).start());
+                ctx.containers.push(await startContainer('elasticsearch', elasticsearchContainer(ctx.network!), diagnostics));
               },
             },
             {
@@ -439,16 +447,19 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Build image',
                       task: async () => {
-                        image = await GenericContainer.fromDockerfile(IMGOPS_CONTEXT).build(
-                          IMGOPS_IMAGE,
-                          { deleteOnExit: false },
-                        );
+                        image = await buildImage({
+                          name: 'imgops',
+                          context: IMGOPS_CONTEXT,
+                          tag: IMGOPS_IMAGE,
+                          diagnostics,
+                          env: await dockerBuildEnvironment(),
+                        });
                       },
                     },
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await imgopsContainer(image, ctx.network!, proxy).start());
+                        ctx.containers.push(await startContainer('imgops', imgopsContainer(image, ctx.network!, proxy), diagnostics));
                       },
                     },
                   ],
@@ -484,7 +495,7 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       title: 'Start Chekov reverse proxy',
       skip: () => !proxy && 'using external dev-nginx',
       task: async (ctx) => {
-        ctx.chekov = await startChekov(ctx.network!, ctx.caRoot!);
+        ctx.chekov = await startContainer('chekov', chekovContainer(ctx.network!, ctx.caRoot!), diagnostics);
         ctx.containers.push(ctx.chekov);
       },
     },
@@ -501,7 +512,8 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
             title: 'Start container',
             task: async (ctx) => {
               const proxyHosts = proxy ? [...CHEKOV_HOSTS, ...s3BucketHosts(ctx.coreStackProps!)] : [];
-              const started = await gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, proxyHosts).start();
+              const definition = gridContainer(ctx.network!, ctx.configDir!, startupTimeoutMs, proxyHosts);
+              const started = await startContainer('grid', definition, diagnostics);
               ctx.containers.push(started);
               // A clean boot never awaits this, so sink it to avoid an unhandled rejection
               // when the container finally stops during teardown.
@@ -577,15 +589,19 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
                     {
                       title: 'Build image',
                       task: async () => {
-                        image = await GenericContainer.fromDockerfile(OIDC_CONTEXT).build(OIDC_IMAGE, {
-                          deleteOnExit: false,
+                        image = await buildImage({
+                          name: 'oidc',
+                          context: OIDC_CONTEXT,
+                          tag: OIDC_IMAGE,
+                          diagnostics,
+                          env: await dockerBuildEnvironment(),
                         });
                       },
                     },
                     {
                       title: 'Start container',
                       task: async (ctx) => {
-                        ctx.containers.push(await oidcContainer(image, ctx.network!, proxy).start());
+                        ctx.containers.push(await startContainer('oidc', oidcContainer(image, ctx.network!, proxy), diagnostics));
                       },
                     },
                   ],
@@ -617,14 +633,13 @@ export async function startStack(options: StartStackOptions = {}): Promise<GridE
       network: context.network,
       containers: context.containers,
       configDir: context.configDir,
+      diagnostics,
       baseUrl: KAHUNA_URL,
       mediaApiUrl: MEDIA_API_URL,
     };
   } catch (error) {
     // Leave nothing running if we failed part-way through the boot.
     await stopStack(context);
-    const logLocation = process.env.CI ? 'in the \'show testcontainers debug log\' step (it\'s also downloadable from the job summary)' : `at ${DEBUG_LOG_PATH}`;
-    console.error(`\nThe Grid stack failed to start. See the testcontainers log ${logLocation} for debug logs.\n`);
     throw error;
   }
 }
@@ -673,11 +688,12 @@ export async function probeStack(): Promise<{ state: StackProbe; healthy: number
  * never stops a stack started by `npm run dev:e2e`.
  */
 export async function ensureStack(options: StartStackOptions = {}): Promise<GridEnvironment> {
+  const { diagnostics = createStackDiagnostics(E2E_ROOT) } = options;
   // Nothing pre-exists in CI, and silently attaching there would undermine the run.
   const reuseAllowed = !process.env.CI;
 
   const { state, healthy, ports } = await probeStack();
-  console.log(PROBE_OUTCOMES[state]);
+  diagnostics.log(PROBE_OUTCOMES[state]);
 
   if (state === 'partial') {
     const missing = ports.filter((port) => !healthy.includes(port));
@@ -694,17 +710,17 @@ export async function ensureStack(options: StartStackOptions = {}): Promise<Grid
         'Stop it before starting a fresh one; the fixed host ports cannot be shared.',
       );
     }
-    return attachToStack(options);
+    return attachToStack(options, diagnostics);
   }
 
-  return startStack(options);
+  return startStack({ ...options, diagnostics });
 }
 
 /**
  * Build an environment for a stack this process did not start. It owns no containers,
  * so `stopStack` leaves everything running.
  */
-async function attachToStack(options: StartStackOptions): Promise<GridEnvironment> {
+async function attachToStack(options: StartStackOptions, diagnostics: StackDiagnostics): Promise<GridEnvironment> {
   // Re-seeding is opt-in: whoever started the stack already seeded it, and the fixtures
   // are only reloaded on request because tests may have since changed the data.
   const reseed = options.seed === true || process.env.GRID_RESEED === 'true';
@@ -737,7 +753,7 @@ async function attachToStack(options: StartStackOptions): Promise<GridEnvironmen
     {},
   );
 
-  return { containers: [], baseUrl: KAHUNA_URL, mediaApiUrl: MEDIA_API_URL };
+  return { containers: [], baseUrl: KAHUNA_URL, mediaApiUrl: MEDIA_API_URL, diagnostics };
 }
 
 /** Stop what this process started and delete what it wrote; anything else is left alone. */
@@ -746,23 +762,23 @@ export async function stopStack(environment: StoppableStack | undefined): Promis
     return;
   }
 
-  const { containers, network, configDir } = environment;
+  const { containers, network, configDir, diagnostics } = environment;
 
   const tasks: ListrTask<object>[] = [
     // Reverse start order, so nothing is stopped before whatever depends on it.
     ...[...containers].reverse().map((container) => ({
       title: `Stop ${container.getLabels()[ROLE_LABEL] ?? container.getName()}`,
-      task: () => container.stop(),
+      task: () => diagnostics.step(`stop:${container.getLabels()[ROLE_LABEL] ?? container.getName()}`, () => container.stop()),
     })),
-    ...(network ? [{ title: 'Remove network', task: () => network.stop() }] : []),
+    ...(network ? [{ title: 'Remove network', task: () => diagnostics.step('remove:network', () => network.stop()) }] : []),
     ...(configDir
       ? [
         {
           title: 'Remove generated config',
-          task: () => {
+          task: () => diagnostics.step('remove:config', async () => {
             fs.rmSync(configDir, { recursive: true, force: true });
             ownedConfigDir = undefined;
-          },
+          }),
         },
       ]
       : []),

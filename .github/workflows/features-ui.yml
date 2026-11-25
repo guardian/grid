@@ -62,6 +62,7 @@ jobs:
       with:
         path: |
           **/target
+          !e2e-tests/target
           ~/.sbt
         key: ${{ runner.os }}-sbt-build-${{ hashFiles('**/*.scala', '**/*.sbt', 'project/build.properties', 'project/plugins.sbt') }}
         restore-keys: |
@@ -133,6 +134,20 @@ jobs:
         path: e2e-tests/coverage-reports/
         retention-days: 30
         if-no-files-found: ignore
+    - name: Upload stack logs
+      id: stack-logs
+      uses: actions/upload-artifact@v7
+      if: ${{ !cancelled() }}
+      with:
+        name: stack-logs
+        path: e2e-tests/target/logs/
+        retention-days: 14
+        if-no-files-found: ignore
+    - name: Link failure diagnostics
+      if: ${{ failure() && steps.stack-logs.outputs.artifact-url != '' }}
+      env:
+        ARTIFACT_URL: ${{ steps.stack-logs.outputs.artifact-url }}
+      run: echo "::error title=Grid e2e diagnostics::See the stack logs at $ARTIFACT_URL"
     - name: Build features UI
       run: npm run features:build
     - uses: actions/upload-artifact@v7
