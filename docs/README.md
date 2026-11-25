@@ -10,6 +10,7 @@
 - [AWS dependencies](01-setup/02-aws-dependencies.md)
 - [Configuring `setup.sh`](01-setup/03-configuring-setup.md)
 - [Running setup](01-setup/03-running-setup.md)
+- [Running Grid as containers](01-setup/05-running-containers.md)
 
 ## [Running](02-running/)
 - [Running locally](02-running/01-running-locally.md)

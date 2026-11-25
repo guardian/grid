@@ -1,0 +1,101 @@
+name: Grid CD (ECR images)
+on:
+  pull_request:
+  workflow_dispatch: # Manual invocation.
+  push:
+    branches:
+      - main
+
+jobs:
+  docker:
+    name: Build, test, and push ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      # required by guardian/actions-ecr/push to authenticate with AWS
+      id-token: write
+      contents: read
+      pull-requests: write # used by guardian/actions-ecr/push to comment on PRs
+    strategy:
+      fail-fast: false
+      matrix:
+        # `usage` is a single image deployed twice (usage-api and usage-stream)
+        service:
+          - auth
+          - collections
+          - cropper
+          - image-loader
+          - kahuna
+          - leases
+          - media-api
+          - metadata-editor
+          - thrall
+          - usage
+    # Same service containers as ci.yml; sbt tests connect to these instead of starting testcontainers
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.18.3
+        options: -e "discovery.type=single-node" -e "xpack.security.enabled=false" --expose 9200 --health-cmd "curl localhost:9200/_cluster/health" --health-interval 10s --health-timeout 5s --health-retries 10
+        ports:
+          - 9200:9200
+      localstack:
+        image: localstack/localstack:4.5.0
+        env:
+          SERVICES: kinesis,dynamodb
+          DEFAULT_REGION: eu-west-1
+          KINESIS_ERROR_PROBABILITY: 0.0
+        ports:
+          - "127.0.0.1:4566:4566"
+          - "127.0.0.1:4510-4559:4510-4559"
+        options: >-
+          --health-cmd "curl localhost:4566/_localstack/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.0
+
+      - name: Setup Node
+        if: matrix.service == 'kahuna'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+          cache-dependency-path: "kahuna/package-lock.json"
+
+      - name: Test and build Kahuna client-side assets
+        if: matrix.service == 'kahuna'
+        working-directory: ./kahuna
+        run: |
+          npm install-clean
+          npm run undist
+          npm test
+          npm run dist
+
+      - name: Install image libs needed for tests
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install graphicsmagick imagemagick exiftool
+
+      - name: Setup Java
+        uses: guardian/setup-scala@v2
+
+      - name: Test
+        env:
+          USE_DOCKER_FOR_TESTS: false # use the service containers above rather than testcontainers
+        run: sbt "${{ matrix.service }}/test"
+
+      # Builds the image locally, named after the sbt project (e.g. `image-loader`),
+      # which is where guardian/actions-ecr/push looks for it.
+      - name: Build Docker image
+        env:
+          BUILD_VCS_NUMBER: ${{ github.sha }}
+        run: sbt "${{ matrix.service }}/Docker/publishLocal"
+
+      - name: Publish image to ECR
+        # Pushes to <organisation>/<repository>/<service>, e.g. guardian/grid/image-loader
+        uses: guardian/actions-ecr/push@ash/dry
+        with:
+          app: ${{ matrix.service }}
+          roleArn: ${{ secrets.GU_ARTIFACTS_ROLE_ARN }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          dry: true

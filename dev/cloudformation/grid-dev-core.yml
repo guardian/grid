@@ -25,6 +25,7 @@ Resources:
     Type: AWS::S3::Bucket
     DependsOn: IngestSqsQueue
     Properties:
+      BucketName: grid-dev-ingestqueuebucket
       CorsConfiguration:
         CorsRules:
           - Id: AllowUploadsFromBrowser
@@ -41,10 +42,13 @@ Resources:
 
   IngestQueueFailBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-ingestqueuefailbucket
 
   ImageBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: grid-dev-imagebucket
       CorsConfiguration:
         CorsRules:
           - AllowedMethods:
@@ -57,19 +61,28 @@ Resources:
 
   ThumbBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-thumbbucket
 
   ReaperBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-reaperbucket
 
   QuarantineBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-quarantinebucket
 
   KeyBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-keybucket
 
   ImageOriginBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: grid-dev-imageoriginbucket
       AccessControl: PublicRead
       WebsiteConfiguration:
         IndexDocument: index.html
@@ -77,13 +90,18 @@ Resources:
 
   ConfigBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-configbucket
 
   CollectionsBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-collectionsbucket
 
   UsageMailBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: grid-dev-usagemailbucket
       VersioningConfiguration:
         Status: Enabled
 
@@ -182,15 +200,20 @@ Resources:
             WriteCapacityUnits: 1
   IndexedImageMetadataQueue:
     Type: AWS::SQS::Queue
+    Properties:
+      QueueName: grid-dev-indexedimagemetadataqueue
   IndexedImageTopic:
     Type: AWS::SNS::Topic
     DependsOn: IndexedImageMetadataQueue
     Properties:
+      TopicName: grid-dev-indexedimagetopic
       Subscription:
         - Endpoint: !GetAtt "IndexedImageMetadataQueue.Arn"
           Protocol: sqs
   DownscaledImageBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketName: grid-dev-downscaledimagebucket
 
   ImageEmbedderDLQ:
     Type: AWS::SQS::Queue
