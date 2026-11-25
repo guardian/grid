@@ -79,7 +79,7 @@ async function dockerBuildEnvironment(): Promise<NodeJS.ProcessEnv> {
   };
 }
 
-export async function buildImage({ name, context, tag, diagnostics, signal, env }: {
+export async function buildImage(options: {
   name: string;
   context: string;
   tag: string;
@@ -87,6 +87,7 @@ export async function buildImage({ name, context, tag, diagnostics, signal, env 
   signal: AbortSignal;
   env: NodeJS.ProcessEnv;
 }): Promise<GenericContainer> {
+  const { name, context, tag, diagnostics, signal, env } = options;
   signal.throwIfAborted();
   return diagnostics.step(`build:${name}`, async () => {
     const build = spawn('docker', ['build', '--progress=plain', '--load', '--tag', tag, context], {

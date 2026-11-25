@@ -67,8 +67,10 @@ test('aborting startup stops DynamoDB from polling again', async (t) => {
   const startup = new AbortController();
   const firstPoll = Promise.withResolvers<void>();
   const { dynamo, kinesis } = provisioningClients('http://127.0.0.1:1');
-  const send = t.mock.method(dynamo, 'send', async (command: unknown) => {
+  let polls = 0;
+  t.mock.method(dynamo, 'send', async (command: unknown) => {
     if (command instanceof DescribeTableCommand) {
+      polls++;
       firstPoll.resolve();
       return { Table: { TableStatus: 'CREATING' } };
     }
@@ -85,5 +87,5 @@ test('aborting startup stops DynamoDB from polling again', async (t) => {
   await cancelled;
   await delay(1_100);
 
-  assert.equal(send.mock.callCount(), 2);
+  assert.equal(polls, 1);
 });
