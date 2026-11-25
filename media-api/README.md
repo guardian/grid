@@ -15,12 +15,49 @@
 | since      | Search images uploaded since this time    | [no lower bound]
 | until      | Search images uploaded before this time   | [no upper bound]
 
-Date-time values (e.g. since) can be provided in ISO format (no milliseconds), e.g. `2013-10-24T11:09:38Z` (i.e.
-the same format as date-times in the documents). They can also be provided as relative durations, e.g. `7.days`.
+Date-time bounds (`since`/`until`, `takenSince`/`takenUntil`, and `modifiedSince`/`modifiedUntil`)
+accept ISO timestamps with seconds and a timezone, with optional milliseconds, e.g.
+`2013-10-24T11:09:38Z` or `2013-10-24T12:09:38.123+01:00`. Encode a literal `+` as `%2B`
+in a URL. Date-only values such as `2013-10-24` mean midnight UTC. Either bound can be omitted;
+provided bounds are exclusive. Relative durations such as `7.days` or `2.hours` are also accepted
+and are evaluated against the current time on each request. Invalid bounds are currently ignored.
+
+### Date comparison chips in `q`
+
+Comparison chips accept the same timestamp and duration syntax, while preserving existing date-only
+and human-date parsing:
+
+| Date | Lower-bound chip | Upper-bound chip |
+|------|------------------|------------------|
+| Uploaded | `>date:…` or `>uploaded:…` | `<date:…` or `<uploaded:…` |
+| Taken | `>taken:…` | `<taken:…` |
+| Usage added | `usages@>added:…` | `usages@<added:…` |
+
+For example:
+
+```text
+usages@>added:"2026-10-10T14:30:00Z" usages@<added:"2026-10-10T17:00:00.123Z"
+>taken:"2026-10-10T15:30:00+01:00"
+usages@>added:2.hours
+```
+
+The dot in `2.hours` is literal duration notation, typed by the user. The date picker does not
+produce it: picker presets produce absolute timestamps. Duration chip cutoffs are recalculated
+on each request, including later pagination requests. Prefix a comparison chip with `-` to negate it.
+Invalid comparison values, including non-finite durations such as `Inf`, retain the existing
+text-filter fallback rather than discarding the rest of the query or its default exclusions.
+
+Unlike the top-level bounds, comparison chips include equality (`gte`/`lte`: greater/less than
+or equal). Their existing opposite bounds remain: `>` ends at tomorrow's midnight in the backend's
+default timezone; `<` starts at the Unix epoch. Existing date-only chip values retain their
+backend-local interpretation; explicit timestamps identify instants independently of that timezone.
+
+Whole-period expressions such as `date:2026-10-10`, `taken:today` and `@2026-10-10` are unchanged;
+they do not gain timestamp or duration parsing. No last-modified comparison alias is added.
 
 ### Example
 
-http://media-ser-mediaapi-1uzj4tw8g9lmy-1465883965.eu-west-1.elb.amazonaws.com/images?q=horse&since=2.weeks
+…/images?q=horse&since=2.weeks
 
 See the [routes file](https://github.com/guardian/media-service/blob/master/media-api/conf/routes) for more API
 "documentation".

@@ -67,8 +67,8 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     principal match {
       case user: UserPrincipal =>
         user.email.equalsIgnoreCase(uploadedBy) || hasPermissionTo(permission)(principal)
-      case MachinePrincipal(ApiAccessor(_, Administrator), _) => true
-      case MachinePrincipal(ApiAccessor(_, Internal), _) => !Permissions.isDeletePermission(permission) // internal tier can do anything except delete
+      case MachinePrincipal(ApiAccessor(_, Administrator, _), _) => true
+      case MachinePrincipal(ApiAccessor(_, Internal, _), _) => !Permissions.isDeletePermission(permission) // internal tier can do anything except delete
       case InnerServicePrincipal(_, _) => true
       case _ => false
     }
@@ -78,9 +78,10 @@ class Authorisation(provider: AuthorisationProvider, executionContext: Execution
     principal: Principal => {
       principal match {
         // a machine principal with internal tier can always see anything
-        case MachinePrincipal(ApiAccessor(_, Internal), _) => true
-        case MachinePrincipal(ApiAccessor(_, Administrator), _) => true
-        case InnerServicePrincipal(_, _) => !Permissions.isDeletePermission(permission)
+        case MachinePrincipal(ApiAccessor(_, Administrator, _), _) => true
+        case MachinePrincipal(ApiAccessor(_, Internal, _), _) => !Permissions.isDeletePermission(permission)
+        case MachinePrincipal(ApiAccessor(_, PermissionTier(permissionsList), _), _) => permission.definition.exists(d => permissionsList.exists(_.name == d.name))
+        case InnerServicePrincipal(_, _) => true
         case _ => provider.hasPermissionTo(permission, principal)
       }
     }
