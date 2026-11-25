@@ -7,7 +7,7 @@ Feature: Creating search filter chips
     And I am signed in through pan-domain auth
     And I have opened the image search page
 
-  Scenario: Typing a city filter creates a chip without choosing a suggestion
+  Scenario: Typing a chip key followed by a colon creates a chip without choosing a suggestion
     Given the search box is empty
     When I type "city:Bristol" into the search box
     Then a "city" filter chip should be shown
