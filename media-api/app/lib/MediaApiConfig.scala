@@ -25,6 +25,8 @@ class MediaApiConfig(resources: GridConfigResources) extends CommonConfigWithEla
 
   val quotaStoreKey: String = string("quota.store.key")
   val quotaStoreConfig: StoreConfig = StoreConfig(configBucket, quotaStoreKey)
+  val usageStoreRefreshInterval: FiniteDuration =
+    configuration.getOptional[FiniteDuration]("quota.usage.refreshInterval").getOrElse(UsageStore.refreshInterval)
 
   //Lazy allows this to be empty and not break things unless used somewhere
   lazy val imgPublishingBucket = string("publishing.image.bucket")

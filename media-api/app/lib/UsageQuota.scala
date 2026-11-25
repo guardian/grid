@@ -21,7 +21,8 @@ class UsageQuota(config: MediaApiConfig, scheduler: Scheduler, getSupplierQuotaC
 
   val usageStore = new UsageStore(
     getSupplierQuotaCount,
-    quotaStore
+    quotaStore,
+    config.usageStoreRefreshInterval
   )
 
   def scheduleUpdates(): Unit = {
