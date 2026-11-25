@@ -50,6 +50,31 @@ export const E2E_METADATA_TEMPLATE = {
 };
 
 /**
+ * Templates that replace an image's title (and description), for the single image view's
+ * title and description preview scenarios. They set no usage rights, so selecting them
+ * doesn't open a rights preview.
+ */
+export const E2E_TITLE_AND_DESCRIPTION_TEMPLATE = {
+  templateName: "E2E Title and description",
+  fields: [
+    { name: "title", value: "Template title" },
+    { name: "description", value: "Template description" },
+  ],
+};
+
+export const E2E_TITLE_ONLY_TEMPLATE = {
+  templateName: "E2E Title only",
+  fields: [{ name: "title", value: "Template title" }],
+};
+
+/** Templates that set metadata fields (each replacing the image's value). */
+export const E2E_METADATA_FIELD_TEMPLATES = [
+  E2E_METADATA_TEMPLATE,
+  E2E_TITLE_AND_DESCRIPTION_TEMPLATE,
+  E2E_TITLE_ONLY_TEMPLATE,
+];
+
+/**
  * A template that only sets usage rights, kept separate from `E2E_METADATA_TEMPLATE` so the
  * upload page's metadata template scenarios don't also open a rights preview. Pay to use has
  * no required properties, so the template's rights are complete: templates can't set the
@@ -77,12 +102,19 @@ export const E2E_UPLOAD_SUPPORT_EMAIL = `mailto:grid-e2e-upload-support@${EMAIL_
 
 /** Render the e2e-only Kahuna settings as HOCON to append to the generated `kahuna.conf`. */
 function kahunaE2eConfig(): string {
-  const metadataFields = E2E_METADATA_TEMPLATE.fields
-    .map(
-      (f) =>
-        `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`,
-    )
-    .join("\n");
+  const metadataFieldTemplates = E2E_METADATA_FIELD_TEMPLATES.flatMap(
+    (template) => [
+      "  {",
+      `    templateName = "${template.templateName}"`,
+      "    metadataFields = [",
+      ...template.fields.map(
+        (f) =>
+          `      { name = "${f.name}", value = "${f.value}", resolveStrategy = "replace" }`,
+      ),
+      "    ]",
+      "  },",
+    ],
+  );
 
   return [
     // The e2e stack has no Bedrock access, so AI search requests would 500.
@@ -90,12 +122,7 @@ function kahunaE2eConfig(): string {
     `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
     `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
     "metadata.templates = [",
-    "  {",
-    `    templateName = "${E2E_METADATA_TEMPLATE.templateName}"`,
-    "    metadataFields = [",
-    metadataFields,
-    "    ]",
-    "  },",
+    ...metadataFieldTemplates,
     "  {",
     `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
     `    usageRights = ${JSON.stringify(E2E_RIGHTS_TEMPLATE.usageRights)}`,
