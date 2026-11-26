@@ -34,6 +34,9 @@ Prefixing the alias with the specification name (e.g. `programmeTitle`, `program
 
 String fields can opt in to the `Overwrite` / `Add before` / `Add after` edit options via `allowEditOptions` (see below).
 
+A field can also set `readOnly = true` to remove its edit controls in Kahuna. Kahuna displays it only when its value is
+truthy.
+
 For example, the configuration below specifies two specifications `specificationa` and `specificationb`, each with their respective fields.
 
 ```hocon
@@ -73,6 +76,10 @@ domainMetadata.specifications = [
         # 'Add before' and 'Add after' combine the entered text with each image's existing value; images with
         # no existing value simply receive the entered text.
         # allowEditOptions = true
+
+        # Optional boolean, defaulting to false.
+        # When true, Kahuna offers no edit control and displays the field only when its value is truthy.
+        # readOnly = true
 
         # List of options rendered in the drop-down list / select field.
         # Mandatory for 'select' type.
@@ -131,9 +138,9 @@ Just like changing types on persistable models, this has its drawbacks and shoul
 The modified field and its value will be rendered on the user interface. However, formatting errors maybe thrown when rendering the edit (input) field on a field that already has a value. For example:
 
   * Changing the type from `string` to `integer`, the user interface will throw "Expected `String` to be a number" error and not render the value in the edit field.
-	
+
   * Changing the type from `string` to `datetime`, the user interface will throw "Expected `11` to be a date" error.
-	
+
   * Changing the type from `integer` to `datetime`, the user interface will throw "Expected `1` to be a date" error.
 
 Despite these format errors, a user can still modify and save the value of the field using the new type on the user interface.

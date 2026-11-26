@@ -12,7 +12,9 @@ case class DomainMetadataField(
   options: Option[List[String]] = None,
   // When set on a string field, editing the field across a multi-image selection offers the
   // same overwrite / add before / add after choices as the core metadata fields.
-  allowEditOptions: Boolean = false
+  allowEditOptions: Boolean = false,
+  // Prevents Kahuna from offering edit controls.
+  readOnly: Boolean = false
 )
 
 object DomainMetadataField {
@@ -36,13 +38,15 @@ object DomainMetadataSpec {
         val fields = config.getConfigList("fields").asScala.map(config => {
           val fieldOptions = if (config.hasPath("options")) Some(config.getStringList("options").asScala.toList) else None
           val allowEditOptions = config.hasPath("allowEditOptions") && config.getBoolean("allowEditOptions")
+          val readOnly = config.hasPath("readOnly") && config.getBoolean("readOnly")
 
           DomainMetadataField(
             config.getString("name"),
             config.getString("label"),
             config.getString("type"),
             fieldOptions,
-            allowEditOptions
+            allowEditOptions,
+            readOnly
           )
         }).toSeq
 
