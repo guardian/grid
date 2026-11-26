@@ -1,4 +1,3 @@
-import type { DataTable } from 'playwright-bdd';
 import type { Page } from '@playwright/test';
 import { SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
@@ -38,10 +37,10 @@ When('I search for images using {string}', async ({ page }, query: string) => {
         url.searchParams.get('nonFree') === 'true');
 });
 
-async function expectChipFixtures(page: Page, roles: string[]) {
-    const ids = roles.map((role) => {
-        const id = SEARCH_CHIP_IMAGE_IDS[role];
-        expect(id, `Unknown chip fixture: ${role}`).toBeTruthy();
+Then('the search results should contain exactly chip fixtures {string}', async ({ page }, roles: string) => {
+    const ids = roles.split(',').map((role) => {
+        const id = SEARCH_CHIP_IMAGE_IDS[role.trim()];
+        expect(id, `Unknown chip fixture: ${role.trim()}`).toBeTruthy();
         return id;
     });
     await expect(page.locator('.image-results-count').getByText(`${ids.length} matches`, { exact: true })).toBeVisible();
@@ -52,12 +51,4 @@ async function expectChipFixtures(page: Page, roles: string[]) {
             has: page.locator(`[id^="id-${id}-result__select__checkbox--"]`),
         })).toBeVisible();
     }
-}
-
-Then('the search results should contain exactly these chip fixtures:', async ({ page }, table: DataTable) => {
-    await expectChipFixtures(page, table.hashes().map((row) => row.Fixture));
-});
-
-Then('the search results should contain exactly chip fixtures {string}', async ({ page }, roles: string) => {
-    await expectChipFixtures(page, roles === 'none' ? [] : roles.split(',').map((role) => role.trim()));
 });
