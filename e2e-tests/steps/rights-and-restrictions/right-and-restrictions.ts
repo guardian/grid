@@ -11,6 +11,7 @@ import type { SeedImage } from "../setup.ts";
 import {
   findSeededImage,
   findSeededImageId,
+  hasNoUsageRights,
   loadImageFixtures,
 } from "../../setup/image-fixtures.ts";
 import type { ImageSource } from "../../setup/image-fixtures.ts";
@@ -31,7 +32,6 @@ import { TEST_ACCOUNTS } from "../../setup/constants.ts";
 import {
   PLAIN_IMAGE,
   imageInformation,
-  openImage,
 } from "../utils/single-image.ts";
 import {
   chooseMetadataTemplate,
@@ -708,6 +708,19 @@ Then(
     ).toContainClass(`supplier-${uploader}`);
   },
 );
+
+/** The seeded fixture in a usage rights category, given by display name or code. */
+async function imageInCategory(
+  request: APIRequestContext,
+  category: string,
+): Promise<{ code: string; source: ImageSource }> {
+  const code = await usageRightsCategoryCode(request, category);
+  const { _source } = findSeededImage(
+    `in the "${category}" usage rights category`,
+    (source) => source.usageRights?.category === code,
+  );
+  return { code, source: _source };
+}
 
 Given(
   "the image has the {string} usage rights category",

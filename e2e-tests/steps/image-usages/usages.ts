@@ -10,12 +10,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { Locator, Page } from '@playwright/test';
 import { defineParameterType } from 'playwright-bdd';
 import type { SeedImage } from '../setup.ts';
-<<<<<<< HEAD
-import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 import { quotedOneOf } from '../utils/parameter-types.ts';
-=======
 import { PLAIN_IMAGE, openImage } from '../utils/single-image.ts';
->>>>>>> 8bf6ef48e (Open a fresh single image view the same way in every feature)
 
 const USAGE_PLATFORMS = ['print', 'digital', 'syndication', 'download', 'derivative', 'replaced'] as const;
 const USAGE_STATUSES = [
