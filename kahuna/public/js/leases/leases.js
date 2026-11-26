@@ -187,7 +187,6 @@ leases.controller('LeasesCtrl', [
                   return leaseService.getLeases(ctrl.images)
                   .then((leaseByMedias) => {
                       ctrl.leases = leaseService.flattenLeases(leaseByMedias);
-                      ctrl.editing = false;
                       ctrl.adding = false;
                       ctrl.receivingBatch = false;
                       });

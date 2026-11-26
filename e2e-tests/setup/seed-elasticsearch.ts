@@ -11,33 +11,32 @@
  * stale `_index` recorded in the fixture is ignored in favour of the live alias.
  */
 import { loadImageFixtures } from './image-fixtures.ts';
+import { pollUntil } from './poll.ts';
 
 /** Alias the Grid app assigns to the live images index (dev service-config `es.index.aliases.current`). */
 const IMAGES_ALIAS = 'Images_Current';
-
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Poll the alias until the Grid app has created the index and assigned it, so the bulk
  * insert below has a valid write target. Throws if it never appears within the timeout.
  */
 async function waitForAlias(esBaseUrl: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  let lastStatus = 'no response';
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${esBaseUrl}/${IMAGES_ALIAS}`);
-      if (response.ok) {
-        return;
+  await pollUntil(
+    async () => {
+      try {
+        const response = await fetch(`${esBaseUrl}/${IMAGES_ALIAS}`);
+        return { ok: response.ok, status: `HTTP ${response.status}` };
+      } catch (error) {
+        return { ok: false, status: error instanceof Error ? error.message : String(error) };
       }
-      lastStatus = `HTTP ${response.status}`;
-    } catch (error) {
-      lastStatus = error instanceof Error ? error.message : String(error);
-    }
-    await sleep(1000);
-  }
-  throw new Error(
-    `Elasticsearch alias '${IMAGES_ALIAS}' was not assigned within ${timeoutMs}ms (last: ${lastStatus})`,
+    },
+    ({ ok }) => ok,
+    {
+      timeoutMs,
+      intervalMs: 1_000,
+      failure: ({ status }) =>
+        `Elasticsearch alias '${IMAGES_ALIAS}' was not assigned within ${timeoutMs}ms (last: ${status})`,
+    },
   );
 }
 

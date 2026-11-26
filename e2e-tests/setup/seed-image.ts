@@ -11,6 +11,7 @@ import { DeleteItemCommand } from '@aws-sdk/client-dynamodb';
 import { ELASTICSEARCH_PORT, LOCALSTACK_PORT } from './constants.ts';
 import type { ImageSource } from './image-fixtures.ts';
 import { provisioningClients } from './provision.ts';
+import { removeLeases } from './seed-leases.ts';
 
 const IMAGES_ALIAS = 'Images_Current';
 const EDITS_TABLE = 'EditsTable';
@@ -72,10 +73,11 @@ export async function updateImageCopy(id: string, fields: Partial<ImageSource>):
 }
 
 /**
- * Delete image copies and any edits the metadata editor stored for them. Only for ids from
+ * Delete image copies and any edits or leases stored for them. Only for ids from
  * `indexImageCopy`: the copies share their assets with the fixtures, so the Grid's own image
- * deletion must not be used. Thrall updates edits without upserting, so a late update cannot
- * bring a deleted copy back.
+ * deletion must not be used. Leases are removed through the leases service before the copy is
+ * deleted, while the service can still look the image up. Thrall updates edits and leases
+ * without upserting, so a late update cannot bring a deleted copy back.
  */
 export async function deleteImageCopies(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
@@ -84,6 +86,7 @@ export async function deleteImageCopies(ids: string[]): Promise<void> {
     const results = await Promise.allSettled(
       ids.flatMap((id) => [
         (async () => {
+          await removeLeases(id);
           const response = await fetch(`${documentUrl(id)}?refresh=wait_for`, { method: 'DELETE' });
           if (response.status !== 200 && response.status !== 404) {
             throw new Error(`Deleting image copy ${id} failed: HTTP ${response.status} ${await response.text()}`);

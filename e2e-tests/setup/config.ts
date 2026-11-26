@@ -92,6 +92,16 @@ export const E2E_RIGHTS_TEMPLATE = {
 };
 
 /**
+ * Templates that only set leases, for the lease preview and apply scenarios. Those with
+ * `replace: false` add their lease to an image's existing leases; the other replaces them.
+ */
+export const E2E_LEASE_TEMPLATES = [
+  { templateName: "E2E Add deny syndication lease", replace: false, leaseType: "deny-syndication" },
+  { templateName: "E2E Replace with deny use lease", replace: true, leaseType: "deny-use" },
+  { templateName: "E2E Add allow syndication lease", replace: false, leaseType: "allow-syndication" },
+] as const;
+
+/**
  * media-api derives `usageInstructions` from an image's usageRights category via this map, so
  * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
  */
@@ -128,7 +138,13 @@ function kahunaE2eConfig(): string {
     "  {",
     `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
     `    usageRights = ${JSON.stringify(E2E_RIGHTS_TEMPLATE.usageRights)}`,
-    "  }",
+    "  },",
+    ...E2E_LEASE_TEMPLATES.flatMap(({ templateName, replace, leaseType }) => [
+      "  {",
+      `    templateName = "${templateName}"`,
+      `    templateLeases = { replace = ${replace}, leases = [{ leaseType = "${leaseType}" }] }`,
+      "  },",
+    ]),
     "]",
     "",
   ].join("\n");
