@@ -74,8 +74,7 @@ object UsageStore extends GridLogging {
 
 class UsageStore(
   getSupplierQuotaCount: String => Future[SupplierQuotaCount],
-  quotaStore: QuotaStore,
-  refreshInterval: FiniteDuration = UsageStore.refreshInterval
+  quotaStore: QuotaStore
 )(implicit val ec: ExecutionContext) extends GridLogging {
 
   private val store: AtomicReference[Map[String, SupplierUsageStatus]] = new AtomicReference(Map.empty)
@@ -115,7 +114,7 @@ class UsageStore(
   }
 
   def scheduleUpdates(scheduler: Scheduler): Unit = {
-    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, refreshInterval)(() =>
+    cancellable = Some(scheduler.scheduleAtFixedRate(0.seconds, UsageStore.refreshInterval)(() =>
       try update()
       catch { case NonFatal(e) => logger.error("UsageStore update failed", e) }
     ))
