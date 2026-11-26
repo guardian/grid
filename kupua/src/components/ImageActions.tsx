@@ -8,11 +8,12 @@ import { useSearchStore } from "@/stores/search-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import { isGridSessionInvalidated, serviceLink, serviceLinkAvailable, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import { useImageActionStore } from "@/stores/image-action-store";
+import { addToast } from "@/stores/toast-store";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { useActionPopupPlacement } from "@/hooks/useActionPopupPlacement";
 import { Chevron } from "./Chevron";
 import { useCropSettings } from "@/hooks/useCropSettings";
-import { describeImageAction, IMAGE_ACTIONS, selectionImageActionContext, type ImageAction, type ImageActionContext } from "@/lib/image-actions";
+import { describeImageAction, IMAGE_ACTIONS, selectionImageActionContext, SHARE_IMAGE_LIMIT, type ImageAction, type ImageActionContext } from "@/lib/image-actions";
 
 import { LibraryIcon } from "./LibraryIcon";
 
@@ -82,6 +83,25 @@ interface ImageActionsProps {
   iconOnly?: boolean;
   uploadForm?: boolean;
   selectedIds?: ReadonlySet<string>;
+}
+
+let latestShare = 0;
+
+async function shareImages(ids: readonly string[], selection: boolean) {
+  const attempt = ++latestShare;
+  const path = selection
+    ? `/search?nonFree=true&ids=${ids.map(id => encodeURIComponent(id)).join(",")}`
+    : `/images/${encodeURIComponent(ids[0])}`;
+  const href = new URL(path, window.location.origin).href;
+  const link = { href, label: "Open link" };
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(href);
+    copied = true;
+  } catch { /* The same link remains available. */ }
+  if (attempt !== latestShare) return;
+  addToast({ category: copied ? "success" : "information", message: copied ? "Share link copied to clipboard." : "Share with URL",
+    lifespan: "session", interaction: "share", link });
 }
 
 function setsOverlap(smaller: ReadonlySet<string>, larger: ReadonlySet<string>) {
@@ -154,6 +174,12 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
     const latest = { ...(resolveContext?.() ?? context), archive };
     const description = describeImageAction(action, latest);
     if (description.reason) return;
+    if (action === "share") {
+      if (current.targets.length > SHARE_IMAGE_LIMIT) return;
+      void shareImages(description.eligibleIds, selectedIds !== undefined);
+      onPrepared?.();
+      return;
+    }
     const latestKey = JSON.stringify(latest.targets.map(target => target.id));
     if (action === "library" && selectionToolbar) {
       const shown = descriptions.get("library")!;
@@ -176,6 +202,7 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
   };
   const renderAction = (action: ImageAction) => {
       const description = descriptions.get(action)!;
+      const shareOverLimit = action === "share" && current.targets.length > SHARE_IMAGE_LIMIT && !description.pending;
     const settlingLibrary = action === "library" && selectionToolbar && description.pending;
     const retained = settlingLibrary ? lastLibrary.current : action === "library" && !description.libraryIcon
       && (description.pending || libraryBusy) && lastLibrary.current?.key === targetKey ? lastLibrary.current : undefined;
@@ -183,20 +210,21 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
       const confirming = action === "delete" && armedDelete === targetKey && !description.reason;
       const label = confirming ? `Confirm delete ${current.targets.length} ${current.targets.length === 1 ? "image" : "images"}` : retained?.label ?? description.label;
       const visibleLabel = presentation === "floaty" ? confirming ? "Confirm delete" : action === "library" ? label : description.shortLabel : label;
-      return <button key={action} type="button" aria-label={label} disabled={Boolean(description.reason) || action === "library" && libraryBusy} onClick={event => activate(action, event.currentTarget)}
+      return <button key={action} type="button" aria-label={label} data-share-trigger={action === "share" ? "" : undefined} disabled={!shareOverLimit && (Boolean(description.reason) || action === "library" && libraryBusy)} aria-disabled={shareOverLimit || undefined} onClick={event => activate(action, event.currentTarget)}
         aria-busy={description.pending || action === "library" && libraryBusy || undefined}
         style={description.pending ? { opacity: settledOpacity.current.get(action) ?? 0.4, visibility: settlingLibrary && !retained ? "hidden" : undefined } : undefined}
         aria-description={description.reason}
         title={settlingLibrary ? undefined : description.reason ?? label}
-        className={`image-action group/action flex shrink-0 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${confirming ? "bg-grid-error text-white" : "text-grid-text-muted"}`}>
+        className={`image-action group/action flex shrink-0 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed cursor-pointer ${shareOverLimit ? "relative text-grid-text-muted/60" : confirming ? "bg-grid-error text-white" : "text-grid-text-muted"}`}>
         {action !== "library" ? <ImageActionIcon action={action} /> : uploadForm && icon === "remove" ? description.reason && !libraryBusy ? <LibraryIcon variant="added" /> : <>
             <LibraryIcon variant="added" className="group-hover/action:hidden group-focus-visible/action:hidden" />
             <LibraryIcon variant="remove" className="hidden group-hover/action:block group-focus-visible/action:block" />
           </> : <LibraryIcon variant={icon} />}
         {!iconOnly && <span className={expanded ? "min-w-0 whitespace-normal wrap-anywhere" : "image-action-full"}>{action === "library" && presentation !== "floaty" ? <span className="library-toolbar-label"><span aria-hidden="true" /><span>{visibleLabel}</span></span> : visibleLabel}
-          {expanded && showReasons && presentation !== "floaty" && description.reason && <span className="block text-xs font-normal">{description.reason}</span>}
+          {expanded && ((showReasons && presentation !== "floaty") || shareOverLimit) && description.reason && <span className="block text-xs font-normal">{description.reason}</span>}
         </span>}
         {!iconOnly && !expanded && <span className="image-action-short">{confirming ? "Confirm" : description.shortLabel}</span>}
+        {shareOverLimit && !expanded && <span aria-hidden="true" className="pointer-events-none absolute top-full right-0 z-50 mt-1 hidden w-52 whitespace-normal rounded border border-grid-separator bg-grid-bg p-2 text-left text-xs text-grid-text shadow-lg group-focus-visible/action:block">{description.reason}</span>}
       </button>;
   };
   const inline = narrow && !expanded ? actions.filter(action => action === "share" || action === "library") : actions;

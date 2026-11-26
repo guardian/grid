@@ -11,6 +11,7 @@ import { getCropSettings, type CropSettings } from "./crop/crop-options";
 
 export type ImageAction = "share" | "full-frame" | "download" | "delete" | "library";
 export const IMAGE_ACTIONS: readonly ImageAction[] = ["share", "full-frame", "download", "delete", "library"];
+export const SHARE_IMAGE_LIMIT = 44;
 
 export function imageHasFullFrame(image: Image): boolean {
   const dimensions = image.source?.orientedDimensions ?? image.source?.dimensions;
@@ -55,7 +56,6 @@ export interface PreparedImageAction {
   readonly targetIds: readonly string[];
   readonly eligibleIds: readonly string[];
   readonly skipped: readonly Readonly<{ id: string; reason: string }>[];
-  readonly sharePath?: string;
   readonly commands: readonly Readonly<{
     imageId: string;
     method: "GET" | "POST" | "PUT" | "DELETE";
@@ -66,6 +66,7 @@ export interface PreparedImageAction {
 }
 
 export function prepareImageAction(action: ImageAction, context: ImageActionContext): PreparedImageAction | undefined {
+  if (action === "share") return undefined;
   const description = describeImageAction(action, action === "full-frame" ? { ...context, cropSettings: getCropSettings() } : context);
   if (description.reason) return undefined;
   const commands: PreparedImageAction["commands"][number][] = [];
@@ -85,7 +86,6 @@ export function prepareImageAction(action: ImageAction, context: ImageActionCont
   return Object.freeze({ operation: description.operation, label: description.label,
     targetIds: Object.freeze(context.targets.map(target => target.id)),
     eligibleIds: Object.freeze([...description.eligibleIds]), skipped: Object.freeze(description.skipped.map(item => Object.freeze({ ...item }))),
-    ...(action === "share" && { sharePath: `/search?${new URLSearchParams({ nonFree: "true", ids: context.targets.map(target => target.id).join(",") })}` }),
     commands: Object.freeze(commands) });
 }
 
@@ -124,7 +124,9 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
   if (!targets.length) return blocked("No images selected");
   if (context.pending) return blocked("Selection is still changing", true);
   if (action === "download" && context.metadataSaving) return blocked("Saving selected metadata");
-  if (action === "share") return result;
+  if (action === "share") return targets.length > SHARE_IMAGE_LIMIT
+    ? blocked(`You can't share all these images at once, please reduce to ${SHARE_IMAGE_LIMIT} or less`)
+    : result;
   if (!context.api) return blocked("Available in media-api mode only");
   if (isGridSessionInvalidated()) return blocked("Reload after signing in again");
   const knownUnavailable = (target: ImageActionTarget) => Boolean(target.image?.__availability || target.image?.softDeletedMetadata);

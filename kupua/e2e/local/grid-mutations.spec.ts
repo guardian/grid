@@ -74,8 +74,10 @@ test.describe("U3 isolated uploads", () => {
       return route.fulfill({ status: failRead ? 200 : 403 });
     });
     await page.goto(`${origin}/__readback?density=grid`);
-    if (await page.getByRole("button", { name: "Show Browse panel" }).count()) await page.getByRole("button", { name: "Show Browse panel" }).click();
+    const showBrowse = page.getByRole("button", { name: "Show Browse panel" });
     const header = page.getByRole("button", { name: "Collections", exact: true });
+    await expect(showBrowse.or(header).first()).toBeVisible();
+    if (await showBrowse.isVisible()) await showBrowse.click();
     if (await header.getAttribute("aria-expanded") === "false") await header.click();
     await page.getByRole("button", { name: "Edit collections", exact: true }).click();
     const trigger = page.getByRole("button", { name: "Actions for Desk", exact: true });
@@ -1594,10 +1596,8 @@ test.describe("U3 isolated uploads", () => {
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
     await new KupuaHelpers(page).waitForResults();
     await page.evaluate(async () => {
-      const actionsPath = "/src/stores/image-action-store.ts";
-      const imageId = (window as CommandWindow).__kupua_store__.getState().results.find(Boolean)!.id;
-      const intent = (await import(actionsPath)).useImageActionStore.getState().prepare("share", { targets: [{ id: imageId }], api: true, archive: null });
-      if (intent.targetIds[0] !== imageId) throw new Error("Wrong prepared target");
+      const toastPath = "/src/stores/toast-store.ts";
+      (await import(toastPath)).addToast({ category: "information", message: "Search notification" });
       const routerPath = "/src/router.ts";
       await (await import(routerPath)).router.navigate({ to: "/upload", search: {} });
     });
@@ -2287,23 +2287,21 @@ test.describe("Unit B isolated continuation", () => {
       const selected = await page.evaluate(async () => {
         const contextPath = "/src/lib/browsing-context.tsx";
         const panelPath = "/src/stores/panel-store.ts";
-        const actionPath = "/src/stores/image-action-store.ts";
+        const toastPath = "/src/stores/toast-store.ts";
         const { uploadBatchMembership } = await import(contextPath);
         const { usePanelStore } = await import(panelPath);
-        const { useImageActionStore } = await import(actionPath);
+        const { addToast } = await import(toastPath);
         const state = (window as any).__kupua_store__.getState();
         const images = state.results.filter(Boolean);
         const image = images[100];
         (window as any).__kupua_selection_store__.getState().toggle(image.id, image);
         uploadBatchMembership.getState().set("local-compact", images.slice(0, 80).map((item: any) => item.id));
         if (!usePanelStore.getState().config.right.visible) usePanelStore.getState().togglePanel("right");
-        if (!useImageActionStore.getState().prepare("share", { api: true, archive: null, targets: [{ id: image.id, image }] })) {
-          throw new Error("Activity fixture preparation refused");
-        }
+        addToast({ category: "information", message: "Search notification" });
         return [image.id];
       });
       const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
-      await expect(page.getByText("Not sent - Share with URL", { exact: true })).toBeVisible();
+      await expect(page.getByText("Search notification", { exact: true })).toBeVisible();
       await expect(activity).toHaveCount(0);
       await page.evaluate(async () => {
         const routerPath = "/src/router.ts";
@@ -2464,7 +2462,7 @@ test.describe("Unit B isolated continuation", () => {
     expect(await page.evaluate(() => new URLSearchParams(location.search).get("crop"))).toBeNull();
   });
 
-  test("disconnected image actions share selection targets and fit desktop and mobile", async ({ page }) => {
+  test("image actions share selection targets and fit desktop and mobile", async ({ page }) => {
     await page.route(`${origin}/api`, route => route.fulfill({ json: { data: {}, links: [
       { rel: "archive", href: "https://metadata.example.test/metadata/{id}/archived" },
     ] } }));
@@ -2490,7 +2488,19 @@ test.describe("Unit B isolated continuation", () => {
     const actions = page.getByRole("group", { name: "Image actions", exact: true });
     await expect(actions.getByRole("button", { name: "Add to Library", exact: true })).toBeEnabled();
     await actions.getByRole("button", { name: "Share with URL", exact: true }).click();
-    await expect(page.getByText("Not sent - Share with URL", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open link" })).toHaveAttribute("href", `${new URL(page.url()).origin}/search?nonFree=true&ids=local-0,local-1`);
+    await page.getByRole("button", { name: "Dismiss notification" }).click();
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(Array.from({ length: 45 }, (_, index) => `local-${index}`)));
+    const share = actions.getByRole("button", { name: "Share with URL", exact: true });
+    await expect(share).toBeDisabled();
+    await share.focus();
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Shift+Tab");
+    await expect(share).toBeFocused();
+    await expect(share.getByText(/reduce to 44 or less/)).toBeInViewport();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("link", { name: "Open link" })).toHaveCount(0);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
     await actions.getByRole("button", { name: "Crop full frame", exact: true }).click();
     const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
     await expect(activity).toHaveCount(0);
@@ -4428,7 +4438,7 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
       const remove = page.getByRole("button", { name: "Remove from Library", exact: true });
       await expect(remove).toBeEnabled();
       expect(await otherActions()).toEqual(originalActions);
-      expect((await remove.boundingBox())!.width).toBe(buttonWidth);
+      expect((await remove.boundingBox())!.width).toBeGreaterThan(buttonWidth);
       expect(received.filter(request => request.method === "PUT")).toEqual([{ method: "PUT", path: "/metadata/fixture/archived", body: JSON.stringify({ data: true }) }]);
       expect(await cell.boundingBox()).toEqual(before);
       expect(await page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds].sort())).toEqual(["fixture", "other"]);

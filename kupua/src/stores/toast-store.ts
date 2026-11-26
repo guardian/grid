@@ -49,6 +49,8 @@ export interface ToastItem {
   id: string;
   category: ToastCategory;
   message: string;
+  link?: { href: string; label: string };
+  interaction?: "share";
   /** Default 'transient'. */
   lifespan: ToastLifespan;
   /**
@@ -76,9 +78,11 @@ export const useToastStore = create<ToastState>()((set) => ({
   add: (item) =>
     set((state) => {
       const toast: ToastItem = { ...item, id: crypto.randomUUID() };
-      const next = [...state.queue, toast];
-      // Drop oldest when over capacity
-      return { queue: next.length > TOAST_QUEUE_MAX ? next.slice(next.length - TOAST_QUEUE_MAX) : next };
+      const next = [...state.queue.filter(queued => !toast.interaction || queued.interaction !== toast.interaction), toast];
+      // Drop the oldest ordinary toasts when over capacity; Share has its own slot.
+      const ordinary = next.filter(queued => queued.interaction !== "share");
+      const evicted = new Set(ordinary.slice(0, Math.max(0, ordinary.length - TOAST_QUEUE_MAX)));
+      return { queue: next.filter(queued => !evicted.has(queued)) };
     }),
 
   dismiss: (id) =>
@@ -99,11 +103,10 @@ export const useToastStore = create<ToastState>()((set) => ({
  */
 export function addToast(
   item: Pick<ToastItem, "category" | "message"> &
-    Partial<Pick<ToastItem, "lifespan" | "durationMs">>,
+    Partial<Pick<ToastItem, "lifespan" | "durationMs" | "link" | "interaction">>,
 ): void {
   useToastStore.getState().add({
-    category: item.category,
-    message: item.message,
+    ...item,
     lifespan: item.lifespan ?? "transient",
     durationMs: item.durationMs ?? TOAST_DEFAULT_DURATION_MS,
   });

@@ -824,9 +824,12 @@ test.describe("detail metadata gestures", () => {
     const triggerBox = (await trigger.boundingBox())!;
     expect((await options.boundingBox())!.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
     await page.screenshot({ path: test.info().outputPath("detail-header-actions-expanded.png"), animations: "disabled" });
+    const current = new URL(page.url());
+    const imageId = current.searchParams.get("image");
+    expect(imageId).toBeTruthy();
     await options.getByRole("button", { name: "Share with URL", exact: true }).tap();
     await expect(options).toHaveCount(0);
-    await expect(page.getByText("Not sent - Share with URL", { exact: true })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "Open link" })).toHaveAttribute("href", `${current.origin}/images/${imageId}`);
     await expect(card.getByRole("button", { name: "Collapse Image details", exact: true })).toBeVisible();
     await card.getByRole("button", { name: "Collapse Image details", exact: true }).tap();
     await expect(title).toBeVisible();

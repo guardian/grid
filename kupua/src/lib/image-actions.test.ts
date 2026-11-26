@@ -165,12 +165,13 @@ describe("image action preparation", () => {
     expect(describeImageAction("delete", context(target("ready"), denied)).reason).toBe("One or more selected images are unavailable or deleted");
   });
 
-  it("rejects cached service authority after session invalidation but still prepares Share", () => {
+  it("rejects cached service authority after session invalidation but still allows Share", () => {
     session.invalidated = true;
     const current = context(target("ready"));
     expect(prepareImageAction("delete", current)).toBeUndefined();
     expect(describeImageAction("library", current).reason).toBe("Reload after signing in again");
-    expect(prepareImageAction("share", current)?.targetIds).toEqual(["ready"]);
+    expect(describeImageAction("share", current)).toMatchObject({ eligibleIds: ["ready"] });
+    expect(describeImageAction("share", current).reason).toBeUndefined();
   });
 
   it("matches Library mixed-state behaviour without changing unrelated retention reasons", () => {
@@ -189,13 +190,11 @@ describe("image action preparation", () => {
     expect(prepareImageAction("library", context(...unchanged, target("new")))?.eligibleIds).toEqual(["new"]);
   });
 
-  it("captures Share IDs without requiring image metadata and blocks incomplete service targets", () => {
+  it("allows sharing IDs without image metadata but not while a selection is changing", () => {
     const targets: ImageActionTarget[] = [{ id: "first" }, { id: "second" }];
-    const prepared = prepareImageAction("share", context(...targets))!;
-    targets.splice(0, 1);
-    expect(prepared.targetIds).toEqual(["first", "second"]);
-    expect(prepared.sharePath).toBe("/search?nonFree=true&ids=first%2Csecond");
+    expect(describeImageAction("share", context(...targets)).reason).toBeUndefined();
+    expect(prepareImageAction("share", context(...targets))).toBeUndefined();
     expect(prepareImageAction("delete", context(...targets))).toBeUndefined();
-    expect(prepareImageAction("share", { ...context(...targets), pending: true })).toBeUndefined();
+    expect(describeImageAction("share", { ...context(...targets), pending: true }).reason).toBe("Selection is still changing");
   });
 });

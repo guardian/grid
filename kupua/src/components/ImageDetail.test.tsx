@@ -258,13 +258,20 @@ describe("KUP-004 standalone detail identity", () => {
     expect(history.state._detailEntryImageId).toBe("A");
   });
 
-  it("prepares detail actions for the open image rather than the search selection", () => {
-    const prepare = vi.spyOn(useImageActionStore.getState(), "prepare");
+  it("shares the open image rather than the search selection", () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
     fixture.resident = [makeImage("A")];
     useSelectionStore.setState({ selectedIds: new Set(["unrelated-selection"]) });
     render(<Detail imageId="A" />);
-    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
-    expect(prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["A"] }));
+    const previousClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/images/A`);
+    } finally {
+      if (previousClipboard) Object.defineProperty(navigator, "clipboard", previousClipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
     expect(screen.getByRole("group", { name: "Image actions" }).getAttribute("data-surface")).toBe("detail");
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
   });

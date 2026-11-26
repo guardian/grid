@@ -56,4 +56,53 @@ test.describe("Toast primitive (S2.5)", () => {
     await expect(toast).not.toBeVisible();
   });
 
+  test("keeps Share visible in a crowded stack and dismisses it on middle-click", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 260 });
+    await page.evaluate(() => {
+      const store = (window as any).__kupua_toast_store__._store.getState();
+      for (let index = 0; index < 5; index++) {
+        store.add({ category: "warning", message: `Warning ${index}: Selection unchanged. Select fewer images to continue.`, lifespan: "session", durationMs: 0 });
+      }
+      store.add({ category: "success", message: "Share link copied to clipboard.", interaction: "share",
+        lifespan: "session", durationMs: 0, link: { href: "/search?nonFree=true", label: "Open link" } });
+    });
+    const stack = page.getByLabel("Notifications");
+    const link = stack.getByRole("link", { name: "Open link" });
+    await expect(link).toBeInViewport({ ratio: 1 });
+    const fade = await stack.evaluateHandle(stackElement => new Promise<Animation | null>(resolve => {
+      const observer = new MutationObserver(() => {
+        const toast = Array.from(stackElement.querySelectorAll('[data-testid="toast"]')).find(item => item.textContent?.includes("Replacement Share"));
+        if (!toast) return;
+        observer.disconnect();
+        const animation = toast.parentElement!.getAnimations().find(candidate =>
+          (candidate.effect as KeyframeEffect).getKeyframes().some(frame => frame.opacity === "0"));
+        if (animation) {
+          animation.pause();
+          animation.currentTime = 0;
+        }
+        resolve(animation ?? null);
+      });
+      observer.observe(stackElement, { childList: true });
+      const store = (window as any).__kupua_toast_store__._store.getState();
+      store.add({ category: "information", message: "Replacement Share", interaction: "share",
+        lifespan: "session", durationMs: 0, link: { href: "/search?nonFree=true", label: "Open link" } });
+    }));
+    try {
+      await fireToast(page, "warning", "Another warning arrived during replacement");
+      await expect(stack.getByText("Another warning arrived during replacement")).toBeVisible();
+      expect(await fade.evaluate(animation => animation?.playState)).toBe("paused");
+    } finally {
+      await fade.evaluate(animation => animation?.finish());
+      await fade.dispose();
+    }
+    const [tab] = await Promise.all([page.context().waitForEvent("page"), link.click({ button: "middle" })]);
+    try {
+      await expect(tab).toHaveURL(/\/search\?nonFree=true/);
+      await expect(link).toHaveCount(0);
+      await expect(stack.getByTestId("toast")).toHaveCount(5);
+    } finally {
+      await tab.close();
+    }
+  });
+
 });

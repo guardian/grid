@@ -56,6 +56,7 @@ describe("StatusBar AI totals", () => {
   });
   afterEach(() => {
     cleanup();
+    vi.unstubAllGlobals();
     useToastStore.setState({ queue: [] });
     vi.mocked(useImageActionStore.getState().prepare).mockRestore();
     useSearchStore.setState(initial, true);
@@ -187,15 +188,50 @@ describe("StatusBar AI totals", () => {
     expect(button.style.opacity).toBe("");
   });
 
-  it("reports a disconnected Share without exposing captured targets", () => {
+  it("copies the captured selection and offers to open the same link", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
     useSelectionStore.setState({ selectedIds: new Set(["share-first", "share-second"]) });
     render(<><StatusBar /><ToastContainer /></>);
     fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
-    expect(screen.getByText("Not sent - Share with URL")).toBeTruthy();
     act(() => useSelectionStore.setState({ selectedIds: new Set(["later-selection"]) }));
-    expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["share-first", "share-second"] }));
-    expect(screen.queryByText(/"share-first"/)).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Image activity" })).toBeNull();
+    const url = `${window.location.origin}/search?nonFree=true&ids=share-first,share-second`;
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(url);
+    expect(await screen.findByText("Share link copied to clipboard.")).toBeTruthy();
+    const link = screen.getByRole("link", { name: "Open link" });
+    expect(link.getAttribute("href")).toBe(url);
+    expect(link.getAttribute("target")).toBe("_blank");
+    act(() => useToastStore.getState().add({ category: "warning", message: "Keep this warning", lifespan: "session", durationMs: 0 }));
+    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+    expect(screen.getByRole("link", { name: "Open link" })).toBe(link);
+    await act(async () => {});
+    const replacement = screen.getByRole("link", { name: "Open link" });
+    expect(replacement.getAttribute("href")).toBe(`${window.location.origin}/search?nonFree=true&ids=later-selection`);
+    expect(screen.getAllByRole("alert")[0].contains(replacement)).toBe(true);
+    fireEvent.click(replacement);
+    expect(screen.queryByRole("link", { name: "Open link" })).toBeNull();
+    expect(screen.getByText("Keep this warning")).toBeTruthy();
+  });
+
+  it("blocks Share above 44 images and offers an Open link fallback at the limit", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("Clipboard unavailable"));
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
+    const ids = Array.from({ length: 45 }, (_, index) => `image-${index}`);
+    useSelectionStore.setState({ selectedIds: new Set(ids) });
+    render(<><StatusBar /><ToastContainer /></>);
+    const share = screen.getByRole("button", { name: "Share with URL" });
+    expect(share.getAttribute("aria-disabled")).toBe("true");
+    expect(share.title).toContain("reduce to 44 or less");
+    fireEvent.click(share);
+    expect(writeText).not.toHaveBeenCalled();
+    act(() => useSelectionStore.setState({ selectedIds: new Set(ids.slice(0, 44)) }));
+    expect(share.hasAttribute("aria-disabled")).toBe(false);
+    fireEvent.click(share);
+    const link = await screen.findByRole("link", { name: "Open link" }) as HTMLAnchorElement;
+    expect(new URL(link.href).searchParams.get("ids")?.split(",")).toEqual(ids.slice(0, 44));
+    expect(screen.queryByText("Share link copied to clipboard.")).toBeNull();
+    fireEvent.click(share.parentElement!);
+    expect(screen.queryByRole("link", { name: "Open link" })).toBeNull();
   });
 
   it("requires a second Delete activation and disarms when the detail target changes", () => {
@@ -316,6 +352,8 @@ describe("StatusBar AI totals", () => {
 
   it("keeps selection actions live and rechecks membership at activation", () => {
     const editor = createMetadataEditorStore();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
     const enrichment = useEnrichmentStore.getState();
     const archive = vi.spyOn(gridApi, "serviceLink").mockResolvedValue(undefined);
     vi.stubEnv("VITE_USE_MEDIA_API", "true");
@@ -327,7 +365,8 @@ describe("StatusBar AI totals", () => {
         useSelectionStore.setState({ selectedIds: new Set(["second"]) });
         fireEvent.click(share);
       });
-      expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["second"] }));
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/search?nonFree=true&ids=second`);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
       act(() => useSelectionStore.setState({ isRangeWalking: true }));
       expect((share as HTMLButtonElement).disabled).toBe(true);
       act(() => useSelectionStore.setState({ isRangeWalking: false }));

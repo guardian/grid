@@ -24,6 +24,14 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 26 November 2026 - Copy image share links
+
+**Share with URL.** Search copies a Grid search for the captured selected IDs; Detail copies the open image's link. Both offer to open the same URL in a new tab, whether or not the browser accepts the clipboard write. The selection action retains Kahuna's 44-image limit and explains it at the disabled control. [GRID-034](bug-backlog.md#grid-034) records the request-size and login constraints on raising it. No Grid service or sign-in changes.
+
+**Toast presentation.** Toasts use tinted glass and semibold text, with new notices at the top. Sharing again replaces the previous Share notice without clearing other notices. Open link and clicks elsewhere dismiss Share without changing dismissal for warnings or errors. Motion respects reduced-motion preferences.
+
+Share has its own slot so it cannot displace an ordinary notice. Middle-clicking Open link dismisses the Share notice too. The stack scrolls on short screens, and other notices arriving during replacement do not cut off the new Share notice's fade.
+
 ### 26 November 2026 - Share edit scheduling across metadata and labels
 
 **Editing engine.** Search and Upload now use the same priority rule across the metadata and label editors. Between completed batch groups, the next waiting user edit can take a turn on an image outside the batch when the writes are independent. The batch waits for that edit's readback before continuing. This uses the existing queue capacity, keeps conflicting Photoshoot and rights changes in order, and does not promote automatic upload follow-ups or replay uncertain writes. Existing Form priority for ordinary metadata is preserved.

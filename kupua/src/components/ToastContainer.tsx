@@ -11,14 +11,13 @@
  *   success     → grid-success (green)
  *   announcement → grid-accent-dark (dark blue — rare in S2.5)
  *
- * New toasts appear at the bottom of the stack (closest to the anchor corner);
- * they push older toasts upward. This matches standard toast UX convention.
+ * The bottom-right stack displays its newest toast at the top.
  *
  * Accessibility: each toast has role="alert" so screen readers announce it
  * immediately. The dismiss button has aria-label.
  */
 
-import { useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
+import { Component, createRef, useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
 import { useToastStore } from "@/stores/toast-store";
 import type { ToastItem, ToastCategory } from "@/stores/toast-store";
 import { registerShortcut } from "@/lib/keyboard-shortcuts";
@@ -30,15 +29,15 @@ import { registerShortcut } from "@/lib/keyboard-shortcuts";
 function categoryClasses(category: ToastCategory): string {
   switch (category) {
     case "information":
-      return "border-grid-accent text-grid-text-bright bg-grid-accent/35 backdrop-blur-[1px]";
+      return "border-grid-accent bg-[#0e3555]/74";
     case "warning":
-      return "border-grid-warning text-grid-text-bright bg-grid-warning/35 backdrop-blur-[1px]";
+      return "border-grid-warning bg-[#563107]/74";
     case "error":
-      return "border-grid-error text-grid-text-bright bg-grid-error/35 backdrop-blur-[1px]";
+      return "border-grid-error bg-[#631a26]/74";
     case "success":
-      return "border-grid-success text-grid-text-bright bg-grid-success/35 backdrop-blur-[1px]";
+      return "border-grid-success bg-[#0b432a]/74";
     case "announcement":
-      return "border-grid-accent-dark text-grid-text-bright bg-grid-accent-dark/35 backdrop-blur-[1px]";
+      return "border-grid-accent-dark bg-[#202f58]/74";
   }
 }
 
@@ -97,14 +96,20 @@ function Toast({ toast }: { toast: ToastItem }) {
     };
   }, [toast.id, toast.lifespan, toast.durationMs, dismiss]);
 
-  return <ToastNotice category={toast.category} message={toast.message} onDismiss={() => dismiss(toast.id)} />;
+  const message = toast.link ? <><span>{toast.message}</span>{" "}<a
+    className="underline underline-offset-2" href={toast.link.href} target="_blank" rel="noopener noreferrer"
+    onClick={toast.interaction === "share" ? () => dismiss(toast.id) : undefined}
+    onAuxClick={event => { if (event.button === 1 && toast.interaction === "share") dismiss(toast.id); }}
+  >{toast.link.label}</a></> : toast.message;
+  return <ToastNotice category={toast.category} message={message} onDismiss={() => dismiss(toast.id)} animate={false} />;
 }
 
-export function ToastNotice({ category, message, icon, onDismiss, className = "max-w-sm w-full" }: {
+export function ToastNotice({ category, message, icon, onDismiss, animate = true, className = "max-w-sm w-full" }: {
   category: ToastCategory;
   message: ReactNode;
   icon?: ReactNode;
   onDismiss: MouseEventHandler<HTMLButtonElement>;
+  animate?: boolean;
   className?: string;
 }) {
   return (
@@ -115,11 +120,11 @@ export function ToastNotice({ category, message, icon, onDismiss, className = "m
       data-category={category}
       className={[
         "flex items-start gap-2 px-3 py-2.5 rounded border",
-        "text-xs shadow-lg",
-        "animate-[kupua-toast-in_0.2s_ease-out]",
+        "text-xs font-semibold text-grid-text-bright shadow-lg backdrop-blur-[6px] backdrop-saturate-[175%]",
+        animate && "motion-safe:animate-[kupua-toast-in_0.2s_ease-out]",
         categoryClasses(category),
         className,
-      ].join(" ")}
+      ].filter(Boolean).join(" ")}
     >
       {/* Icon */}
       {icon ?? <CategoryIcon category={category} />}
@@ -160,21 +165,89 @@ export function ToastContainer() {
     });
   }, [queue, dismiss]);
 
-  if (queue.length === 0) return null;
+  const share = queue.find(toast => toast.interaction === "share");
+  useEffect(() => {
+    if (!share) return;
+    const clickAway = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (event.target.closest("[data-share-trigger]:not(:disabled):not([aria-disabled='true'])")) return;
+      if (event.target.closest<HTMLElement>("[data-toast-id]")?.dataset.toastId !== share.id) dismiss(share.id);
+    };
+    document.addEventListener("click", clickAway, true);
+    return () => document.removeEventListener("click", clickAway, true);
+  }, [share, dismiss]);
 
-  // Render newest-first so the freshest toast is closest to the anchor corner
-  const reversed = [...queue].reverse();
+  return <ToastStack queue={queue} />;
+}
 
-  return (
-    <div
-      aria-label="Notifications"
-      className="fixed bottom-4 right-4 z-50 flex flex-col-reverse gap-2 pointer-events-none"
-    >
-      {reversed.map((toast) => (
-        <div key={toast.id} className="pointer-events-auto">
-          <Toast toast={toast} />
-        </div>
-      ))}
-    </div>
-  );
+type StackSnapshot = {
+  positions: Map<string, number>;
+  exit?: { node: HTMLElement; bounds: DOMRect; opacity: string };
+};
+
+class ToastStack extends Component<{ queue: ToastItem[] }, object, StackSnapshot | null> {
+  private readonly stack = createRef<HTMLDivElement>();
+  private readonly exits = new Set<HTMLElement>();
+
+  private elements() {
+    return Array.from(this.stack.current?.querySelectorAll<HTMLElement>("[data-toast-id]") ?? []);
+  }
+
+  getSnapshotBeforeUpdate(previous: Readonly<{ queue: ToastItem[] }>): StackSnapshot | null {
+    if (typeof Element.prototype.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return null;
+    const oldShare = previous.queue.find(toast => toast.interaction === "share");
+    const newShare = this.props.queue.find(toast => toast.interaction === "share");
+    const elements = this.elements();
+    const outgoing = oldShare && newShare && oldShare.id !== newShare.id
+      ? elements.find(element => element.dataset.toastId === oldShare.id) : undefined;
+    return {
+      positions: new Map(elements.map(element => [element.dataset.toastId!, element.getBoundingClientRect().top])),
+      exit: outgoing && { node: outgoing.cloneNode(true) as HTMLElement, bounds: outgoing.getBoundingClientRect(), opacity: getComputedStyle(outgoing).opacity },
+    };
+  }
+
+  componentDidUpdate(previous: Readonly<{ queue: ToastItem[] }>, _state: object, snapshot: StackSnapshot | null) {
+    const newest = this.props.queue.at(-1);
+    if (newest && this.stack.current && !previous.queue.some(toast => toast.id === newest.id)) this.stack.current.scrollTop = 0;
+    if (!snapshot) return;
+    const duration = 190;
+    for (const element of this.elements()) {
+      const previousTop = snapshot.positions.get(element.dataset.toastId!);
+      element.getAnimations().filter(animation => animation.id === "toast-position").forEach(animation => animation.cancel());
+      if (previousTop === undefined) {
+        const entrance = { duration, easing: "ease-out", delay: snapshot.exit ? 105 : 0, fill: "backwards" as const };
+        element.animate([{ opacity: 0 }, { opacity: 1 }], entrance);
+        element.animate([{ translate: "0 -8px" }, { translate: "0 0" }], { ...entrance, id: "toast-position" });
+      } else {
+        const delta = previousTop - element.getBoundingClientRect().top;
+        if (delta) element.animate([{ translate: `0 ${delta}px` }, { translate: "0 0" }], { duration, easing: "ease-out", id: "toast-position" });
+      }
+    }
+    if (!snapshot.exit) return;
+    const { node, bounds, opacity } = snapshot.exit;
+    node.removeAttribute("data-toast-id");
+    node.querySelector("[data-testid]")?.removeAttribute("data-testid");
+    node.setAttribute("aria-hidden", "true");
+    node.inert = true;
+    Object.assign(node.style, { position: "fixed", zIndex: "50", pointerEvents: "none", left: `${bounds.left}px`, top: `${bounds.top}px`, width: `${bounds.width}px` });
+    document.body.append(node);
+    this.exits.add(node);
+    const remove = () => { node.remove(); this.exits.delete(node); };
+    void node.animate([{ opacity, translate: "0 0" }, { opacity: 0, translate: "0 10px" }],
+      { duration: 125, easing: "ease-out", fill: "forwards" }).finished.then(remove, remove);
+  }
+
+  componentWillUnmount() {
+    this.exits.forEach(node => node.remove());
+    this.exits.clear();
+  }
+
+  render() {
+    if (this.props.queue.length === 0) return null;
+    return <div ref={this.stack} aria-label="Notifications" className="fixed bottom-4 right-4 z-50 flex max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] flex-col gap-2 overflow-y-auto [overflow-anchor:none] pointer-events-none">
+      {[...this.props.queue].reverse().map(toast => <div key={toast.id} data-toast-id={toast.id} className="shrink-0 pointer-events-auto">
+        <Toast toast={toast} />
+      </div>)}
+    </div>;
+  }
 }

@@ -85,7 +85,7 @@ own the Upload-specific evidence and remaining work.
 | Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
 | Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
-| Steps 12, 14, 16, 17, 20 | Collection add/remove, same-tab tree drops and hover controls; Photoshoot membership; original and saved-crop drag payloads. | Tree CRUD; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; clipboard, embedding and external consumer acceptance. |
+| Steps 12, 14, 16, 17, 20 | Collection add/remove, same-tab tree drops and hover controls; Photoshoot membership; original and saved-crop drag payloads; Share with URL. | Tree CRUD; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; embedding and external consumer acceptance. |
 | Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields, Photoshoot, collection membership and per-image Library. | U7 crop creation and delete/restore; U8 integrated and target-deployment acceptance. |
 | Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
 | Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
@@ -1003,6 +1003,8 @@ document authorizes a later command or live trial.
 
 #### Action Hookup Boundary
 
+The checkpoint above predates the connected Share action. See Step 20 for its current behavior.
+
 The UI is complete at its disconnected scope, not "99% connected". Share still needs
 clipboard handling; Download needs actual file/ZIP work; Full frame, Delete and Library
 need their real command, outcome, observation and publication paths. Connect and accept
@@ -1623,6 +1625,8 @@ unapproved hard-delete path remains an explicit parity gap, not silently counted
 ### Step 20. Editorial Integration and Configuration Parity
 
 **Depends on:** the image/crop/download/upload commands needed by the selected integration.
+
+**Share with URL is connected:** Search copies the captured selected IDs and Detail copies the current image URL. Both offer the same link in a new tab. Search retains Kahuna's 44-image limit; [GRID-034](bug-backlog.md#grid-034) describes the request and sign-in constraints. No new backend operation or permission is implied.
 
 **Drag support is not embedding parity.** Original and saved-crop drags use canonical grants;
 a saved crop requires the matching cropper response and its returned assets. Producing a

@@ -104,6 +104,17 @@ describe("toast-store", () => {
     const ids = useToastStore.getState().queue.map((t) => t.id);
     expect(new Set(ids).size).toBe(2);
   });
+
+  it("replaces Share without consuming an ordinary toast slot", () => {
+    const warnings = Array.from({ length: TOAST_QUEUE_MAX }, (_, index) => `warning-${index}`);
+    warnings.forEach(message => addToast({ category: "warning", message }));
+    addToast({ category: "success", message: "copied", interaction: "share" });
+    addToast({ category: "information", message: "fallback", interaction: "share" });
+    const messages = () => useToastStore.getState().queue.map(toast => toast.message);
+    expect(messages()).toEqual([...warnings, "fallback"]);
+    addToast({ category: "warning", message: "new warning" });
+    expect(messages()).toEqual([...warnings.slice(1), "fallback", "new warning"]);
+  });
 });
 
 // ---------------------------------------------------------------------------
