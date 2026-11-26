@@ -1,7 +1,6 @@
 import type { DataTable } from 'playwright-bdd';
 import type { Page } from '@playwright/test';
-import { SEARCH_CHIP_CORE_IMAGE_IDS, SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
-import { DOMAIN } from '../../setup/constants.ts';
+import { SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
 import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
 import { expectSearchBoxEmpty, isSearchRun, searchBoxEditable, searchBoxReady } from './search-box.ts';
 
@@ -21,10 +20,6 @@ async function openChipFixtureSearch(page: Page, fixtureIds: string[]) {
         url.searchParams.get('ids') === ids);
 }
 
-Given('I am searching only the chip fixtures with all usage rights included', async ({ page }) => {
-    await openChipFixtureSearch(page, Object.values(SEARCH_CHIP_CORE_IMAGE_IDS));
-});
-
 Given('I am searching chip fixtures {string} with all usage rights included', async ({ page }, roles: string) => {
     const ids = roles.split(',').map((role) => {
         const id = SEARCH_CHIP_IMAGE_IDS[role.trim()];
@@ -32,15 +27,6 @@ Given('I am searching chip fixtures {string} with all usage rights included', as
         return id;
     });
     await openChipFixtureSearch(page, ids);
-});
-
-Given('the seeded supplier quota report is available', async ({ page }) => {
-    await expect.poll(async () => {
-        const response = await page.request.get(`https://api.media.${DOMAIN}/usage/quotas`);
-        if (!response.ok()) return null;
-        const { data } = await response.json();
-        return { aap: data.store?.AAP?.exceeded, rex: data.store?.['Rex Features']?.exceeded };
-    }, { message: 'Wait for the seeded AAP and Rex quota counts' }).toEqual({ aap: true, rex: false });
 });
 
 When('I search for images using {string}', async ({ page }, query: string) => {

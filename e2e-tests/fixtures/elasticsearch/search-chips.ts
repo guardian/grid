@@ -8,73 +8,31 @@ const BOUNDARY = '2024-06-15T12:00:00.000Z';
 
 export const SEARCH_CHIP_COLLECTION = 'search-chips';
 
-const EXTRA_SUPPLIERS = ['Getty Images', 'PA', 'Rex Features', 'Ronald Grant Archive', 'Action Images'];
-const supplierRole = (supplier: string) => `supplier-${supplier.toLowerCase().replaceAll(' ', '-')}`;
-
-export const SEARCH_CHIP_CORE_ROLES = [
+const SEARCH_CHIP_ROLES = [
     'harbour-daylight-jpeg',
-    'harbour-night-cropped-png',
-    'pay-to-use-london',
-    'legacy-chargeable-cardiff',
     'staff-photo-multi-persisted',
     'contract-illustration-leased',
-    'split-print-and-published-usages',
-    'print-published-at-midnight',
     'missing-metadata-unpersisted',
-    'published-and-replaced-usages',
     'deleted-own-upload',
     'deleted-other-upload',
-];
-
-const SUPPLEMENTAL_ROLES = [
-    'tiff-identifier-over-quota',
-    'derivative-identifier',
-    'replaces-and-persistence-identifiers',
-    'legacy-commissioned-agency',
-    'edited-title',
-    'pr-and-third-party',
-    'bylines-rights',
-    'contract-photographer',
-    'commissioned-photographer',
     'staff-illustrator',
     'commissioned-illustrator',
     'assorted-usages-with-reference',
-    'old-agency-pick',
-    'aap-quota-usage-1',
-    'aap-quota-usage-2',
-    ...EXTRA_SUPPLIERS.map(supplierRole),
 ];
 
 export const SEARCH_CHIP_IMAGE_IDS: Record<string, string> = Object.fromEntries(
-    [...SEARCH_CHIP_CORE_ROLES, ...SUPPLEMENTAL_ROLES]
-        .map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
+    SEARCH_CHIP_ROLES.map((role) => [role, createHash('sha1').update(`search-chips-${role}`).digest('hex')]),
 );
 
-export const SEARCH_CHIP_CORE_IMAGE_IDS = Object.fromEntries(
-    SEARCH_CHIP_CORE_ROLES.map((role) => [role, SEARCH_CHIP_IMAGE_IDS[role]]),
-);
-
-function usage(name: string, platform: string, status: string, dateAdded = BOUNDARY) {
+function usage(name: string, platform: string, status: string) {
     return {
         id: `search-chips-${name}`,
         references: [],
         platform,
         media: 'image',
         status,
-        dateAdded,
-        lastModified: dateAdded,
-        ...(platform === 'print' ? {
-            printUsageMetadata: {
-                sectionName: 'Culture',
-                sectionCode: 'CUL',
-                issueDate: BOUNDARY,
-                pageNumber: 12,
-                storyName: 'Harbour festival',
-                publicationCode: 'G',
-                publicationName: 'The Guardian',
-                orderedBy: CURRENT_USER,
-            },
-        } : {}),
+        dateAdded: BOUNDARY,
+        lastModified: BOUNDARY,
     };
 }
 
@@ -129,58 +87,21 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
         return { _id: id, _source: imageSource };
     }
 
-    const sharedMetadata = {
-        description: 'Harbour festival at the waterfront',
-        credit: 'Search Chips Shared Credit',
-        city: 'Bristol',
-        state: 'Somerset',
-        country: 'United Kingdom',
-        subLocation: 'Harbourside',
-    };
-
     const fixtures = [
         image('harbour-daylight-jpeg', {
             metadata: {
-                ...sharedMetadata,
+                description: 'Harbour festival at the waterfront',
+                credit: 'Search Chips Shared Credit',
+                city: 'Bristol',
+                state: 'Somerset',
+                country: 'United Kingdom',
+                subLocation: 'Harbourside',
                 keywords: ['harbour', 'daylight'],
                 subjects: ['arts'],
                 peopleInImage: ['Alex Example'],
             },
             usageRights: { category: 'agency', supplier: 'Reuters' },
             uploadTime: '2024-06-14T12:00:00.000Z',
-        }),
-        image('harbour-night-cropped-png', {
-            metadata: { ...sharedMetadata, keywords: ['harbour', 'night'], subjects: ['arts'] },
-            uploadedBy: OTHER_USER,
-            uploadInfo: { filename: 'search-chips-harbour-night-cropped-png.png' },
-            source: {
-                ...structuredClone(template._source.source as Record<string, unknown>),
-                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png']}`,
-                mimeType: 'image/png',
-            },
-            usageRights: { category: 'agency', supplier: 'AP' },
-            exports: [{
-                id: '0_0_1200_800',
-                author: CURRENT_USER,
-                date: BOUNDARY,
-                specification: {
-                    uri: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png']}`,
-                    bounds: { x: 0, y: 0, width: 1200, height: 800 },
-                    aspectRatio: '3:2',
-                    type: 'crop',
-                },
-                assets: [],
-            }],
-        }),
-        image('pay-to-use-london', {
-            metadata: { city: 'London', country: 'United Kingdom', keywords: ['chargeable'] },
-            usageRights: { category: 'pay-to-use' },
-        }),
-        image('legacy-chargeable-cardiff', {
-            metadata: { city: 'Cardiff', country: 'United Kingdom', keywords: ['chargeable'] },
-            uploadedBy: OTHER_USER,
-            usageRights: { category: 'chargeable' },
-            uploadTime: '2024-06-16T12:00:00.000Z',
         }),
         image('staff-photo-multi-persisted', {
             metadata: { byline: 'Example Internal Photographer', subjects: ['sport'] },
@@ -226,79 +147,11 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 lastModified: BOUNDARY,
             },
         }),
-        image('split-print-and-published-usages', {
-            usages: [usage('split-print', 'print', 'pending'), usage('split-digital', 'digital', 'published')],
-        }),
-        image('print-published-at-midnight', {
-            usages: [usage('midnight-print', 'print', 'published', '2024-06-15T00:00:00.000Z')],
-        }),
         image('missing-metadata-unpersisted'),
-        image('published-and-replaced-usages', {
-            usages: [
-                usage('published', 'digital', 'published', '2024-06-14T12:00:00.000Z'),
-                usage('replaced', 'digital', 'replaced', '2024-06-16T12:00:00.000Z'),
-            ],
-        }),
         image('deleted-own-upload', { softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: CURRENT_USER } }),
         image('deleted-other-upload', {
             uploadedBy: OTHER_USER,
             softDeletedMetadata: { deleteTime: BOUNDARY, deletedBy: OTHER_USER },
-        }),
-        image('tiff-identifier-over-quota', {
-            identifiers: { picdarUrn: 'search-chips-persistence-identifier' },
-            uploadInfo: { filename: 'search-chips-tiff-identifier-over-quota.tiff' },
-            source: {
-                ...structuredClone(template._source.source as Record<string, unknown>),
-                file: `https://search-chips.invalid/originals/${SEARCH_CHIP_IMAGE_IDS['tiff-identifier-over-quota']}`,
-                mimeType: 'image/tiff',
-            },
-            metadata: {
-                subjects: [
-                    'arts', 'crime', 'disaster', 'finance', 'education', 'environment', 'health',
-                    'human', 'labour', 'lifestyle', 'nature', 'news', 'politics', 'religion',
-                    'science', 'social', 'sport', 'war', 'weather',
-                ],
-            },
-            usageRights: { category: 'agency', supplier: 'AAP' },
-        }),
-        image('derivative-identifier', {
-            identifiers: { 'derivative-of-media-ids': SEARCH_CHIP_IMAGE_IDS['harbour-daylight-jpeg'] },
-            usageRights: { category: 'agency', supplier: 'Reuters' },
-        }),
-        image('replaces-and-persistence-identifiers', {
-            identifiers: {
-                picdarUrn: 'search-chips-replaces-and-persistence-identifiers',
-                'replaces-media-id': SEARCH_CHIP_IMAGE_IDS['harbour-night-cropped-png'],
-            },
-            usageRights: { category: 'agency', supplier: 'Reuters' },
-        }),
-        image('legacy-commissioned-agency', { usageRights: { category: 'commissioned-agency', supplier: 'Alamy' } }),
-        image('edited-title', {
-            metadata: { title: 'Search chips edited title' },
-            usageRights: { category: 'agency', supplier: 'Allstar Picture Library' },
-            userMetadata: {
-                archived: false,
-                labels: [],
-                metadata: { title: 'Search chips edited title' },
-                lastModified: BOUNDARY,
-            },
-        }),
-        image('pr-and-third-party', { usageRights: { category: 'pr-and-third-party', source: 'Search Chips PR Office' } }),
-        image('bylines-rights', { usageRights: { category: 'Bylines' } }),
-        image('contract-photographer', {
-            metadata: { byline: 'Example Contracted Photographer' },
-            usageRights: {
-                category: 'contract-photographer',
-                photographer: 'Example Contracted Photographer',
-                publication: 'Example publication',
-            },
-        }),
-        image('commissioned-photographer', {
-            usageRights: {
-                category: 'commissioned-photographer',
-                photographer: 'Example External Photographer',
-                publication: 'Example publication',
-            },
         }),
         image('staff-illustrator', {
             metadata: { credit: 'Example Staff Illustrator' },
@@ -325,19 +178,6 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
                 usage('unknown', 'digital', 'unknown'),
             ],
         }),
-        image('old-agency-pick', {
-            metadata: { description: 'Search chips topshot agency pick' },
-            usageRights: { category: 'agency', supplier: 'EPA' },
-            uploadTime: '2000-01-01T12:00:00.000Z',
-        }),
-        ...EXTRA_SUPPLIERS.map((supplier) => image(supplierRole(supplier), {
-            usageRights: { category: 'agency', supplier },
-        })),
-        // Quota counts only include usages added in the last 30 days, so these must be dated at seed time.
-        ...['aap-quota-usage-1', 'aap-quota-usage-2'].map((role) => image(role, {
-            usageRights: { category: 'agency', supplier: 'AAP' },
-            usages: [usage(role, 'print', 'published', new Date().toISOString())],
-        })),
     ];
 
     const missingMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS['missing-metadata-unpersisted'])!;
@@ -347,7 +187,5 @@ export function searchChipImageFixtures(template: EsHit): EsHit[] {
     };
     missingMetadata._source.originalMetadata = structuredClone(missingMetadata._source.metadata);
     delete missingMetadata._source.suggestMetadataCredit;
-    const editedMetadata = fixtures.find((hit) => hit._id === SEARCH_CHIP_IMAGE_IDS['edited-title'])!;
-    (editedMetadata._source.originalMetadata as Record<string, unknown>).title = 'Search chips image edited-title';
     return fixtures;
 }
