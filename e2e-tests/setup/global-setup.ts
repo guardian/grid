@@ -1,3 +1,8 @@
+/**
+ * Playwright global setup. Reuses a healthy stack outside CI or starts a fresh one
+ * if all checked ports refuse connections (see `setup/shared-stack.ts`). Saves the
+ * environment for `global-teardown.ts` and exposes the Kahuna base URL via `GRID_BASE_URL`.
+ */
 import { rm } from 'node:fs/promises';
 import { API_KEY, E2E_ROOT, OIDC_CLIENT_SECRET } from './constants.ts';
 import coverageOptions from './mcr.config.ts';
@@ -17,7 +22,7 @@ async function prepareEnvironment(): Promise<void> {
 
   try {
     if (process.env.GRID_ENABLE_COVERAGE === 'true') {
-      // Only global setup may clear the caches shared by coverage workers.
+      // Stale per-feature caches would otherwise leak into this run's per-feature and per-scenario reports.
       await rm(coverageOptions.outputDir, { recursive: true, force: true });
     }
 

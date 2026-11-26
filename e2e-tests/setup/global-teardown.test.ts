@@ -8,7 +8,7 @@ import globalTeardown from './global-teardown.ts';
 import { createStackDiagnostics } from './stack-diagnostics.ts';
 import { setEnvironment, trackSetup } from './state.ts';
 
-test('teardown waits for interrupted setup', async () => {
+test('waits for startup to finish before tearing down', async () => {
   const setup = Promise.withResolvers<void>();
   const interrupted = new Error('Grid startup interrupted');
   const setupFailed = assert.rejects(trackSetup(setup.promise), (error) => error === interrupted);
@@ -25,7 +25,7 @@ test('teardown waits for interrupted setup', async () => {
   }
 });
 
-test('keeps the coverage error when cleanup also fails', async (t) => {
+test('tries to stop Grid even if coverage reporting fails', async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'grid-coverage-'));
   const originalCwd = process.cwd();
   const enableCoverage = process.env.GRID_ENABLE_COVERAGE;

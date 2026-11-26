@@ -124,24 +124,23 @@ npm run test:report           # Playwright: http://localhost:9323
 npm run test:report:cucumber  # Cucumber: http://localhost:9324
 ```
 
-Each run prints a timestamped directory under `e2e-tests/target/logs/`. Start with
-`stack.log` to see which step failed and how long it ran. It has the same
-progress messages as the terminal, with timestamps. For more detail, look in
-`builds/<name>.log` or `containers/<name>.log`. Set `E2E_DEBUG=1` to see build and
-container output in the terminal too.
+Each run writes timed startup and cleanup messages to `target/logs/<timestamp>/stack.log`.
+A fresh stack also saves Docker build output in `builds/` and container output in
+`containers/`. Check `stack.log` first if startup fails. Set `E2E_DEBUG=1` to also
+see build and container output in the terminal.
 
-CI runs four Playwright shards. Each shard starts its own stack and writes a
-blob report. The `merge-reports` job combines them into the Playwright and
-Cucumber reports in the `e2e-report` artifact. To run one shard locally, use
-`CI=true npm test -- --shard=2/4` from `e2e-tests`. The `playwright-result`
-check passes only when all shards pass.
+CI splits the suite into 4 shards with Playwright's native `--shard` option. Each shard
+boots its own stack and writes a blob report instead of the HTML reports. A
+`merge-reports` job then combines the blobs with
+`playwright merge-reports --config playwright.config.ts`. To reproduce one shard locally,
+run, for example, `CI=true npm test -- --shard=2/4`. The `playwright-result` job passes
+only when every shard passes, so use it as the required status check.
 
-Each shard uploads `stack-logs-<shard>`. If a shard fails, its job annotation
-links to those logs. CI keeps the reports and stack logs for 14 days.
-
-Browser coverage is opt-in. From `e2e-tests`, use `GRID_ENABLE_COVERAGE=true npm test`
-to collect it locally. The Features UI job uses `npm run test:video:coverage`
-and uploads its Playwright report, coverage reports, and stack logs separately.
+CI also adds GitHub failure annotations. The merged reports and their captured attachments
+are uploaded together as `e2e-report`, retained for 14 days after successful or failed
+runs, excluding cancelled runs. Failures before report generation may leave no reports to
+upload. Each shard uploads its stack logs as `stack-logs-<shard>` when available.
+A failed shard links to its logs from an annotation on the job page.
 
 ### Feature library
 

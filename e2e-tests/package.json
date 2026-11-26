@@ -7,7 +7,6 @@
   "scripts": {
     "dev:e2e": "node --experimental-strip-types --disable-warning=ExperimentalWarning setup/dev.ts",
     "test": "bddgen && playwright test",
-    "test:stack": "tsc --project setup/tsconfig.json && node --import tsx --test setup/*.test.ts",
     "test:headed": "bddgen && playwright test --headed",
     "test:video": "bddgen && GRID_RECORD_VIDEO=true playwright test",
     "test:video:coverage": "bddgen && GRID_RECORD_VIDEO=true GRID_ENABLE_COVERAGE=true playwright test",
@@ -19,6 +18,7 @@
     "features:test:browser": "npm run features:build && tsx --test feature-library/app.test.ts",
     "features:typecheck": "tsc --project feature-library/tsconfig.json",
     "test:ui": "bddgen && playwright test --ui-port 6080",
+    "test:stack": "tsc --project setup/tsconfig.json && node --import tsx --test setup/*.test.ts",
     "test:log": "bddgen && E2E_DEBUG=1 playwright test --ui-port 6080",
     "debug:chekov": "sh ./setup/chekov-proxy.sh 6080"
   },

@@ -23,10 +23,7 @@ async function generateFeatureReports(): Promise<void> {
     const featureDir = `${FEATURE_COVERAGE_DIR}/${feature}`;
     await generateReport(featureDir);
     const scenariosDir = `${featureDir}/${SCENARIOS_DIR_NAME}`;
-
-    for (const scenario of await subdirs(scenariosDir)) {
-      await generateReport(`${scenariosDir}/${scenario}`);
-    }
+    for (const scenario of await subdirs(scenariosDir)) await generateReport(`${scenariosDir}/${scenario}`);
   }
 }
 

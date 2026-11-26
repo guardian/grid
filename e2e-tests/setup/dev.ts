@@ -1,4 +1,9 @@
-/** Hold a local Grid stack open until Ctrl-C. Chekov serves the HTTPS routes by default. */
+/**
+ * Boots the Grid stack outside Playwright and holds it open until Ctrl-C.
+ *
+ * Chekov serves the https://*.media.<domain> domains by default.
+ * Set `GRID_PROXY=false` to use an external dev-nginx instead.
+ */
 import {
   API_KEY, E2E_ROOT, ELASTICSEARCH_URL, LOCALSTACK_URL, OIDC_CLIENT_SECRET, OIDC_ISSUER, SERVICE_CONFIGS,
 } from './constants.ts';
