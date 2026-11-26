@@ -304,13 +304,13 @@ Feature: Uploading images to the Grid
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.html lines 21-26, 47-53, 76-80, 107-111, 156-160
   # Evidence: kahuna/public/js/upload/jobs/required-metadata-editor.js lines 103-119
 
-  # Leases/Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
+  # Collections/Labels/Keywords/Photoshoot live in the image-editor, not the required
   # metadata editor, so they need separate locators and setup.
+  # Leases apply-to-all is covered in leases-surfaces.feature.
   Scenario: Applying an image-editor field value to all current uploads in a batch
     Given I am uploading more than one image
     And I am permitted to edit
     When I apply the following field values to all current uploads:
-      | Leases |
       | Collections |
       | Labels |
       | Keywords |

@@ -1,6 +1,7 @@
 package lib.elasticsearch
 
 import org.apache.pekko.actor.{ActorSystem, Scheduler}
+import com.gu.mediaservice.lib.ImageStorageProps
 import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, UserPrincipal}
 import com.gu.mediaservice.lib.auth.{ApiAccessor, Internal, ReadOnly, Syndication, Tier}
 import com.gu.mediaservice.lib.argo.model.{Action, Link}
@@ -198,6 +199,82 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         imageIds.contains("persisted-because-edited") shouldBe true
         imageIds.contains("persisted-because-usage") shouldBe true
       }
+    }
+
+    describe("persistence identifiers") {
+      val identifierImages = Seq(
+        "none" -> Map.empty[String, String],
+        "primary" -> Map("picdarUrn" -> "urn-1"),
+        "derivative" -> Map(ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> "parent-1"),
+        "replaces" -> Map(ImageStorageProps.replacesMediaIdIdentifierKey -> "original-1"),
+        "derivative-and-replaces" -> Map(
+          ImageStorageProps.derivativeOfMediaIdsIdentifierKey -> "parent-1",
+          ImageStorageProps.replacesMediaIdIdentifierKey -> "original-1"
+        )
+      ).map { case (suffix, identifiers) =>
+        createImageUploadedInThePast(s"persistence-identifier-$suffix").copy(identifiers = identifiers)
+      }
+
+      def expectMatches(queryText: String, expected: Set[String]): Unit = {
+        val identifierConfig = new MediaApiConfig(GridConfigResources(
+          Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++
+            Map("persistence.identifier" -> "picdarUrn")),
+          null,
+          applicationLifecycle
+        ))
+        val identifierSearch = new ElasticSearch(identifierConfig, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+        val params = SearchParams(
+          tier = Internal,
+          length = identifierImages.size,
+          ids = Some(identifierImages.map(_.id).toList),
+          structuredQuery = Parser.run(queryText)
+        )
+        try {
+          whenReady(identifierSearch.search(params), timeout, interval) { result =>
+            result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"persistence-identifier-$suffix")
+          }
+        } finally identifierSearch.client.close()
+      }
+
+      it("matches images carrying any one of the persistence identifiers") {
+        withQuotaImages(identifierImages) {
+          expectMatches("persisted:persistence-identifier", Set("primary", "derivative", "replaces", "derivative-and-replaces"))
+        }
+      }
+
+      it("does not treat images carrying any one of the persistence identifiers as reapable") {
+        withQuotaImages(identifierImages) {
+          expectMatches("is:reapable", Set("none"))
+        }
+      }
+    }
+  }
+
+  describe("usage timestamp comparisons") {
+    val cutoff = DateTime.parse("2020-06-15T14:30:45.123Z")
+    val fixtures = Seq("before" -> cutoff.minusMillis(1), "equal" -> cutoff, "after" -> cutoff.plusMillis(1))
+      .map { case (position, date) =>
+        createImage(s"usage-timestamp-$position", Handout(), usages = List(
+          createUsage(ComposerUsageReference, DigitalUsage, PublishedUsageStatus, date)
+        ))
+      }
+
+    Seq(">" -> Set("equal", "after"), "<" -> Set("before", "equal")).foreach {
+      case (operator, expected) =>
+        it(s"preserves millisecond precision and includes equality for $operator") {
+          withQuotaImages(fixtures) {
+            Seq("2020-06-15T14:30:45.123Z", "2020-06-15T15:30:45.123+01:00").foreach { value =>
+              val params = SearchParams(
+                tier = Internal,
+                ids = Some(fixtures.map(_.id).toList),
+                structuredQuery = Parser.run(s"usages@${operator}added:\"$value\"")
+              )
+              whenReady(ES.search(params), timeout, interval) { result =>
+                result.hits.map(_._1).toSet shouldBe expected.map(position => s"usage-timestamp-$position")
+              }
+            }
+          }
+        }
     }
   }
 

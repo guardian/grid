@@ -42,8 +42,8 @@ export interface TestContext {
   region?: Locator;
   /** The usage rights category code a `Given` chose the opened image by. */
   usageRightsCategory?: string;
-  /** The seeded image selected for an edit-permission scenario. */
-  permissionImage?: { id: string; uploadedBy: string };
+  /** The seeded images selected for an edit-permission scenario, with their uploaders. */
+  permissionImages?: { id: string; uploadedBy: string }[];
   /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
   searchesRun?: string[];
   /** Rights editor property values a step filled in, keyed by property label. */
