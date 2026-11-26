@@ -214,7 +214,7 @@ export function useLongPress({
       if (e.pointerType !== "touch") return;
 
       // These controls own their touch gesture.
-      if (e.target instanceof Element && e.target.closest("[data-tickbox],[data-graphic-reveal]")) {
+      if (e.target instanceof Element && e.target.closest("[data-tickbox],[data-graphic-reveal],[data-inline-library],[data-result-label-add]")) {
         return;
       }
 

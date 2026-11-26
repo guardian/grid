@@ -24,6 +24,18 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 26 November 2026 - Share edit scheduling across metadata and labels
+
+**Editing engine.** Search and Upload now use the same priority rule across the metadata and label editors. Between completed batch groups, the next waiting user edit can take a turn on an image outside the batch when the writes are independent. The batch waits for that edit's readback before continuing. This uses the existing queue capacity, keeps conflicting Photoshoot and rights changes in order, and does not promote automatic upload follow-ups or replay uncertain writes. Existing Form priority for ordinary metadata is preserved.
+
+Library and Photoshoot now accept the configured selection limit rather than treating the 100-image execution group as an action limit. Oversized additions leave the selection unchanged; selections restored above a lowered limit can be reduced without losing IDs on reload. Scalar, Library and Photoshoot progress shows completed counts plus the active group's rows, then retains ordered per-image outcomes that distinguish confirmed, rejected, uncertain and unsent work. Form and Detail avoid repeated membership scans, and uploads report only changes to their own saves. See the [editing evidence](editing-performance-evidence.md) for the measured trade-offs.
+
+**Labels.** Desktop Search Grid and Table show bounded previews of labels and collections. Click a pill to search its label or exact collection path; use Plus to add labels without opening the image. The draft stays with the image when its row leaves view. Details and Upload accept comma-separated labels in one additive request per image, preserve literal commas in suggestions, and track confirmation or failure per label without replacing unrelated labels. Collapsed selection panels show the 20 most frequent values plus pending edits; expansion still shows the full list.
+
+**Library and presentation.** Search, Detail and Upload can set or clear the explicit Library flag after checking the advertised permission and image resource. Mixed selections change only flags that need changing; clearing a flag does not remove an image kept for another reason. Desktop Grid and Table offer inline Library actions outside selection mode, using Kahuna's Add, Added, Remove and Locked icons. The selection toolbar reveals the first settled Library action and holds its look while changes to the selection are checked, without allowing an action against unchecked images. Toolbar and Upload controls keep their alignment while saving. Download and Delete no longer flash a permission denial during readback, and Details keeps field rows, pills and controls steady during deselection without allowing edits against stale values.
+
+In the selection status bar, Add to Library and Kept in Library share a width. Remove from Library uses the extra room it needs without squeezing the text.
+
 ### 25 November 2026 - Identify decoded-detail timeouts in performance reports
 
 Report the last condition that blocked decoded, visible, stable detail without logging image identities or URLs. P15 also records the initial media request state on failure and the unmeasured readiness wait on success. Allow up to 30 seconds only for P15's pre-measurement image, after canonical requests repeatedly missed the 10-second setup cutoff while awaiting headers. Report slow setup separately; all image readiness checks and measured deadlines are unchanged. Validate request-state reporting with a synthetic held image response and redirect.

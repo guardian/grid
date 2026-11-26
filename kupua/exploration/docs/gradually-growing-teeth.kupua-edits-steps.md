@@ -50,6 +50,26 @@ was subsequently implemented at its bounded label scope.
 
 ### Current status and shared ownership
 
+**Selection and execution policy (26 November 2026):** selection owns the limit (`SELECTION_CAP`, configured with `VITE_SELECTION_CAP`, currently 5,000 by default). Ordinary selection edits, including Library and Photoshoot, must not impose a smaller per-action image limit. Capture the intended targets; process them in bounded groups (currently 100), retaining pacing, authority checks, partial outcomes and readback. Group size is not a selection limit. Share with URL may need a lower bound only if the encoded URL length cannot otherwise be accommodated; batch full-frame crop may be restricted for cropper workload. Any other exception needs measured infrastructure evidence and an explicit decision. Historical trial sizes below are not new admission rules.
+
+Library and Photoshoot capture one action across groups. Each group requires fresh targets before dispatch. A failed group preflight leaves earlier results intact and the remainder unsent. Client fixture results establish neither backend capacity nor rights propagation.
+
+**Manual priority (26 November):** the metadata and native label editors share a queue and a [compatibility rule](../../src/lib/batch-execution.ts). At a settled, nonfinal group boundary either owner can give one turn to a user-initiated, single-image save outside its entire captured selection. This includes Details commits, Form drafts, one-recipient batch arrows, inline edits and collection membership controls. Automatic upload follow-ups, duplicates joining an existing automatic save, and multi-target candidates do not acquire that entitlement. The legacy ordinary Form/Details exceptions for already-observed recipients and witnessed Form dispatch retain their existing scope. Priority is not another queue slot: a later label can receive the existing busy refusal if older work already needs the available capacity.
+
+**Compatibility:** ordinary metadata (including lists and location), Library, Labels, Collections and Leases are image-scoped for disjoint-target scheduling. Usage rights includes its derived ordinary metadata step; a Photoshoot edit can affect syndication rights across images. Do not lend Photoshoot to Photoshoot or between Photoshoot and rights in either direction. Unknown effects wait. For a new handoff the borrower runs alone, through its readback, before the parent can start another group. A session halt stops the unsent suffix; a local rejection is not permission to replay. Execution, authority and receipts still belong to the respective command paths. See the [scalar comparison](editing-performance-evidence.md#manual-scalar-priority-matched-decision-26-november) and [cross-editor label comparison](editing-performance-evidence.md#manual-label-during-library-26-november).
+
+**Write contracts, not field-by-field priority.** Use the stored unit and secondary effects to judge conflicts. Where independence is unknown, keep submission order. These are reasoning rules, not a new client lock or executor.
+
+| Operation | What can conflict |
+| --- | --- |
+| Ordinary metadata, including Subjects and keywords | Replaces one image's **entire ordinary override map**. Even different fields can overwrite each other across clients. See the [two-tab reproduction](bug-backlog.md#grid-020). |
+| Usage rights | Replaces the rights object; a separate derived-metadata action can also replace ordinary overrides. One successful step does not establish the other's success. |
+| Labels | Adds/removes set members. Opposite changes on the same member are order-dependent; a multi-step clear is not atomic. |
+| Collections | Appending a membership differs from removing one by reading, filtering and replacing the list ([GRID-011](bug-backlog.md#grid-011)). |
+| Leases | Creating/removing an individual record differs from clearing and recreating a set. Even a syndication lease addition can use replacement ([GRID-027](bug-backlog.md#grid-027)). |
+| Library | Sets/removes one explicit flag. Opposite changes conflict; other retention reasons are separate. |
+| Photoshoot | Changes membership and recalculates syndication rights across old and new shoots. Different target IDs alone do not prove independence. |
+
 The numbering is a capability map, not the order in which work was done. **Done**
 below means the stated scope is implemented, not that every deployment or later
 operation has been accepted. [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status)
@@ -60,13 +80,13 @@ own the Upload-specific evidence and remaining work.
 | --- | --- | --- |
 | Steps 1-4 | Capability retention, default-off label boundary, disconnected editor and simulated stable publication. | Nested controls belong to their consumers; actual deletion behavior remains Step 17. |
 | Steps 5-6 | Connected single/bounded multi-image label add/remove, local and hosted fixtures, and local real-write trials. | Shared rollout/capacity and deployment-specific authentication remain separate decisions. Later families reuse this foundation; each still needs its own command. |
-| Steps 7-8 | Connected labels, collection additions and U5 ordinary metadata; bounded Subjects added under KUP-051. Explicit Search/detail commits, Form autosave and shared observation/publication. | Archive; configured-domain editors remain separate. |
+| Steps 7-8 | Connected labels, archive/unarchive, collection additions and U5 ordinary metadata; bounded Subjects added under KUP-051. Explicit Search/detail commits, Form autosave and shared observation/publication. | Configured-domain editors remain separate. |
 | Step 10 / U6a | **Done for Guardian:** save or clear Rights; confirm the override and report derived metadata separately. Uses the filtered catalogue and server notice wording. | Deployment acceptance. No category-triggered leases in Guardian scope. |
 | Step 9 / U6b | Manual add, individual removal, selection Add and upper-batch replace/clear; date-based badges and canonical readback. | Target-deployment acceptance. No removal from aggregate rows. |
 | Step 11 / U6c | No template execution. | Deferred for Upload, not passed or required for its acceptance. |
 | Step 13 | Saved-crop browsing, ratio controls and disconnected eligibility/notices, including KUP-047's selected UI boundary. | Crop/full-frame submission and returned-export lifecycle. |
 | Steps 12, 14, 16, 17, 20 | Collection add/remove, same-tab tree drops and hover controls; Photoshoot membership; original and saved-crop drag payloads. | Tree CRUD; file/ZIP delivery; syndication and Photo Sales; soft delete/restore; clipboard, embedding and external consumer acceptance. |
-| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields, Photoshoot and collection membership. | U7 archive, crop creation and delete/restore; U8 integrated and target-deployment acceptance. |
+| Step 15 / Upload | Ingestion, local batches, Form, navigation, ordinary metadata, upload follow-ups, Guardian Rights, manual Leases, batch pill fields, Photoshoot, collection membership and per-image Library. | U7 crop creation and delete/restore; U8 integrated and target-deployment acceptance. |
 | Steps 18-19, 21 | Not done. | Privileged cleanup and takedown need separate destructive-operation decisions. Full replacement and rollout need deployment-owner acceptance. |
 | Step 22 | Beyond Kahuna. | Optional follow-ons, not parity gates. |
 
@@ -130,8 +150,7 @@ not all have to wait for one another. The numbered order is not a linear program
 - Server image responses already carry capabilities. Step 1 now retains image URI and
    edits/crops links alongside actions; future nested write controls remain consumer-scoped.
 - Selection is an ID set, independently cached metadata and reconciliation. It is not an
-   operation queue. The 5,000 range-walk and metadata-cache limits are not a hard ceiling
-   on the whole selected set; keep them separate from the write-action limit.
+   operation queue. Admission checks distinct final membership before adding IDs. The metadata cache and default range-walk bound follow the selection setting; neither controls execution group size.
 - Crop geometry, request construction and disconnected eligibility/notices exist; actual
   creation and export publication do not. Do not replace the working crop engine to add submission.
 - The current host implementation admits DEV/TEST, not PROD, and excludes iframe pickers:
@@ -142,7 +161,7 @@ not all have to wait for one another. The numbered order is not a linear program
 
 1. **Fresh read is mitigation, not conflict prevention.** Whole-object metadata replacement
    can still race between GET and PUT. Never promise that it cannot overwrite another editor.
-2. **Concurrency is not requests per second.** The selected 100 targets and three
+2. **Concurrency is not requests per second.** The group of 100 targets and three
    per-image executions are prototype ceilings, not a capacity certificate. Shared capacity, rate and
    multi-step actions also matter; [GRID-019](bug-backlog.md#grid-019) remains relevant.
 3. **The Vite guard does not protect hosted requests.** Hosted calls go straight to service
@@ -678,11 +697,9 @@ The runner and publication owners are reusable foundations, not proof that other
 families or larger Upload batches are implemented. Shared multi-user activation and
 any larger target/freshness capacity require their own decisions.
 
-Preserve current selection behavior: 5,000 bounds a server range walk and the metadata LRU,
-not all accumulated selected IDs. The selected common policy is a **100-image write ceiling and
-at most three concurrent per-image executions**, with smaller action-specific limits for expensive or
-destructive work. Reject oversized actions before hydrating/submitting them; explain the
-limit, never silently truncate. Account for each item's multiple reads/writes, not just item count.
+Apply the selection and execution policy above. Enforce selection size independently of the
+range walk and metadata LRU. Never truncate a captured action to the first execution group.
+Account for each item's multiple reads/writes, not just item count.
 Check the actual captured set size even when it exceeds the metadata cache. See
 [P21 F3/F4](03%20Ce%20n'est%20pas%20une%20pipe%20dream/media-api-work/api-boundary-09-p21-selection-collections.md#f3-range-retry-lifetime-and-limits-need-composed-assertions)
 and the current [selection add/toggle actions](../../src/stores/selection-store.ts).
@@ -1031,8 +1048,7 @@ physical-phone keyboard or performance certification.
 
 **Depends on:** step 5; step 6 for batches.
 
-**Status: partial.** Labels and collection addition are connected for individual images,
-selections and Upload. Archive/unarchive remains unimplemented.
+**Connected at local fixture scope.** Labels, collection addition and archive/unarchive are connected for individual images, selections and Upload. Library captures only images whose explicit flag needs changing, checks the permission-gated root relation and each matching image resource, then sets the requested boolean. Observation checks the explicit flag, not whether Grid keeps the image for another reason. Upload changes one image, never its batch peers. No live activation or undelete is implied.
 
 <details>
 <summary>10–11 November UI inventory (before U5 connected ordinary metadata)</summary>
@@ -1412,7 +1428,7 @@ absence block the action. No live download used as a supposedly read-only probe.
 
 **Batch editing contract.** An arrow captures the other known images in the open batch, including offscreen peers. Scalar fields set one value; Location sets only the named component. Rights applies the category and its properties. Leases replaces the whole set after confirmation. Labels, Keywords and People apply current pills and explicitly removed pills, preserving unrelated values on peers; an empty source requires a second click to clear that field. For example, removing *Sport* and adding *Football* leaves a peer's *Local* pill intact. Photoshoot assigns one title or confirms a batch clear. Collections copies current memberships additively, never propagating individual removals. Only a confirmed empty source clears peer memberships.
 
-Upload Form opens missing Rights directly for an authorised editor; opening is not a save. Other categories retain the pencil. Cost/restrictions, usability and Library status sit below the thumbnail. Library uses the existing action policy and does not archive an image. Search/Detail keep their own presentation and targets. The [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status) owns acceptance and remaining work.
+Upload Form opens missing Rights directly for an authorised editor; opening is not a save. Other categories retain the pencil. Cost/restrictions, usability and Library status sit below the thumbnail. Library archives or unarchives only that image when editing is enabled. Search/Detail keep their own presentation and targets. The [Upload unit status](gradually-growing-teeth.upload-workplan.md#unit-status) owns acceptance and remaining work.
 
 The [Upload workplan](gradually-growing-teeth.upload-workplan.md) owns the sequence,
 reusable-density/local-batch contract, source-backed parity checklist and deferred
@@ -1473,13 +1489,13 @@ automatically new UI actions just because they exist.
 
 **Backend boundary:** GRID-009/013's original handoff defects are fixed in [Grid PR #5231](https://github.com/guardian/grid/pull/5231). [GRID-029](bug-backlog.md#grid-029) is a separate reproduced backend defect, accepted for prototype membership editing. Removing a shoot can clear indexed explicit syndication rights while the source retains them.
 
-**Photoshoot membership connected:** Details commits explicitly; Upload Form saves on suggestion choice or blur. A batch arrow applies the trimmed title to captured peers, with a second click to clear. At most 100 direct targets are admitted, one membership write at a time. This is not a ceiling on server-side rights recalculation. Observation confirms target membership only. No syndication editor, partner delivery or client-side rights repair.
+**Photoshoot membership connected:** Details commits explicitly; Upload Form saves on suggestion choice or blur. A batch arrow applies the trimmed title to captured peers, with a second click to clear. Both use the selection cap, serial membership writes and grouped readback. Observation confirms target membership only. Metadata-editor reads shoot member rights before and after each change; a growing common shoot can cost substantially more than independent titles. The current DynamoDB index lookup reads one query page. Neither successful membership observation nor local timing proves complete rights propagation for a large shoot. No syndication editor, partner delivery or client-side rights repair.
 
 **Local verification, 24 November:** on the authenticated HTTPS Vite app, Details assigned a temporary shoot to one unassigned image (PUT 200) and cleared it (DELETE 202). Metadata-editor and media-api agreed after both actions; the image returned to its original unassigned state. This verifies local membership editing, not deployment or downstream rights correctness.
 
 Support photoshoot assignment/removal and the existing rights/syndication workflow exposed by
 the target deployment. A photoshoot change can affect rights of other images: preview that
-scope and do not apply the ordinary 100-target cap as though only those records can change.
+scope and do not treat the selected count as a bound on the number of records whose rights can change.
 Separate setting rights/leases from actually publishing/sending to a syndication partner.
 
 For Photo Sales preserve configured availability, eligibility checks, confirmation and partner
@@ -1714,7 +1730,7 @@ operation is not a deployment sign-off; a preview is not a connected operation.
 | Kahuna capability / acceptance family | Step | Status, dependency or limit |
 | --- | --- | --- |
 | Labels add/remove, suggestions and mixed selection | 7 | Done on the shared single/batch path |
-| Archive/unarchive | 7 | Archive permission; preserve reaper meaning |
+| Archive/unarchive | 7 | Connected, with archive permission and explicit flag readback; independent retention reasons preserved |
 | Add images to collections, including drop integration | 7, 20 | Connected for individual images, selections and Upload; same-tab tree drop and hover controls implemented |
 | Ordinary metadata and list/date/location values | 8 | Connected with fresh override merges; clearing an embedded Taken date remains disabled (GRID-025) |
 | Configured domain fields and batch overwrite/append/prepend | 8 | Hosted specs; no write inferred from display aliases |

@@ -22,7 +22,7 @@ import { useToastStore } from "./toast-store";
 import { useSearchStore } from "./search-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { buildSearchKey, getRetainedSortValues, retainSortValues, setRetainedCursorAnchor } from "@/lib/image-offset-cache";
-import { BUFFER_CAPACITY, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuning";
+import { BUFFER_CAPACITY, SELECTION_CAP, SELECTION_PERSIST_DEBOUNCE_MS } from "@/constants/tuning";
 import { RECONCILE_FIELDS } from "@/lib/field-registry";
 import { recomputeAll } from "@/lib/reconcile";
 import type { Image } from "@/types/image";
@@ -173,6 +173,33 @@ describe("toggle", () => {
 // ---------------------------------------------------------------------------
 
 describe("add", () => {
+  it("preserves an oversized restored selection and hydrates survivors only after reduction", async () => {
+    const ids = Array.from({ length: SELECTION_CAP + 2 }, (_, index) => `restored-${index}`);
+    useSelectionStore.setState({ selectedIds: new Set(ids), anchorId: ids[0] });
+    const read = vi.spyOn(mock, "getByIds").mockRejectedValue(new Error("offline"));
+    const store = useSelectionStore.getState();
+    await store.hydrate();
+    expect([...useSelectionStore.getState().selectedIds]).toEqual(ids);
+    store.remove(ids.slice(-1));
+    expect(store.toggle("another")).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    store.toggle(ids[ids.length - 2]);
+    expect(read.mock.calls).toEqual([[ids.slice(0, -2)]]);
+  });
+  it("refuses an oversized union before hydrating, without losing the anchor or truncating the addition", () => {
+    const ids = Array.from({ length: SELECTION_CAP - 1 }, (_, index) => `selected-${index}`);
+    useSelectionStore.setState({ selectedIds: new Set(ids), anchorId: ids[0] });
+    const read = vi.spyOn(mock, "getByIds").mockResolvedValue([]);
+    const store = useSelectionStore.getState();
+    expect(store.add([ids[0], "last", "excess"])).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+    store.add([ids[0], "last", "last"]);
+    expect(useSelectionStore.getState().selectedIds.size).toBe(SELECTION_CAP);
+    expect(store.toggle("excess")).toBe(false);
+    expect(useSelectionStore.getState().anchorId).toBe(ids[0]);
+    store.toggle("last");
+    expect(useSelectionStore.getState().selectedIds.size).toBe(SELECTION_CAP - 1);
+  });
   it.each(["add", "toggle"] as const)("cached %s publishes empty-member accounting without later hydration", async (operation) => {
     const ids = ["img-0", "img-1", "img-2"];
     const images = (await mock.getByIds(ids)).map((image, index) => ({

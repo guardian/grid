@@ -35,6 +35,7 @@ import {
 import type { ReconciledView, FieldReconciliation } from "@/lib/reconcile";
 import {
   SELECTION_PERSIST_DEBOUNCE_MS,
+  SELECTION_CAP,
   SELECTION_METADATA_LRU_CAP,
 } from "@/constants/tuning";
 import { addToast } from "@/stores/toast-store";
@@ -302,13 +303,13 @@ export interface SelectionState {
    * Toggle the selection state of a single image.
    * Also calls `ensureMetadata([id])` and `setAnchor(id)`.
    */
-  toggle(id: string): void;
+  toggle(id: string): false | void;
   /**
    * Add multiple IDs atomically (one sessionStorage write).
    * Deduplicates against existing `selectedIds`.
    * Calls `ensureMetadata(newIds)` asynchronously.
    */
-  add(ids: string[]): void;
+  add(ids: string[]): false | void;
   /** Remove IDs from the selection (no-op for IDs not in `selectedIds`). */
   remove(ids: string[]): void;
   /** Clear the entire selection and reset reconciliation state. */
@@ -354,9 +355,10 @@ export const useSelectionStore = create<SelectionState>()(
 
       // --- Actions ---
 
-      toggle(id: string): void {
+      toggle(id: string) {
         const { selectedIds, metadataCache, reconciledView } = get();
         const isSelected = selectedIds.has(id);
+        if (!isSelected && selectedIds.size >= SELECTION_CAP) return refuseSelectionOverflow();
 
         if (isSelected) {
           // Remove
@@ -386,6 +388,7 @@ export const useSelectionStore = create<SelectionState>()(
             generationCounter: s.generationCounter + 1,
             ...(newAnchor !== undefined ? { anchorId: newAnchor } : {}),
           }));
+          if (selectedIds.size > SELECTION_CAP && newIds.size <= SELECTION_CAP) void get().hydrate();
         } else {
           // Add
           const newIds = new Set(selectedIds);
@@ -415,12 +418,13 @@ export const useSelectionStore = create<SelectionState>()(
         }
       },
 
-      add(ids: string[]): void {
+      add(ids: string[]) {
         const { selectedIds, metadataCache, reconciledView } = get();
         const nextIds = new Set(selectedIds);
         const newIds: string[] = [];
         for (const id of ids) {
           if (nextIds.has(id)) continue;
+          if (nextIds.size >= SELECTION_CAP) return refuseSelectionOverflow();
           nextIds.add(id);
           newIds.push(id);
         }
@@ -502,6 +506,7 @@ export const useSelectionStore = create<SelectionState>()(
           generationCounter: s.generationCounter + 1,
           ...(newAnchor !== undefined ? { anchorId: newAnchor } : {}),
         }));
+        if (selectedIds.size > SELECTION_CAP && nextIds.size <= SELECTION_CAP) void get().hydrate();
       },
 
       clear(): void {
@@ -603,6 +608,10 @@ export const useSelectionStore = create<SelectionState>()(
         const { selectedIds, dataSource, anchorId } = get();
         setRetainedCursorAnchor(anchorId);
         if (selectedIds.size === 0) return;
+        if (selectedIds.size > SELECTION_CAP) {
+          addToast({ category: "warning", message: `Your previous selection is above the current limit. Reduce it to ${SELECTION_CAP.toLocaleString()} images or clear it before editing.` });
+          return;
+        }
 
         const ids = Array.from(selectedIds);
         let images: Image[] = [];
@@ -682,6 +691,11 @@ export const useSelectionStore = create<SelectionState>()(
 
 export function useSelectionMetadataRevision(): number {
   return useSelectionStore((state) => state.metadataRevision);
+}
+
+export function refuseSelectionOverflow(): false {
+  addToast({ category: "warning", message: `Select at most ${SELECTION_CAP.toLocaleString()} images. Selection unchanged.` });
+  return false;
 }
 
 // ---------------------------------------------------------------------------

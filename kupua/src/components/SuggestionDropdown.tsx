@@ -67,13 +67,17 @@ export function SuggestionDropdown({ anchorRef, items, id, label, activeIndex = 
     if (widthOwner && widthOwner !== anchor) observer?.observe(widthOwner);
     if (editor && editor !== anchor && editor !== widthOwner) observer?.observe(editor);
     window.addEventListener("resize", update);
-    document.addEventListener("scroll", update, true);
+    const placedByResult = host.classList.contains("result-label-entry");
+    const scroll = (event: Event) => { if (!(event.target instanceof Node && ref.current?.contains(event.target))) update(); };
+    if (placedByResult) host.addEventListener("result-label-placed", update);
+    else document.addEventListener("scroll", scroll, true);
     window.visualViewport?.addEventListener("resize", update);
     window.visualViewport?.addEventListener("scroll", update);
     return () => {
       observer?.disconnect();
       window.removeEventListener("resize", update);
-      document.removeEventListener("scroll", update, true);
+      if (placedByResult) host.removeEventListener("result-label-placed", update);
+      else document.removeEventListener("scroll", scroll, true);
       window.visualViewport?.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("scroll", update);
     };

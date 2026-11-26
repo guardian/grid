@@ -113,6 +113,11 @@ export function captureImageRead(): number { return ++sequence; }
 export function getImageReadSequence(value: object | undefined): number { return value ? evidence.get(value)?.issued ?? 0 : 0; }
 export function hasImageFences(): boolean { return facts.size > 0; }
 export function hasImageFence(id: string): boolean { return facts.has(id); }
+export function isActionAuthorityPending(image: Image, overlay: EnrichmentFields | undefined): boolean {
+  if (overlay !== unavailableAuthority || image.__availability || image.softDeletedMetadata) return false;
+  const fact = facts.get(image.id);
+  return !!fact && !fact.availability && activeGroups.has(fact.operation);
+}
 export function isPendingFormGrant(image: Image, selected: EnrichmentFields["resource"], attached: EnrichmentFields | undefined): boolean {
   const fact = facts.get(image.id);
   return !!fact && fact.operation > 0 && !fact.availability && !image.__availability && selected === unavailableAuthority.resource

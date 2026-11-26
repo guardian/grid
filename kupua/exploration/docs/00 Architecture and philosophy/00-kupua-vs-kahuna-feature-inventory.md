@@ -1,6 +1,6 @@
 # Kupua vs Kahuna — Feature Inventory
 
-**Browsing inventory, 8 November 2026; editing scope updated 24 November.** A product-facing comparison of
+**Browsing inventory, 8 November 2026; editing scope updated 26 November.** A product-facing comparison of
 API-backed Kupua with Kahuna. Sections and entries put the larger editorial
 workflow improvements before supporting controls and polish. Shared capabilities
 are identified as such; the final section lists the remaining gaps. Selected
@@ -1310,7 +1310,9 @@ Sources: [Kahuna upload](../../../../kahuna/public/js/upload),
 ### 8.3 Bulk actions, downloads and sharing selections
 
 Kahuna's selection toolbar provides actions including archive, delete/undelete,
-download, export and selection URL sharing. Kupua supports selected-image edits, but its Library, Delete, Download, Share and full-frame preparation controls do not execute those operations.
+download, export and selection URL sharing. Kupua executes Library changes; its Delete, Download, Share and full-frame preparation controls do not execute those operations.
+
+**Keep editing during a batch.** When adding a selection to Library or changing its Photoshoot, a manual edit such as Credit on an image outside the selection can take the next available turn between groups. In a [local Kupua test with 1,001 Library images](../editing-performance-evidence.md#manual-scalar-priority-matched-decision-26-november), the outside edit was confirmed in 0.61–0.62 seconds rather than 5.73–5.79 seconds with Kupua's previous queue order. The last selected image still waited for its own bulk update. This is a comparison of two Kupua settings on a fixture, not a Kahuna benchmark or production timing. Priority applies within one tab; [two independent editors can still overwrite one another's ordinary metadata edits](../bug-backlog.md#grid-020).
 
 Sources: [Kahuna toolbar](../../../../kahuna/public/js/search/results.html),
 [Kupua selection controls](../../../src/components/StatusBar.tsx),

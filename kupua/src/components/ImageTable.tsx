@@ -44,6 +44,8 @@ import { storeImageOffset, buildSearchKey, extractSortValues, getRetainedSortVal
 import { interpretClick, type Modifier } from "@/lib/interpretClick";
 import { dispatchClickEffects, type AddRangeEffect } from "@/lib/dispatchClickEffects";
 import { useTouchSelection } from "@/hooks/useTouchSelection";
+import { useResultLibrary } from "@/hooks/useResultLibrary";
+import type { InlineLibrary } from "./ResultLibraryBadge";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { getImageBorderColour } from "@/lib/image-borders";
 import { renderTableField, TableRowCells, TableThumbnail } from "./TableRowCells";
@@ -175,6 +177,7 @@ function buildColumnSizeVars(
 // ---------------------------------------------------------------------------
 
 interface EnrichedTableRowProps {
+  inlineLibrary: InlineLibrary;
   columns: readonly ColumnDef<Image, any>[];
   image: Image;
   virtualRow: VirtualItem;
@@ -191,6 +194,7 @@ interface EnrichedTableRowProps {
 }
 
 const EnrichedTableRow = memo(function EnrichedTableRow({
+  inlineLibrary,
   columns,
   image,
   virtualRow,
@@ -253,7 +257,7 @@ const EnrichedTableRow = memo(function EnrichedTableRow({
           onTickClick={handleTickBound}
         />
       </div>
-      <TableRowCells image={image} columns={columns} enriched={enriched} handleCellClick={handleCellClick} />
+      <TableRowCells image={image} columns={columns} enriched={enriched} handleCellClick={handleCellClick} inlineLibrary={inlineLibrary} />
     </div>
   );
 });
@@ -283,6 +287,8 @@ interface TableBodyProps {
   handleTickClick: (imageId: string, e: React.MouseEvent) => void;
   focusedImageId: string | null;
   inSelectionMode: boolean;
+  inlineLibrary: boolean;
+  pendingLibrary?: ReadonlySet<string>;
   /** Number of visible columns — used to bust memo when column visibility changes. */
   visibleColumnCount: number;
   /** Look up the image at a global index (may be undefined if not loaded). */
@@ -294,6 +300,8 @@ interface TableBodyProps {
 }
 
 const TableBody = memo(function TableBody({
+  inlineLibrary,
+  pendingLibrary,
   virtualItems,
   rows,
   columns,
@@ -397,6 +405,7 @@ const TableBody = memo(function TableBody({
 
         return (
           <EnrichedTableRow
+            inlineLibrary={pendingLibrary?.has(image.id) ? "busy" : inlineLibrary}
             key={row.id}
             columns={columns}
             image={image}
@@ -439,6 +448,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   const searchParams = useBrowsingSearch();
   const submittedOrder = !!(searchParams.imageScope?.submittedOrder || searchParams.recentUploadScope?.batch?.submittedOrder);
   const { path } = useBrowsingContext();
+  const library = useResultLibrary(path === "/search");
   const selectionEnabled = path === "/search";
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
@@ -466,6 +476,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
     const el = parentRef.current;
     if (!el) return;
     const onMiddleUp = (e: MouseEvent) => {
+      if ((e.target as Element).closest("[data-inline-library],[data-result-pill],[data-result-label-add]")) return;
       if (e.button !== 1) return;
       const row = (e.target as HTMLElement).closest("[data-image-id]");
       if (!row) return;
@@ -1107,8 +1118,10 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
   // Both gestures are suppressed in selection mode (shift = range-select; alt suppressed for consistency).
   const handleCellClick = useCallback(
     (columnId: string, image: Image, e: React.MouseEvent) => {
-      if (!e.shiftKey && !e.altKey) return;
+      const resultPill = (e.target as Element).closest("[data-result-pill]");
+      if (!resultPill && !e.shiftKey && !e.altKey) return;
       if (selectionEnabled && useSelectionStore.getState().selectedIds.size > 0) return;
+      if (resultPill) e.stopPropagation();
 
       // Check for per-sub-field CQL key on the click target (e.g. Location column)
       const target = e.target as HTMLElement;
@@ -1128,7 +1141,7 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
       if (!cqlKey || !rawValue || rawValue === "—") return;
 
       const currentQuery = searchParamsRef.current.query ?? "";
-      const newQuery = upsertFieldTerm(currentQuery, cqlKey, rawValue, e.altKey);
+      const newQuery = upsertFieldTerm(resultPill && !e.shiftKey && !e.altKey ? "" : currentQuery, cqlKey, rawValue, e.altKey);
 
       if (newQuery !== currentQuery) {
         // Cancel any pending debounce from the CQL editor's queryChange flow
@@ -1218,9 +1231,12 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
         ref={parentRef}
         role="region"
         aria-label="Image results table"
+        {...library.events}
+        data-label-editing={library.labelEditing || undefined}
         className={`${sectionLayout ? "@container/upload-results " : ""}flex-1 min-w-0 overflow-auto hide-scrollbar-y overscroll-y-contain`}
         data-selection-mode={inSelectionMode ? "true" : undefined}
       >
+      {library.entry}
       {/* (C) CSS-variable column widths — a single <style> tag sets
           --col-<id> for every visible column.  Header and body cells
           reference these variables, so width changes during resize
@@ -1443,6 +1459,8 @@ export function ImageTable({ handleRange }: ImageTableProps = {}) {
             tag above without any React involvement.  Rows and virtualItems
             are cached in refs during resize so props stay stable. */}
         <TableBody
+          inlineLibrary={library.enabled}
+          pendingLibrary={library.pending}
           columns={visibleColumns}
           virtualItems={cachedVirtualItemsRef.current}
           rows={cachedRowsRef.current}

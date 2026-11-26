@@ -11,7 +11,8 @@ import { afterDetailsDeparture, hasChangedDetails } from "./details-departure";
  */
 
 import type { ClickEffect } from "./interpretClick";
-import { useSelectionStore } from "@/stores/selection-store";
+import { refuseSelectionOverflow, useSelectionStore } from "@/stores/selection-store";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 
 /** The `add-range` effect shape, extracted for use by useRangeSelection. */
@@ -51,6 +52,8 @@ export function dispatchClickEffects(
 }
 
 function applyEffects(effects: ClickEffect[], ctx: EffectDispatchContext) {
+  const { selectedIds } = useSelectionStore.getState();
+  if (selectedIds.size >= SELECTION_CAP && effects.some(effect => effect.op === "toggle" && !selectedIds.has(effect.id))) { refuseSelectionOverflow(); return; }
   for (const effect of effects) {
     switch (effect.op) {
       case "set-focus":
@@ -66,7 +69,7 @@ function applyEffects(effects: ClickEffect[], ctx: EffectDispatchContext) {
         break;
 
       case "toggle":
-        useSelectionStore.getState().toggle(effect.id);
+        if (useSelectionStore.getState().toggle(effect.id) === false) return;
         break;
 
       case "set-anchor":

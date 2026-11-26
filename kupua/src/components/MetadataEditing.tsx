@@ -5,11 +5,12 @@ import { metadataEditorStore, metadataIntent, metadataSaveStatus, type MetadataS
 import { addToast } from "@/stores/toast-store";
 import { FIELDS_BY_ID } from "@/lib/field-registry";
 import { labelTargetKey } from "@/stores/label-editor-store";
-import { useSelectionStore } from "@/stores/selection-store";
+import { refuseSelectionOverflow, useSelectionStore } from "@/stores/selection-store";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { useSearchStore } from "@/stores/search-store";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { useShallow } from "zustand/react/shallow";
-import { editIssue, EditIssueDisclosure, type EditIssue } from "./EditIssueDisclosure";
+import { createLabelIssueIndex, editIssue, EditIssueDisclosure, type EditIssue } from "./EditIssueDisclosure";
 import type { LabelReceipt } from "@/lib/label-operation";
 import type { LeaseChange } from "@/lib/lease-change";
 import { ProgressGlyph } from "./ProgressGlyph";
@@ -52,7 +53,7 @@ export function useSubmittedField(onConfirmed: () => void, retainedId?: number) 
     : save.items.some(item => item.state === "partial") && !save.items.some(item => item.state === "unknown") ? "Partially saved"
     : save.items.every(item => editIssue(item.imageId, "", item).notSaved) ? "Not saved" : "Not confirmed";
   useEffect(() => { if (confirmed) { track(undefined); onConfirmed(); } }, [confirmed, onConfirmed]);
-  const reload = !!save && save.items.some(item => editIssue(item.imageId, "", item).reload);
+  const reload = !!save && (save.settled?.reload || save.items.some(item => editIssue(item.imageId, "", item).reload));
   return { track, state, reload, locked: state === "Saving…" || state === "Not confirmed" || reload };
 }
 export function FieldSaveNote({ state, label = "changes" }: { state?: FieldSaveState; label?: string }) {
@@ -157,7 +158,7 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
   const showBusy = useDelayedBusy(save && save.state !== "finished" ? save.id : undefined);
   const showSourceBusy = useDelayedBusy(source?.state === "Saving…" ? source.id : undefined);
   if (!batch || !store.getState().connected) return source ? <div className="metadata-batch-tool"><FieldSignal key={source.id} label={label} state={source.state} detail={source.detail} onDismiss={source.dismiss}/></div> : null;
-  const peerCount = batch.ids.length - Number(batch.ids.includes(imageId));
+  const peerCount = batch.ids.length - 1;
   const candidate = metadataIntent(fieldId, "overwrite", value, batch.ids);
   const valid = Boolean(candidate && !(candidate.fieldId === "metadata_subjects" && candidate.action === "add" && Array.isArray(candidate.value) && !candidate.value.length && !removed?.length));
   const busy = !!save && save.state !== "finished";
@@ -219,11 +220,12 @@ export function MetadataBatchArrow({ imageId, fieldId, label, value, disabled, h
 export function useMetadataCommit(form = false, panelTargetKey?: string) {
   const store = useContext(MetadataEditorContext);
   const batch = useContext(FormBatchContext);
-  return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[] }, returnFocus?: HTMLElement | null, origin?: "details-scalar") => {
+  return (input: { fieldId: string; action: string; value: string | string[] | Record<string, string | undefined> | LeaseChange; removed?: string[]; targetIds: readonly string[]; panelTargetKey?: string }, returnFocus?: HTMLElement | null, origin?: "details-scalar") => {
+    if (!form && input.targetIds.length > SELECTION_CAP) { refuseSelectionOverflow(); return; }
     const intent = metadataIntent(input.fieldId, input.action, input.value, input.targetIds, input.removed);
     const source = form && batch && input.targetIds.length === 1 && ["labels", "people", "keywords", "subjects"].includes(input.fieldId) ? JSON.stringify([batch.key, input.targetIds[0], input.fieldId]) : undefined;
-    const id = intent ? store.getState().submit(intent, false, source, origin) : undefined;
-    if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: panelTargetKey ?? labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
+    const id = intent ? store.getState().submit(intent, false, source, origin ?? "user") : undefined;
+    if (!form && id !== undefined && !store.getState().panelSaves.some(item => item.id === id)) store.setState(state => ({ panelSaves: [{ id, targetKey: input.panelTargetKey ?? panelTargetKey ?? labelTargetKey(input.targetIds), returnFocus: returnFocus ? new WeakRef(returnFocus) : undefined }, ...state.panelSaves] }));
     return id === undefined ? undefined : store.getState().saves.get(id);
   };
 }
@@ -279,13 +281,28 @@ const noLabels: readonly LabelReceipt[] = [];
 export function SelectionSaveIndicator({ targetKey, compact = false, below = true, detailImageId, desktopCount, renderSlot = status => status, labelTotal = 0, labelConfirmed = 0, labelCount = 0, finishedLabels = noLabels }: { targetKey: string; compact?: boolean; below?: boolean; detailImageId?: string; desktopCount?: number; renderSlot?: (status: React.ReactElement | null) => React.ReactNode; labelTotal?: number; labelConfirmed?: number; labelCount?: number; finishedLabels?: readonly LabelReceipt[] }) {
   const editor = useContext(MetadataEditorContext);
   const [inspection, setInspection] = useState(0);
+  const includesDetail = useMemo(() => {
+    const known = new WeakMap<readonly string[], boolean>();
+    return (ids: readonly string[]) => {
+      const cached = known.get(ids);
+      if (cached !== undefined) return cached;
+      const included = ids.includes(detailImageId!);
+      known.set(ids, included);
+      return included;
+    };
+  }, [detailImageId]);
   const [saveId, metadataTotal, metadataConfirmed, metadataCount] = useStore(editor, useShallow(state => {
     let id = 0, total = 0, confirmed = 0, count = 0;
     for (let index = state.panelSaves.length - 1; index >= 0; index--) {
       const entry = state.panelSaves[index];
       const save = state.saves.get(entry.id);
-      if (!save || save.state === "finished" || detailImageId && !save.intent.targetIds.includes(detailImageId)) continue;
+      if (!save || save.state === "finished") continue;
+      if (detailImageId) {
+        if (includesDetail(save.intent.targetIds)) return [entry.id, save.intent.targetIds.length, 0, 1] as const;
+        continue;
+      }
       id = entry.id; count++; total += save.intent.targetIds.length;
+      confirmed += save.settled?.confirmed ?? 0;
       for (const item of save.items) if (item.observation === "observed" && (item.state === "accepted-awaiting-visibility" || item.state === "unchanged")) confirmed++;
     }
     return [id, total, confirmed, count] as const;
@@ -301,17 +318,30 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
   })));
   const details = useMemo(() => {
     const fields = new Map<string, Map<string, EditIssue>>();
+    const labelIssues = createLabelIssueIndex();
     for (const save of [...[...finished].reverse(), ...finishedLabels].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))) {
       const intent = save.intent;
       const fieldId = "fieldId" in intent ? intent.fieldId : "labels";
       const value = "value" in intent ? intent.value : intent.label;
-      const keys = fieldId === "location" ? Object.keys(value).map(component => `location:${component}`)
-        : [JSON.stringify([fieldId, ...(intent.action === "add" || intent.action === "remove" ? [value] : intent.action === "prepend" || intent.action === "append" ? [intent.action, value] : [])])];
       const message = "id" in save ? save.message : undefined;
       const items = new Map(save.items.map(item => [item.imageId, item]));
+      if (fieldId === "labels" && (intent.action === "add" || intent.action === "remove")) {
+        const labels = "label" in intent ? [intent.label, ...intent.additionalLabels ?? []] : typeof value === "string" ? [value] : Array.isArray(value) ? value : [];
+        const updates = new Map<string, EditIssue | null>();
+        for (const id of save.intent.targetIds) {
+          if (detailImageId && id !== detailImageId) continue;
+          const item = items.get(id);
+          if (item?.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")) updates.set(id, null);
+          else if (!inspectedPanelIssues.has(save) && !(message?.startsWith("Stopped") && (!item || item.state === "stopped"))) updates.set(id, editIssue(id, "Labels", item, !message || message.startsWith("Not sent")));
+        }
+        labelIssues.apply(labels, updates);
+        continue;
+      }
+      const keys = fieldId === "location" ? Object.keys(value).map(component => `location:${component}`)
+        : [JSON.stringify([fieldId, ...(intent.action === "add" || intent.action === "remove" ? [value] : intent.action === "prepend" || intent.action === "append" ? [intent.action, value] : [])])];
       for (const key of keys) {
         const affected = fields.get(key) ?? new Map<string, EditIssue>();
-        const field = fieldId === "location" ? "Location" : fieldId === "metadata_byline" ? "Byline" : FIELDS_BY_ID.get(pillDisplayField(fieldId))?.label ?? "Metadata";
+        const field = fieldId === "archived" ? "Library" : fieldId === "location" ? "Location" : fieldId === "metadata_byline" ? "Byline" : FIELDS_BY_ID.get(pillDisplayField(fieldId))?.label ?? "Metadata";
         for (const id of save.intent.targetIds) {
           if (detailImageId && id !== detailImageId) continue;
           const item = items.get(id);
@@ -328,7 +358,7 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
         fields.set(key, affected);
       }
     }
-    return [...fields.values()].flatMap(items => [...items.values()]);
+    return [...[...fields.values()].flatMap(items => [...items.values()]), ...labelIssues.details()];
   }, [finished, finishedLabels, inspection, detailImageId]);
   const issues = useMemo(() => [...new Set(details.map(issue => issue.imageId))], [details]);
   const operationKey = busy ? "saving" : undefined;
@@ -346,8 +376,9 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
       const selection = useSelectionStore.getState();
       if (labelTargetKey([...selection.selectedIds]) !== targetKey) return;
       const subset = new Set(issues);
-      selection.add(issues.filter(id => !selection.selectedIds.has(id)));
+      if (issues.length > SELECTION_CAP) { refuseSelectionOverflow(); return; }
       selection.remove([...selection.selectedIds].filter(id => !subset.has(id)));
+      selection.add(issues.filter(id => !selection.selectedIds.has(id)));
       const search = useSearchStore.getState();
       const first = issues.reduce((leading, id) => (search.imagePositions.get(id) ?? Infinity) < (search.imagePositions.get(leading) ?? Infinity) ? id : leading);
       const position = search.imagePositions.get(first);
@@ -372,7 +403,7 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
   </span>);
   const fieldId = metadataTotal ? editor.getState().saves.get(saveId)?.intent.fieldId : "labels";
   const field = fieldId && pillDisplayField(fieldId);
-  const updating = metadataCount + labelCount > 1 ? `${metadataCount + labelCount} saves: ` : `Updating ${FIELDS_BY_ID.get(field ?? "")?.label ?? "selection"}: `;
+  const updating = metadataCount + labelCount > 1 ? `${metadataCount + labelCount} saves: ` : `Updating ${fieldId === "archived" ? "Library" : FIELDS_BY_ID.get(field ?? "")?.label ?? "selection"}: `;
   if (!compact) return renderSlot(<span role="progressbar" aria-label="Updating selected images" title={`${updating}${progressText}`}
     aria-valuemin={0} aria-valuemax={total} aria-valuenow={confirmed} aria-valuetext={progressText}
     className="isolate relative inline-flex self-stretch shrink-0 items-center gap-1.5 px-2 overflow-hidden text-white whitespace-nowrap tabular-nums @min-[800px]:w-[184px]">

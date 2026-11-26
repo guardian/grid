@@ -48,6 +48,7 @@ import { UsagesSection, MultiUsagesSummary } from "@/components/UsagesSection";
 import { FullscreenPreview } from "@/components/FullscreenPreview";
 import { getDisplayEnd, useSearchStore } from "@/stores/search-store";
 import { useSelectionStore, useSelectionMetadataRevision } from "@/stores/selection-store";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { usePanelStore } from "@/stores/panel-store";
 import { useEffectiveFocusMode, useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useZoomStore } from "@/stores/zoom-store";
@@ -545,6 +546,7 @@ function currentPanelLabelEditing(): MetadataEditContext {
   const search = useSearchStore.getState();
   const overlays = useEnrichmentStore.getState().data;
   const targetIds = selection.selectedIds.size ? [...selection.selectedIds] : search.focusedImageId ? [search.focusedImageId] : [];
+  if (targetIds.length > SELECTION_CAP) return { targetIds, targets: new Map(), pending: true };
   const targets = new Map(targetIds.map(imageId => {
     const ordinal = search.imagePositions.get(imageId);
     const image = selection.metadataCache.get(imageId) ?? (ordinal === undefined ? undefined : search.results[ordinal - search.bufferOffset]);
@@ -561,6 +563,8 @@ function FocusedImageMetadata() {
   useEnrichmentStore(state => state.data);
   const labelEditing = currentPanelLabelEditing();
   labelEditing.pending ||= isPending;
+
+  if (labelEditing.targetIds.length > SELECTION_CAP) return <p role="status" className="p-3 text-sm">Reduce your selection to {SELECTION_CAP.toLocaleString()} images or clear it before editing.</p>;
 
   if (!isMultiSelection && image?.__availability) return (
     <div role="status" className="px-3 py-4 text-xs text-grid-text-muted">

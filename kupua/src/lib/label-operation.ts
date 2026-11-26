@@ -1,9 +1,11 @@
 import type { GridCommandResult, LabelCommand } from "./grid-commands";
 import { createMetadataEditExecution, type MetadataEditReceipt, type MetadataEditObservation } from "./metadata-edit-execution";
+import { containsAllPillValues } from "./metadata-pill-fields";
 
 export interface LabelIntent {
   action: "add" | "remove";
   label: string;
+  additionalLabels?: readonly string[];
   targetIds: readonly string[];
 }
 
@@ -26,11 +28,12 @@ export function createLabelOperation(
     unsupported: intent => intent.action === "remove" && intent.targetIds.length !== 1,
     command: (intent, imageId, resource) => ({
       ...(intent.action === "remove" ? { operation: "remove-label" as const, label: intent.label }
-        : { operation: "add-labels" as const, labels: [intent.label] }), imageId, resource,
+        : { operation: "add-labels" as const, labels: [intent.label, ...intent.additionalLabels ?? []] }), imageId, resource,
     }),
     matches: (image, intent) => {
       const labels = image.userMetadata?.labels;
-      return Array.isArray(labels) && (intent.action === "remove" ? !labels.includes(intent.label) : labels.includes(intent.label));
+      return Array.isArray(labels) && (intent.action === "remove" ? !labels.includes(intent.label) : intent.additionalLabels?.length
+        ? containsAllPillValues(labels, [intent.label, ...intent.additionalLabels]) : labels.includes(intent.label));
     },
   }, simulate, observation, mode, execution);
 }

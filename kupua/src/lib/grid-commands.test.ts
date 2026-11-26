@@ -22,6 +22,20 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("preserves a literal catalog label when completing the middle of a comma list", async () => {
+    const { labelEntryToken, replaceLabelToken, parseLabelEntry } = await import("./grid-mutation-policy");
+    const input = "Sport, Pa, Finals, Sport";
+    const token = labelEntryToken(input, 9);
+    expect(token.prefix).toBe("Pa");
+    const chosen = replaceLabelToken(input, token, "Paris, France");
+    expect(parseLabelEntry(chosen.value)).toEqual(["Sport", "Paris, France", "Finals"]);
+    expect(labelEntryToken(chosen.value, chosen.caret).prefix).toBe("Paris, France");
+  });
+  it("admits only the archive flag PUT on the image's exact metadata path", async () => {
+    const { isArchiveRequest } = await import("./grid-mutation-policy");
+    expect(isArchiveRequest("PUT", "/metadata/fixture/archived")).toBe(true);
+    for (const [method, path] of [["DELETE", "/metadata/fixture/archived"], ["PUT", "/metadata/fixture/archived?extra"], ["PUT", "/metadata/%2e%2e/archived"], ["PUT", "/metadata/fixture/archived/child"]]) expect(isArchiveRequest(method, path)).toBe(false);
+  });
   it("admits collection pills and additive or empty-source batch copies", async () => {
     const { metadataIntent } = await import("../stores/metadata-editor-store");
     const targets = ["first", "second"];
@@ -108,6 +122,35 @@ describe("Grid command admission", () => {
     uri = metadataOrigin + "/metadata/another/photoshoot";
     expect((await save("Desk")).outcome).toBe("blocked");
     expect(writes).toEqual([["/grid-metadata" + path, "PUT", JSON.stringify({ data: { title: "Desk" } })], ["/grid-metadata" + path, "DELETE", undefined]]);
+  });
+  it("sets the explicit Library flag only with matching root and fresh image resources", async () => {
+    const path = "/metadata/fixture/archived";
+    let uri = metadataOrigin + path, archived = false;
+    const writes: unknown[] = [];
+    let loseResponse = false;
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (url === "/api") return Response.json({ links: [...(await root().json()).links, { rel: "archive", href: metadataOrigin + "/metadata/{id}/archived" }] });
+      if (url === "/grid-auth/session") return session();
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture", userMetadata: { data: { archived: { uri, data: archived } } } } });
+      writes.push([url, init?.method, init?.body]); archived = JSON.parse(String(init?.body)).data;
+      if (loseResponse) throw new TypeError("Connection closed");
+      return Response.json({ data: archived });
+    });
+    const { executeGridCommand } = await import("./grid-commands");
+    const save = (value: boolean) => executeGridCommand({ operation: "set-archive", imageId: "fixture", value });
+    expect((await save(true)).outcome).toBe("acknowledged");
+    expect((await save(true)).outcome).toBe("acknowledged");
+    uri = metadataOrigin + "/metadata/another/archived";
+    expect((await save(false)).outcome).toBe("blocked");
+    uri = metadataOrigin + path;
+    expect((await save(false)).outcome).toBe("acknowledged");
+    loseResponse = true;
+    expect((await save(true)).outcome).toBe("unknown");
+    expect(writes).toEqual([true, true, false, true].map(data => ["/grid-metadata" + path, "PUT", JSON.stringify({ data })]));
+    vi.resetModules();
+    vi.stubGlobal("fetch", async (url: string) => url === "/api" ? root() : session());
+    const withoutArchive = await import("./grid-commands");
+    expect(await withoutArchive.executeGridCommand({ operation: "set-archive", imageId: "fixture", value: false })).toEqual({ outcome: "blocked", reason: "unavailable" });
   });
   it("refuses label additions that cannot be addressed as members", async () => {
     const fetch = vi.fn();

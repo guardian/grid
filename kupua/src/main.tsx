@@ -11,7 +11,7 @@ import { useCollectionStore } from "./stores/collection-store";
 import { loadUsageRightsCatalogue } from "./lib/usage-rights-catalogue";
 import { useSearchStore } from "./stores/search-store";
 import { createLabelEditorStore, labelEditorStore } from "./stores/label-editor-store";
-import { createMetadataEditorStore, metadataSaveStatus } from "./stores/metadata-editor-store";
+import { createMetadataEditorStore, reportUploadFollowups } from "./stores/metadata-editor-store";
 import { MetadataEditorContext } from "./components/MetadataEditing";
 import { configureUploadFollowups } from "./stores/upload-jobs-store";
 import { LabelEditorContext } from "./components/LabelEditor";
@@ -92,18 +92,7 @@ if (gridLabelEditingEnabled()) configureUploadFollowups((imageId, filename, labe
     operations.push({ label: "Filename description", id: state.submit({ fieldId: "metadata_description", action: "if-empty", value: description, targetIds: [imageId] }) });
   }
   operations.push(...labels.map(label => ({ label: `Preset label: ${label}`, id: state.submit({ fieldId: "labels", action: "add", value: label, targetIds: [imageId] }) })));
-  const publish = () => {
-    report(operations.map(operation => {
-      const save = operation.id === undefined ? undefined : metadataEditor.getState().saves.get(operation.id);
-      return { label: operation.label, summary: save ? metadataSaveStatus(save) : "Not sent",
-        pending: Boolean(save && save.state !== "finished"), attention: !save || save.state === "finished"
-          && (Boolean(save.message) || save.excluded > 0 || save.items.some(item => item.state === "unknown" || item.observation !== "observed")) };
-    }));
-    return operations.every(operation => operation.id === undefined || metadataEditor.getState().saves.get(operation.id)?.state === "finished");
-  };
-  if (!publish()) {
-    const unsubscribe = metadataEditor.subscribe(() => { if (publish()) unsubscribe(); });
-  }
+  reportUploadFollowups(metadataEditor, operations, report);
 });
 
 createRoot(document.getElementById("root")!).render(

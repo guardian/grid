@@ -58,10 +58,10 @@ raw-envelope cache is introduced. An optional singleton URI is never manufacture
 `ui:image`. The `crops` relation is a list, not the crop-creation endpoint. Capability
 absence is not permission to construct a write URL, and capabilities do not enable writes.
 
-The selection/detail action UI prepares disconnected Share, full-frame, Download, Delete
-and Library descriptions only. Retaining a download link neither fetches its file nor
-records usage. These descriptions do not extend `executeGridCommand`, its supported
-operation names, or the existing proxy guards; Labels remains the only connected family.
+Share, full-frame, Download and Delete still prepare disconnected descriptions in the
+selection/detail toolbar. Retaining a download link neither fetches its file nor records
+usage. Library can set the explicit archive flag when editing is enabled and the root
+and per-image archive resources agree. Other retention reasons are independent of that flag.
 
 ## Discovery and transport
 
@@ -355,9 +355,10 @@ add/remove intent and all target IDs, distinguishing unavailable capabilities fr
 explicit absence. Startup supplies the production executor and existing readback owner
 only when API mode and the startup preference permit editing. Otherwise the editor
 remains disconnected. Connected addition and removal share the common batch policy
-below without a separate bulk opt-in. Supplied-executor comma-separated input remains
-refused before dispatch. Unpaced simulated multi-add remains available to existing fixtures;
-connected fixtures select the same paced path as the application.
+below without a separate bulk opt-in. Connected comma-separated additions capture the distinct
+labels in one intent and send one array per eligible captured image. Observation requires all
+submitted labels. A chosen catalog value containing a comma is a single literal label.
+Disconnected previews and single-label simulated executors retain their existing fixture scope.
 Receipts distinguish submitted, accepted-awaiting-visibility,
 rejected, unknown and blocked/not-started; only matching explicit canonical evidence
 can establish observed state. [LabelEditor](../../components/LabelEditor.tsx) and
@@ -490,8 +491,10 @@ recovery path, not mutation replay, a background polling loop or a global search
 U5 metadata uses this same startup queue and operation lifecycle. Complete captured
 actions reserve freshness capacity before dispatch, then use groups of at most 100,
 each with the existing dispatch/readback deadlines. Reference-counted reservations
-prevent cancellation by one queued owner from releasing another's budget. Labels'
-100-target action limit is unchanged; it is not imposed on metadata propagation.
+prevent cancellation by one queued owner from releasing another's budget. The group
+size is not an action limit for Labels, ordinary metadata, Library or Photoshoot.
+Library and Photoshoot keep each group's observation within the execution turn;
+Photoshoot writes remain serial. A failed preflight never silently narrows the group.
 The 10,000-distinct-image session budget refuses an action before writing when it
 cannot fit, without evicting existing stale-read protection. This is a prototype
 memory bound, not measured server capacity. Local speed evidence does not authorize shared rollout.

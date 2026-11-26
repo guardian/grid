@@ -32,6 +32,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
   ] : [])];
   const presetLabels = new Map<string, string[]>();
   const photoshoots = new Map<string, { title: string }>();
+  const archivedUploads = new Set<string>();
   let shootWrites = 0;
   const shootResource = (id: string) => ({ uri: `https://metadata.example.test/metadata/${id}/photoshoot`, data: photoshoots.get(id) });
   const metadataWrites: { id: string; method: string; data: unknown }[] = [];
@@ -137,12 +138,13 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
     const file = uploaded.get(id);
     const originalMetadata = { description: embeddedDescriptions.get(file?.name ?? "") ?? "", credit: "Fixture", city: "London" };
     return { ...resource, uri: `/api/images/${id}`, actions: imageActions(id), data: { ...resource.data, id, leases: { data: { leases: leases.get(id) ?? [] } },
-      ...(uploadEdits ? { originalMetadata, collections: projectedCollections(id),
+      ...(uploadEdits ? { originalMetadata, collections: projectedCollections(id), persisted: { value: archivedUploads.has(id), reasons: archivedUploads.has(id) ? ["archived"] : [] },
         usageRights: rightsOverrides.get(id) ?? {},
         ...(rightsOverrides.get(id)?.category === "pay-to-use" && { cost: "pay", valid: leases.get(id)?.some(item => item.access === "allow-use") ?? false, invalidReasons: { paid_image: "Fixture paid-image notice" } }),
         metadata: { ...originalMetadata, ...metadataOverrides.get(id) },
         userMetadata: { data: { ...resource.data.userMetadata.data,
           photoshoot: shootResource(id),
+          archived: { uri: `https://metadata.example.test/metadata/${id}/archived`, data: archivedUploads.has(id) },
           usageRights: { data: rightsOverrides.get(id) }, metadata: { data: metadataOverrides.get(id) },
           lastModified: metadataOverrides.has(id) || presetLabels.has(id) ? metadataVersion() : undefined,
           labels: { data: (presetLabels.get(id) ?? []).map(data => ({ data })) } } } } : {}),
@@ -229,7 +231,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               { value: "", name: "Unknown Rights", description: "No known rights", caution: "You cannot use this image in content!", properties: [] }] })); return;
         }
         if (upload && uploadEdits && pathname.startsWith("/grid-metadata/metadata/")) {
-          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/photoshoot|\/metadata|\/labels(?:\/([^/]+))?)?$/.exec(pathname);
+          const match = /^\/grid-metadata\/metadata\/([a-zA-Z0-9_-]+)(\/metadata\/set-from-usage-rights|\/usage-rights|\/photoshoot|\/archived|\/metadata|\/labels(?:\/([^/]+))?)?$/.exec(pathname);
           response.setHeader("Content-Type", "application/json");
           if (!match || !known(match[1]) && !uploaded.has(match[1])) { response.statusCode = 404; response.end("{}"); return; }
           const id = match[1];
@@ -252,7 +254,10 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
             shootWrites++;
             response.statusCode = request.method === "PUT" ? 200 : 202; response.end(JSON.stringify({ data: body.data })); return;
           }
-          if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
+          if (match[2] === "/archived" && request.method === "PUT" && typeof body.data === "boolean") {
+            if (body.data) archivedUploads.add(id); else archivedUploads.delete(id);
+          }
+          else if (match[2] === "/metadata" && request.method === "PUT") metadataOverrides.set(id, body.data);
           else if (match[2] === "/usage-rights" && request.method === "PUT") rightsOverrides.set(id, body.data);
           else if (match[2] === "/metadata/set-from-usage-rights" && request.method === "POST") {
             const rights = rightsOverrides.get(id)!;
@@ -278,7 +283,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               const chunks: Buffer[] = [];
               for await (const chunk of request) chunks.push(Buffer.from(chunk));
               const body = JSON.parse(Buffer.concat(chunks).toString());
-              if (body.reset) { rightsOverrides.clear(); leases.clear(); collections.clear(); collectionWrites.length = 0; }
+              if (body.reset) { rightsOverrides.clear(); leases.clear(); collections.clear(); archivedUploads.clear(); collectionWrites.length = 0; }
               if (body.reset) { uploadWrites = 0; uploadStatusReads = 0; uploadVisibilityReads = 0; uploadStatus = "QUEUED"; uploadVisible = false; uploadSearchable = false; uploadIdentityAvailable = true; uploadPermission = true; multipleUploads = false; uploadLimit = undefined; uploaded.clear(); embeddedDescriptions.clear(); uploadEdits = false; metadataOverrides.clear(); presetLabels.clear(); photoshoots.clear(); shootWrites = 0; metadataWrites.length = 0; metadataReads.clear(); }
               if (typeof body.embeddedDescription?.filename === "string" && typeof body.embeddedDescription?.value === "string") {
                 embeddedDescriptions.set(body.embeddedDescription.filename, body.embeddedDescription.value);
@@ -299,7 +304,7 @@ export function gridMutationPlugin(publication: boolean | "readback" | "continua
               ...(uploadEdits ? { collectionWrites, metadataWrites, metadataReads: Object.fromEntries(metadataReads), metadata: Object.fromEntries(metadataOverrides), labels: Object.fromEntries(presetLabels) } : {}) });
           }
           if (pathname === "/api" || pathname === "/api/") return send({ links: [
-            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }, { rel: "leases", href: leaseOrigin }, { rel: "collections", href: collectionOrigin }] : []),
+            ...(uploadEdits ? [{ rel: "edits", href: "https://metadata.example.test" }, { rel: "archive", href: "https://metadata.example.test/metadata/{id}/archived" }, { rel: "leases", href: leaseOrigin }, { rel: "collections", href: collectionOrigin }] : []),
             ...(upload ? [{ rel: "loader", href: "https://loader.example.test" }] : []), { rel: "session", href: "https://auth.example.test/session" },
           ] });
           if (pathname === "/grid-auth/session") return send({ data: { user: { permissions: { canUpload: uploadPermission },

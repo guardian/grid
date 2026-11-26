@@ -566,7 +566,55 @@ test.describe("U3 isolated uploads", () => {
     await expect(status.getByRole("button", { name: "Unusable" })).toHaveAttribute("title", "Fixture paid-image notice");
     await expect(status.getByRole("button", { name: "Unusable" }).locator("svg")).toHaveAttribute("fill", "white");
     expect((await status.boundingBox())!.height).toBeLessThanOrEqual(24);
-    await expect(status.getByRole("button", { name: /Library/ })).toBeVisible();
+    const archivePath = "**/grid-metadata/metadata/*/archived";
+    const addToLibrary = status.getByRole("button", { name: "Add to Library" });
+    await expect(addToLibrary.locator('[data-library-icon="add"]')).toBeVisible();
+    const stripGeometry = () => status.evaluate(element => Array.from(element.children, child => {
+      const { x, width, height } = child.getBoundingClientRect();
+      return [x, width, height];
+    }));
+    const beforeLibrarySave = await stripGeometry();
+    let releaseArchive!: () => void;
+    const archiveHeld = new Promise<void>(done => { releaseArchive = done; });
+    await page.route(archivePath, async route => { await archiveHeld; await route.continue(); }, { times: 1 });
+    try {
+      await Promise.all([page.waitForRequest(archivePath), addToLibrary.click()]);
+      await expect(addToLibrary).toBeDisabled();
+      await expect(addToLibrary.locator('[data-library-icon="add"]')).toBeVisible();
+      expect(await stripGeometry()).toEqual(beforeLibrarySave);
+    } finally { releaseArchive(); }
+    const removeFromLibrary = status.getByRole("button", { name: "Remove from Library" });
+    await expect(removeFromLibrary).toBeEnabled();
+    expect(await stripGeometry()).toEqual(beforeLibrarySave);
+    const freeStatus = form.getByRole("group", { name: "Image status" }).filter({ hasText: "Free to use" }).first();
+    for (const label of [freeStatus.getByTitle("Free to use", { exact: true }), freeStatus.getByRole("button", { name: "View image" })]) {
+      await expect(label).toHaveCSS("background-color", "rgb(0, 128, 0)");
+      await expect(label).toHaveCSS("font-size", "14px");
+      await expect(label).toHaveCSS("font-weight", "400");
+    }
+    await status.getByRole("button", { name: "Unusable" }).hover();
+    const addedIcon = removeFromLibrary.locator('[data-library-icon="added"]');
+    const removeIcon = removeFromLibrary.locator('[data-library-icon="remove"]');
+    await expect(addedIcon).toBeVisible();
+    await expect(removeIcon).toBeHidden();
+    await removeFromLibrary.hover();
+    await expect(removeIcon).toBeVisible();
+    await expect(addedIcon).toBeHidden();
+    await status.getByRole("button", { name: "Unusable" }).hover();
+    await status.getByRole("button", { name: "Unusable" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(removeFromLibrary).toBeFocused();
+    await expect(removeIcon).toBeVisible();
+    const archiveRequests: string[] = [];
+    await page.route(archivePath, route => {
+      archiveRequests.push(`${route.request().method()} ${new URL(route.request().url()).pathname}`);
+      return route.fulfill({ status: 403, json: {} });
+    });
+    try {
+      await removeFromLibrary.click();
+      await expect(status.getByText("Not saved", { exact: true })).toBeVisible();
+      expect(archiveRequests).toEqual([`PUT /grid-metadata/metadata/${ids[0]}/archived`]);
+    } finally { await page.unroute(archivePath); }
     await expect(first.getByText("Fixture paid-image notice", { exact: true })).toHaveCount(0);
     await status.getByRole("button", { name: "Unusable" }).click();
     await expect(page.locator(`[data-detail-image-id="${ids[0]}"]`).getByText("Fixture paid-image notice", { exact: true })).toBeVisible();
@@ -581,17 +629,17 @@ test.describe("U3 isolated uploads", () => {
     const peer = form.locator(`[data-measured-cell][data-image-id="${ids[1]}"]`);
     for (const [card, noun, value] of [[peer, "keyword", "Peer only"], [first, "keyword", "Source keyword"], [first, "label", "Batch label"]] as const) {
       await card.getByRole("button", { name: `Add ${noun}`, exact: true }).click();
-      await card.getByLabel(`New ${noun}`, { exact: true }).fill(value);
+      await card.getByLabel(`New ${noun}`, { exact: true }).fill(noun === "label" ? `${value}, Finals, ${value}` : value);
       await card.getByRole("button", { name: `Commit new ${noun}` }).click();
       await expect(card.getByRole("button", { name: `Remove ${value}`, exact: true })).toBeVisible();
     }
     await fieldArrow("labels").click();
-    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["submitted preset", "Batch label"]);
+    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["submitted preset", "Batch label", "Finals"]);
     await expect(fieldArrow("labels")).toHaveAttribute("title", /^Add labels to /);
     await first.getByRole("button", { name: "Remove submitted preset", exact: true }).click();
     await expect(fieldArrow("labels")).toHaveAttribute("title", /also removes “submitted preset”/);
     await fieldArrow("labels").click();
-    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["Batch label"]);
+    await expect.poll(async () => (await results()).labels[ids[1]]).toEqual(["Batch label", "Finals"]);
     const peerMetadata = async () => (await (await page.request.get(`${origin}/api/images/${ids[1]}`)).json()).data.metadata;
     await fieldArrow("keywords").click();
     await expect.poll(async () => (await peerMetadata()).keywords).toEqual(["Peer only", "Source keyword"]);
@@ -619,6 +667,8 @@ test.describe("U3 isolated uploads", () => {
     await expect(fieldArrow("subjects")).toHaveAttribute("title", /also removes “news”/);
     await fieldArrow("subjects").click();
     await expect.poll(async () => (await peerMetadata()).subjects).toEqual(["sport"]);
+    await first.getByRole("button", { name: "Remove Finals", exact: true }).click();
+    await expect(first.getByRole("button", { name: "Remove Finals", exact: true })).toHaveCount(0);
     for (const [field, value, property] of [["keywords", "Football", "keywords"], ["people", "Illustrator, Jr.", "peopleInImage"], ["labels", "Batch label", "labels"], ["subjects", "sport", "subjects"]]) {
       await first.getByRole("button", { name: `Remove ${value}`, exact: true }).click();
       await expect(fieldArrow(field)).toHaveAttribute("title", /^Clear /);
@@ -2426,7 +2476,10 @@ test.describe("Unit B isolated continuation", () => {
         entity.actions = [{ name: "delete", method: "DELETE", href: `${origin}/api/images/${imageId}` }];
         entity.links.push({ rel: "crops", href: `${origin}/crops/${imageId}` },
           { rel: "download", href: `${origin}/api/images/${imageId}/download` });
-        entity.data.persisted = { value: false, reasons: [] };
+        const archived = imageId === "local-1";
+        const kept = imageId === "local-2";
+        entity.data.persisted = { value: archived || kept, reasons: archived ? ["archived"] : kept ? ["usage"] : [] };
+        entity.data.userMetadata.data.archived = { data: archived };
         entity.data.exports = imageId === "local-1" ? [{ specification: { type: "full" } }] : [];
       }
       await route.fulfill({ response, json: body });
@@ -2451,6 +2504,18 @@ test.describe("Unit B isolated continuation", () => {
     await actions.getByRole("button", { name: "Add to Library", exact: true }).click();
     await expect(page.getByText("Not sent - Add to Library", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds])).toEqual(["local-0", "local-1"]);
+    const libraryWidth = async (name: string) => {
+      const button = actions.getByRole("button", { name, exact: true });
+      await expect(button.locator(".image-action-full")).toBeVisible();
+      return (await button.boundingBox())!.width;
+    };
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    const addWidth = await libraryWidth("Add to Library");
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-2"]));
+    expect(await libraryWidth("Kept in Library")).toBeCloseTo(addWidth);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-1"]));
+    expect(await libraryWidth("Remove from Library")).toBeGreaterThan(addWidth);
+    await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
     await page.setViewportSize({ width: 320, height: 852 });
     await page.getByRole("button", { name: "More image actions", exact: true }).click();
     const overflow = page.locator("[data-image-action-popup]");
@@ -2472,6 +2537,19 @@ test.describe("Unit B isolated continuation", () => {
         await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
         await page.getByRole("button", { name: "2 selected — actions", exact: true }).click();
         const popup = page.getByRole("group", { name: "Selection actions", exact: true });
+        const checkAlignment = async (label: string) => {
+          const button = popup.getByRole("button", { name: label, exact: true });
+          const offset = await button.evaluate((el, text) => {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+            let node: Node | null;
+            while ((node = walker.nextNode()) && node.textContent !== text) {}
+            const range = document.createRange(); range.selectNodeContents(node!);
+            const line = range.getClientRects()[0], icon = el.querySelector("svg")!.getBoundingClientRect();
+            return Math.abs(icon.top + icon.height / 2 - line.top - line.height / 2);
+          }, label);
+          expect(offset).toBeLessThanOrEqual(2);
+        };
+        await checkAlignment("Add to Library");
         const box = (await popup.boundingBox())!;
         expect(box.x).toBeGreaterThanOrEqual(0);
         expect(box.y).toBeGreaterThanOrEqual(0);
@@ -2480,6 +2558,13 @@ test.describe("Unit B isolated continuation", () => {
         await popup.getByRole("button", { name: "Share with URL", exact: true }).click();
         await expect(popup).toHaveCount(0);
         await expect(page.getByRole("button", { name: "2 selected — actions", exact: true })).toBeFocused();
+        if (viewport.width === 393) {
+          await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-1"]));
+          await page.getByRole("button", { name: "1 selected — actions", exact: true }).click();
+          await checkAlignment("Remove from Library");
+          await popup.getByRole("button", { name: "Share with URL", exact: true }).click();
+          await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+        }
       }
     } finally { await touch.detach(); }
     expect((await counts(page)).fakeDispatches).toBe(0);
@@ -4177,13 +4262,16 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
   let metadataOrigin = "";
   let authOrigin = "";
   const labelsById = new Map(["fixture", "other", "queued"].map(imageId => [imageId, ["fixture label"]]));
+  const archivedIds = new Set(["other"]);
+  const crowdedLabels = Array.from({ length: 24 }, (_, index) => `${"LongEditorialLabel".repeat(5)} ${index}`);
   let version = 0;
   const imageEntity = (imageId: string) => ({
-    uri: `${origin}/images/${imageId}`, links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${imageId}` }], actions: [],
-    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", metadata: { keywords: ["untouched keyword"] },
+    uri: `${origin}/images/${imageId}`, links: [{ rel: "edits", href: `${metadataOrigin}/metadata/${imageId}` }, { rel: "download", href: `${origin}/images/${imageId}/download` }], actions: [],
+    data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", metadata: { keywords: ["untouched keyword"] }, persisted: { value: archivedIds.has(imageId), reasons: archivedIds.has(imageId) ? ["archived"] : [] },
+      collections: ["Front desk", "Back desk"].map(parent => ({ data: { path: [parent, "Finals"], pathId: `${parent.toLowerCase()}/finals` } })),
       source: { dimensions: { width: 800, height: 600 } },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + version * 1000).toISOString(),
-        labels: { data: labelsById.get(imageId)!.map(data => ({ data })) }, archived: { data: false },
+        labels: { data: labelsById.get(imageId)!.map(data => ({ data })) }, archived: { uri: `${metadataOrigin}/metadata/${imageId}/archived`, data: archivedIds.has(imageId) },
         metadata: {}, usageRights: {}, photoshoot: {} } } },
   });
   const upstream = createHttpServer(async (request, response) => {
@@ -4193,7 +4281,7 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
     const imageId = request.url?.match(/^\/(?:metadata|images)\/(fixture|other|queued)(?:\/|$)/)?.[1];
     const labels = labelsById.get(imageId ?? "") ?? [];
     response.setHeader("Content-Type", "application/json");
-    if (request.url === "/") response.end(JSON.stringify({ links: [{ rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/session` }] }));
+    if (request.url === "/") response.end(JSON.stringify({ links: [{ rel: "edits", href: metadataOrigin }, { rel: "archive", href: `${metadataOrigin}/metadata/{id}/archived` }, { rel: "session", href: `${authOrigin}/session` }] }));
     else if (request.url === "/session") response.end(JSON.stringify({ data: { user: { permissions: {} } } }));
     else if (request.url === "/images/search-after") response.end(JSON.stringify({ data: [imageEntity("fixture")], total: 1,
       sortValues: [[Date.UTC(2026, 0, 1), "fixture"]] }));
@@ -4204,6 +4292,9 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
     else if (imageId && request.url === `/metadata/${imageId}` && request.method === "GET") {
       response.end(JSON.stringify({ data: { labels: { uri: `${metadataOrigin}/metadata/${imageId}/labels`,
         data: labels.map(label => ({ uri: `${metadataOrigin}/metadata/${imageId}/labels/${new URLSearchParams({ label }).toString().slice(6)}`, data: label })) } } }));
+    } else if (imageId && request.url === `/metadata/${imageId}/archived` && request.method === "PUT") {
+      if (JSON.parse(body).data === true) archivedIds.add(imageId); else archivedIds.delete(imageId);
+      version++; response.end("{}");
     } else if (imageId && request.url === `/metadata/${imageId}/labels` && request.method === "POST") {
       labelsById.set(imageId, [...new Set([...labels, ...(JSON.parse(body).data as string[])])]);
       version++;
@@ -4310,6 +4401,174 @@ test(`local commands use ${fixedRoutes ? "direct TEST metadata and proxied local
       { method: "DELETE", path: "/metadata/fixture/labels/connected+fixture+label", body: "" },
     ]);
     expect(received.slice(beforeConnected).filter(request => request.path === "/images/mget")).toHaveLength(2);
+    if (!fixedRoutes) {
+      await page.setViewportSize({ width: 1920, height: 900 });
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select(["fixture", "other"]));
+      const cell = page.getByRole("region", { name: "Image results grid" }).locator('[data-cell-id="fixture"]');
+      const before = await cell.boundingBox();
+      const add = page.getByRole("button", { name: "Add to Library", exact: true });
+      await expect(add).toBeEnabled();
+      await expect(add.locator(".image-action-full")).toBeVisible();
+      const toolbar = page.locator('.image-actions[data-surface="search"]');
+      await expect(toolbar.getByRole("button", { name: "Download", exact: true })).toBeEnabled();
+      const otherActions = () => toolbar.locator("button").evaluateAll(buttons => buttons.filter(button => !button.querySelector("[data-library-icon]")).map(button => [button.getAttribute("aria-label"), getComputedStyle(button).opacity]));
+      const originalActions = await otherActions();
+      const buttonWidth = (await add.boundingBox())!.width;
+      const archivePath = "**/metadata/fixture/archived";
+      let release!: () => void;
+      const held = new Promise<void>(done => { release = done; });
+      await page.route(archivePath, async route => { await held; await route.continue(); }, { times: 1 });
+      try {
+        await Promise.all([page.waitForRequest(archivePath), add.click()]);
+        await expect(add).toBeDisabled();
+        await expect(add.locator('[data-library-icon="add"]')).toBeVisible();
+        expect(await otherActions()).toEqual(originalActions);
+        expect((await add.boundingBox())!.width).toBe(buttonWidth);
+      } finally { release(); }
+      const remove = page.getByRole("button", { name: "Remove from Library", exact: true });
+      await expect(remove).toBeEnabled();
+      expect(await otherActions()).toEqual(originalActions);
+      expect((await remove.boundingBox())!.width).toBe(buttonWidth);
+      expect(received.filter(request => request.method === "PUT")).toEqual([{ method: "PUT", path: "/metadata/fixture/archived", body: JSON.stringify({ data: true }) }]);
+      expect(await cell.boundingBox()).toEqual(before);
+      expect(await page.evaluate(() => [...(window as CommandWindow).__kupua_selection_store__.getState().selectedIds].sort())).toEqual(["fixture", "other"]);
+      const originalLabels = new Map([...labelsById].map(([id, values]) => [id, [...values]]));
+      const beforeLabels = received.length;
+      await page.getByRole("button", { name: "Add label", exact: true }).click();
+      const labelEntry = page.getByRole("combobox", { name: "Add label", exact: true });
+      await labelEntry.fill(" Sport, Football, Sport ");
+      await labelEntry.press("Enter");
+      for (const value of ["Sport", "Football"]) {
+        const removeLabel = page.getByRole("button", { name: `Remove ${value} from all selected images`, exact: true });
+        const pill = page.locator("[data-editable-pill]").filter({ has: removeLabel });
+        await expect(removeLabel).toBeEnabled();
+        await expect(pill).not.toHaveAttribute("aria-busy", "true");
+        await expect(pill).toHaveAttribute("data-coverage", "all");
+      }
+      expect(received.slice(beforeLabels).filter(request => request.method === "POST" && request.path.endsWith("/labels")).sort((left, right) => left.path.localeCompare(right.path)))
+        .toEqual(["fixture", "other"].map(id => ({ method: "POST", path: `/metadata/${id}/labels`, body: JSON.stringify({ data: ["Sport", "Football"] }) })));
+      for (const id of ["fixture", "other"]) expect(labelsById.get(id)).toEqual([...originalLabels.get(id)!, "Sport", "Football"]);
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select([]));
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
+      const row = page.locator('[role=row][data-cell-id="fixture"]');
+      const rowRemove = row.getByRole("button", { name: "Remove from Library" });
+      const rowAdd = row.getByRole("button", { name: "Add to Library" });
+      await row.hover();
+      const addResultLabels = async (target: Locator, text: string) => {
+        await target.getByRole("button", { name: "Add labels to this image" }).click();
+        const entry = page.getByRole("dialog", { name: "Add labels to image" });
+        await entry.getByLabel("New labels", { exact: true }).fill(text);
+        await entry.getByRole("button", { name: "Save labels", exact: true }).click();
+        await expect(entry).toHaveCount(0);
+        await expect.poll(() => labelsById.get("fixture")).toEqual(expect.arrayContaining(text.split(", ")));
+      };
+      labelsById.get("fixture")!.unshift(...crowdedLabels);
+      version++;
+      await addResultLabels(row, "Table headline, Table desk");
+      const tableRoot = page.locator("[data-table-root]");
+      await rowRemove.click({ button: "middle" });
+      expect(await page.evaluate(() => !!document.fullscreenElement)).toBe(false);
+      await rowRemove.evaluate(button => {
+        button.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch", pointerId: 9 }));
+        button.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerType: "touch", pointerId: 9 }));
+        button.dispatchEvent(new PointerEvent("click", { bubbles: true, pointerType: "touch", pointerId: 9, detail: 1 }));
+      });
+      await tableRoot.evaluate(el => (el as HTMLElement).style.setProperty("--col-badges", "30px"));
+      await expect(rowRemove).toBeHidden();
+      await tableRoot.evaluate(el => (el as HTMLElement).style.removeProperty("--col-badges"));
+      let releaseRemove!: () => void;
+      const removing = new Promise<void>(done => { releaseRemove = done; });
+      await page.route(archivePath, async route => { await removing; await route.continue(); }, { times: 1 });
+      try {
+        await Promise.all([page.waitForRequest(archivePath), rowRemove.click()]);
+        await expect(rowRemove).toBeDisabled();
+        await expect(rowRemove).toHaveAttribute("aria-busy", "true");
+      } finally { releaseRemove(); }
+      await expect(rowAdd).toBeVisible();
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select(["other"]));
+      await expect(rowAdd).toBeHidden();
+      await page.evaluate(() => (window as CommandWindow).editorFixture.select([]));
+      await rowAdd.focus();
+      await rowAdd.press("Enter");
+      await expect(rowRemove).toBeVisible();
+      await page.getByRole("button", { name: "Grid view", exact: true }).click();
+      await cell.hover();
+      const strip = cell.locator("[data-grid-strip]");
+      expect(await strip.locator("[data-result-pill]").count()).toBeLessThanOrEqual(8);
+      const previewPlus = strip.getByRole("button", { name: "Add labels to this image" });
+      const fits = await strip.evaluate(el => {
+        const bounds = el.getBoundingClientRect(), plus = el.querySelector("[data-result-label-add]")!.getBoundingClientRect();
+        return plus.width >= 16 && plus.right <= bounds.right && [...el.querySelectorAll("[data-result-pill]")].every(pill => pill.getBoundingClientRect().right <= plus.left);
+      });
+      expect(fits).toBe(true);
+      await expect(strip.getByTitle("Front desk ▸ Finals")).toHaveAttribute("data-cql-value", "front desk/finals");
+      await previewPlus.click();
+      await page.getByLabel("New labels", { exact: true }).fill("Grid headline, Grid desk");
+      expect(await previewPlus.evaluate(async anchor => {
+        const region = anchor.closest('[role="region"]')!;
+        const rect = anchor.getBoundingClientRect;
+        let reads = 0;
+        anchor.getBoundingClientRect = () => { reads++; return rect.call(anchor); };
+        try {
+          for (let count = 0; count < 8; count++) region.dispatchEvent(new Event("scroll"));
+          const synchronous = reads;
+          await new Promise(requestAnimationFrame);
+          return [synchronous, reads];
+        } finally { Reflect.deleteProperty(anchor, "getBoundingClientRect"); }
+      })).toEqual([0, 1]);
+      const suggestionRoute = "**/images/aggregations";
+      const suggestions: Parameters<Page["route"]>[1] = route => route.fulfill({ json: { matchedField: "userMetadata.labels", fields: { "userMetadata.labels": {
+        buckets: Array.from({ length: 18 }, (_, index) => ({ key: `Grid desk ${index}`, count: 1 })),
+      } }, isFilterCounts: {} } });
+      await page.route(suggestionRoute, suggestions);
+      const region = page.getByRole("region", { name: "Image results grid" });
+      try {
+        await region.evaluate(el => { el.style.paddingTop = `${innerHeight / 2}px`; el.style.paddingBottom = `${innerHeight}px`; el.dispatchEvent(new Event("scroll")); });
+        await page.getByLabel("New labels", { exact: true }).fill("Grid de");
+        const list = page.getByRole("listbox", { name: "Suggestions for New labels" });
+        await expect(list).toBeVisible();
+        const side = () => list.evaluate(el => el.getBoundingClientRect().bottom <= el.closest("form")!.querySelector("input")!.getBoundingClientRect().top ? "above" : "below");
+        await expect.poll(side).toBe("above");
+        await region.evaluate(el => { el.scrollTop = innerHeight / 2; });
+        await expect.poll(side).toBe("below");
+        await expect(page.getByLabel("New labels", { exact: true })).toBeFocused();
+      } finally {
+        await region.evaluate(el => { el.scrollTop = 0; el.style.removeProperty("padding-top"); el.style.removeProperty("padding-bottom"); });
+        await page.unroute(suggestionRoute, suggestions);
+      }
+      await page.getByLabel("New labels", { exact: true }).fill("Grid headline, Grid desk");
+      await page.getByRole("button", { name: "Table view", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Add labels to image" })).toHaveCount(0);
+      await page.getByRole("button", { name: "Grid view", exact: true }).click();
+      await cell.hover(); await previewPlus.click();
+      await expect(page.getByLabel("New labels", { exact: true })).toHaveValue("Grid headline, Grid desk");
+      await page.getByRole("button", { name: "Cancel label entry" }).click();
+      await addResultLabels(cell, "Grid headline, Grid desk");
+      await cell.getByRole("button", { name: "Remove from Library" }).dblclick();
+      await expect(cell.getByRole("button", { name: "Add to Library" })).toBeVisible();
+      expect(received.filter(request => request.method === "PUT").map(request => [request.path, JSON.parse(request.body).data])).toEqual([true, false, true, false].map(value => ["/metadata/fixture/archived", value]));
+      expect(await page.evaluate(() => (window as CommandWindow).__kupua_selection_store__.getState().selectedIds.size)).toBe(0);
+      let rejectArchive!: () => void;
+      const pendingRejection = new Promise<void>(done => { rejectArchive = done; });
+      await page.route(archivePath, async route => { await pendingRejection; await route.fulfill({ status: 403, json: {} }); }, { times: 1 });
+      try {
+        await Promise.all([page.waitForRequest(archivePath), cell.getByRole("button", { name: "Add to Library" }).click()]);
+        await page.getByRole("button", { name: "Table view", exact: true }).click();
+        await expect(cell).toHaveCount(0);
+      } finally { rejectArchive(); }
+      await page.getByRole("button", { name: "1 issue", exact: true }).click();
+      await expect(page.locator(":popover-open")).toContainText("Library: 1 not saved");
+      await page.keyboard.press("Escape");
+      const firstLabel = row.locator('[data-cql-key="label"]').first();
+      await firstLabel.click();
+      await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe(`label:"${crowdedLabels[0]}"`);
+      await page.getByRole("button", { name: "Grid view", exact: true }).click();
+      const collection = cell.locator('[data-cql-value="front desk/finals"]');
+      await collection.click({ modifiers: ["Shift"] });
+      await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe(`label:"${crowdedLabels[0]}" collection:"front desk/finals"`);
+      await collection.click({ modifiers: ["Alt"] });
+      await expect.poll(() => new URL(page.url()).searchParams.get("query")).toBe(`label:"${crowdedLabels[0]}" -collection:"front desk/finals"`);
+    }
     await applyEditingFromPanel(page, false, true, testInfo.outputPath("hi-joshua-desktop.png"));
     expect((await page.evaluate(command => (window as CommandWindow).commandFixture.executeGridCommand(command), labelCommand(metadataOrigin))).outcome).toBe("blocked");
     const writesBeforeReload = received.filter(request => ["POST", "DELETE"].includes(request.method) && request.path.startsWith("/metadata/")).length;
@@ -4350,6 +4609,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
   const otherLabels = new Map<string, string[]>();
   let connectedVersion = 0;
   const shoots = new Map<string, { title: string }>();
+  const archived = new Set<string>();
   let releaseMetadata: (() => void) | undefined;
   let heldMetadata: Promise<void> | undefined;
   const imageEntity = (imageId: string) => ({
@@ -4358,8 +4618,9 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     data: { id: imageId, uploadTime: "2026-01-01T00:00:00Z", lastModified: "2026-01-01T00:00:00Z", uploadedBy: "fixture-uploader",
       metadata: { title: `Fixture ${imageId}`, credit: "Fixture", description: "Synthetic image", source: "Fixture source" },
       cost: "free", valid: true, invalidReasons: {}, usageRights: { category: "staff-photographer" },
+      persisted: { value: archived.has(imageId), reasons: archived.has(imageId) ? ["archived"] : [] },
       userMetadata: { data: { lastModified: new Date(Date.UTC(2026, 10, 7) + connectedVersion * 1000).toISOString(),
-        labels: { data: (connected ? imageId === "fixture" ? connectedLabels : otherLabels.get(imageId) ?? ["news"] : ["news"]).map(data => ({ data })) }, archived: { data: false },
+        labels: { data: (connected ? imageId === "fixture" ? connectedLabels : otherLabels.get(imageId) ?? ["news"] : ["news"]).map(data => ({ data })) }, archived: { uri: `${metadataOrigin}/metadata/${imageId}/archived`, data: archived.has(imageId) },
         metadata: {}, usageRights: {}, photoshoot: { data: shoots.get(imageId) } } },
       source: { dimensions: { width: 800, height: 600 }, mimeType: "image/jpeg" },
       thumbnail: { secureUrl: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", dimensions: { width: 1, height: 1 } },
@@ -4395,7 +4656,7 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     if (![config.mediaApiUri, metadataOrigin, authOrigin].includes(url.origin)) { escaped.push(url.origin); await route.abort(); return; }
     requests.push({ method: request.method(), origin: url.origin, path: url.pathname, cookie: (await request.allHeaders()).cookie ?? "" });
     let body: unknown = { data: [], total: 0 };
-    if (url.origin === config.mediaApiUri && url.pathname === "/") body = { links: [{ rel: "edits", href: metadataOrigin }, { rel: "session", href: `${authOrigin}/session` }] };
+    if (url.origin === config.mediaApiUri && url.pathname === "/") body = { links: [{ rel: "edits", href: metadataOrigin }, { rel: "archive", href: `${metadataOrigin}/metadata/{id}/archived` }, { rel: "session", href: `${authOrigin}/session` }] };
     if (connected && url.origin === config.mediaApiUri && url.pathname === "/images/search-after") body = {
       data: [imageEntity("fixture")], total: 1, sortValues: [[Date.UTC(2026, 0, 1), "fixture"]],
     };
@@ -4417,6 +4678,11 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     const status = url.origin === metadataOrigin && ["POST", "DELETE"].includes(request.method()) ? writeStatus : 200;
     if (connected && url.origin === metadataOrigin && url.pathname === `/metadata/${imageId}/photoshoot` && request.method() === "PUT") {
       shoots.set(imageId, request.postDataJSON().data); connectedVersion++;
+    }
+    if (connected && url.origin === metadataOrigin && url.pathname === `/metadata/${imageId}/archived` && request.method() === "PUT") {
+      if (request.postDataJSON().data === true) archived.add(imageId);
+      else if (request.postDataJSON().data === false) archived.delete(imageId);
+      connectedVersion++;
     }
     if (connected && url.origin === metadataOrigin && status === 200 && ["POST", "DELETE"].includes(request.method())) {
       const updated = request.method() === "POST"
@@ -4725,6 +4991,11 @@ test("built hosted commands fail closed, use direct service origins and stop aft
     await expect(page.getByRole("button", { name: "Edit Photoshoot", exact: true })).toBeEnabled();
     await expect(page.getByText("Hosted assignment", { exact: true })).toBeVisible();
     expect(requests.slice(beforeShoot).filter(request => request.method === "PUT").map(request => [request.origin, request.path])).toEqual([[metadataOrigin, "/metadata/fixture/photoshoot"]]);
+    const beforeLibrary = requests.length;
+    await page.getByRole("button", { name: "Add to Library", exact: true }).click();
+    await page.getByRole("button", { name: "Remove from Library", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Add to Library", exact: true })).toBeEnabled();
+    expect(requests.slice(beforeLibrary).filter(request => request.method === "PUT").map(request => [request.origin, request.path])).toEqual(Array(2).fill([metadataOrigin, "/metadata/fixture/archived"]));
     expect(escaped).toEqual([]);
   } finally {
     releaseMetadata?.();

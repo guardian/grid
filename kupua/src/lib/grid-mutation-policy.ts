@@ -2,6 +2,27 @@ export function addressableLabel(label: string): boolean {
   return label.trim().length > 0 && label !== "." && label !== "..";
 }
 
+function* labelTokens(input: string) {
+  let start = 0;
+  for (let index = 0; index <= input.length; index++) {
+    if (input[index] === "\\" && (input[index + 1] === "," || input[index + 1] === "\\")) { index++; continue; }
+    if (index === input.length || input[index] === ",") { yield { start, end: index }; start = index + 1; }
+  }
+}
+const decodeLabel = (text: string) => text.replace(/\\([,\\])/g, "$1");
+export function parseLabelEntry(input: string): string[] {
+  return [...new Set(Array.from(labelTokens(input), ({ start, end }) => decodeLabel(input.slice(start, end)).trim()).filter(Boolean))];
+}
+export function labelEntryToken(input: string, caret: number) {
+  for (const token of labelTokens(input)) if (caret <= token.end) return { ...token, prefix: decodeLabel(input.slice(token.start, caret)).trimStart() };
+  return { start: input.length, end: input.length, prefix: "" };
+}
+export function replaceLabelToken(input: string, { start, end }: { start: number; end: number }, literal: string) {
+  const token = input.slice(start, end);
+  const replacement = (token.match(/^\s*/)?.[0] ?? "") + literal.replace(/[,\\]/g, "\\$&");
+  return { value: input.slice(0, start) + replacement + (token.trim() ? token.match(/\s*$/)?.[0] ?? "" : "") + input.slice(end), caret: start + replacement.length };
+}
+
 export function isLabelRemovalRequest(method: string | undefined, path: string | undefined): boolean {
   const match = /^\/metadata\/[a-zA-Z0-9_-]+\/labels\/([a-zA-Z0-9_*.+%-]+)$/.exec(path ?? "");
   if (method !== "DELETE" || !match) return false;
@@ -17,6 +38,10 @@ export function isLabelAddRequest(method: string | undefined, path: string | und
 
 export function isMetadataUpdateRequest(method: string | undefined, path: string | undefined): boolean {
   return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/metadata$/.test(path ?? "");
+}
+
+export function isArchiveRequest(method: string | undefined, path: string | undefined): boolean {
+  return method === "PUT" && /^\/metadata\/[a-zA-Z0-9_-]+\/archived$/.test(path ?? "");
 }
 
 export function isPhotoshootRequest(method: string | undefined, path: string | undefined): boolean {

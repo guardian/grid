@@ -33,7 +33,7 @@ import type {
 import { parseCql, parseCqlWithDefaults } from "./adapters/elasticsearch/cql";
 import type { PositionMap } from "./position-map";
 import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
-import { MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
+import { getRangeHardCap, MAX_RESULT_WINDOW, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 import guardianConfig from "@/lib/cost/guardian-config.json";
 import type { GuardianCostConfig } from "@/lib/cost/types";
 import { gridConfig } from "@/lib/grid-config";
@@ -2215,7 +2215,7 @@ export class ElasticsearchDataSource implements ImageDataSource {
 
     // Read dynamically (same pattern as findKeywordSortValue / BUCKET_SIZE)
     // so vi.stubEnv() works in tests without module re-import.
-    const hardCap = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
+    const hardCap = getRangeHardCap();
     const hardCapPlusOne = hardCap + 1;
 
     // The sort clause always ends with {id: "asc"} — the last sort value

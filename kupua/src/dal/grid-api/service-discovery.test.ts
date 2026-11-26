@@ -24,10 +24,12 @@ describe("ServiceDiscovery readiness", () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(fetchMock.mock.calls[0]).toEqual(["/api", expect.objectContaining({ credentials: "include", redirect: "error" })]);
     expect(settled).toEqual([]);
+    expect(discovery.linkAvailable("ai-search")).toBeNull();
 
     release(root([aiSearch]));
     await Promise.all([first, second]);
     expect(settled).toEqual([`first:true:${aiSearch.href}`, `second:true:${aiSearch.href}`]);
+    expect(discovery.linkAvailable("ai-search")).toBe(true);
     await discovery.init();
     expect(fetchMock).toHaveBeenCalledOnce();
   });
@@ -63,6 +65,7 @@ describe("ServiceDiscovery readiness", () => {
     ["refused", () => Promise.resolve(new Response(null, { status: 401 }))],
     ["unreachable", () => Promise.reject(new TypeError("Failed to fetch"))],
     ["unreadable", () => Promise.resolve(new Response("not json"))],
+    ["partially malformed", () => Promise.resolve(Response.json({ links: [aiSearch, null] }))],
   ] as const)("treats a %s root as absence for the session, without retrying", async (_label, answer) => {
     const fetchMock = vi.fn(answer);
     vi.stubGlobal("fetch", fetchMock);
@@ -71,6 +74,7 @@ describe("ServiceDiscovery readiness", () => {
     await expect(discovery.init()).resolves.toBe(false);
     await expect(discovery.init()).resolves.toBe(false);
     expect(discovery.getLink("ai-search")).toBeUndefined();
+    expect(discovery.linkAvailable("ai-search")).toBe(false);
     expect(discovery.getClientConfig()).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledOnce();
   });

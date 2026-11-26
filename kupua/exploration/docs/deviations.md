@@ -20,6 +20,12 @@ Hosted Kupua does not use this route.
 
 ## From Grid / Kahuna
 
+**Search label and collection previews:** show a bounded prefix rather than mounting a complete clipped list. Reserve room for both families in Grid and a label Plus even on empty editable images. Hover titles describe visible values only; duplicate collection leaf names keep canonical paths. Table pill clicks search without transferring the click to the row. Literal values containing a double quote remain readable but are not converted to an ambiguous CQL search. Image-only densities and touch result editing remain excluded.
+
+**Inline Library badges:** Search extends the thumbnail action to Table's Badges column on fine, hover-capable pointers. Coarse-pointer results remain informational to preserve touch selection and avoid small edit targets. Unlike Kahuna's read-only selection branch, retained-status badges keep their reason tooltips.
+
+**Library:** Kupua requires the root archive permission for both Add and Remove; Kahuna's Remove template does not check it. This can withhold a button Kahuna shows rather than offering an action without the advertised grant. Kupua observes explicit flags with bounded grouped image reads, not a singleton poll per write. A write can therefore finish acknowledged but not confirmed.
+
 ### Collection name safeguards
 
 - **Creation:** preserve display spelling, trim outer whitespace, reject empty names and unaddressable path segments, and compare the proposed name with *all immediate siblings* case-insensitively, including structural rows. The same name in a different parent is fine. Kahuna delegates creation to Grid; Grid can replace the record at the lowercase key, changing its date and spelling. With children, the old spelling can still appear as a separate structural branch. Rejecting a known collision is cheap; it does not guarantee uniqueness across editors. Do not silently rename, case-fold the displayed name, or merge the two branches. See [GRID-030](bug-backlog.md#grid-030).
@@ -293,8 +299,9 @@ observation, not a count query or a boolean fixture assertion.
 Synthetic multi-image addition can consume the 200-ID budget; connected groups use
 at most 100 targets each within the shared bound. One early read
 can publish verified items while dispatch is still queued; remaining attempts wait for
-dispatch to settle. Supplied-executor multi-label input is refused
-before dispatch, while disconnected comma-separated preparation is unchanged.
+dispatch to settle. The single-label simulated executor refuses multi-label input;
+connected Details submits a comma-separated addition as one array per image and
+requires all requested labels on readback. Disconnected preparation is unchanged.
 Removal shares the same target policy and uses exact label absence in returned authoritative
 data, rather than equality with the whole write-response label list. Unrelated labels
 may change concurrently without blocking this postcondition. Missing data is not absence;

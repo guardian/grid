@@ -342,7 +342,7 @@ unit checkpoints for exact validation and live-trial limits.
 | P11 | **Deferred by operator:** templates are not a current Upload acceptance gate. | U6c only if separately selected; not a passed feature. |
 | P12 | **Connected:** Labels, Keywords, People and Subjects propagate additions and explicit removals, with confirmed batch clear. Photoshoot assigns or clears a title. Collections supports individual add/remove, additive peer copy and confirmed empty-source clear. | GRID-011 is accepted for prototype membership removal, not a cross-client safety guarantee. No tree CRUD is required. |
 | P13 | **Partial:** per-attempt outcomes and deduplicated canonical membership exist. | U7/Step 17: authorized deletion/restore, duplicate eligibility and lifecycle handling. No automatic restore or re-upload. |
-| P14 | **Partial:** batch-aware detail/crop return and disconnected crop eligibility/notices are implemented. | U7/Steps 7 and 13: archive and actual crop creation/readback. |
+| P14 | **Partial:** batch-aware detail/crop return, per-image archive/unarchive and disconnected crop eligibility/notices are implemented. | U7/Step 13: actual crop creation/readback. |
 | P15 | **Done locally at bounded recovery scope:** retained descriptors, interrupted/uncertain outcomes and read-only Recheck (U3/U4). | No durable draft/transfer recovery or automatic replay; real expiry/login-return acceptance remains separate. |
 
 The [unit status](#unit-status) is the execution sequence; the detailed U3/U4/U4.5
@@ -588,7 +588,7 @@ implementation history belongs in the existing changelog.
 | U6a / Step 10 | **Done for Guardian:** Rights and derived metadata with separate outcomes; shared with Details and selection. |
 | U6b / Step 9 | Connected: manual lease editing, whole-set batch copy/clear and display after readback. |
 | U6c / Step 11 | **Deferred by operator:** templates are not a current acceptance gate. |
-| U7 | **Partial:** pill fields, Photoshoot and collection membership are connected, including batch arrows. Archive, crop creation and soft delete/authorized restore remain. |
+| U7 | **Partial:** pill fields, Photoshoot and collection membership are connected, including batch arrows. Library archives/unarchives only the Form image. Crop creation and soft delete/authorized restore remain. |
 | U8 | **Open:** integrated acceptance against P01–P15, not a new implementation of work above. |
 
 Select each remaining operation separately. Configured-domain editors are not an Upload dependency.

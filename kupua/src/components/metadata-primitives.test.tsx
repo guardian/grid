@@ -16,11 +16,54 @@ const { MockDataSource } = await import("@/dal/mock-data-source");
 afterEach(cleanup);
 
 const { LeaseEditor } = await import("./LeaseEditor");
-const { MetadataEditorContext } = await import("./MetadataEditing");
+const { FormBatchContext, MetadataBatchArrow, MetadataEditorContext, SelectionSaveIndicator } = await import("./MetadataEditing");
 const { MetadataPillEditor } = await import("./MetadataPillEditor");
 const { createMetadataEditorStore } = await import("@/stores/metadata-editor-store");
 const { attachEnrichment } = await import("@/stores/enrichment-store");
 const { leaseSetKey } = await import("@/lib/lease-change");
+
+function countedMembers<T>(members: T[]) {
+  let reads = 0;
+  const values = new Proxy(members, { get(target, key, receiver) {
+    if (typeof key === "string" && /^\d+$/.test(key)) reads++;
+    return Reflect.get(target, key, receiver);
+  } });
+  return { values, reads: () => reads };
+}
+
+it("renders Form peer counts without rescanning the admitted batch per field", () => {
+  const store = createMetadataEditorStore();
+  store.setState({ connected: true });
+  const members = countedMembers(Array.from({ length: 200 }, (_, index) => `image-${index}`));
+  render(<MetadataEditorContext value={store}><FormBatchContext value={{ key: "batch", ids: members.values }}>
+    <MetadataBatchArrow imageId="image-199" fieldId="metadata_credit" label="Credit" value="Desk" disabled={false} />
+    <MetadataBatchArrow imageId="image-199" fieldId="metadata_byline" label="Byline" value="Desk" disabled={false} />
+  </FormBatchContext></MetadataEditorContext>);
+  expect(screen.getAllByRole("button", { name: /to 199 other images/ })).toHaveLength(2);
+  expect(members.reads()).toBe(0);
+});
+
+it("keeps Detail issues scoped without recounting active progress on notifications", () => {
+  const store = createMetadataEditorStore();
+  const ids = Array.from({ length: 200 }, (_, index) => `image-${index}`);
+  const members = countedMembers(ids);
+  const items = countedMembers(ids.map(imageId => ({ imageId, state: "submitted" as const })));
+  const intent = { fieldId: "metadata_credit", action: "overwrite", value: "Desk", targetIds: members.values } as const;
+  store.setState({ panelSaves: [{ id: 2, targetKey: "active" }, { id: 1, targetKey: "older" }], saves: new Map([
+    [1, { id: 1, intent: { ...intent, targetIds: ["image-199", "outside"] }, state: "finished", items: [], excluded: 0, message: "Not sent" }],
+    [2, { id: 2, intent, state: "saving", items: items.values, excluded: 0 }],
+  ]) });
+  const indicator = (id: string) => <MetadataEditorContext value={store}><SelectionSaveIndicator targetKey="detail" detailImageId={id} /></MetadataEditorContext>;
+  const view = render(indicator("image-199"));
+  expect(view.container.textContent).toBe("");
+  const before = [members.reads(), items.reads()];
+  expect(items.reads()).toBe(0);
+  for (let index = 0; index < 10; index++) act(() => store.setState({ connected: index % 2 === 0 }));
+  const extra = [members.reads() - before[0], items.reads() - before[1]];
+  view.rerender(indicator("outside"));
+  expect(screen.getByRole("button").textContent).toMatch(/1 issue/i);
+  expect(extra).toEqual([0, 0]);
+});
 
 it("removes the exact existing Form label rather than its trimmed neighbour", () => {
   const store = createMetadataEditorStore();

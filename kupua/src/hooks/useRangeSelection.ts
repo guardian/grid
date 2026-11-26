@@ -122,8 +122,12 @@ export function useRangeSelection() {
         selStore.setAnchor(targetId);
         if (anchorId === targetId) return;
       }
+      const restoreAnchor = () => {
+        if (effect.reanchorToTarget && useSelectionStore.getState().anchorId === targetId) selStore.setAnchor(selStore.anchorId);
+      };
       const commitRange = (ids: string[]) => {
         if (unavailable(anchorId) || unavailable(targetId)) {
+          restoreAnchor();
           addToast({ category: "warning", message: "A range endpoint is unavailable. Selection unchanged." });
           return;
         }
@@ -138,7 +142,10 @@ export function useRangeSelection() {
           }
         }
         if (polarity === "remove") selStore.remove(eligible);
-        else selStore.add(eligible);
+        else if (selStore.add(eligible) === false) {
+          restoreAnchor();
+          return false;
+        }
         if (effect.reanchorToTarget) selStore.setAnchor(targetId);
       };
 
@@ -204,6 +211,7 @@ export function useRangeSelection() {
       }
 
       if (!anchorSV && !requiresCurrentEndpoints) {
+        restoreAnchor();
         // All fallbacks exhausted -- anchor metadata unavailable.
         addToast({
           category: "warning",
@@ -312,6 +320,7 @@ export function useRangeSelection() {
       } catch (e) {
         if (cancelRef.current !== cancel) return;
         finish(null);
+        restoreAnchor();
         if (e instanceof Error && e.name === "AbortError") return;
         addToast({
           category: "error",
@@ -332,20 +341,22 @@ export function useRangeSelection() {
       // safe to include even when targetId is already in result.ids.
       // ------------------------------------------------------------------
       const idsToCommit = [targetId, ...result.ids];
-      commitRange(idsToCommit);
+      if (result.truncated) {
+        restoreAnchor();
+        addToast({ category: "warning", message: `Range exceeds ${RANGE_HARD_CAP.toLocaleString()} images. Selection unchanged.` });
+        return;
+      }
+      const before = useSelectionStore.getState().selectedIds.size;
+      if (commitRange(idsToCommit) === false) return;
+      const changedCount = Math.abs(useSelectionStore.getState().selectedIds.size - before);
 
       // ------------------------------------------------------------------
       // 8. Toast feedback.
       // ------------------------------------------------------------------
-      if (result.truncated) {
-        addToast({
-          category: "warning",
-          message: `${polarity === "remove" ? "Deselection" : "Selection"} was limited to ${RANGE_HARD_CAP.toLocaleString()} images.`,
-        });
-      } else if (idsToCommit.length > RANGE_SOFT_CAP) {
+      if (changedCount > RANGE_SOFT_CAP) {
         addToast({
           category: "information",
-          message: `${polarity === "remove" ? "Removed" : "Added"} ${idsToCommit.length.toLocaleString()} images ${polarity === "remove" ? "from" : "to"} your selection.`,
+          message: `${polarity === "remove" ? "Removed" : "Added"} ${changedCount.toLocaleString()} images ${polarity === "remove" ? "from" : "to"} your selection.`,
         });
       }
     },

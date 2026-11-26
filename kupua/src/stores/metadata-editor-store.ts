@@ -1,6 +1,8 @@
 import { createStore } from "zustand/vanilla";
 import { pillCommandField, SUBJECTS } from "@/lib/metadata-pill-fields";
-import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
+import { BATCH_POLICY, canLendEdit, createBatchQueue, editEffect } from "@/lib/batch-execution";
+import { addressableLabel } from "@/lib/grid-mutation-policy";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { createMetadataOperation, matchesPhotoshoot, type MetadataIntent, type MetadataReceipt } from "@/lib/metadata-operation";
 import { metadataEditTargetCounts, nextEditSequence, sessionStopReason, type MetadataEditObservation, type MetadataEditTarget } from "@/lib/metadata-edit-execution";
 import { rightsValueSchema, type GridCommandResult, type MetadataCommand } from "@/lib/grid-commands";
@@ -20,6 +22,7 @@ function sessionReadFailure(error: unknown): boolean {
 }
 
 export interface MetadataSave {
+  settled?: { confirmed: number; observed: number; unknown: number; rejected: number; superseded: number; reload: boolean };
   id: number;
   sequence?: number;
   draftRevision?: number;
@@ -31,6 +34,7 @@ export interface MetadataSave {
 }
 
 export function metadataIntent(fieldId: string, action: string, value: string | string[] | Record<string, string | undefined> | LeaseChange, targetIds: readonly string[], removed?: string[]): MetadataIntent | undefined {
+  if (fieldId === "archived") return action === "overwrite" && (value === "archive" || value === "unarchive") ? { fieldId, action, value, targetIds } : undefined;
   if (fieldId === "collections") {
     if (action === "overwrite" && Array.isArray(value) && value.every(path => path.length > 0)) return { fieldId, action: value.length ? "add" : "overwrite", ...(value.length && { fillMissing: true as const }), value: [...new Set(value)], targetIds };
     if ((action === "add" || action === "remove") && typeof value === "string" && value.length) return { fieldId, action, value: [value], targetIds };
@@ -38,6 +42,10 @@ export function metadataIntent(fieldId: string, action: string, value: string | 
   }
   if (fieldId === "photoshoot") return action === "overwrite" && typeof value === "string" ? { fieldId, action, value: value.trim(), targetIds } : undefined;
   if (Array.isArray(value)) {
+    if (fieldId === "labels" && action === "add") {
+      const labels = [...new Set(value.map(label => label.trim()))];
+      return labels.length && labels.every(addressableLabel) ? { fieldId, action, value: labels, targetIds } : undefined;
+    }
     if (fieldId === "subjects" && action === "add" && (value.length || removed?.length) && [...value, ...(removed ?? [])].every(subject => SUBJECTS.includes(subject)))
       return { fieldId: "metadata_subjects", action, value, removed, targetIds };
     if (action !== "overwrite" || value.some(item => !item.trim())) return;
@@ -67,9 +75,13 @@ export function metadataIntent(fieldId: string, action: string, value: string | 
   return { fieldId: field as MetadataCommand["fieldId"], action: action as MetadataCommand["action"], value, targetIds };
 }
 
+function usesGroupedReceipt(intent: MetadataIntent) {
+  return (intent.fieldId === "archived" || intent.fieldId === "photoshoot") && intent.targetIds.length > BATCH_POLICY.maxTargets;
+}
+
 export function metadataSaveStatus(save: MetadataSave): string {
   if (save.message) return save.message;
-  const observed = save.items.filter(item => item.observation === "observed" && !(item.result && "labelSteps" in item.result && item.result.labelSteps)).length;
+  const observed = (save.settled?.observed ?? 0) + save.items.filter(item => item.observation === "observed" && !(item.result && "labelSteps" in item.result && item.result.labelSteps)).length;
   const steps = { acknowledged: 0, rejected: 0, uncertain: 0, notSent: 0 };
   for (const { result } of save.items) {
     if (!result || !("labelSteps" in result) || !result.labelSteps) continue;
@@ -77,14 +89,16 @@ export function metadataSaveStatus(save: MetadataSave): string {
   }
   const stepSummary = [steps.acknowledged && `${steps.acknowledged} acknowledged`, steps.rejected && `${steps.rejected} rejected`,
     steps.uncertain && `${steps.uncertain} uncertain`, steps.notSent && `${steps.notSent} not sent`].filter(Boolean).join(" · ");
-  const unknown = save.items.filter(item => item.state === "unknown").length;
-  const superseded = save.items.filter(item => item.observation === "superseded").length;
-  const rejected = save.items.filter(item => item.state === "rejected" || item.result?.outcome === "blocked").length;
+  const unknown = (save.settled?.unknown ?? 0) + save.items.filter(item => item.state === "unknown").length;
+  const superseded = (save.settled?.superseded ?? 0) + save.items.filter(item => item.observation === "superseded").length;
+  const grouped = usesGroupedReceipt(save.intent);
+  const notSent = grouped ? save.items.filter(item => item.state === "not-started" || item.state === "stopped" || item.result?.outcome === "blocked").length : 0;
+  const rejected = (save.settled?.rejected ?? 0) + save.items.filter(item => grouped ? item.state === "rejected" && item.result?.outcome !== "blocked" : item.state === "rejected" || item.result?.outcome === "blocked").length;
   const derived = save.items.flatMap(item => item.result?.outcome === "acknowledged" && item.result.metadataFromRights ? [item.result.metadataFromRights] : []);
   const notSaved = derived.filter(state => state === "rejected" || state === "not-sent").length;
   const notConfirmed = derived.filter(state => state === "unknown").length;
   return `${save.state === "queued" ? "Queued" : save.state === "saving" ? "Saving" : "Finished"}: ${observed}/${save.intent.targetIds.length} visible`
-    + (unknown ? `; ${unknown} uncertain` : "") + (rejected ? `; ${rejected} not saved` : "")
+    + (unknown ? `; ${unknown} uncertain` : "") + (rejected ? `; ${rejected} ${grouped ? "rejected" : "not saved"}` : "") + (notSent ? `; ${notSent} not sent` : "")
     + (superseded ? `; ${superseded} superseded` : "")
     + (save.excluded ? `; ${save.excluded} excluded` : "")
     + (save.items.some(item => item.result?.outcome === "blocked" && item.result.reason === "unaddressable-label") ? "; An existing label cannot be removed by Grid's member URL" : "")
@@ -106,6 +120,7 @@ export function createMetadataEditorStore(
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const capturedDrafts = new Map<number, { imageId: string; fieldId: string; revision: number }>();
   const detailsSingles = new WeakSet<MetadataIntent>();
+  const userSingles = new WeakSet<MetadataIntent>();
   let detailsPreflight: { id: number; controller: AbortController } | undefined;
   const submittedDrafts = new Map<string, number>();
   const deferredDrafts = new Map<string, number>();
@@ -121,6 +136,7 @@ export function createMetadataEditorStore(
     ? Object.keys(intent.value).map(component => `location_${component}`) : [intent.fieldId]).map(field => keyFor(id, field)));
   const store = createStore<{
     connected: boolean;
+    pendingArchiveIds: ReadonlySet<string>;
     latestSingle: (imageId: string, field: string) => MetadataSave | undefined;
     hasPendingField: (imageId: string, field: string) => boolean;
     pendingFieldIds: (imageId: string, field: string) => Iterable<number>;
@@ -134,7 +150,7 @@ export function createMetadataEditorStore(
     arrowSaves: ReadonlyMap<string, number>;
     removedPills: ReadonlyMap<string, readonly string[]>;
     submitArrow: (intent: MetadataIntent, key: string) => void;
-    submit: (intent: MetadataIntent, newRevision?: boolean | number, pillSource?: string, origin?: "details-scalar") => number | undefined;
+    submit: (intent: MetadataIntent, newRevision?: boolean | number, pillSource?: string, origin?: "details-scalar" | "user") => number | undefined;
     schedule: (imageId: string, fieldId: string) => void;
     deferDraft: (imageId: string, fieldId: string) => void;
     settleDraftGrant: (imageId: string, fieldId: string, granted: boolean) => void;
@@ -143,7 +159,7 @@ export function createMetadataEditorStore(
     stop: (id: number) => void;
     dispose: () => void;
   }>((set, get) => ({
-    connected: Boolean(execute && observation), saves: new Map(), derivedOwners: new Map(), panelSaves: [], arrowSaves: new Map(),
+    connected: Boolean(execute && observation), pendingArchiveIds: new Set(), saves: new Map(), derivedOwners: new Map(), panelSaves: [], arrowSaves: new Map(),
     formRightsSaves: new Map(), formLeaseSaves: new Map(), removedPills: new Map(),
     trackFormLease(imageId, id, revision) { set(state => ({ formLeaseSaves: new Map(state.formLeaseSaves).set(imageId, { id, revision }) })); },
     trackFormRights(imageId, id, revision) { set(state => ({ formRightsSaves: new Map(state.formRightsSaves).set(imageId, { id, revision }) })); },
@@ -155,7 +171,7 @@ export function createMetadataEditorStore(
       return false;
     },
     submitArrow(intent, key) {
-      const id = get().submit(intent);
+      const id = get().submit(intent, false, undefined, "user");
       const captured = get().removedPills.get(key);
       if (id !== undefined && captured && get().saves.get(id)?.state !== "finished") pillApplications.set(id, { key, captured });
       if (id !== undefined) set({ arrowSaves: new Map(get().arrowSaves).set(key, id) });
@@ -164,7 +180,7 @@ export function createMetadataEditorStore(
       if (!execute || !observation || disposed || !input.targetIds.length) return;
       const targetIds = [...new Set(input.targetIds)];
       const intent: MetadataIntent = input.fieldId === "leases" ? { ...input, targetIds, value: structuredClone(input.value) } : input.fieldId === "usageRights_category" ? { ...input, targetIds, value: { ...input.value } } : input.fieldId === "labels" ? { ...input, targetIds, value: Array.isArray(input.value) ? [...input.value] : input.value }
-        : input.fieldId === "collections" ? { ...input, targetIds, value: [...input.value] } : input.fieldId === "photoshoot" ? { ...input, targetIds, value: input.value.trim() }
+        : input.fieldId === "archived" ? { ...input, targetIds } : input.fieldId === "collections" ? { ...input, targetIds, value: [...input.value] } : input.fieldId === "photoshoot" ? { ...input, targetIds, value: input.value.trim() }
         : { ...input, targetIds, value: typeof input.value === "string" ? input.value : Array.isArray(input.value) ? [...input.value] : { ...input.value } };
       if (!newRevision) {
         const targets = new Set(targetIds);
@@ -176,9 +192,9 @@ export function createMetadataEditorStore(
       const sequence = nextEditSequence();
       const draftRevision = typeof newRevision === "number" ? newRevision : undefined;
       if (targetIds.length === 1) for (const key of keysFor(intent)) latestSingle.set(key, id);
-      if (intent.fieldId === "photoshoot" && targetIds.length > BATCH_POLICY.maxTargets) {
+      if ((intent.fieldId === "photoshoot" || intent.fieldId === "archived") && targetIds.length > SELECTION_CAP) {
         set({ saves: new Map(get().saves).set(id, { id, intent, sequence, state: "finished", items: [], excluded: 0,
-          message: `Not sent: Photoshoot editing is limited to ${BATCH_POLICY.maxTargets} images per action.` }) });
+          message: `Not sent: select at most ${SELECTION_CAP.toLocaleString()} images.` }) });
         return id;
       }
       const release = watchQueuedLabelTargets(intent.targetIds);
@@ -202,6 +218,11 @@ export function createMetadataEditorStore(
           owners?.delete(id); if (!owners?.size) pendingByField.delete(key);
         }
         release();
+        if (intent.fieldId === "archived") set(state => {
+          const pendingArchiveIds = new Set(state.pendingArchiveIds);
+          for (const imageId of targetIds) if (!pendingByField.has(keyFor(imageId, "archived"))) pendingArchiveIds.delete(imageId);
+          return { pendingArchiveIds };
+        });
       });
       if (pillSource) pillSources.set(id, pillSource);
       if (get().derivedOwners.size) {
@@ -209,10 +230,13 @@ export function createMetadataEditorStore(
         const affected = targetIds.flatMap(imageId => keys.map(field => keyFor(imageId, field))).filter(key => get().derivedOwners.has(key));
         if (affected.length) { const owners = new Map(get().derivedOwners); affected.forEach(key => owners.delete(key)); set({ derivedOwners: owners }); }
       }
-      set({ saves: new Map(get().saves).set(id, { id, intent, sequence, draftRevision, state: "queued", items: [], excluded: 0 }) });
       pending.push(id);
+      if (origin && targetIds.length === 1) userSingles.add(intent);
       if (origin === "details-scalar" && targetIds.length === 1 && scalarFields.has(intent.fieldId)) detailsSingles.add(intent);
-      queueMicrotask(() => void pump());
+      set({ saves: new Map(get().saves).set(id, { id, intent, sequence, draftRevision, state: "queued", items: [], excluded: 0 }),
+        ...(intent.fieldId === "archived" && { pendingArchiveIds: new Set([...get().pendingArchiveIds, ...targetIds]) }) });
+      if (userSingles.has(intent)) void pump();
+      else queueMicrotask(() => void pump());
       return id;
     },
     pause(imageId, fieldId) {
@@ -251,7 +275,7 @@ export function createMetadataEditorStore(
         const unsent = save?.state === "queued" || save?.state === "saving" && save.items.every(item => item.state === "queued");
         if (captured.imageId === imageId && captured.fieldId === fieldId && unsent) get().stop(id);
       }
-      const id = get().submit(intent, draft.revision);
+      const id = get().submit(intent, draft.revision, undefined, "user");
       if (id !== undefined) {
         capturedDrafts.set(id, { imageId, fieldId, revision: draft.revision });
         submittedDrafts.set(key, draft.revision);
@@ -265,7 +289,8 @@ export function createMetadataEditorStore(
         if (waiting?.id === id) waiting.complete();
         reservations.get(id)?.(); reservations.delete(id);
         capturedDrafts.delete(id);
-        update(id, { state: "finished", message: "Stopped; changes not sent" });
+        const { intent } = get().saves.get(id)!;
+        update(id, { state: "finished", message: "Stopped; changes not sent", ...(usesGroupedReceipt(intent) && { items: intent.targetIds.map(imageId => ({ imageId, state: "stopped" as const })) }) });
       }
     },
     dispose() {
@@ -280,7 +305,11 @@ export function createMetadataEditorStore(
       if (!sharedQueue) queue.dispose();
     },
   }));
-  const unsubscribe = queue.subscribe(() => void pump());
+  function privateHead() {
+    while (pending.length && stopped.has(pending[0])) pending.shift();
+    return store.getState().saves.get(pending[0]);
+  }
+  const unsubscribe = queue.subscribe(() => void pump(), () => privateHead()?.sequence);
 
   function update(id: number, patch: Partial<MetadataSave>) {
     store.setState(state => ({ saves: new Map(state.saves).set(id, { ...state.saves.get(id)!, ...patch }) }));
@@ -288,21 +317,33 @@ export function createMetadataEditorStore(
 
   async function pump() {
     if (pumping || disposed || !execute || !observation) return;
-    while (pending.length && stopped.has(pending[0])) pending.shift();
-    const id = pending[0];
-    if (id === undefined) return;
-    const slot = queue.admit();
+    const save = privateHead();
+    if (!save) return;
+    const imageId = save.intent.targetIds[0];
+    const slot = queue.admit(userSingles.has(save.intent) ? { imageId, effect: editEffect(save.intent.fieldId), sequence: save.sequence!, conflicted: () => hasImageCommandConflict(imageId) } : { sequence: save.sequence! });
     if (!slot) return;
     pumping = true;
     pending.shift();
-    await runSave(id, slot, true);
+    await runSave(save.id, slot, true);
   }
 
-  async function runSave(id: number, slot: NonNullable<ReturnType<typeof queue.admit>>, primary: boolean, detailsTurn = false) {
+  function haltReason(items: MetadataReceipt["items"]) {
+    if (isGridSessionInvalidated() || items.some(item => item.reloadRequired)) return "reload-required";
+    for (const item of items) {
+      const reason = sessionStopReason(item.result);
+      if (reason) return reason;
+    }
+  }
+
+  async function runSave(id: number, slot: NonNullable<ReturnType<typeof queue.admit>>, primary: boolean, turn?: "details" | "settled") {
     if (!execute || !observation) return;
     const save = store.getState().saves.get(id)!;
     const group = [save];
+    const groupedAction = usesGroupedReceipt(save.intent);
+    const boundedProgress = groupedAction || scalarFields.has(save.intent.fieldId) && save.intent.targetIds.length > BATCH_POLICY.maxTargets;
+    let settled = { confirmed: 0, observed: 0, unknown: 0, rejected: 0, superseded: 0, reload: false };
     const progress = new Map<number, { items: MetadataReceipt["items"][number][]; excluded: number }>();
+    let releaseWindow: (() => void) | undefined;
     let dispatchReleased = false;
     const turnObservation = { ...observation, onReadError: (error: unknown) => {
       if (!sessionReadFailure(error)) return false;
@@ -319,17 +360,20 @@ export function createMetadataEditorStore(
       }
     };
     try {
-      waiting = { id, complete: slot.complete };
+      waiting = { id, complete: () => slot.complete(isGridSessionInvalidated() ? "reload-required" : disposed ? "disabled" : undefined) };
       await slot.wait;
       waiting = undefined;
       if (disposed || stopped.has(id)) return;
+      const detailsTurn = turn === "details" || slot.isLent && detailsSingles.has(save.intent);
       const unique = new Set(save.intent.targetIds);
-      if (primary && unique.size === 1 && !hasImageCommandConflict(save.intent.targetIds[0])) {
+      if (primary && !slot.isLent && unique.size === 1 && !hasImageCommandConflict(save.intent.targetIds[0])) {
         while (pending.length && group.length < BATCH_POLICY.maxTargets) {
           const candidate = store.getState().saves.get(pending[0])!;
           if (stopped.has(candidate.id)) { pending.shift(); continue; }
+          if (queue.hasEarlierWaiter(candidate.sequence!)) break;
           const targets = candidate.intent.targetIds;
           if (candidate.intent.fieldId === "photoshoot" || save.intent.fieldId === "photoshoot") break;
+          if (candidate.intent.fieldId === "archived" || save.intent.fieldId === "archived") break;
           if (targets.length !== 1 || unique.has(targets[0]) || hasImageCommandConflict(targets[0])) break;
           pending.shift();
           group.push(candidate);
@@ -370,17 +414,19 @@ export function createMetadataEditorStore(
           if (acceptImageRead(image) !== image) continue;
           const intent = owners.get(image.id)!.intent;
           const held = new Set(image.collections?.map(member => member.pathId));
-          const target = { resource: overlay?.resource, ...(intent.fieldId === "collections" && { collectionGrant: Array.isArray(image.collections) && (
+          const target = { resource: overlay?.resource, ...(intent.fieldId === "archived" && { archiveGrant: !image.softDeletedMetadata && typeof image.userMetadata?.archived === "boolean" }), ...(intent.fieldId === "collections" && { collectionGrant: Array.isArray(image.collections) && (
             intent.action === "add" ? intent.fillMissing && intent.value.every(key => held.has(key)) || !!overlay?.actions?.some(action => action.name === "add-collection" && action.method === "POST" && !!action.href)
               : (intent.action === "overwrite" ? [...held] : intent.value).every(key => !held.has(key) || !!key && overlay?.removableCollections?.has(key))) }) };
           if (metadataEditTargetCounts({ targetIds: [image.id], targets: new Map([[image.id, target]]) }).eligible) targets.set(image.id, target);
         }
+        if (groupedAction && targets.size !== ids.length) { notSent(allIds.slice(offset), "unavailable"); break; }
         for (const imageId of ids) {
           const owner = owners.get(imageId)!;
           if (!targets.has(imageId) && !stopped.has(owner.id)) progress.get(owner.id)!.excluded++;
         }
+        const listAddition = save.intent.fieldId === "labels" && save.intent.targetIds.length > 1 && Array.isArray(save.intent.value) && save.intent.action === "add" && !save.intent.removed?.length;
+        if ((save.intent.fieldId === "photoshoot" || save.intent.fieldId === "archived" || listAddition) && targets.size !== ids.length) { notSent([...targets.keys(), ...allIds.slice(offset + ids.length)], "unavailable"); break; }
         if (!targets.size) continue;
-        if (save.intent.fieldId === "photoshoot" && targets.size !== ids.length) { notSent([...targets.keys()], "unavailable"); break; }
         const intents = new Map([...targets.keys()].map(imageId => [imageId, owners.get(imageId)!.intent]));
         const shoot = save.intent.fieldId === "photoshoot" ? save.intent.value : undefined;
         const operation = createMetadataOperation(execute, turnObservation, {
@@ -394,59 +440,86 @@ export function createMetadataEditorStore(
             });
           },
           pacing: slot.pacing, continueAfterLocalBlock: group.length > 1,
-          dispatchConcurrency: save.intent.fieldId === "photoshoot" ? 1 : group.length === 1 && save.intent.fieldId !== "labels" && allIds.length > 1 ? 5 : undefined,
+          dispatchConcurrency: save.intent.fieldId === "photoshoot" ? 1 : group.length === 1 && save.intent.fieldId !== "labels" && save.intent.fieldId !== "archived" && allIds.length > 1 ? 5 : undefined,
         }, intents);
         for (const member of group) running.set(member.id, operation);
         let finish!: () => void;
         const done = new Promise<void>(resolve => { finish = resolve; });
-        const release = operation.subscribe(() => {
+        releaseWindow = operation.subscribe(() => {
           const receipt = operation.getSnapshot()!;
           store.setState(state => {
             const saves = new Map(state.saves);
             for (const member of group) {
               const own = progress.get(member.id)!;
-              const items = [...own.items, ...receipt.items.filter(item => owners.get(item.imageId)?.id === member.id)];
+              const items = boundedProgress ? receipt.items : [...own.items, ...receipt.items.filter(item => owners.get(item.imageId)?.id === member.id)];
               saves.set(member.id, { ...saves.get(member.id)!, items, excluded: own.excluded,
-                ...(receipt.blocked ? { message: `Not sent: ${receipt.blocked}` } : {}) });
+                ...(boundedProgress && { settled }), ...(receipt.blocked && !groupedAction ? { message: `Not sent: ${receipt.blocked}` } : {}) });
             }
             return { saves };
           });
           if (!receipt.items.some(item => item.state === "queued" || item.state === "submitted" || item.observation === "pending")) finish();
         });
         await operation.confirm({ ...save.intent, targetIds: [...targets.keys()] }, targets);
-        if (!detailsTurn && !disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
-          && operation.getSnapshot()!.items.every(item => !["leases", "labels", "photoshoot", "collections"].includes(intents.get(item.imageId)?.fieldId ?? "")
+        if (!turn && !slot.isLent && !disposed && offset + BATCH_POLICY.maxTargets >= allIds.length
+          && operation.getSnapshot()!.items.every(item => { const field = intents.get(item.imageId)?.fieldId;
+            return (field?.startsWith("metadata_") || field === "location" || field === "usageRights_category")
             && (item.result?.outcome === "acknowledged" || item.result?.outcome === "unchanged")
-            && typeof getMetadataWriteWitness(item.imageId) === "string")) releaseDispatch();
+            && typeof getMetadataWriteWitness(item.imageId) === "string"; })) releaseDispatch();
         await done;
-        release();
+        releaseWindow();
+        releaseWindow = undefined;
         for (const member of group) running.delete(member.id);
         const receipt = operation.getSnapshot()!;
+        if (boundedProgress) settled = { ...settled };
         for (const item of receipt.items) {
           const own = progress.get(owners.get(item.imageId)!.id)!;
-          own.items.push(item);
+          if (groupedAction && (item.state === "not-started" || item.state === "stopped") && !stopped.has(id) && !item.result) {
+            own.items.push({ ...item, result: { outcome: "blocked", reason: "unavailable" } });
+          } else own.items.push(item);
+          if (boundedProgress) {
+            if (item.observation === "observed") { settled.observed++; if (item.state === "accepted-awaiting-visibility" || item.state === "unchanged") settled.confirmed++; }
+            if (item.state === "unknown") settled.unknown++;
+            if (item.observation === "superseded") settled.superseded++;
+            if (item.state === "rejected" || item.result?.outcome === "blocked") settled.rejected++;
+            settled.reload ||= Boolean(item.reloadRequired || sessionStopReason(item.result) === "reload-required");
+          }
         }
-        if (isGridSessionInvalidated()) { notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), "reload-required"); break; }
-        if (receipt.blocked || receipt.items.some(item => item.result?.outcome === "blocked" || item.state === "stopped" && !stopped.has(owners.get(item.imageId)!.id)
-          || sessionStopReason(item.result))) break;
-        if (primary && group.length === 1 && save.intent.fieldId.startsWith("metadata_") && !stopped.has(id)
+        const halt = haltReason(receipt.items);
+        if (halt) { notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), halt); break; }
+        if (receipt.blocked || receipt.items.some(item => item.result?.outcome === "blocked" || item.state === "stopped" && !stopped.has(owners.get(item.imageId)!.id))) {
+          if (groupedAction) notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), "unavailable");
+          break;
+        }
+        if (primary && !slot.isLent && group.length === 1 && !stopped.has(id)
           && offset + BATCH_POLICY.maxTargets < allIds.length) {
-          while (pending.length && stopped.has(pending[0])) pending.shift();
-          const next = pending[0];
-          const candidate = store.getState().saves.get(next)?.intent;
-          const details = !!candidate && detailsSingles.has(candidate) && scalarFields.has(save.intent.fieldId);
-          const imageId = details ? candidate.targetIds[0] : capturedDrafts.get(next)?.imageId;
-          if (imageId && !hasImageCommandConflict(imageId) && (!unique.has(imageId) || progress.get(id)!.items.some(item =>
-            item.imageId === imageId && item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")))) {
-            let resume!: () => void;
-            const turn = new Promise<void>(resolve => { resume = resolve; });
+          const head = privateHead();
+          const parent = { ids: unique, effect: editEffect(save.intent.fieldId) };
+          const known = !receipt.items.some(item => item.state === "unknown");
+          const transfer = known ? queue.lendWaiting(slot, parent, head?.sequence) : undefined;
+          if (transfer) {
+            const reason = await transfer;
+            if (reason) { notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), reason); break; }
+            continue;
+          }
+          if (!head || !userSingles.has(head.intent)) continue;
+          const next = head.id;
+          const imageId = head.intent.targetIds[0];
+          if (hasImageCommandConflict(imageId)) continue;
+          const details = detailsSingles.has(head.intent);
+          const ordinary = (groupedAction || save.intent.fieldId.startsWith("metadata_")) &&
+            (details && (groupedAction || scalarFields.has(save.intent.fieldId)) || capturedDrafts.has(next)) &&
+            (!groupedAction || scalarFields.has(head.intent.fieldId)) && (!unique.has(imageId) || !groupedAction && progress.get(id)!.items.some(item =>
+              item.imageId === imageId && item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility")));
+          if (ordinary || known && canLendEdit(parent, { imageId, effect: editEffect(head.intent.fieldId) })) {
+            let resume!: (halt?: "disabled" | "reload-required") => void;
+            const turn = new Promise<Parameters<typeof resume>[0]>(resolve => { resume = resolve; });
             const borrowed = queue.borrowTurn(slot, resume);
             if (borrowed) {
               pending.shift();
-              void runSave(next, borrowed, false, details);
-              await turn;
+              void runSave(next, borrowed, false, details ? "details" : ordinary && !groupedAction ? undefined : "settled");
+              const halt = await turn;
               const single = store.getState().saves.get(next);
-              const reason = isGridSessionInvalidated() ? "reload-required" : sessionStopReason(single?.items[0]?.result);
+              const reason = halt ?? haltReason(single?.items ?? []);
               if (reason) {
                 notSent(allIds.slice(offset + BATCH_POLICY.maxTargets), reason);
                 break;
@@ -457,8 +530,15 @@ export function createMetadataEditorStore(
       }
       store.setState(state => {
         const saves = new Map(state.saves);
-        for (const member of group) saves.set(member.id, { ...saves.get(member.id)!, ...progress.get(member.id)!, state: "finished",
-          ...(stopped.has(member.id) ? { message: "Stopped remaining; submitted outcomes retained" } : {}) });
+        for (const member of group) {
+          const completed = progress.get(member.id)!;
+          if (groupedAction) {
+            const byId = new Map(completed.items.map(item => [item.imageId, item]));
+            completed.items = member.intent.targetIds.map(imageId => byId.get(imageId) ?? { imageId, state: "stopped" });
+          }
+          saves.set(member.id, { ...saves.get(member.id)!, ...completed, settled: undefined, state: "finished",
+            ...(stopped.has(member.id) ? { message: "Stopped remaining; submitted outcomes retained" } : {}) });
+        }
         let removedPills: Map<string, readonly string[]> | undefined;
         for (const member of group) {
           const source = pillSources.get(member.id), applied = pillApplications.get(member.id);
@@ -467,10 +547,10 @@ export function createMetadataEditorStore(
           if (final.excluded || final.items.length !== final.intent.targetIds.length || !final.items.every(item => item.observation === "observed" && (item.state === "unchanged" || item.state === "accepted-awaiting-visibility"))) continue;
           const history = removedPills ??= new Map(state.removedPills);
           if (applied && history.get(applied.key) === applied.captured) history.delete(applied.key);
-          if (source && final.intent.fieldId === "metadata_subjects" && Array.isArray(final.intent.value)) {
+          if (source && (final.intent.fieldId === "metadata_subjects" || final.intent.fieldId === "labels") && Array.isArray(final.intent.value)) {
             const values = new Set(history.get(source));
-            for (const subject of final.intent.removed ?? []) values.add(subject);
-            for (const subject of final.intent.value) values.delete(subject);
+            for (const removed of final.intent.removed ?? []) values.add(removed);
+            for (const added of final.intent.value) values.delete(added);
             if (values.size) history.set(source, [...values]); else history.delete(source);
           } else if (source && typeof final.intent.value === "string") {
             const values = new Set(history.get(source));
@@ -518,10 +598,24 @@ export function createMetadataEditorStore(
         capturedDrafts.delete(member.id);
       }
     } catch {
-      for (const member of group) update(member.id, { state: "finished", message: "Save unavailable; no automatic retry" });
+      releaseWindow?.();
+      for (const member of group) {
+        if (!boundedProgress) { update(member.id, { state: "finished", message: "Save unavailable; no automatic retry" }); continue; }
+        const active = running.get(member.id);
+        const byId = new Map([...progress.get(member.id)?.items ?? [], ...active?.getSnapshot()?.items ?? []].map(item => [item.imageId, item]));
+        active?.stopRemaining();
+        active?.cancelObservation();
+        const items = member.intent.targetIds.map(imageId => {
+          const item = byId.get(imageId);
+          if (!item || item.state === "queued") return { imageId, state: "not-started" as const };
+          return { ...item, ...(item.state === "submitted" && { state: "unknown" as const }), ...(item.observation === "pending" && { observation: "unavailable" as const }) };
+        });
+        running.delete(member.id);
+        update(member.id, { state: "finished", items, settled: undefined, ...(!groupedAction && { message: "Save unavailable; no automatic retry" }) });
+      }
     } finally {
       for (const member of group) { reservations.get(member.id)?.(); reservations.delete(member.id); }
-      slot.complete();
+      slot.complete(slot.isLent ? haltReason(store.getState().saves.get(id)?.items ?? []) ?? (disposed ? "disabled" : undefined) : undefined);
       releaseDispatch();
     }
   }
@@ -529,3 +623,21 @@ export function createMetadataEditorStore(
 }
 
 export const metadataEditorStore = createMetadataEditorStore();
+
+export function reportUploadFollowups(editor: typeof metadataEditorStore, operations: readonly { label: string; id: number | undefined }[], report: (rows: readonly import("./upload-jobs-store").UploadFollowup[]) => void) {
+  const publish = () => {
+    const { saves } = editor.getState();
+    const rows = operations.map(operation => {
+      const save = operation.id === undefined ? undefined : saves.get(operation.id);
+      return { label: operation.label, summary: save ? metadataSaveStatus(save) : "Not sent",
+        pending: Boolean(save && save.state !== "finished"), attention: !save || save.state === "finished"
+          && (Boolean(save.message) || save.excluded > 0 || save.items.some(item => item.state === "unknown" || item.observation !== "observed")) };
+    });
+    if (operations.every(({ id }) => id === undefined || saves.get(id)?.state === "finished")) unsubscribe();
+    report(rows);
+  };
+  const unsubscribe = editor.subscribe((next, previous) => {
+    if (operations.some(({ id }) => id !== undefined && next.saves.get(id) !== previous.saves.get(id))) publish();
+  });
+  publish();
+}

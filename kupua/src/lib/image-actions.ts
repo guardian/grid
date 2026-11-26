@@ -2,8 +2,9 @@ import type { Image } from "@/types/image";
 import { attachedEnrichment, useEnrichmentStore, type EnrichmentFields } from "@/stores/enrichment-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
-import { getImageReadSequence, isImageMetadataCurrent, resolveImageOverlay } from "./image-read-freshness";
+import { getImageReadSequence, isActionAuthorityPending, isImageMetadataCurrent, resolveImageOverlay } from "./image-read-freshness";
 import { BATCH_POLICY } from "./batch-execution";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { humanisePersistedReasons } from "./image-persistence";
 import { isGridSessionInvalidated } from "./grid-api-instance";
 import { getCropSettings, type CropSettings } from "./crop/crop-options";
@@ -38,6 +39,7 @@ export interface ImageActionContext {
 }
 
 export interface ImageActionDescription {
+  libraryIcon?: "add" | "remove" | "locked";
   label: string;
   shortLabel: string;
   reason?: string;
@@ -105,7 +107,7 @@ export function selectionImageActionContext(archive: boolean | null): ImageActio
       const candidates = getImageReadSequence(stored) > getImageReadSequence(attached) ? [stored, attached] : [attached, stored];
       const overlay = image ? resolveImageOverlay(image, ...candidates) : stored;
       return { id, image, overlay, pending: selection.pendingFetchIds.has(id)
-        || Boolean(image && !isImageMetadataCurrent(image, overlay)) };
+        || Boolean(image && (!isImageMetadataCurrent(image, overlay) || isActionAuthorityPending(image, overlay))) };
     }),
   };
 }
@@ -126,10 +128,15 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
   if (!context.api) return blocked("Available in media-api mode only");
   if (isGridSessionInvalidated()) return blocked("Reload after signing in again");
   const knownUnavailable = (target: ImageActionTarget) => Boolean(target.image?.__availability || target.image?.softDeletedMetadata);
+  if (action === "library" && targets.some(knownUnavailable)) {
+    if (targets.every(target => target.image?.softDeletedMetadata || target.image?.__availability === "deleted")) result.libraryIcon = "locked";
+    return blocked(targets.length === 1 ? "This image is unavailable or deleted" : "One or more selected images are unavailable or deleted");
+  }
   if (targets.some(target => !(action === "full-frame" && knownUnavailable(target))
     && (target.pending || !target.image || !target.overlay))) return blocked("Image information is not ready",
       targets.some(target => target.pending && !(action === "full-frame" && knownUnavailable(target))));
-  if (action !== "download" && targets.length > BATCH_POLICY.maxTargets) return blocked(`Select at most ${BATCH_POLICY.maxTargets} images`);
+  if (action === "full-frame" && targets.length > BATCH_POLICY.maxTargets) return blocked(`Select at most ${BATCH_POLICY.maxTargets} images`);
+  if ((action === "library" || action === "delete") && targets.length > SELECTION_CAP) return blocked(`Select at most ${SELECTION_CAP} images`);
   const unavailable = targets.some(target => target.image!.__availability || target.image!.softDeletedMetadata);
   if (action === "full-frame") {
     if ((context.cropSettings ?? getCropSettings()).lockedType !== undefined) return blocked("Use Crop image for the requested crop ratio");
@@ -146,7 +153,9 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
       .map(reason => `${skipped.filter(item => item.reason === reason).length}: ${reason}`).join("; ");
     return { ...result, eligibleIds, skipped, ...(!eligibleIds.length && { reason: skipSummary }) };
   }
-  if (unavailable) return blocked(targets.length === 1 ? "This image is unavailable or deleted" : "One or more selected images are unavailable or deleted");
+  if (unavailable) {
+    return blocked(targets.length === 1 ? "This image is unavailable or deleted" : "One or more selected images are unavailable or deleted");
+  }
   if (action === "delete") {
     if (targets.some(target => !target.overlay!.actions?.some(command => command.name === "delete" && command.method === "DELETE"))) {
       return blocked(targets.length === 1 ? "This image cannot be deleted" : "Not all selected images can be deleted");
@@ -163,11 +172,12 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
     });
     if (noneCanChange) {
       const reasons = [...new Set(targets.flatMap(target => target.overlay!.persisted!.reasons))];
-      return { ...result, label: "Kept in Library", eligibleIds: [],
+      return { ...result, libraryIcon: "locked", label: "Kept in Library", eligibleIds: [],
         reason: `Kept in Library because ${targets.length === 1 ? "the image has" : "the images have"} been ${humanisePersistedReasons(reasons, targets.length === 1 ? "and" : "or")}.` };
     }
     const remove = targets.every(target => target.overlay!.persisted!.value);
     result.label = remove ? "Remove from Library" : "Add to Library";
+    result.libraryIcon = remove ? "remove" : "add";
     result.operation = remove ? "unarchive" : "archive";
     if (context.archive !== true) return blocked(context.archive === null ? "Library permission is loading" : "Library permission unavailable", context.archive === null);
     result.eligibleIds = targets.filter(target => Boolean(target.image!.userMetadata?.archived) === remove).map(target => target.id);

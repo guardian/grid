@@ -740,9 +740,9 @@ describe("mounted range ownership", () => {
     vi.spyOn(source, "getByIds").mockResolvedValue([]);
     const { result } = renderHook(() => useRangeSelection());
     await result.current(effect);
-    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(["img-0", "img-2", ...ids]));
+    expect(useSelectionStore.getState().selectedIds).toEqual(new Set(cap === "hard" ? ["img-0"] : ["img-0", "img-2", ...ids]));
     expect(useToastStore.getState().queue.map(toast => toast.message)).toEqual([
-      cap === "hard" ? `Selection was limited to ${RANGE_HARD_CAP.toLocaleString()} images.` : `Added ${(RANGE_SOFT_CAP + 1).toLocaleString()} images to your selection.`,
+      cap === "hard" ? `Range exceeds ${RANGE_HARD_CAP.toLocaleString()} images. Selection unchanged.` : `Added ${(RANGE_SOFT_CAP + 1).toLocaleString()} images to your selection.`,
     ]);
   });
 

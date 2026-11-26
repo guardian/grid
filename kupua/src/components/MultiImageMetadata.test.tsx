@@ -17,6 +17,7 @@ import { useCollectionStore } from "@/stores/collection-store";
 import { useSearchStore } from "@/stores/search-store";
 import { createLabelEditorStore, labelTargetKey } from "@/stores/label-editor-store";
 import { BATCH_POLICY, createBatchQueue } from "@/lib/batch-execution";
+import { nextEditSequence } from "@/lib/metadata-edit-execution";
 import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
 import { DetailsDrafts } from "./DetailsDrafts";
 import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext, SelectionSaveIndicator } from "./MetadataEditing";
@@ -499,6 +500,212 @@ describe("metadata field preparation", () => {
       expect(execute).toHaveBeenCalledWith(expect.objectContaining({ imageId: peers[0], value: "B" }));
       expect(peers.map(id => credits.get(id))).toEqual(["A", "A"]);
     } finally { release(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it.each([["archived", true], ["archived", false], ["photoshoot", true], ["photoshoot", false], ["metadata_byline", false], ["metadata_byline", true]] as const)("accounts for every grouped target: %s, interrupted %s", async (fieldId, missing) => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const size = !missing && process.env.KUPUA_RECEIPT_SCALE === "1" ? 5000 : 201;
+    const ids = Array.from({ length: size }, (_, index) => `boundary-${index}`);
+    const ordinal = new Map(ids.map((id, index) => [id, index]));
+    const written = new Set<string>();
+    const readImages = vi.fn(async (requested: string[]) => {
+      if (missing && fieldId === "metadata_byline" && requested[0] === ids[100]) {
+        const batch: typeof images = [];
+        batch[Symbol.iterator] = () => { throw new Error("Preflight interrupted after read"); };
+        return batch;
+      }
+      return requested.filter(id => !missing || id !== ids[125]).map(id => {
+      const image = { ...images[0], id, metadata: { byline: written.has(id) ? "Desk" : "Before" }, userMetadata: { archived: written.has(id), ...(written.has(id) && { photoshoot: { title: "Desk" } }), lastModified: written.has(id) ? "2026-11-26T10:01:00Z" : "2026-11-26T10:00:00Z" } };
+      const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+      stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay); return image;
+      });
+    });
+    const editor = createMetadataEditorStore(async command => { written.add(command.imageId); return { outcome: "acknowledged", ...(fieldId === "metadata_byline" && { expected: { byline: "Desk" }, metadataWitness: "written" }) }; }, { readImages, publishImages: vi.fn() });
+    let activePeak = 0, priorConfirmed = 0, prefixSlots = 0, publications = 0;
+    const unsubscribe = editor.subscribe(state => {
+      for (const save of state.saves.values()) if (save.state === "saving") {
+        if (save.items.length) {
+          publications++;
+          const groupStart = Math.floor(ordinal.get(save.items.at(-1)!.imageId)! / BATCH_POLICY.maxTargets) * BATCH_POLICY.maxTargets;
+          prefixSlots += Math.max(0, groupStart - ordinal.get(save.items[0].imageId)!);
+        }
+        activePeak = Math.max(activePeak, save.items.length);
+        priorConfirmed = Math.max(priorConfirmed, save.settled?.confirmed ?? 0);
+      }
+    });
+    try {
+      const id = editor.getState().submit(fieldId === "archived" ? { fieldId, action: "overwrite", value: "archive", targetIds: ids } : { fieldId, action: "overwrite", value: "Desk", targetIds: ids })!;
+      await vi.runAllTimersAsync();
+      const save = editor.getState().saves.get(id)!;
+      const expected = missing ? 100 : ids.length;
+      if (missing && fieldId === "metadata_byline") expect(save.message).toContain("no automatic retry");
+      expect([...written]).toEqual(ids.slice(0, expected));
+      expect(save.items.map(item => item.imageId)).toEqual(ids);
+      expect(save.items.slice(0, expected).every(item => item.observation === "observed")).toBe(true);
+      expect(save.items.slice(expected).every(item => item.state === "not-started")).toBe(true);
+      if (size === 5000) console.info("receipt scale", { fieldId, publications, activePeak, prefixSlots, priorConfirmed });
+      expect(prefixSlots).toBe(0);
+      expect(activePeak).toBe(BATCH_POLICY.maxTargets);
+      if (!missing) expect(priorConfirmed).toBe(Math.floor((size - 1) / BATCH_POLICY.maxTargets) * BATCH_POLICY.maxTargets);
+      if (missing && fieldId !== "metadata_byline") expect((await import("@/stores/metadata-editor-store")).metadataSaveStatus(save)).toContain("101 not sent");
+      expect(readImages.mock.calls.every(([requested]) => requested.length <= 100)).toBe(true);
+    } finally { unsubscribe(); editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it.each(["library/details", "shoot/form", "shoot/expired", "library/inside head", "library/stopped head", "library/stop parent", "library/shoot arrow", "library/automatic head"])("lends a settled group to an eligible outside user edit: %s", async scenario => {
+    let invalid = false;
+    vi.spyOn(gridSession, "invalidateGridSession").mockImplementation(() => { invalid = true; });
+    vi.spyOn(gridSession, "isGridSessionInvalidated").mockImplementation(() => invalid);
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const ids = Array.from({ length: 101 }, (_, index) => `loan-${index}`);
+    const written = new Set<string>(), credits = new Set<string>(), order: string[] = [];
+    const queue = createBatchQueue();
+    let resume!: () => void;
+    const held = new Promise<void>(resolve => { resume = resolve; });
+    const editor = createMetadataEditorStore(async command => {
+      order.push(command.imageId);
+      if (command.operation === "edit-metadata") {
+        credits.add(command.imageId);
+        return { outcome: "acknowledged", expected: { credit: "Manual" }, metadataWitness: "manual" };
+      }
+      written.add(command.imageId);
+      return { outcome: "acknowledged" };
+    }, { readImages: async requested => {
+      if (requested.length === 1 && requested[0] === "outside" && (credits.has("outside") || written.has("outside"))) {
+        await held;
+        if (scenario === "shoot/expired") throw Object.assign(new Error("Session expired"), { status: 419 });
+      }
+      return requested.map(id => {
+        const image = { ...images[0], id, metadata: { credit: credits.has(id) ? "Manual" : "Original" }, userMetadata: { archived: written.has(id), ...(written.has(id) && { photoshoot: { title: "Desk" } }), lastModified: written.has(id) || credits.has(id) ? "2026-11-26T10:01:00Z" : "2026-11-26T10:00:00Z" } };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay); return image;
+      });
+    }, publishImages: vi.fn() }, queue);
+    const labelWrite = vi.fn().mockResolvedValue({ outcome: "rejected", status: 403 });
+    const labels = createLabelEditorStore(labelWrite, { readImages: vi.fn(), publishImages: vi.fn() }, "connected", queue);
+    const label = () => labels.getState().prepare("add", "news", { targetIds: ["label"], targets: new Map([["label", { resource: { links: [{ rel: "edits", href: "/metadata/label" }] } }]]) });
+    try {
+      const state = editor.getState();
+      const parent = state.submit(scenario.startsWith("library") ? { fieldId: "archived", action: "overwrite", value: "archive", targetIds: ids } : { fieldId: "photoshoot", action: "overwrite", value: "Desk", targetIds: ids })!;
+      await Promise.resolve();
+      const details = (id: string) => state.submit({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: [id] }, false, undefined, "details-scalar");
+      const arrow = scenario === "library/shoot arrow" || scenario === "library/automatic head";
+      if (scenario === "library/inside head") details(ids[0]);
+      if (arrow) {
+        if (scenario === "library/automatic head") state.submit({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: ["automatic"] });
+        state.submitArrow({ fieldId: "photoshoot", action: "overwrite", value: "Desk", targetIds: ["outside"] }, "shoot-arrow");
+      } else if (scenario.startsWith("shoot")) {
+        useMetadataDrafts.getState().setDraft("outside", "metadata_credit", "Original", "Manual");
+        state.flush("outside", "metadata_credit");
+      } else details("outside");
+      if (scenario === "library/details" || scenario === "library/inside head") {
+        expect(label()).toBe(false);
+        expect(labels.getState().refusal).toBe("busy");
+        const targetIds = ["later-label-1", "later-label-2"];
+        expect(labels.getState().prepare("add", "news", { targetIds, targets: new Map(targetIds.map(id => [id, { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } }])) })).toBe(false);
+        expect(labels.getState().refusal).toBe("busy");
+      }
+      const stoppedHead = scenario === "library/stopped head";
+      if (stoppedHead) {
+        state.stop(state.latestSingle("outside", "metadata_credit")!.id);
+        expect(label()).toBe(true);
+        details("outside");
+      }
+      await vi.advanceTimersByTimeAsync(3000);
+      const insideHead = scenario === "library/inside head";
+      expect(order).toEqual(insideHead ? [...ids, ids[0], "outside"] : scenario === "library/automatic head" ? [...ids, "automatic", "outside"] : stoppedHead ? [...ids, "outside"] : [...ids.slice(0, 100), "outside"]);
+      const stopped = scenario === "library/stop parent";
+      if (stopped) state.stop(parent);
+      resume(); await vi.runAllTimersAsync();
+      const receipt = editor.getState().saves.get(parent)!;
+      expect(receipt.items.map(item => item.imageId)).toEqual(ids);
+      const expired = scenario === "shoot/expired";
+      expect(receipt.items.filter(item => item.observation === "observed")).toHaveLength(expired || stopped ? 100 : 101);
+      expect(editor.getState().latestSingle("outside", arrow ? "photoshoot" : "metadata_credit")?.items[0].observation).toBe(expired ? "unavailable" : "observed");
+      if (expired) expect(receipt.items.at(-1)).toMatchObject({ state: "not-started", result: { reason: "reload-required" } });
+      if (stopped) expect(receipt.items.at(-1)?.state).toBe("stopped");
+      expect(labelWrite).toHaveBeenCalledTimes(Number(stoppedHead));
+      expect(written.size).toBe((expired || stopped ? 100 : 101) + Number(arrow));
+      expect(order.filter(id => id === "outside")).toHaveLength(1);
+    } finally { resume(); editor.getState().dispose(); labels.getState().dispose(); queue.dispose(); vi.useRealTimers(); }
+  });
+
+  it.each(["same tick", "coalescing"])("preserves an admitted manual waiter's position: %s", async scenario => {
+    const queue = createBatchQueue();
+    const readImages = vi.fn().mockResolvedValue([]);
+    const editor = createMetadataEditorStore(vi.fn(), { readImages, publishImages: vi.fn() }, queue);
+    const submit = (id: string, user: boolean) => editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: [id] }, false, undefined, user ? "user" : undefined);
+    try {
+      submit("first", scenario === "same tick");
+      if (scenario === "coalescing") await Promise.resolve();
+      const waiter = queue.admit({ imageId: "label", sequence: nextEditSequence(), effect: "image", conflicted: () => false })!;
+      expect(waiter.wait).toBeDefined();
+      submit("later", true);
+      await waiter.wait;
+      expect(readImages.mock.calls.map(([ids]) => ids)).toEqual([["first"]]);
+      waiter.complete();
+      await vi.waitFor(() => expect(readImages.mock.calls.map(([ids]) => ids)).toEqual([["first"], ["later"]]));
+    } finally { editor.getState().dispose(); queue.dispose(); }
+  });
+
+  it("aborts a stopped Details preflight after a shared lend", async () => {
+    const queue = createBatchQueue(), owner = queue.admit()!;
+    let signal!: AbortSignal;
+    const execute = vi.fn();
+    const editor = createMetadataEditorStore(execute, { readImages: (_, pending) => new Promise((_, reject) => {
+      signal = pending; signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    }), publishImages: vi.fn() }, queue);
+    try {
+      const id = editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: ["outside"] }, false, undefined, "details-scalar")!;
+      await Promise.resolve();
+      const loan = queue.lendWaiting(owner, { ids: new Set(["parent"]), effect: "image" });
+      expect(loan).toBeDefined();
+      await Promise.resolve();
+      editor.getState().stop(id);
+      expect(signal.aborted).toBe(true);
+      await loan;
+      expect(execute).not.toHaveBeenCalled();
+    } finally { editor.getState().dispose(); queue.dispose(); }
+  });
+
+  it("keeps a lent metadata arrow isolated through readback and returns its session halt", async () => {
+    let invalid = false;
+    vi.spyOn(gridSession, "invalidateGridSession").mockImplementation(() => { invalid = true; });
+    vi.spyOn(gridSession, "isGridSessionInvalidated").mockImplementation(() => invalid);
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    vi.useFakeTimers();
+    const queue = createBatchQueue(), owner = queue.admit()!;
+    const writes: string[] = [];
+    let resume!: () => void;
+    const held = new Promise<void>(resolve => { resume = resolve; });
+    const editor = createMetadataEditorStore(async command => {
+      writes.push(command.imageId);
+      return { outcome: "acknowledged", expected: { credit: "Manual" }, metadataWitness: "manual" };
+    }, { readImages: async ids => {
+      if (writes.length) { await held; throw Object.assign(new Error("Expired"), { status: 419 }); }
+      return ids.map(id => {
+        const image = { ...images[0], id };
+        const overlay = { resource: { links: [{ rel: "edits", href: `https://metadata.example.test/metadata/${id}` }] } };
+        stampImageRead(image, overlay, captureImageRead(), "lean"); attachEnrichment(image, overlay); return image;
+      });
+    }, publishImages: vi.fn() }, queue);
+    try {
+      for (const id of ["first", "second"]) editor.getState().submitArrow({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: [id] }, id);
+      await vi.advanceTimersByTimeAsync(0);
+      const loan = queue.lendWaiting(owner, { ids: new Set(["parent"]), effect: "image" });
+      expect(loan).toBeDefined();
+      let resumed = false;
+      void loan!.then(() => { resumed = true; });
+      await vi.advanceTimersByTimeAsync(BATCH_POLICY.observationIntervalMs);
+      expect(writes).toEqual(["first"]);
+      expect(resumed).toBe(false);
+      resume(); await vi.runAllTimersAsync();
+      await expect(loan).resolves.toBe("reload-required");
+      owner.complete(); await vi.runAllTimersAsync();
+      expect(writes).toEqual(["first"]);
+    } finally { resume(); editor.getState().dispose(); queue.dispose(); vi.useRealTimers(); }
   });
 
   it.each(["early", "late", "session rejection", "shared waiter", "Details outside", "Details observed", "Details late", "Details joined automatic", "Details preflight 401", "Details preflight 503", "Details readback 419", "Details stop parent 419", "Details stopped"])("executes captured offscreen targets in bounded groups: %s", async scenario => {
@@ -1106,6 +1313,30 @@ describe("metadata field preparation", () => {
     expect(from(["legacy", "news"])).toMatchObject({ action: "add", value: ["news"] });
     expect(from(["legacy"])).toMatchObject({ action: "add", value: [] });
     expect(from([])).toMatchObject({ action: "overwrite", value: [] });
+  });
+
+  it("retains mixed field readings without edit authority while a deselection reconciles", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const selected = ["North", "South", "South"].map((city, index) => ({ ...images[0], id: `stable-${index}`, metadata: { city, credit: city, keywords: ["shared", ...(index ? ["two"] : [])] }, userMetadata: { labels: ["shared", ...(index ? ["two"] : [])] } }));
+    const grants = new Map(selected.map(image => [image.id, { resource: { links: [{ rel: "edits", href: `/metadata/${image.id}` }] } }]));
+    const panel = (displayed: typeof selected, live: typeof selected, pending = false) => <MultiImageMetadata images={displayed} total={displayed.length}
+      reconciledView={recomputeAll(displayed, RECONCILE_FIELDS)} retainedSnapshot={pending} labelEditing={{ targetIds: live.map(image => image.id), targets: grants, pending }} />;
+    const { rerender } = render(panel(selected, selected));
+    const reading = () => ["Credit", "Location"].map(field => fieldRow(field).textContent);
+    const initial = reading(), remaining = selected.slice(1);
+    rerender(panel(selected, remaining, true));
+    expect(reading()).toEqual(initial);
+    expect(fieldRow("People").querySelector('.metadata-add-tool:disabled')).toBeTruthy();
+    for (const field of ["Keywords", "Labels"]) {
+      const pills = fieldRow(field).querySelectorAll("[data-editable-pill]");
+      expect([...pills].map(pill => pill.getAttribute("data-coverage"))).toEqual(["all", "partial"]);
+      expect(fieldRow(field).querySelector('button[aria-label^="Apply shared"]')).toBeNull();
+      expect(fieldRow(field).querySelector('.metadata-add-tool:disabled')).toBeTruthy();
+    }
+    for (const field of ["Credit", "Location"]) expect(screen.getByRole("button", { name: `Edit ${field}` }).matches(":disabled")).toBe(true);
+    rerender(panel(remaining, remaining));
+    expect(reading()).not.toEqual(initial);
+    expect(fieldRow("Location").textContent).toContain("South");
   });
 
   it("keeps selected field rows and their reading content through a pending Credit publication", () => {
@@ -2051,7 +2282,7 @@ describe("disconnected label editing", () => {
     const confirmed = [{ imageId, state: "unchanged" as const, observation: "observed" as const }];
     const append = { id: 1, intent: { fieldId: "metadata_description", targetIds, action: "append", value: "A" }, state: "finished", excluded: 0, items: failed } satisfies MetadataSave;
     const other: MetadataSave = { ...append, id: 2, intent: { ...append.intent, value: "B" }, items: confirmed };
-    const fix: MetadataSave = { ...append, id: 3, intent: { fieldId: "labels", action: "add", value: "news", targetIds }, items: confirmed };
+    const fix: MetadataSave = { ...append, id: 3, intent: { fieldId: "labels", action: "add", value: ["news", "sport"], targetIds }, items: confirmed };
     const receipt = { mode: "connected" as const, intent: { action: "add" as const, label: "news", targetIds }, counts: { selected: 1, eligible: 1, ineligible: 0, unresolved: 0, unavailable: 0 }, items: failed, sequence: 1 };
     labels.setState({ receipts: [receipt] });
     const saves = [append, other, { ...fix, sequence: 2 }];
@@ -2062,7 +2293,24 @@ describe("disconnected label editing", () => {
     act(() => editor.setState(state => ({ saves: new Map(state.saves).set(fix.id, { ...fix, items: failed, sequence: 2 }) })));
     expect(warning()).toContain("Labels: 1 not saved");
     act(() => labels.setState({ receipts: [receipt, { ...receipt, sequence: 3, items: confirmed }] }));
+    expect(warning()).toContain("Labels: 1 not saved");
+    act(() => labels.setState({ receipts: [receipt, { ...receipt, sequence: 4, intent: { ...receipt.intent, additionalLabels: ["sport"] }, items: confirmed }] }));
     expect(warning()).toBe("Description: 1 not saved");
+  });
+
+  it("shares uniform label failures and splits only the independently repaired histories", async () => {
+    const { createLabelIssueIndex, editIssue } = await import("./EditIssueDisclosure");
+    const index = createLabelIssueIndex();
+    const labels = Array.from({ length: 32 }, (_, number) => `label-${number}`);
+    const failed = new Map(Array.from({ length: 256 }, (_, number) => [`id-${number}`, editIssue(`id-${number}`, "Labels", undefined, true)] as const));
+    index.apply(labels, failed);
+    expect(index.details()).toHaveLength(256);
+    index.apply(labels.slice(1), new Map([["id-0", null]]));
+    index.apply(labels.slice(0, 1), new Map([["id-1", null]]));
+    expect(index.details()).toHaveLength(256);
+    index.apply(labels.slice(0, 1), new Map([["id-0", null]]));
+    expect(index.details().some(issue => issue.imageId === "id-0")).toBe(false);
+    expect(index.details().some(issue => issue.imageId === "id-1")).toBe(true);
   });
 
   it("uses one slot across selections and returns to the remaining save after selecting issues", () => {

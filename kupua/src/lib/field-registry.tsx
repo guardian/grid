@@ -1,3 +1,4 @@
+import { ResultLibraryBadge, type InlineLibrary } from "@/components/ResultLibraryBadge";
 /**
  * Field Definition Registry — single source of truth for all image fields.
  *
@@ -127,7 +128,7 @@ export interface FieldDefinition {
    * Called by EnrichedTableRow per row — NOT baked into TanStack column defs.
    * If not provided, the table renders `accessor(image) || "—"`.
    */
-  cellRenderer?: (image: EnrichedImage) => ReactNode;
+  cellRenderer?: (image: EnrichedImage, inlineLibrary?: InlineLibrary) => ReactNode;
 
   /**
    * Format the raw value for display (dates, dimensions, MIME types).
@@ -340,13 +341,13 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
     accessor: (img) => img.usageRights?.category ?? "",
     defaultWidth: 66,
     // All-badges-visible fit: 2 SVG icons (14px) + syndication icon (16px) + CostBadge (27px) + persisted icon (14px)
-    // + 4 × gap-0.5 (2px) + cell px-2 padding (16px) = 101
+    // + 4 × gap-0.5 (2px) + cell px-2 padding (16px) = 109
     fitWidth: 2 * 14 + 16 + 27 + 14 + 4 * 2 + 16,
     fieldType: "keyword",
     detailHidden: true,
     multiSelectBehaviour: "always-suppress" as const,
     showWhenEmpty: true,
-    cellRenderer: (enriched: EnrichedImage): ReactNode => {
+    cellRenderer: (enriched: EnrichedImage, inlineLibrary: InlineLibrary = false): ReactNode => {
       const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       type AnyUsage = { platform: string; dateAdded?: string };
       const usages: AnyUsage[] | undefined = enriched.enrichedUsages ?? enriched.usages;
@@ -364,10 +365,9 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
       const hasSyndicationBadge = syndicationStatus != null && syndicationStatus !== "unsuitable";
 
       // Nothing to render
-      if (!showCost && !hasPrint && !hasDigital && !hasSyndicationBadge && !persisted?.value) return null;
+      if (!showCost && !hasPrint && !hasDigital && !hasSyndicationBadge && !persisted?.value && !(inlineLibrary && persisted)) return null;
 
-      return (
-        <span className="flex items-center gap-0.5">
+      const facts = <>
           {hasPrint && (
             <span className={hasPrintRecent ? "text-[#DD0000]" : "text-grid-text-dim"} title={`Print usage${hasPrintRecent ? " (recent)" : ""}`}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width={14} height={14}>
@@ -392,14 +392,11 @@ const HARDCODED_FIELDS: FieldDefinition[] = [
               size="sm"
             />
           )}
-          {persisted?.value && (
-            <span className="text-grid-text-dim" title={`Kept in Library: ${persisted.reasons.join(", ")}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor" width={14} height={14}>
-                <path d="M113.8 98.7v15.1H14.1V14.2h42.7V0H14.2C6.4 0 0 6.4 0 14.2v99.6c0 7.8 6.4 14.2 14.2 14.2h99.6c7.8 0 14.2-6.4 14.2-14.2V98.7h-14.2z" />
-                <path d="M67.7 88.6H118c4.6 0 8.4-3.8 8.4-8.4V38.3c0-4.6-3.8-8.4-8.4-8.4h-4.2v-8.4c0-11.5-9.4-20.9-21-20.9s-21 9.4-21 20.9v8.4h-4.2c-4.6 0-8.4 3.8-8.4 8.4v41.9c.1 4.6 3.9 8.4 8.5 8.4zM92.8 70C86.9 70 82 65.2 82 59.2c0-5.9 4.9-10.8 10.8-10.8s10.8 4.9 10.8 10.8c0 6-4.8 10.8-10.8 10.8zM79.9 21.5c0-7.2 5.8-13 13-13s13 5.8 13 13v8.4h-26v-8.4z" />
-              </svg>
-            </span>
-          )}
+      </>;
+      return (
+        <span className="table-badges flex items-center gap-0.5">
+          {inlineLibrary && persisted ? <span className="table-badge-facts flex items-center gap-0.5">{facts}</span> : facts}
+          {persisted && <ResultLibraryBadge image={enriched} editable={inlineLibrary} />}
         </span>
       );
     },

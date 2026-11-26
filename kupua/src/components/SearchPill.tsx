@@ -16,7 +16,7 @@
  */
 
 import { ALT_CLICK } from "@/lib/keyboard-shortcuts";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 export const cancelButtonColours = "bg-[#898989] enabled:hover:bg-grid-hover";
 
@@ -58,8 +58,13 @@ export function PillActionButton({ action, label, title = label, attached = fals
   </button>;
 }
 
-export function visibleEditorPills(values: readonly { value: string; count: number }[], expanded: boolean, intents: readonly { action: string; value: unknown; removed?: readonly string[] }[]) {
-  const ordered = [...values].sort((first, second) => second.count - first.count);
+type CountedPill = { value: string; count: number };
+export function useOrderedEditorPills(values: readonly CountedPill[]) {
+  return useMemo(() => [...values].sort((first, second) => second.count - first.count), [values]);
+}
+
+export function visibleEditorPills(ordered: readonly CountedPill[], expanded: boolean, intents: readonly { action: string; value: unknown; removed?: readonly string[] }[]) {
+  if (!intents.length) return (expanded ? ordered : ordered.slice(0, 20)).map(item => ({ ...item, pending: false }));
   const pending = new Set<string>();
   const additions = new Set<string>();
   let clearing = false;
@@ -80,7 +85,7 @@ export function visibleEditorPills(values: readonly { value: string; count: numb
   return visible;
 }
 
-export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, pending, coverageKnown = true, disabled, addDisabled = disabled, onAdd, onRemove }: {
+export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, count, total, retainedTotal, pending, coverageKnown = true, disabled, addDisabled = disabled, onAdd, onRemove }: {
   value: string;
   label?: ReactNode;
   cqlKey: string;
@@ -90,13 +95,14 @@ export function EditableSearchPill({ value, label, cqlKey, onSearch, accent, cou
   total: number;
   pending?: boolean;
   coverageKnown?: boolean;
+  retainedTotal?: number;
   disabled?: boolean;
   addDisabled?: boolean;
   onAdd: () => void;
   onRemove: () => void;
 }) {
   const incoming = pending && count === 0;
-  const partial = !incoming && (!coverageKnown || count < total);
+  const partial = !incoming && (retainedTotal !== undefined ? count < retainedTotal : !coverageKnown || count < total);
   const pillClass = partial
     ? `${PILL_BASE} bg-white ${accent ? "text-grid-accent" : "text-[#222]"}`
     : accent ? `${PILL_BASE} bg-grid-accent text-white` : PILL_DEFAULT;

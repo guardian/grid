@@ -30,7 +30,7 @@ import { POSITION_MAP_CHUNK_SIZE } from "./position-map";
 import { buildSortClause } from "./adapters/elasticsearch/sort-builders";
 import { chooseDateHistogramInterval, sortValuesStrictlyAfter } from "./es-adapter";
 import { apiGetByIds, apiGetImage, apiImageWindow, apiSearchAfter, apiSearchByAi, buildReadBody, postImageRead, SearchAfterApiError } from "./grid-api-search-adapter";
-import { MAX_RESULT_WINDOW, PAGE_SIZE, RANGE_CHUNK_SIZE } from "@/constants/tuning";
+import { getRangeHardCap, MAX_RESULT_WINDOW, PAGE_SIZE, RANGE_CHUNK_SIZE } from "@/constants/tuning";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import type { Image } from "@/types/image";
 import { UploadPageReader } from "./upload-page-reader";
@@ -424,7 +424,7 @@ export class ApiDataSource implements ImageDataSource {
     signal?: AbortSignal,
   ): Promise<IdRangeResult> {
     const sortClause = buildSortClause(params.orderBy);
-    const hardCap = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
+    const hardCap = getRangeHardCap();
     const ids: string[] = [];
     let walked = 0;
     let cursor: SortValues | null = fromCursor;

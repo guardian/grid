@@ -1,7 +1,8 @@
 import { createMetadataEditExecution, type MetadataEditReceipt, type MetadataEditObservation } from "./metadata-edit-execution";
+import { containsAllPillValues } from "./metadata-pill-fields";
 import { metadataWriteFingerprint, type AddLabelsCommand, type GridCommandResult, type MetadataCommand, type RightsCommand, type LeaseCommand, type ObserveRights } from "./grid-commands";
 import { leaseChangeForImage, leaseSetKey, type LeaseChange } from "./lease-change";
-import type { LabelListCommand, PhotoshootCommand, MembershipCommand } from "./grid-commands";
+import type { LabelListCommand, PhotoshootCommand, MembershipCommand, ArchiveCommand } from "./grid-commands";
 import { BATCH_POLICY, type BatchPacing } from "./batch-execution";
 import { attachedEnrichment } from "@/stores/enrichment-store";
 
@@ -49,10 +50,11 @@ export function createRightsReadback(readImages: MetadataEditObservation["readIm
 export type MetadataIntent = (Pick<MetadataCommand, "fieldId" | "action" | "value">
   | { fieldId: "collections"; action: "add" | "remove" | "overwrite"; value: string[]; fillMissing?: true }
   | { fieldId: "photoshoot"; action: "overwrite"; value: string }
+  | { fieldId: "archived"; action: "overwrite"; value: "archive" | "unarchive" }
   | { fieldId: "usageRights_category"; action: "overwrite"; value: RightsCommand["value"] }
   | { fieldId: "leases"; action: "overwrite"; value: LeaseChange }
   | { fieldId: "labels"; action: "add" | "remove" | "overwrite"; value: string | string[] }) & { targetIds: readonly string[]; removed?: string[] };
-export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand | PhotoshootCommand | MembershipCommand;
+export type EditorCommand = MetadataCommand | AddLabelsCommand | RightsCommand | LeaseCommand | LabelListCommand | PhotoshootCommand | MembershipCommand | ArchiveCommand;
 export type MetadataReceipt = MetadataEditReceipt<MetadataIntent>;
 
 export function matchesPhotoshoot(image: import("@/types/image").Image, title: string) {
@@ -69,13 +71,14 @@ export function createMetadataOperation(
   return createMetadataEditExecution<MetadataIntent, EditorCommand>({
     dispatchConcurrency: execution?.dispatchConcurrency,
     valid: intent => intent.targetIds.length > 0 && intent.targetIds.every(id => /^[a-zA-Z0-9_-]+$/.test(id)),
-    normalize: intent => intent.fieldId === "collections" ? { ...intent, value: [...intent.value] } : intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "labels" || intent.fieldId === "leases" || intent.fieldId === "photoshoot" ? { ...intent }
+    normalize: intent => intent.fieldId === "collections" ? { ...intent, value: [...intent.value] } : intent.fieldId === "usageRights_category" ? { ...intent, value: Object.freeze({ ...intent.value }) } : intent.fieldId === "archived" || intent.fieldId === "labels" || intent.fieldId === "leases" || intent.fieldId === "photoshoot" ? { ...intent }
       : { ...intent, value: typeof intent.value === "string" ? intent.value : Array.isArray(intent.value) ? [...intent.value] : Object.freeze({ ...intent.value }) },
     unsupported: () => false,
-    metadataWitness: (image, input) => ["labels", "leases", "photoshoot", "collections"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
+    metadataWitness: (image, input) => ["labels", "leases", "photoshoot", "collections", "archived"].includes((perImageIntents?.get(image.id) ?? input).fieldId)
       ? undefined : metadataWriteFingerprint(image.userMetadata?.metadata),
     command: (input, imageId, resource) => {
       const intent = perImageIntents?.get(imageId) ?? input;
+      if (intent.fieldId === "archived") return { operation: "set-archive", imageId, value: intent.value === "archive" };
       if (intent.fieldId === "collections") return { operation: "edit-memberships", action: intent.action, pathIds: intent.value, imageId, ...(intent.fillMissing && { fillMissing: true }) };
       if (intent.fieldId === "photoshoot") return { operation: "edit-photoshoot", imageId, resource, value: intent.value, projectionMatches: execution?.matchingPhotoshoots?.has(imageId) === true };
       if (intent.fieldId === "leases") return { operation: "edit-leases", imageId, resource, value: leaseChangeForImage(intent.value, imageId) };
@@ -91,13 +94,16 @@ export function createMetadataOperation(
     },
     matches: (image, intent, result) => {
       intent = perImageIntents?.get(image.id) ?? intent;
+      if (intent.fieldId === "archived") return image.userMetadata?.archived === (intent.value === "archive");
       if (intent.fieldId === "collections") {
         const expected = result && "expected" in result && result.expected?.collections;
-        const actual = image.collections?.map(member => member.pathId);
-        return Array.isArray(expected) && !!actual && actual.length === expected.length && new Set(actual).size === actual.length && expected.every(path => {
-          if (!actual.includes(path)) return false;
+        if (!Array.isArray(expected) || image.collections?.length !== expected.length) return false;
+        const actual = new Map(image.collections.map(member => [member.pathId, member]));
+        return actual.size === expected.length && expected.every(path => {
+          const member = actual.get(path);
+          if (!member) return false;
           const date = result && "expected" in result && result.expected?.[`filed:${path}`];
-          return date === undefined || typeof date === "string" && Number.isFinite(Date.parse(date)) && image.collections?.some(member => member.pathId === path && Date.parse(member.actionData?.date ?? "") === Date.parse(date));
+          return date === undefined || typeof date === "string" && Number.isFinite(Date.parse(date)) && Date.parse(member.actionData?.date ?? "") === Date.parse(date);
         });
       }
       if (intent.fieldId === "photoshoot") return matchesPhotoshoot(image, intent.value);
@@ -118,14 +124,14 @@ export function createMetadataOperation(
       }
       if (intent.fieldId === "labels") {
         const labels = image.userMetadata?.labels;
-        if (result && "expected" in result && Array.isArray(result.expected?.labels)) return !!labels && labels.length === result.expected.labels.length && result.expected.labels.every(label => labels.includes(label));
-        return intent.action === "add" && !intent.removed?.length && (Array.isArray(intent.value) ? intent.value : [intent.value]).every(label => labels?.includes(label));
+        if (result && "expected" in result && Array.isArray(result.expected?.labels)) return !!labels && labels.length === result.expected.labels.length && containsAllPillValues(labels, result.expected.labels);
+        return intent.action === "add" && !intent.removed?.length && !!labels && (Array.isArray(intent.value) ? containsAllPillValues(labels, intent.value) : labels.includes(intent.value));
       }
       if (!result || !("expected" in result) || !result.expected) return false;
       return Object.entries(result.expected).every(([field, expected]) => {
         const actual = image.metadata[field as keyof typeof image.metadata];
         if (field === "dateTaken" && typeof expected === "string" && typeof actual === "string") return Date.parse(actual) === Date.parse(expected);
-        if (Array.isArray(expected)) return Array.isArray(actual) && expected.length === actual.length && expected.every((value, index) => field === "subjects" ? actual[index] === value : actual.includes(value));
+        if (Array.isArray(expected)) return Array.isArray(actual) && expected.length === actual.length && (field === "subjects" ? expected.every((value, index) => actual[index] === value) : containsAllPillValues(actual, expected));
         return (actual ?? "") === expected;
       });
     },

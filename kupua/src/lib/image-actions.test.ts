@@ -3,7 +3,7 @@ import { describeImageAction, prepareImageAction, selectionImageActionContext, t
 import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store";
 import { _resetMetadataCache, useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
-import { stampImageRead } from "./image-read-freshness";
+import { admitLabelObservation, captureImageRead, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
 import { useImageActionStore } from "@/stores/image-action-store";
 import { applyLegacyCropParams } from "./crop/crop-options";
 import { useToastStore } from "@/stores/toast-store";
@@ -25,6 +25,35 @@ function target(id: string): ImageActionTarget {
 const context = (...targets: ImageActionTarget[]): ImageActionContext => ({ targets, api: true, archive: true });
 
 describe("image action preparation", () => {
+  it("keeps Download and Delete pending while a group withholds grants, but treats a fresh denial as settled", () => {
+    const selection = useSelectionStore.getState();
+    const search = useSearchStore.getState();
+    const id = "handoff";
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const publish = (candidate: ImageActionTarget) => {
+      stampImageRead(candidate.image!, candidate.overlay, captureImageRead(), "lean");
+      attachEnrichment(candidate.image!, candidate.overlay!);
+      useSearchStore.setState({ results: [candidate.image!], imagePositions: new Map([[id, 0]]), bufferOffset: 0 });
+    };
+    try {
+      useSelectionStore.setState({ selectedIds: new Set([id]), pendingFetchIds: new Set(), isRangeWalking: false });
+      publish(target(id));
+      const operation = admitLabelObservation([id]);
+      if (typeof operation !== "number") throw new Error("Expected admitted edit");
+      for (const action of ["download", "delete"] as const) {
+        expect(describeImageAction(action, selectionImageActionContext(true)).pending).toBe(true);
+        expect(prepareImageAction(action, selectionImageActionContext(true))).toBeUndefined();
+      }
+      releaseLabelObservation(operation);
+      const denied = target(id);
+      denied.overlay!.actions = []; denied.overlay!.resource!.links = [];
+      publish(denied);
+      for (const action of ["download", "delete"] as const) {
+        expect(describeImageAction(action, selectionImageActionContext(true)).pending).toBeUndefined();
+        expect(prepareImageAction(action, selectionImageActionContext(true))).toBeUndefined();
+      }
+    } finally { resetImageFreshnessForTests(); useSearchStore.setState(search, true); useSelectionStore.setState(selection, true); vi.unstubAllEnvs(); }
+  });
   it("blocks full-frame preparation under an incoming mandatory ratio without blocking defaults", () => {
     const values = new Map<string, string>();
     vi.stubGlobal("sessionStorage", { getItem: (key: string) => values.get(key) ?? null,
@@ -152,9 +181,12 @@ describe("image action preparation", () => {
     kept.overlay!.persisted = { value: true, reasons: ["usages"] };
     expect(prepareImageAction("library", context(archived, kept, target("new")))!).toMatchObject({ operation: "archive", eligibleIds: ["kept", "new"] });
     expect(prepareImageAction("library", context(archived, kept))!).toMatchObject({ operation: "unarchive", eligibleIds: ["archived"] });
-    expect(describeImageAction("library", context(kept))).toMatchObject({ label: "Kept in Library", eligibleIds: [] });
+    expect(describeImageAction("library", context(archived, kept)).libraryIcon).toBe("remove");
+    expect(describeImageAction("library", context(kept))).toMatchObject({ label: "Kept in Library", libraryIcon: "locked", eligibleIds: [] });
     expect(describeImageAction("library", context(kept)).reason).toBe("Kept in Library because the image has been used.");
     expect(prepareImageAction("library", { ...context(archived), archive: false })).toBeUndefined();
+    const unchanged = Array.from({ length: 100 }, (_, i) => ({ ...archived, id: `archived-${i}` }));
+    expect(prepareImageAction("library", context(...unchanged, target("new")))?.eligibleIds).toEqual(["new"]);
   });
 
   it("captures Share IDs without requiring image metadata and blocks incomplete service targets", () => {

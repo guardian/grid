@@ -5,6 +5,8 @@ import type { EnrichedImage } from "@/lib/derive-enriched-image";
 import { COLUMN_CQL_KEYS, FIELDS_BY_ID, type FieldDefinition } from "@/lib/field-registry";
 import { getThumbnailUrl } from "@/lib/image-urls";
 import { DataSearchPill } from "./SearchPill";
+import type { InlineLibrary } from "./ResultLibraryBadge";
+import { ResultPillStrip } from "./ResultPillStrip";
 
 export function TableThumbnail({ image }: { image: Image }) {
   const url = getThumbnailUrl(image);
@@ -22,8 +24,8 @@ export function TableThumbnail({ image }: { image: Image }) {
 }
 
 export function renderTableField(field: FieldDefinition, image: Image,
-  value: ReturnType<FieldDefinition["accessor"]>, enriched?: EnrichedImage) {
-  if (field.cellRenderer && enriched) return field.cellRenderer(enriched);
+  value: ReturnType<FieldDefinition["accessor"]>, enriched?: EnrichedImage, inlineLibrary: InlineLibrary = false) {
+  if (field.cellRenderer && enriched) return field.cellRenderer(enriched, inlineLibrary);
   if (field.isList) {
     if (!Array.isArray(value) || value.length === 0) return "—";
     return <span className="inline-flex flex-nowrap gap-0.5 overflow-hidden" style={{ contain: "layout" }}>
@@ -46,22 +48,27 @@ export function renderTableField(field: FieldDefinition, image: Image,
 }
 
 interface TableRowCellsProps {
+  inlineLibrary?: InlineLibrary;
   image: Image;
   columns: readonly ColumnDef<Image, any>[];
   enriched: EnrichedImage | undefined;
   handleCellClick: (columnId: string, image: Image, event: React.MouseEvent) => void;
 }
 
-export const TableRowCells = memo(function TableRowCells({ image, columns, enriched, handleCellClick }: TableRowCellsProps) {
+export const TableRowCells = memo(function TableRowCells({ image, columns, enriched, handleCellClick, inlineLibrary }: TableRowCellsProps) {
   return <>{columns.map(column => {
     const columnId = column.id!;
+    if (columnId === "labels" || columnId === "collections") return <div key={columnId} role="gridcell" data-cql-cell="" className="flex items-center shrink-0 px-2 text-xs border-r border-grid-separator/20 overflow-hidden" style={{ width: `var(--col-${columnId})`, contain: "layout" }}
+      onClick={event => { if ((event.target as Element).closest("[data-result-pill]")) handleCellClick(columnId, image, event); }}>
+      <ResultPillStrip family={columnId} image={image} enriched={enriched} />
+    </div>;
     const field = FIELDS_BY_ID.get(columnId);
     const value = field?.accessor(image);
     const rawValue = field?.rawValue ? field.rawValue(image) : Array.isArray(value) ? value.join(", ") : value;
     const isClickable = columnId in COLUMN_CQL_KEYS || columnId === "location" || columnId === "subjects" || columnId === "people";
     const content = columnId === "thumbnail" ? <TableThumbnail image={image} />
-      : field ? renderTableField(field, image, value, enriched) : null;
-    return <div key={columnId} role="gridcell" data-cql-cell={isClickable ? "" : undefined}
+      : field ? renderTableField(field, image, value, enriched, inlineLibrary) : null;
+    return <div key={columnId} role="gridcell" data-library-column={columnId === "badges" && inlineLibrary || undefined} data-cql-cell={isClickable ? "" : undefined}
       className="flex items-center shrink-0 px-2 text-xs text-grid-text truncate border-r border-grid-separator/20 overflow-hidden"
       style={{ width: `var(--col-${columnId})`, contain: "layout" }} title={rawValue ?? undefined}
       onMouseDown={isClickable ? event => { if (event.shiftKey || event.altKey) event.preventDefault(); } : undefined}

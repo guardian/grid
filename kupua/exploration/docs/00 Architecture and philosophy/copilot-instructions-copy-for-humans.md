@@ -110,6 +110,9 @@ Keep these operator-owned local changes out of commits. Leave their working copi
 `.devcontainer/prepare-host-ca.sh`, `.devcontainer/escapehatch.json`,
 `.devcontainer/Dockerfile`, `.devcontainer/devenv.yaml`, `.devcontainer/.gitignore`.
 
+**Directive: Delegated agent models.** Default to `GPT-6.2 Astra (openai)` for research and
+`GPT-6.2 Sol (openai)` for review. Override only when the specific task warrants a different model.
+
 **Directive: Directive sync rule.** The directives exist in two places that must stay
 identical: `.github/copilot-instructions.md` (what Copilot auto-loads) and
 `kupua/exploration/docs/00 Architecture and philosophy/copilot-instructions-copy-for-humans.md` (for humans and

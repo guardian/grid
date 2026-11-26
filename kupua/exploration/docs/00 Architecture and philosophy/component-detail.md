@@ -980,6 +980,8 @@ the proxy horizontal scrollbar and selection-mode Left/Right scrolling remain.
 
 ## Grid View (`components/ImageGrid.tsx`)
 
+Grid and Table share a [result Library badge](../../../src/components/ResultLibraryBadge.tsx) and a [view-level command handler](../../../src/hooks/useResultLibrary.ts). Cells reuse existing enrichment; pointer, session, archive permission and pending IDs are observed at view scope. Activation resolves the displayed ID and direction against current resident data. The contextual metadata editor owns execution, publication and receipts beyond the row lifetime.
+
 Owns the virtualized thumbnail layout and responsive column geometry from `constants/layout.ts`.
 A ResizeObserver captures/restores the anchor when column count changes. Fixed Grid captures
 against its last committed geometry, then resolves the identity in the destination window;

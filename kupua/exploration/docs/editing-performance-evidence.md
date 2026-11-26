@@ -1,5 +1,66 @@
 # Editing Performance: Evidence Ledger
 
+## Client batch progress and browsing, 26 November
+
+**Receipt work, not database traffic.** The same store fixture submitted 5,000 eligible IDs to each of Library, Photoshoot and Byline. Before the scalar fix, 6,250 Byline progress publications exposed 15,312,500 completed-prefix item slots cumulatively; the largest active snapshot contained 5,000 rows. Afterward, all three actions exposed zero completed-prefix slots, at most 100 active rows and 4,900 prior confirmations at the last group. Each finished with all 5,000 observed outcomes in order. This counts consumer-visible rows in these executions, not retained heap, wall time or distinct images. The expensive-size control is opt-in (`KUPUA_RECEIPT_SCALE=1` with the `accounts for every grouped target` unit filter); routine coverage uses 201 IDs. Scalar presentation changed, not whole-group admission or the ordering of writes. List and rights editors that need per-image pending or derived outcomes do not use this scalar shortcut.
+
+**Mounted scan controls.** With the last member of a 200-image Form batch, two displayed arrows previously read 400 target IDs to show the peer count; after reusing the provider's membership guarantee they read zero and still showed 199 peers. With Detail showing the last member, ten unrelated editor updates formerly read 2,000 target IDs and 2,000 active receipt items; both counts went to zero after the initial membership check. This does not eliminate initial membership admission or finished-issue processing, and is not a frame measurement.
+
+**Manual save queue, private loopback.** Three runs per bulk action. Median milliseconds from submitting a changed manual Credit value, not physical click or paint. Outside = unselected image, submitted after the first successful bulk PUT. Late = last selected image, submitted after 151 acknowledgements. Receipt visibility required matching revisioned fixture readback.
+
+| Bulk action | Manual submission | Saving began | Manual PUT began | HTTP ACK | Observed |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Library | Idle | 1 | 15 | 16 | 20 |
+| Library | Early outside | 1,170 | 1,192 | 1,194 | 1,198 |
+| Library | Late member | 462 | 484 | 488 | 998 |
+| Photoshoot | Idle | 1 | 16 | 19 | 24 |
+| Photoshoot | Early outside | 1,140 | 1,169 | 1,172 | 1,175 |
+| Photoshoot | Late member | 306 | 334 | 336 | 846 |
+
+Each run recorded 204 successful PUTs (idle, 201 bulk, outside, late) and independently verified all 203 fixture images. Idle-to-observed ranged 20-25 ms; early outside under load was 1,148-1,219 ms. The late recipient also had the outside save ahead of it. Earlier invalid fixtures with refusal or stale revisions were excluded. This measures a client FIFO delay, not AWS latency. Keep scheduling unchanged on this evidence: a candidate allowing an unrelated scalar save through needs a matched comparison of manual **and bulk** completion, same-image exclusion, stop/session failure and fairness before adoption.
+
+**Matched editing-enabled browsing.** Private loopback production builds, reference `f23f53404` versus the combined dirty candidate at HEAD `34e1e97fd`, before the scalar receipt repair. SHA-256 fingerprints of built assets: reference `e358f988a2bdac78cddc21d541162ebfc677ea5c29b114701d8bb9731556865f`, candidate `4f930401f4afbcd6044b6ec06e9e809b51f7b7815e2ae9d6da7d2e773622ee03`. Within each mode: ABBA ABBA, four runs per arm, warm three-image fixture, editing enabled/editor closed, Library badges, Labels and Collections present, Chromium 151, 1600 x 900 DPR 1. Programmatic forward to 6,000 px and back to zero in six seconds; all trials reached both endpoints, with identical request deltas (200 generated rows, one page read, one search read, zero mget).
+
+| Mode | Renderer task time, median (before / after) | Script | Layout | Style recalculation | Frame interval p99 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Grid | 868 / 943 ms | 230 / 225 ms | 15.5 / 18.5 ms | 71 / 76 ms | 9.30 / 9.30 ms |
+| Table | 3,405.5 / 3,865.5 ms | 928 / 998 ms | 206 / 234 ms | 256 / 305 ms | 9.30 / 9.35 ms |
+
+Grid task-time ranges overlapped. Table ranges did not: 3,374-3,511 ms before versus 3,774-3,926 ms after. This **13.5% increase in Table renderer work** warrants isolating the responsible change; it is not proof of visibly worse scrolling or evidence against a specific control. Neither Table arm had a sampled frame gap over 25 ms. Grid had one reference interval over 50 ms. Programmatic scroll, warmed synthetic media and animation callbacks are not native input or presented-frame evidence. No canonical perf campaign or shared-system measurement was run.
+
+## Manual scalar priority: matched decision, 26 November
+
+Follow-up to the FIFO measurement above. Twelve accepted serial Chromium 151 loopback runs, three matched pairs per family, alternating arm order. Same dirty checkout and revisioned fixture in both arms; the control disabled only the new group-boundary loan. In each run an outside Credit save was submitted after the first bulk ACK and a last-selected Credit save after ACK 151. Medians below are milliseconds from editor submission, not physical click or paint. Bulk finish is measured from bulk submission.
+
+| Parent / manual source | Outside PUT start, FIFO / loan | Outside observed, FIFO / loan | All 201 bulk observed, FIFO / loan |
+| --- | ---: | ---: | ---: |
+| Library / Details commit | 1,148 / 556 | 1,153 / 562 | 1,225 / 1,239 |
+| Photoshoot / flushed Form draft | 1,133 / 547 | 1,138 / 551 | 1,205 / 1,221 |
+
+Across pairs, the outside edit became observable 572-601 ms earlier; bulk finished 4-42 ms later. Outside dispatch followed 100 rather than 201 bulk ACKs; the last selected recipient still waited for all 201. The next group started after the borrowed save was observed. Each run made 204 successful PUTs and independently verified all 203 images including unrelated field preservation. Grouped reads rose from 15 to 16; singleton GET counts were unchanged. One preliminary run rejected an invalid driver assumption about within-group start order and was excluded. This measures connected browser behavior on a fixture, not production latency or backend rights propagation. Keep the narrow loan; do not infer priority for membership edits, derived rights or automatic follow-ups.
+
+**Scale follow-up, 1,001 Library images.** Two private loopback pairs in FIFO/lending then lending/FIFO order. Same connected Chromium editor, same fixture semantics as the 201-target trial; only the loan was disabled in the control. Early outside Credit submitted at bulk ACK 1; late selected Credit at ACK 951. Times below are submission-to-observed in milliseconds, not paint or production latency.
+
+| Pair | Outside Credit FIFO / lending | All bulk observed FIFO / lending |
+| --- | ---: | ---: |
+| 1 | 5,793 / 611 | 5,891 / 5,872 |
+| 2 | 5,733 / 615 | 5,804 / 5,859 |
+
+Outside dispatch followed 1,001 vs 100 bulk ACKs; the late selected recipient waited for all 1,001 in both arms. Each run made 1,004 successful PUTs (including idle and late controls), peaked at three simultaneous PUTs, and independently verified the initial and final state of all 1,003 images. Grouped reads: 43 FIFO vs 44 lending. An initial run with a misclassified grouped read was excluded. No consistent bulk completion penalty or benefit across the two pairs. No Kahuna trial.
+
+## Manual label during Library, 26 November
+
+Two matched pairs (FIFO/lending, then lending/FIFO), fresh Chromium contexts and private loopback fixtures. The connected native label editor submitted `prepareLabels` on an unselected image immediately after the first successful PUT of a 201-image Library action. Reference disabled only the shared waiter's group-boundary handoff; both arms used a fixture read adapter and 5 ms server-side write delay. Times are medians in ms **from label submission**, not click, paint or production latency.
+
+| Event | FIFO | Lending |
+| --- | ---: | ---: |
+| First label POST | 1,043.9 | 513.6 |
+| Label HTTP acknowledgement | 1,051.8 | 522.5 |
+| Label observed | 1,054.2 | 525.6 |
+| All Library edits observed | 1,040.5 | 1,060.5 |
+
+The label POST followed 100 bulk acknowledgements rather than 201. Group two's preflight started after the label was observed in both lending runs. Every trial independently verified all 201 archive flags, both existing and new labels on the outside image, and unrelated Credit on all 202 images. No extra writes or reads: 201 archive PUTs, one label POST, nine grouped reads, unchanged singleton reads, and peak three concurrent mutations in both arms. This witnesses one newly eligible non-scalar workflow, not identical gains for every family. Unit controls separately exercise the reverse owner direction, head ordering, conflict vetoes, Stop, disposal and session expiry. No backend, cross-tab or Table changes.
+
 ## Local collection membership pressure, 24 November
 
 **Subsequent UI verification:** a 504-image selection in local Vite added the same fixture membership through Details, then removed it. Grouped media-api reads verified all 504 transitions in each direction and the selection was unchanged. This confirms the multi-group UI path separately from the timed command trials below; it is not a rate measurement.

@@ -7,9 +7,11 @@ import type { Image } from "@/types/image";
 import { acceptImageOverlay, acceptImageRead, admitLabelObservation, captureImageRead, hasImageCommandConflict, isLabelAuthorityCurrent, recordImageAvailability, releaseLabelObservation, resetImageFreshnessForTests, resolveImageOverlay, stampImageRead, watchQueuedLabelTargets } from "./image-read-freshness";
 import { attachEnrichment } from "@/stores/enrichment-store";
 import { createMetadataOperation } from "./metadata-operation";
-import { metadataSaveStatus } from "@/stores/metadata-editor-store";
+import { createMetadataEditorStore, metadataSaveStatus } from "@/stores/metadata-editor-store";
+import { createLabelEditorStore } from "@/stores/label-editor-store";
+import * as gridSession from "./grid-api-instance";
 import { leaseSetKey } from "./lease-change";
-import { BATCH_POLICY } from "./batch-execution";
+import { BATCH_POLICY, createBatchQueue } from "./batch-execution";
 
 const resource = { links: [{ rel: "edits", href: "https://metadata.example.test/metadata/first" }] };
 const intent = { action: "add" as const, label: "news", targetIds: ["first"] };
@@ -24,6 +26,105 @@ beforeEach(() => { resetImageFreshnessForTests(); vi.stubEnv("VITE_USE_MEDIA_API
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("metadata edit execution", () => {
+  it.each(["label behind metadata", "expired label behind metadata", "disposed label behind metadata", "stopped label behind metadata", "metadata behind label"])("lends one cross-editor turn: %s", async scenario => {
+    vi.useFakeTimers();
+    let invalid = false;
+    const invalidate = vi.spyOn(gridSession, "invalidateGridSession").mockImplementation(() => { invalid = true; });
+    const invalidated = vi.spyOn(gridSession, "isGridSessionInvalidated").mockImplementation(() => invalid);
+    const queue = createBatchQueue();
+    const labelParent = scenario === "metadata behind label", expired = scenario.startsWith("expired");
+    const ids = Array.from({ length: BATCH_POLICY.maxTargets + 1 }, (_, index) => `bulk-${index}`);
+    const order: string[] = [], written = new Set<string>();
+    let resume!: () => void;
+    const held = new Promise<void>(resolve => { resume = resolve; });
+    const observation = { readImages: async (requested: string[]) => {
+      if (requested.includes("manual") && written.has("manual")) {
+        await held;
+        if (expired) throw Object.assign(new Error("Expired"), { status: 419 });
+      }
+      return requested.map(id => {
+        const image = observedImage(id);
+        image.metadata.credit = written.has(id) ? "Manual" : "Original";
+        if (written.has(id)) image.userMetadata!.lastModified = "2026-11-26T10:01:00Z";
+        if (written.has(id)) image.userMetadata!.photoshoot = { title: "Desk" };
+        attachEnrichment(image, { resource });
+        return image;
+      });
+    }, publishImages: vi.fn() };
+    const execute = async (command: { imageId: string; operation: string }): Promise<GridCommandResult> => {
+      order.push(command.imageId); written.add(command.imageId);
+      return command.operation === "edit-metadata" ? { outcome: "acknowledged", expected: { credit: "Manual" } } : { outcome: "acknowledged" };
+    };
+    const labels = createLabelEditorStore(execute, observation, "connected", queue);
+    const editor = createMetadataEditorStore(execute, observation, queue);
+    const prepare = (targetIds: string[]) => labels.getState().prepare("add", "news", { targetIds, targets: new Map(targetIds.map(id => [id, { resource }])) });
+    const manual = (id: string) => editor.getState().submit({ fieldId: "metadata_credit", action: "overwrite", value: "Manual", targetIds: [id] }, false, undefined, "details-scalar");
+    try {
+      if (labelParent) expect(prepare(ids)).toBe(true);
+      else editor.getState().submit({ fieldId: "photoshoot", action: "overwrite", value: "Desk", targetIds: ids });
+      await Promise.resolve();
+      if (labelParent) { manual("manual"); manual("later"); }
+      else { expect(prepare(["manual", "manual"])).toBe(true); expect(prepare(["manual"])).toBe(true); }
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(order).toEqual([...ids.slice(0, -1), "manual"]);
+      const disposed = scenario.startsWith("disposed");
+      if (disposed || scenario.startsWith("stopped")) {
+        expect(labels.getState().receipts[0].items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "pending" });
+        if (disposed) labels.getState().dispose();
+        else {
+          labels.getState().stopRemaining(0);
+          await vi.advanceTimersByTimeAsync(100);
+          expect(order.at(-1)).toBe("manual");
+          expect(labels.getState().receipts[0].items[0].observation).toBe("pending");
+        }
+      }
+      resume(); await vi.runAllTimersAsync();
+      expect(order).toEqual([...ids.slice(0, -1), "manual", ...(expired || disposed ? [] : ids.slice(-1)), ...(labelParent ? ["later"] : [])]);
+      expect(labels.getState().receipts).toHaveLength(1);
+      if (disposed) expect([...editor.getState().saves.values()][0].items.at(-1)).toMatchObject({ state: "not-started", result: { outcome: "blocked", reason: "disabled" } });
+      if (expired) {
+        expect(invalidate).toHaveBeenCalled();
+        expect(labels.getState().receipts[0].items[0]).toMatchObject({ state: "accepted-awaiting-visibility", observation: "unavailable", reloadRequired: true });
+        expect([...editor.getState().saves.values()][0].items.at(-1)).toMatchObject({ state: "not-started", result: { reason: "reload-required" } });
+      }
+    } finally { resume(); labels.getState().dispose(); editor.getState().dispose(); queue.dispose(); invalidate.mockRestore(); invalidated.mockRestore(); vi.useRealTimers(); }
+  });
+  it.each(["label", "metadata"])("%s queue waits for all literal labels but permits unrelated observed labels", async route => {
+    vi.useFakeTimers();
+    const wanted = ["news", "Desk", "Finals"];
+    const stale = observedImage(), current = observedImage();
+    stale.userMetadata!.labels = ["news", "Desk", "finals"];
+    current.userMetadata!.labels = ["unrelated", "Finals", "news", "Desk"];
+    const publishImages = vi.fn(), observation = { readImages: vi.fn().mockResolvedValueOnce([stale]).mockResolvedValue([current]), publishImages };
+    const execute = vi.fn().mockResolvedValue({ outcome: "acknowledged" });
+    const operation = route === "label" ? createLabelOperation(execute, observation) : createMetadataOperation(execute, observation);
+    try {
+      if (route === "label") await (operation as ReturnType<typeof createLabelOperation>).confirm({ ...intent, additionalLabels: wanted.slice(1) }, targets);
+      else await (operation as ReturnType<typeof createMetadataOperation>).confirm({ fieldId: "labels", action: "add", value: wanted, targetIds: ["first"] }, targets);
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+    } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
+  it("observes unarchive even when usage independently keeps the same image in Library", async () => {
+    vi.useFakeTimers();
+    const kept = (archived: boolean) => {
+      const image = observedImage(); image.userMetadata!.archived = archived;
+      attachEnrichment(image, { persisted: { value: true, reasons: archived ? ["usages", "archived"] : ["usages"] }, resource });
+      return image;
+    };
+    const current = kept(false), publishImages = vi.fn();
+    const operation = createMetadataOperation(async () => ({ outcome: "acknowledged" }), {
+      readImages: vi.fn().mockResolvedValueOnce([kept(true)]).mockResolvedValue([current]), publishImages,
+    });
+    try {
+      await operation.confirm({ fieldId: "archived", action: "overwrite", value: "unarchive", targetIds: ["first"] }, new Map([["first", { resource, archiveGrant: true }]]));
+      expect(operation.getSnapshot()?.items[0].result?.outcome).toBe("acknowledged");
+      expect(publishImages).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(publishImages).toHaveBeenCalledExactlyOnceWith([current]);
+    } finally { operation.stopRemaining(); operation.cancelObservation(); vi.useRealTimers(); }
+  });
   it("observes only the acknowledged label prefix and stops queued work on expiry without leaving a conflict", async () => {
     const result = { outcome: "partial", status: 419, expected: { labels: ["news"] },
       labelSteps: { acknowledged: 1, rejected: 1, notSent: 0, uncertain: 0 } } as const;

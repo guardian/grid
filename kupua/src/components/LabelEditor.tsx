@@ -8,7 +8,7 @@ import { useSearchStore } from "@/stores/search-store";
 import { metadataEditTargetCounts, type MetadataEditContext } from "@/lib/metadata-edit-execution";
 import { createLabelSuggestionProvider, type TypeaheadSuggestion } from "@/lib/typeahead-fields";
 import { SUGGESTION_DEBOUNCE_MS } from "@/constants/tuning";
-import { containPillActivation, EditableSearchPill, PillActionButton, visibleEditorPills } from "./SearchPill";
+import { containPillActivation, EditableSearchPill, PillActionButton, useOrderedEditorPills, visibleEditorPills } from "./SearchPill";
 import { MetadataBlock } from "./metadata-primitives";
 import { FieldDisclosure } from "./FieldDisclosure";
 import { SuggestionDropdown } from "./SuggestionDropdown";
@@ -16,7 +16,7 @@ import { FieldAddButton } from "./FieldAddButton";
 import { addToast } from "@/stores/toast-store";
 import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, usePendingPillIntents } from "./MetadataEditing";
 import { useSelectionStore } from "@/stores/selection-store";
-import { addressableLabel } from "@/lib/grid-mutation-policy";
+import { addressableLabel, labelEntryToken, parseLabelEntry, replaceLabelToken } from "@/lib/grid-mutation-policy";
 
 export const LabelEditorContext = createContext<ReturnType<typeof createLabelEditorStore>>(labelEditorStore);
 
@@ -43,12 +43,13 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
 }
 
 
-export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false, retainReading = false, displayedImageId, denied = false }: {
+export function LabelEditor({ context, values, onSearch, resolveContext, allowQueuedAdd = false, retainReading = false, retainedTotal, displayedImageId, denied = false }: {
   context: MetadataEditContext;
   denied?: boolean;
   displayedImageId?: string;
   allowQueuedAdd?: boolean;
   retainReading?: boolean;
+  retainedTotal?: number;
   values: readonly { value: string; count: number }[];
   onSearch: (key: string, value: string, event: React.MouseEvent) => void;
   resolveContext?: () => MetadataEditContext;
@@ -88,10 +89,8 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const valuesId = useId();
   const suggestionsId = useId();
   const cursor = Math.min(caret, value.length);
-  const tokenStart = value.slice(0, cursor).lastIndexOf(",") + 1;
-  const nextComma = value.indexOf(",", cursor);
-  const tokenEnd = nextComma === -1 ? value.length : nextComma;
-  const prefix = value.slice(tokenStart, cursor).trimStart();
+  const token = labelEntryToken(value, cursor);
+  const prefix = token.prefix;
   const suggestionOwner = JSON.stringify([key, value, cursor]);
   const currentSuggestions = suggestionState?.owner === suggestionOwner ? suggestionState : null;
   const showSuggestions = adding && inputFocused && dismissedOwner !== suggestionOwner;
@@ -129,7 +128,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   const addDisabled = disabled && !queueAdds;
   const sameSingleImage = displayedImageId !== undefined && context.targetIds.length === 1 && context.targetIds[0] === displayedImageId;
   const coverageKnown = retainReading || queueAdds || counts.unavailable === 0 && (sameSingleImage || !context.pending && counts.unresolved === 0);
-  const chips = visibleEditorPills(values, expanded, [...panelIntents, ...labelIntents.map(intent => ({ action: intent.action, value: intent.label }))]);
+  const chips = visibleEditorPills(useOrderedEditorPills(values), expanded, [...panelIntents, ...labelIntents.map(intent => ({ action: intent.action, value: intent.additionalLabels ? [intent.label, ...intent.additionalLabels] : intent.label }))]);
   const act = (action: "add" | "remove", label: string) => {
     if (!addressableLabel(action === "add" ? label.trim() : label)) {
       addToast({ category: "warning", message: "This label cannot be addressed by Grid. No change was sent." });
@@ -147,22 +146,19 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     setAdding(false);
   };
   const commit = () => {
-    const labels = [...new Set(value.split(",").map(label => label.trim()).filter(Boolean))];
+    const labels = parseLabelEntry(value);
     if (!labels.length || !labels.every(addressableLabel)) { setInvalid(true); return; }
     const current = resolveContext?.() ?? context;
     if (addDisabled || !labels.length || (!queueAdds && current.pending) || labelTargetKey(current.targetIds) !== key) return;
-    const admitted = queueAdds && labels.length === 1 ? act("add", labels[0]) : store.getState().prepareLabels(labels, current);
+    const admitted = queueAdds ? panelSaveAdmitted(submit({ fieldId: "labels", action: "add", value: labels.length === 1 ? labels[0] : labels, targetIds: current.targetIds }, addButtonRef.current), "Label change not sent")
+      : store.getState().prepareLabels(labels, current);
     if (admitted) {
       setValue("");
       setAdding(false);
     }
   };
   const selectSuggestion = (suggestion: TypeaheadSuggestion) => {
-    const token = value.slice(tokenStart, tokenEnd);
-    const leadingSpace = token.match(/^\s*/)?.[0] ?? "";
-    const trailingSpace = token.trim() ? token.match(/\s*$/)?.[0] ?? "" : "";
-    const nextValue = value.slice(0, tokenStart) + leadingSpace + suggestion.value + trailingSpace + value.slice(tokenEnd);
-    const nextCaret = tokenStart + leadingSpace.length + suggestion.value.length;
+    const { value: nextValue, caret: nextCaret } = replaceLabelToken(value, token, suggestion.value);
     replacementCaret.current = nextCaret;
     setValue(nextValue);
     setCaret(nextCaret);
@@ -178,7 +174,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
   }>
       <div id={valuesId} className="min-w-0 flex-1 flex flex-wrap items-start gap-1">
       {chips.map(chip => <EditableSearchPill key={chip.value} value={chip.value} cqlKey="label" accent pending={chip.pending}
-        count={chip.count} total={counts.selected} coverageKnown={coverageKnown} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
+        count={chip.count} total={counts.selected} retainedTotal={retainedTotal} coverageKnown={coverageKnown} disabled={disabled} addDisabled={addDisabled} onSearch={onSearch}
         onAdd={() => act("add", chip.value)} onRemove={() => act("remove", chip.value)} />)}
       </div>
     <FieldDisclosure expanded={expanded} hasMore={values.length > 20} controlsId={valuesId} anchorRef={headerRef}
@@ -196,7 +192,7 @@ export function LabelEditor({ context, values, onSearch, resolveContext, allowQu
     }}>
       <div className="flex flex-col gap-1.25">
       <input ref={inputRef} role="combobox" aria-label="Add label" aria-invalid={invalid || undefined} value={value}
-        placeholder={store.getState().executionMode === "connected" ? "New label" : "label1, label2, label3\u2026"} required
+        placeholder="label1, label2, label3…" required
         aria-autocomplete="list" aria-expanded={suggestionsVisible} aria-controls={suggestionsVisible ? suggestionsId : undefined}
         aria-busy={showSuggestions && currentSuggestions?.status === "pending"}
         aria-activedescendant={suggestionsVisible && activeSuggestion >= 0 && suggestions[activeSuggestion] ? `${suggestionsId}-${activeSuggestion}` : undefined}

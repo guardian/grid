@@ -13,6 +13,37 @@ export function editIssue(imageId: string, field: string, item?: MetadataSave["i
 }
 export type EditIssue = ReturnType<typeof editIssue>;
 
+export function createLabelIssueIndex() {
+  type Group = { owners: number; issues: Map<string, EditIssue> };
+  const byLabel = new Map<string, Group>();
+  return {
+    apply(labels: readonly string[], updates: ReadonlyMap<string, EditIssue | null>) {
+      if (!updates.size) return;
+      const touched = new Map<Group | undefined, string[]>();
+      for (const label of new Set(labels)) {
+        const group = byLabel.get(label), members = touched.get(group);
+        if (members) members.push(label); else touched.set(group, [label]);
+      }
+      for (const [prior, members] of touched) {
+        const shared = prior && prior.owners !== members.length;
+        const group = prior && !shared ? prior : { owners: members.length, issues: new Map(prior?.issues) };
+        if (shared) prior.owners -= members.length;
+        for (const [id, issue] of updates) {
+          if (issue) group.issues.set(id, issue); else group.issues.delete(id);
+        }
+        for (const label of members) {
+          if (group.issues.size) byLabel.set(label, group); else byLabel.delete(label);
+        }
+      }
+    },
+    details() {
+      const unique = new Set<EditIssue>();
+      for (const group of new Set(byLabel.values())) for (const issue of group.issues.values()) unique.add(issue);
+      return [...unique];
+    },
+  };
+}
+
 export function EditIssueDisclosure({ issues, count, compact, below, onSelect }: { issues: readonly EditIssue[]; count: number; compact: boolean; below: boolean; onSelect?: () => void }) {
   const popId = useId();
   const trigger = useRef<HTMLButtonElement>(null);

@@ -61,6 +61,10 @@ Sources: [SearchBar](../../src/components/SearchBar.tsx#L91),
 
 ## 3. Collection and Status Badge Policy
 
+**Search result labels:** metadata Grid cards keep a 24px single line. Labels and collections have separate bounded previews; each visible pill exposes its full label or collection path in its title. Details owns the full list. Fine-pointer editors with an image edits grant can add comma-separated labels from a reserved Plus in Grid or Table's Labels column. Table Collections is searchable, not editable here. Only one result editor is mounted; outside dismissal or losing the anchor retains the image's draft for reopening, while Cancel clears it. Selection mode withholds Plus. Very narrow columns lose pills before the editing slot; no horizontal chip scrolling or per-cell measurement.
+
+**Library editing in Search:** when editing and archive permission are available, metadata-bearing Grid cards and the visible Table Badges column offer single-image Add/Remove on fine, hover-capable pointers. Hover the card/row or focus the button for Add; hovering or focusing Added reveals Remove. Independent retention stays locked with its explanation. Selection mode makes every inline badge passive. Touch, other densities and Upload results do not acquire these gestures. A narrowed Table column hides a control that cannot fit, including from Tab. Thumbnail Add Label is separate.
+
 **Recommendation: vary the information budget with actual tile space, not just
 the view name.** Do not add a preference switch for every badge or shrink text
 until every label fits.

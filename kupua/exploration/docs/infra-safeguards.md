@@ -291,6 +291,8 @@ TLS verification is retained for them. Local development certificates must be tr
 
 **Local Collections:** `/grid-local-collections` forwards only to the fixed local Collections service. It admits GET/POST `/collections`, POST/DELETE `/collections/<validated-segments>`, membership GET/POST `/images/:id` and DELETE `/images/:id/:encodedPath`. DELETE `/collections`, management/repair routes and request-selected destinations are not admitted. Tree and membership commands require API mode, startup editing opt-in, session and the exact service action. Root actions also check the crops/usages capability. These are Kupua gates, not backend authorization or restrictions on arbitrary browser HTTP requests. Hosted does not use Vite; the supported advertised TEST Collections origin uses direct browser transport in Vite, not a TEST Collections proxy. No shared-stage trial follows from route support.
 
+**Library:** the local metadata proxy admits only `PUT /metadata/:id/archived` for this operation, with a validated image ID. Both Add and Remove require the archive root relation, the matching canonical image resource and the existing editing/session checks. Neither DELETE nor restore is admitted by this change.
+
 **Local saved-crop drag:** the laptop cropper proxy admits only `GET /crops/:imageId` on its fixed local upstream. The image must advertise the exact path on the discovered cropper origin. No crop creation, deletion, asset download, request-supplied destination or TEST proxy follows. Hosted reads use the validated service origin directly.
 
 **Read-only POST exception:** media-api's ordered image reads take their

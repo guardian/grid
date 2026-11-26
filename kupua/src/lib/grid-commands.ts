@@ -2,7 +2,7 @@ import { SUBJECTS } from "./metadata-pill-fields";
 import { z } from "zod";
 import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
 import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
-import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated } from "./grid-api-instance";
+import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated, serviceLink } from "./grid-api-instance";
 import { addressableLabel, isCollectionMembershipRequest, isLabelRemovalRequest } from "./grid-mutation-policy";
 import { leaseCommandValueSchema, leaseSetKey, storedLeases } from "./lease-change";
 import { editingAllowedAtStartup } from "./editing-preference";
@@ -59,7 +59,10 @@ const membershipSchema = collectionSchema.omit({ path: true, action: true, opera
 }).strict();
 export type MembershipCommand = z.infer<typeof membershipSchema>;
 const collectionAction = z.object({ name: z.string(), method: z.string(), href: z.string() });
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema, collectionSchema, membershipSchema]);
+const archiveSchema = z.object({ operation: z.literal("set-archive"), imageId: addLabelsSchema.shape.imageId, value: z.boolean() }).strict();
+export type ArchiveCommand = z.infer<typeof archiveSchema>;
+const archiveImage = z.object({ data: z.object({ id: z.string(), softDeletedMetadata: z.null().optional(), userMetadata: z.object({ data: z.object({ archived: z.object({ uri: z.string(), data: z.boolean() }) }) }) }) });
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema, collectionSchema, membershipSchema, archiveSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
   metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
@@ -304,6 +307,25 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
   if (command.operation === "edit-rights" && !observeRights) return { outcome: "blocked", reason: "unavailable" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
+  if (command.operation === "set-archive") {
+    const blocked = { outcome: "blocked", reason: "unavailable" } as const;
+    let dispatched = false;
+    try {
+      const [origin, grant, session] = await Promise.all([getGridServiceOrigin("metadata"), serviceLink("archive"), getGridSessionPermissions()]);
+      if (!origin || grant !== `${origin}/metadata/{id}/archived` || !session || isGridSessionInvalidated()) return blocked;
+      const options = { credentials: "include", redirect: "error", signal: AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs) } as const;
+      const response = await fetch(mediaApiUrl(`/images/${command.imageId}`), options);
+      if (!response.ok) return failure(response, false);
+      const result = archiveImage.safeParse(await response.json());
+      if (!result.success || result.data.data.id !== command.imageId || isGridSessionInvalidated()) return blocked;
+      const flag = result.data.data.userMetadata.data.archived;
+      const url = gridServiceUrl("metadata", flag.uri, `/metadata/${command.imageId}/archived`, origin);
+      if (!url) return blocked;
+      dispatched = true;
+      const write = await fetch(url, { ...options, method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: command.value }) });
+      return write.ok ? { outcome: "acknowledged" } : await failure(write, true);
+    } catch { return dispatched ? { outcome: "unknown" } : blocked; }
+  }
   if (command.operation === "edit-leases") return executeLeaseChange(command);
   if (command.operation === "edit-collection" || command.operation === "edit-memberships") return executeCollectionChange(command);
   const path = `/metadata/${command.imageId}`;

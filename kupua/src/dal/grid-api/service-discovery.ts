@@ -31,6 +31,7 @@ export class ServiceDiscovery {
   private links = new Map<string, string>();
   private clientConfig: ClientConfig | undefined;
   private loading: Promise<boolean> | null = null;
+  private loaded = false;
 
   /**
    * Fetches the media-api HATEOAS root and populates service links.
@@ -40,7 +41,10 @@ export class ServiceDiscovery {
   * failed. A failed read is not retried until reload.
    */
   init(signal?: AbortSignal): Promise<boolean> {
-    this.loading ??= this.load(signal);
+    this.loading ??= this.load(signal).then(available => {
+      this.loaded = true;
+      return available;
+    });
     return this.loading;
   }
 
@@ -60,6 +64,7 @@ export class ServiceDiscovery {
 
       return true;
     } catch {
+      this.links.clear();
       return false;
     }
   }
@@ -84,6 +89,10 @@ export class ServiceDiscovery {
    */
   getLink(rel: string): string | undefined {
     return this.links.get(rel);
+  }
+
+  linkAvailable(rel: string): boolean | null {
+    return this.loaded ? this.links.has(rel) : null;
   }
 
   /**

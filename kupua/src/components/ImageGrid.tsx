@@ -1,3 +1,5 @@
+import { ResultLibraryBadge, type InlineLibrary } from "./ResultLibraryBadge";
+import { useResultLibrary } from "@/hooks/useResultLibrary";
 import { startResultImageDrag } from "@/lib/result-image-drag";
 import { useDetailsBodyClick } from "@/hooks/useDetailsBodyClick";
 /**
@@ -59,7 +61,7 @@ import { useZoomStore } from "@/stores/zoom-store";
 import { createJustifiedZoomTransition, type JustifiedZoomTransition } from "@/lib/justified-zoom-transition";
 import { bindJustifiedZoomGestures } from "@/lib/justified-zoom-gestures";
 import { Tickbox } from "@/components/Tickbox";
-import { PILL_ACCENT, PILL_BASE } from "@/components/SearchPill";
+import { ResultPillStrip } from "./ResultPillStrip";
 import { useMetadataSearch } from "@/components/metadata-primitives";
 import { CostBadge, buildCostTooltip } from "@/components/CostBadge";
 import { SyndicationBadge } from "@/components/SyndicationBadge";
@@ -111,7 +113,6 @@ function buildDescriptionTooltip(image: Image): string {
   return `${desc}\n      By: ${by}\nCredit: ${credit}`;
 }
 
-import { humanisePersistedReasons } from "@/lib/image-persistence";
 
 // ---------------------------------------------------------------------------
 // Image borders — thick border on thumbnail for categorised images.
@@ -218,6 +219,7 @@ interface GridCellProps {
   image: Image | undefined;
   terminal?: boolean;
   isFocused: boolean;
+  inlineLibrary: InlineLibrary;
   cellWidth: number;
   imageOnlyHeight?: number;
   /** Image-only cell plus a single date line below it. */
@@ -245,6 +247,7 @@ interface GridCellProps {
 // Vendored Guardian cost config no longer needed — deriveImage handles cost computation.
 
 const GridCell = memo(function GridCell({
+  inlineLibrary,
   openOnly,
   image,
   terminal,
@@ -297,7 +300,6 @@ const GridCell = memo(function GridCell({
   const descTooltip = buildDescriptionTooltip(image);
   const dates = imageOnlyHeight === undefined || dateLineOnly ? getGridDatePresentation(image, dateOrderBy) : undefined;
   const description = image.metadata?.description || image.metadata?.title || "";
-  const labels = image.userMetadata?.labels;
 
   // Cost: from deriveImage (ES baseline + API overlay merged)
   const cost = enriched?.cost;
@@ -417,42 +419,7 @@ const GridCell = memo(function GridCell({
       {imageOnlyHeight === undefined && <>
       {/* Labels + collection badges — accent-blue pills below image, above description (matches Kahuna).
            Fixed height (h-6) reserved even when empty so descriptions align across cells. */}
-      <div className="flex flex-nowrap gap-1 px-2 pt-1 overflow-hidden h-6 select-none">
-        {labels && labels.length > 0 && labels.map((l) => (
-          <button
-            key={l}
-            type="button"
-            className={PILL_ACCENT + " shrink-0 max-w-full truncate"}
-            title={l}
-            onClick={(e) => {
-              e.stopPropagation();
-              onLabelSearch("label", l, e);
-            }}
-          >
-            {l}
-          </button>
-        ))}
-        {image.collections?.filter(c => c.pathId).map((col) => {
-          const name = col.path?.at(-1) ?? col.pathId!.split("/").at(-1);
-          const tooltip = col.path ? col.path.join(" \u25B8 ") : col.pathId!;
-          const colour = collectionColours?.[col.pathId!] ?? "#555"; // #555 = Kahuna fallback
-          return (
-            <button
-              key={col.pathId}
-              type="button"
-              className={PILL_BASE + " shrink-0 max-w-full truncate hover:brightness-125"}
-              style={{ backgroundColor: colour, color: "#fff" }}
-              title={tooltip}
-              onClick={(e) => {
-                e.stopPropagation();
-                onLabelSearch("collection", col.pathId!, e);
-              }}
-            >
-              {name}
-            </button>
-          );
-        })}
-      </div>
+      <ResultPillStrip image={image} enriched={enriched} colours={collectionColours} onSearch={onLabelSearch} />
 
       {/* Metadata — same background as cell, no separate strip */}
       <div className="px-2 py-1 space-y-0.5 shrink-0 select-none">
@@ -506,15 +473,7 @@ const GridCell = memo(function GridCell({
               )}
             />
           )}
-          {/* Archiver / persisted icon (row 12) — custom "kept in library" padlock, extreme right */}
-          {persisted?.value && (
-            <span className="text-grid-text-dim" title={`Kept in Library because the image has been ${humanisePersistedReasons(persisted.reasons)}.`}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="currentColor" width={14} height={14}>
-                <path d="M113.8 98.7v15.1H14.1V14.2h42.7V0H14.2C6.4 0 0 6.4 0 14.2v99.6c0 7.8 6.4 14.2 14.2 14.2h99.6c7.8 0 14.2-6.4 14.2-14.2V98.7h-14.2z" />
-                <path d="M67.7 88.6H118c4.6 0 8.4-3.8 8.4-8.4V38.3c0-4.6-3.8-8.4-8.4-8.4h-4.2v-8.4c0-11.5-9.4-20.9-21-20.9s-21 9.4-21 20.9v8.4h-4.2c-4.6 0-8.4 3.8-8.4 8.4v41.9c.1 4.6 3.9 8.4 8.5 8.4zM92.8 70C86.9 70 82 65.2 82 59.2c0-5.9 4.9-10.8 10.8-10.8s10.8 4.9 10.8 10.8c0 6-4.8 10.8-10.8 10.8zM79.9 21.5c0-7.2 5.8-13 13-13s13 5.8 13 13v8.4h-26v-8.4z" />
-              </svg>
-            </span>
-          )}
+          {persisted && enriched && <ResultLibraryBadge image={enriched} editable={inlineLibrary} />}
         </div>
       </div>
       </>}
@@ -546,6 +505,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
   } = useDataWindow(measuredCells ? "form" : layoutFactory ? "justified" : "grid");
   const searchParams = useBrowsingSearch();
   const { path } = useBrowsingContext();
+  const library = useResultLibrary(path === "/search" && !layoutFactory && !measuredCells);
   const selectionEnabled = path === "/search";
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
@@ -1174,6 +1134,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     const previewTarget = (target: Element) => target.closest("[data-measured-cell]")
       ? target.closest('[data-cell-id][aria-label="Open image"]') : target.closest("[data-image-id]");
     const onMiddleUp = (e: MouseEvent) => {
+      if ((e.target as Element).closest("[data-inline-library],[data-result-pill],[data-result-label-add]")) return;
       if (e.button !== 1 || (e.target as Element).closest("[data-form-content]")) return;
       const cell = previewTarget(e.target as Element);
       if (!cell) return;
@@ -1281,6 +1242,8 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
     <div
       ref={parentRef}
       role="region"
+      {...library.events}
+      data-label-editing={library.labelEditing || undefined}
       aria-label={measuredCells ? "Image results form" : variableLayout ? "Image results justified" : "Image results grid"}
       className={`${combined ? "@container/upload-results " : "pt-1 "}${measuredCells ? "form-results " : ""}flex-1 min-w-0 overflow-y-auto overflow-x-hidden hide-scrollbar overscroll-y-contain`}
       data-selection-mode={inSelectionMode ? "true" : undefined}
@@ -1288,6 +1251,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
       onClick={handleBackgroundClick}
       onBeforeInputCapture={measuredCells ? captureInput : undefined}
     >
+      {library.entry}
       <div
         style={{ height: justifiedLayout?.height ?? virtualizer.getTotalSize() }}
         className="relative w-full"
@@ -1335,6 +1299,7 @@ export function ImageGrid({ handleRange, layoutFactory, onLayoutCommit, initialW
 
                   const thumbnail = (
                     <GridCell
+                      inlineLibrary={image && library.pending?.has(image.id) ? "busy" : library.enabled}
                       key={measuredCells && image ? image.id : variableLayout ? imageIdx : getItemColumn(fixedGeometry, imageIdx)}
                       image={image}
                       openOnly={!!measuredCells}

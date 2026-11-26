@@ -44,7 +44,7 @@ export function useMetadataSearch() {
         newQuery = upsertFieldTerm(currentQuery, cqlKey, value, negated);
       } else {
         // Plain click = replace query entirely
-        newQuery = `${cqlKey}:${value.includes(" ") ? `"${value}"` : value}`;
+        newQuery = upsertFieldTerm("", cqlKey, value, false);
       }
 
       if (newQuery !== currentQuery) {

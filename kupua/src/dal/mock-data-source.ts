@@ -1,3 +1,4 @@
+import { getRangeHardCap } from "@/constants/tuning";
 /**
  * Mock ImageDataSource for testing.
  *
@@ -851,7 +852,7 @@ export class MockDataSource implements ImageDataSource {
     this.requestCount++;
     if (signal?.aborted) return { ids: [], truncated: false, walked: 0 };
 
-    const HARD_CAP = Number(import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000);
+    const HARD_CAP = getRangeHardCap();
     const sortClause = buildSortClause(params.orderBy);
     const isDefaultSort = !params.orderBy || params.orderBy === "-uploadTime";
     const needsCustomSort = !!this.suppliedImages || (!isDefaultSort && this._hasCustomSortSource);

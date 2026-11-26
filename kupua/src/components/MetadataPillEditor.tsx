@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DetailsTargetCount, useDetailsDraft } from "./DetailsDrafts";
 import type { FieldDefinition } from "@/lib/field-registry";
-import { EditableSearchPill, PillActionButton, visibleEditorPills } from "./SearchPill";
+import { EditableSearchPill, PillActionButton, useOrderedEditorPills, visibleEditorPills } from "./SearchPill";
 import { FieldAddButton } from "./FieldAddButton";
 import { FieldDisclosure } from "./FieldDisclosure";
 import { Dash, MetadataBlock } from "./metadata-primitives";
@@ -9,14 +9,14 @@ import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
 import type { MetadataEditIntent } from "./MetadataTextEditor";
 import { MetadataSaveFeedback, panelSaveAdmitted, useMetadataCommit, usePendingPillIntents, SubjectSaveStatus } from "./MetadataEditing";
 import { labelTargetKey } from "@/stores/label-editor-store";
-import { addressableLabel } from "@/lib/grid-mutation-policy";
+import { addressableLabel, parseLabelEntry } from "@/lib/grid-mutation-policy";
 
 import { SUBJECTS, pillCommandField } from "@/lib/metadata-pill-fields";
 import type { collectionEligibility } from "@/lib/collection-eligibility";
 
 export const PILL_EDIT_FIELDS = new Set(["keywords", "collections", "people", "subjects"]);
 
-export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepare, collectionPaths, collectionGrants, collectionPending = false, available: dataAvailable = true, editable = true, retainReading = false, allowQueuedAdd = false, readOnly, form = false }: {
+export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepare, collectionPaths, collectionGrants, collectionPending = false, available: dataAvailable = true, editable = true, retainReading = false, retainedTotal, allowQueuedAdd = false, readOnly, form = false }: {
   form?: boolean;
   field: FieldDefinition;
   targetIds: readonly string[];
@@ -28,6 +28,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   collectionPending?: boolean;
   available?: boolean;
   retainReading?: boolean;
+  retainedTotal?: number;
   allowQueuedAdd?: boolean;
   editable?: boolean;
   readOnly?: ReactNode;
@@ -37,6 +38,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
   const pending = usePendingPillIntents(panelTargetKey, pillCommandField(field.id), form ? targetIds[0] : undefined);
   const bounded = field.id === "subjects";
   const available = dataAvailable && editable;
+  const ordered = useOrderedEditorPills(values);
   const canAdd = (available || allowQueuedAdd) && (collectionGrants?.add ?? true);
   const { restored, update } = useDetailsDraft<string | Record<string, boolean>>(field.id);
   const [adding, setAdding] = useState(Boolean(restored));
@@ -62,6 +64,17 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     : field.id === "subjects" ? "subject" : field.id === "labels" ? "label" : "keyword";
   const hasAll = (value: string) => values.some(item => item.value === value.trim() && item.count === targetIds.length);
   const closeChooser = () => { setAdding(false); setChanges({}); addRef.current?.focus(); };
+  const submitEntry = () => {
+    if (!form || field.id !== "labels") { prepare("add", draft); return; }
+    const labels = parseLabelEntry(draft);
+    if (!labels.length || !labels.every(addressableLabel)) { setNotice("Enter a label other than . or .."); return; }
+    const additions = labels.filter(label => !hasAll(label));
+    if (!canAdd || !additions.length) return;
+    const save = commit({ fieldId: "labels", action: "add", value: additions, targetIds }, addRef.current);
+    if (save?.state !== "finished") {
+      setDraft(""); setAdding(false); setNotice(save ? "" : "Not sent - Add labels prepared for this image.");
+    }
+  };
   const canCommit = dirty && canAdd && (available || Object.values(changes).every(Boolean)) && pending.length === 0;
   const commitChooser = () => {
     if (!canCommit) return;
@@ -96,8 +109,8 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
     </span>
   }>
       <div id={id} className="flex min-w-0 flex-wrap items-start gap-1 pt-0.5">
-        {!dataAvailable && !retainReading && <Dash />}
-        {visibleEditorPills(values, expanded, pending).map(item => <EditableSearchPill key={item.value} value={item.value} pending={item.pending}
+        {!dataAvailable && !retainReading && retainedTotal === undefined && <Dash />}
+        {visibleEditorPills(ordered, expanded, pending).map(item => <EditableSearchPill key={item.value} value={item.value} pending={item.pending} retainedTotal={retainedTotal}
           cqlKey={field.cqlKey!} accent={field.id === "labels"} count={item.count} total={targetIds.length} onSearch={onSearch} disabled={!available || !!collectionGrants && !collectionGrants.removable.has(item.value)} addDisabled={collectionGrants ? !available || !collectionGrants.canFill(item.value) : !canAdd || bounded && !SUBJECTS.includes(item.value)} coverageKnown={dataAvailable || retainReading}
           onAdd={() => prepare("add", item.value)} onRemove={() => prepare("remove", item.value)}
           label={collection ? <span className="inline-flex max-w-full flex-wrap items-center gap-x-1">
@@ -141,7 +154,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
         <PillActionButton action="confirm" label="Commit subject changes" disabled={!canCommit} onClick={commitChooser} />
       </div>
     </fieldset>}
-    {adding && !bounded && <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); prepare("add", draft); }} onKeyDown={event => {
+    {adding && !bounded && <form className="metadata-edit-form" onSubmit={event => { event.preventDefault(); submitEntry(); }} onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
       if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setAdding(false); setDraft(""); setNotice(""); }
       else if (event.key === "Enter") event.stopPropagation();
@@ -150,7 +163,7 @@ export function MetadataPillEditor({ field, targetIds, values, onSearch, onPrepa
       <div className="metadata-edit-footer justify-end">
         {draft.trim() && <DetailsTargetCount count={targetIds.length} />}
         <PillActionButton action="cancel" label={`Cancel new ${noun}`} onClick={() => { setAdding(false); setNotice(""); }} />
-        <PillActionButton action="confirm" label={`Commit new ${noun}`} disabled={!canAdd || !draft.trim() || hasAll(draft)} onClick={() => prepare("add", draft)} />
+        <PillActionButton action="confirm" label={`Commit new ${noun}`} disabled={!canAdd || !draft.trim() || (form && field.id === "labels" ? parseLabelEntry(draft).every(hasAll) : hasAll(draft))} onClick={submitEntry} />
       </div>
     </form>}
     {notice && <p role="status" className="mt-1 text-xs text-grid-text-muted">{notice}</p>}

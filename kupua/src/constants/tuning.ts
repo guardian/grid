@@ -279,9 +279,13 @@ export const PREFETCH_FULL_RADIUS_BEHIND = 1;
  *
  * Configurable via VITE_RANGE_HARD_CAP env var.
  */
-export const RANGE_HARD_CAP = Number(
-  import.meta.env.VITE_RANGE_HARD_CAP ?? 5_000,
-);
+function positiveInteger(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+export const SELECTION_CAP = positiveInteger(import.meta.env.VITE_SELECTION_CAP, 5_000);
+export const getRangeHardCap = () => positiveInteger(import.meta.env.VITE_RANGE_HARD_CAP, SELECTION_CAP);
+export const RANGE_HARD_CAP = getRangeHardCap();
 
 /**
  * Soft cap for `getIdRange`. When the returned ID count exceeds this value
@@ -316,7 +320,7 @@ export const SELECTION_PERSIST_DEBOUNCE_MS = 250;
  * 5,000 entries ≈ 25–50 MB V8 heap on desktop. Acceptable for v1.
  * Halve on coarse-pointer profiles if memory becomes a real issue.
  */
-export const SELECTION_METADATA_LRU_CAP = 5_000;
+export const SELECTION_METADATA_LRU_CAP = SELECTION_CAP;
 
 /**
  * API mode: IDs per POST /images/mget request (media-api refuses more than 200) and requests in

@@ -74,6 +74,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-041](#kup-041) | API cancellation does not reach outgoing Elasticsearch reads | Open; cancellation handle is not retained, backend work observed after browser cancellation | Independent resource-lifetime follow-up; not a proven PP3 cause or migration gate |
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-052](#kup-052) | Incidental keys reveal unwanted focus rings on pointer-used controls | Operator-observed; UX policy/options pending, no implementation | Independent app-wide interaction polish; preserve keyboard focus visibility |
+| [KUP-056](#kup-056) | Editing-enabled Table uses more renderer time while scrolling | Measured in matched loopback builds; attribution open | Parked performance investigation, not a queue gate |
 
 KUP-011 has no closure evidence from continuity work and remains separately scoped.
 
@@ -85,6 +86,11 @@ a fallback only in media-api mode (search, detail and selections carry server co
 legacy-category expansion remains accepted lag.
 
 ### Optional Performance Follow-ups
+
+#### KUP-056
+**Table uses more renderer time for the same scroll and reversal after inline editing changes.** Four matched runs per arm, with the editor closed, reached the same 6,000 px and returned to zero. Median renderer task time increased from 3,405.5 to 3,865.5 ms (+13.5%) over six seconds; the ranges did not overlap. Neither Table arm had a sampled frame interval over 25 ms. This is reduced headroom, not demonstrated visible stutter and not attribution to any single component. [Workload, revision fingerprints and limits](editing-performance-evidence.md#client-batch-progress-and-browsing-26-november).
+
+**Disposition: OPEN, parked.** Compare one candidate at a time, starting with Badges and Labels/Collections cells, under the same workload and achieved movement. Do not drop useful editing controls to improve a synthetic number. Distinct from KUP-048's render-time store update. No Table work is part of queue generalisation.
 
 #### Earlier Cancellation of Obsolete Window Reads
 
@@ -123,7 +129,7 @@ legacy-category expansion remains accepted lag.
 | [GRID-017](#grid-017) | Kahuna startup probes before the effective default scope settles | Open; recorded local browser evidence and source assessment | Independent frontend request efficiency; not a Kupua migration gate |
 | [GRID-018](#grid-018) | Upload dropped by a dynamic `fileMetadata` mapping conflict | Open for ordinary ingestion; XMP retry added only to direct insertion | Broad Upload reliability/containment; not a U5 metadata gate |
 | [GRID-019](#grid-019) | `Edits` DynamoDB table at a fixed 20 WCU, auto-scaling off | Open; operator-read PROD configuration | Independent capacity risk for any batch write (Kahuna, scripts, future Kupua) |
-| [GRID-020](#grid-020) | Metadata override replacement can lose a concurrent edit | Open; source-level contract limitation | Accepted single-operator prototype risk; no new UI gate |
+| [GRID-020](#grid-020) | Metadata override replacement can lose a concurrent edit | Reproduced with two independent Kupua tabs on local Grid | Accepted prototype risk; no new UI gate |
 | [GRID-021](#grid-021) | Switching local Grid to TEST removes nonpersistent local ES data | Operator-observed; teardown/storage mechanism verified, intended behavior to confirm | Independent local-development issue; ask engineers, not a transport rollout gate |
 | [GRID-022](#grid-022) | Repeated crop saves regenerate shared assets and append duplicate export identities | Operator-reported UI repeat; source and read-only record inspection confirmed | Independent crop refresh/idempotency decision; local UI filtering is not a backend repair |
 | [GRID-023](#grid-023) | Distinguish unavailable saved crops from an empty crop list | Potential UX improvement; source-backed current behaviour | Preserve existing access policy; explanatory presentation not selected |
@@ -135,6 +141,8 @@ legacy-category expansion remains accepted lag.
 | [GRID-029](#grid-029) | Removing Photoshoot membership clears indexed explicit syndication rights | Reproduced on local Grid via APIs | Accepted prototype limitation; separate Grid repair |
 | [GRID-030](#grid-030) | Creating a collection can replace an existing same-name or case-only sibling | Reproduced on disposable local Grid; can split a branch across two visible spellings | Reject known collisions in Kupua; only the store can guarantee uniqueness |
 | [GRID-031](#grid-031) | Leaf check and deletion can disagree about whether a collection has children | Source-only; case mismatch or concurrent child creation | Follow the full tree's advertised action; no client-side cascade |
+| [GRID-032](#grid-032) | Adding members one by one rereads rights for the growing Photoshoot | Local comparison: 16 member keys versus 4 for four writes | Backend efficiency opportunity, not a selection limit |
+| [GRID-033](#grid-033) | Photoshoot membership lookup stops after the first database page | Reproduced with a two-page SDK fixture and a single-page control | Follow the continuation key before computing rights |
 
 <details>
 <summary>Completed bounded repairs and verification: 57 IDs</summary>
@@ -1189,8 +1197,8 @@ and browse-only repair direction; they do not approve wider API implementation o
 **Metadata override replacement can lose a concurrent edit**
 - **Component / owner:** metadata-editor override replacement contract; human owner-to-confirm.
 - **Trigger / expected / actual:** two editors read the same override object, change different fields, then submit replacement objects. The later replacement can discard the other editor's field change. A fresh read immediately before saving reduces the window but cannot close it.
-- **Evidence:** [metadata read and setter](../../../metadata-editor/app/controllers/EditsController.scala#L146) accept and write the metadata object without a request-level version condition. The existing [Step 8 contract](gradually-growing-teeth.kupua-edits-steps.md#step-8-editable-metadata-including-configured-domain-fields) already records the residual GET/PUT race. Source-level limitation, not a newly observed incident or a claim that unrelated label operations share the same contract.
-- **Smallest discriminator:** isolated interleaved override reads and writes to different fields, asserting whether both survive. Proposed, not run; no live mutation.
+- **Contract:** the [metadata read and setter](../../../metadata-editor/app/controllers/EditsController.scala#L146) accept and write the whole ordinary override map without an expected-version condition. This does not replace the whole image, and it is not the write contract for independent label additions.
+- **Local reproduction, 26 November:** two Kupua tabs with separate stores, using the same authenticated identity, read the same seeded override. Both real PUTs were held after construction. A's Title PUT was released and acknowledged; two independent reads observed its change. B's already-constructed Description PUT was released once, without refreshing or retrying. Both acknowledgement bodies matched their respective replacements. B's Description and the unrelated seed survived, but A's Title reverted to baseline. Four successive checks of owning source, indexed raw override and effective fields agreed; a strongly consistent local DynamoDB read confirmed storage loss, not just stale search. Under the same ordering on distinct images both edits and seeds survived. These are command acknowledgements, not a claim about both tabs' rendered indicators. This forced overlap establishes possibility, not frequency, production incidence or a regression caused by local priority. Three disposable images retained their trial values; there was no unconditional cleanup write.
 - **Same-client stale-read window (19 November):** [the owning read](../../../metadata-editor/app/controllers/EditsController.scala#L73) uses [DynamoDB get](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L39) without strong consistency. A successor can therefore receive pre-write overrides even after its predecessor is acknowledged; a separate GET alone does not prove freshness. Source-supported limitation, not a reproduced live Dynamo inconsistency. Kupua's rejected early-release candidate would expose this window; its current visibility barrier mitigates it without establishing a strong guarantee. The existing setter already returns ALL_NEW-derived overrides: the [frontend-only probe](editing-performance-evidence.md#frontend-only-research-and-stale-read-probe-19-november) demonstrated refusing a stale replacement base using that acknowledgement content, not fixing the backend or cross-client race.
 - **Improvement ideas, not prerequisites:** a narrowly scoped strongly consistent read could close that stale-own-read window at increased read capacity cost; conditional/field-level writes would address different concurrent-write guarantees. The operator explicitly prohibits backend changes at this stage (19 November). Document these only; pursue frontend work within current contracts.
 - **Dependency / disposition:** OPEN; the operator explicitly accepts this existing limitation for the single-operator prototype (10 November). Preserve fresh reads and same-client serialization on hookup, but do not claim concurrent-editor protection or make a new conflict API a blanket UI gate. Any server repair remains separately authorized.
@@ -1239,6 +1247,27 @@ and browse-only repair direction; they do not approve wider API implementation o
 - **Local reproduction, 24 November:** two previously unassigned images shared a new shoot. A had explicit published syndication rights (no acquired rights); B inherited them. Metadata-editor and media-api agreed for both before removal. Deleting only A's shoot returned 202. After projection, B correctly lost its inherited rights, but A's singleton showed no syndication rights while metadata-editor still returned its explicit rights. A separate later read confirmed the mismatch. Trial memberships and synthetic rights were removed and their absence verified through both APIs. No direct ES or partner publication.
 - **Cause:** [membership comparison and merge](../../../metadata-editor/app/lib/Syndication.scala#L47) interprets departure from the old group as loss of all rights. [Thrall](../../../thrall/app/lib/kinesis/MessageProcessor.scala#L191) applies the supplied value; it does not reread the image's explicit rights. This is not the detached-future defect fixed in GRID-009/013.
 - **Disposition: OPEN, accepted for the Kupua prototype (24 November).** A Grid repair should retain the departing member's explicit rights while its sibling loses only inferred rights. Kupua confirms membership only; it never compensates by rewriting rights. The local removal was witnessed; moving between groups and shared deployment incidence were not tested. No wider rollout decision follows.
+
+#### GRID-032
+**Adding members to one Photoshoot repeatedly reads the rights of earlier members**
+**Scale check, 26 November:** compiled `setPhotoshootAndPublish`, adding images serially to one initially empty, rights-free shoot. In-memory stores returned complete membership each time. Counts are cumulative:
+
+| Images added | Member keys requested for rights | Edits-record updates | Membership publication calls |
+| ---: | ---: | ---: | ---: |
+| 4 | 16 | 8 | 4 |
+| 100 | 10,000 | 200 | 100 |
+| 1,000 | 1,000,000 | 2,000 | 1,000 |
+| 5,000 | 25,000,000 | 10,000 | 5,000 |
+
+Going from 100 to 5,000 images means 50 times as many updates but **2,500 times as many member keys requested**. At 5,000 the fixture counted 10,000 membership lookups and zero changed-rights entries; its group sizes imply 254,950 nonempty 100-key-or-smaller read chunks. That last figure is calculated, not observed SDK traffic. These are not 25 million distinct images or writes. Event delivery, billed capacity and production latency were not measured. With donors, changed-rights events depend on which rights actually change.
+
+- **Local controlled comparison, 26 November:** eight initially unassigned images had no source syndication rights. Kupua alternated four additions to one new title with four additions to separate new titles, waiting for observed membership after every save. Each save made one metadata source GET and one membership PUT. Metadata-editor logged before/after member counts of `0/1, 1/2, 2/3, 3/4` for the common title, versus `0/1` four times for separate titles: 16 versus 4 member keys examined, zero changed rights in either arm. Submitting the already-observed common title again made a source GET and no PUT. These are member keys, not HTTP calls, billed reads or a timing benchmark.
+- **Why / next check:** the [membership update](../../../metadata-editor/app/lib/Syndication.scala#L33) computes [rights for every member](../../../metadata-editor/app/lib/Syndication.scala#L149) before and after each change. For successive additions to an initially empty shoot with complete membership reads, the work grows quadratically. Evaluate a backend operation that computes the affected groups before and after a set of membership changes once. Compare membership and explicit/inherited rights with the serial path, including moves, partial failure and concurrent edits, before adopting it. No shared capacity or speedup claimed; separate from [GRID-019](#grid-019) and [GRID-029](#grid-029).
+
+#### GRID-033
+**Photoshoot rights calculation can omit members beyond the first database page**
+- **Reproduction, 26 November:** exercised the compiled [membership lookup](../../../metadata-editor/app/lib/Syndication.scala#L161), [scanForId](../../../common-lib/src/main/scala/com/gu/mediaservice/lib/aws/DynamoDB.scala#L166) and rights inference with a mocked DynamoDB client. One page containing a sibling and its sole published rights donor produced one query, two keys requested and inherited rights for the sibling. With the same two members split across pages, page one returned a continuation key; the client made one query, requested only the sibling's rights and returned no inherited rights. This reproduces a missing result in the calculation, not a live missing event or production incident. No fixed member-count threshold established.
+- **Repair acceptance:** promote that comparison into a backend regression test, require the next query to use the continuation key, and assert the same inherited rights in both arrangements. Pagination addresses incomplete traversal, not index consistency or the repeated reads in [GRID-032](#grid-032). Backend changes deferred.
 
 #### GRID-012
 **Soft-delete acknowledgement is detached from status persistence/publication**

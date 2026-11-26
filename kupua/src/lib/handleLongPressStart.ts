@@ -15,7 +15,8 @@
  */
 
 import type { Image } from "@/types/image";
-import { useSelectionStore } from "@/stores/selection-store";
+import { refuseSelectionOverflow, useSelectionStore } from "@/stores/selection-store";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { useSearchStore } from "@/stores/search-store";
 import { buildSearchKey, extractSortValues, getRetainedSortValues } from "@/lib/image-offset-cache";
 import type { AddRangeEffect } from "@/lib/dispatchClickEffects";
@@ -61,6 +62,7 @@ export function createDragSelect(
     enter(originId, cellId) {
       if (getImageAvailability(originId) || getImageAvailability(cellId)) return;
       const sel = useSelectionStore.getState();
+      if (sel.selectedIds.size > SELECTION_CAP) return;
       const search = useSearchStore.getState();
       if (!origin) {
         const global = search.imagePositions.get(originId);
@@ -74,26 +76,29 @@ export function createDragSelect(
       }
       const target = search.imagePositions.get(cellId);
       if (target === undefined || !before) return;
-      last = { id: cellId, global: target };
       const lo = Math.min(origin.global, target);
       const hi = Math.max(origin.global, target);
       // Leaving = touched ids now outside the range (by remembered position, so ids
       // evicted from the buffer mid-drag aren't mistaken for leaving).
       const leaving: string[] = [];
-      for (const [id, pos] of added) if (pos < lo || pos > hi) { leaving.push(id); added.delete(id); }
+      for (const [id, pos] of added) if (pos < lo || pos > hi) leaving.push(id);
       const entering: string[] = [];
       for (const image of search.results) {
         if (!image || image.__availability || getImageAvailability(image.id) || added.has(image.id) || before.has(image.id) !== erase) continue;
         const pos = search.imagePositions.get(image.id);
-        if (pos !== undefined && pos >= lo && pos <= hi) { entering.push(image.id); added.set(image.id, pos); }
+        if (pos !== undefined && pos >= lo && pos <= hi) entering.push(image.id);
       }
-      if (erase) {
-        if (entering.length) sel.remove(entering);
-        if (leaving.length) sel.add(leaving);
-      } else {
-        if (leaving.length) sel.remove(leaving);
-        if (entering.length) sel.add(entering);
+      const additions = erase ? leaving : entering;
+      const removals = erase ? entering : leaving;
+      if (sel.selectedIds.size + additions.length > SELECTION_CAP) {
+        const nextSize = sel.selectedIds.size + additions.filter(id => !sel.selectedIds.has(id)).length - removals.filter(id => sel.selectedIds.has(id)).length;
+        if (nextSize > SELECTION_CAP) { refuseSelectionOverflow(); return; }
       }
+      last = { id: cellId, global: target };
+      for (const id of leaving) added.delete(id);
+      for (const id of entering) added.set(id, search.imagePositions.get(id)!);
+      if (removals.length) sel.remove(removals);
+      if (additions.length) sel.add(additions);
       sel.setAnchor(cellId);
     },
     end() {
@@ -165,7 +170,7 @@ export function handleLongPressStart(ctx: LongPressStartContext): void {
   } else if (!selState.selectedIds.has(ctx.cellId)) {
     // Mode entry (no prior anchor) or long-press on an unselected cell:
     // toggle + anchor.
-    selState.toggle(ctx.cellId);
+    if (selState.toggle(ctx.cellId) === false) return;
     selState.setAnchor(ctx.cellId);
   } else {
     // Long-press on the already-selected anchor cell re-anchors but does NOT

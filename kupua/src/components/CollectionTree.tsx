@@ -30,6 +30,7 @@ import { AccordionSection } from "./PanelLayout";
 import { usePanelStore } from "@/stores/panel-store";
 import { useImageDragSpringOpen } from "@/hooks/useImageDragSpringOpen";
 import { MetadataEditorContext, useMetadataCommit } from "./MetadataEditing";
+import { SELECTION_CAP } from "@/constants/tuning";
 import { activeImageDrag, hasImageDrag, imageDragSignal, subscribeImageDrag, takeImageDrag } from "@/lib/internal-image-drag";
 import { useBrowsingContext } from "@/lib/browsing-context";
 import { useSelectionStore } from "@/stores/selection-store";
@@ -59,7 +60,7 @@ export function CollectionTree() {
   const searchParams = useSearch({ from: path });
   const editor = useContext(MetadataEditorContext);
   const connected = useStore(editor, state => state.connected);
-  const selected = useSelectionStore(state => path === "/search" && state.selectedIds.size > 0);
+  const selected = useSelectionStore(state => path === "/search" && state.selectedIds.size > 0 && state.selectedIds.size <= SELECTION_CAP);
   const gesture = useSyncExternalStore(subscribeImageDrag, activeImageDrag);
   const [hover, setHover] = useState<{ signal?: AbortSignal; pathId?: string }>();
   const commit = useMetadataCommit();

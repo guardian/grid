@@ -1,3 +1,9 @@
+export function containsAllPillValues(observed: readonly string[], requested: readonly string[]): boolean {
+  if (requested.length < 3) return requested.every(value => observed.includes(value));
+  const values = new Set(observed);
+  return requested.every(value => values.has(value));
+}
+
 export const SUBJECTS = [
   "arts", "crime", "disaster", "finance", "education", "environment",
   "health", "human", "labour", "lifestyle", "nature", "news", "politics",

@@ -213,6 +213,75 @@ describe("StatusBar AI totals", () => {
     expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["second"] }));
   });
 
+  it("submits only changed Library flags and announces an in-flight save", async () => {
+    const editor = createMetadataEditorStore();
+    const submit = vi.fn<ReturnType<typeof editor.getState>["submit"]>(() => undefined);
+    editor.setState({ connected: true, submit });
+    const grant = vi.spyOn(gridApi, "serviceLink").mockResolvedValue("https://metadata.example.test/metadata/{id}/archived");
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const target = (id: string, archived: boolean) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, userMetadata: { archived },
+      source: { mimeType: "image/jpeg", dimensions: { width: 10, height: 10 } } }, overlay: { persisted: { value: archived, reasons: archived ? ["archived"] : [] } } });
+    try {
+      await act(async () => { render(<MetadataEditorContext value={editor}><ImageActions actions={["library"]} context={{ targets: [target("already", true), target("new", false)], api: true, archive: null }} /></MetadataEditorContext>); });
+      const add = screen.getByRole("button", { name: "Add to Library" });
+      expect(add.querySelector('[data-library-icon="add"]')).not.toBeNull();
+      fireEvent.click(add);
+      expect(submit.mock.calls[0]?.[0]).toMatchObject({ fieldId: "archived", value: "archive", targetIds: ["new"] });
+      const lookup = vi.fn(() => false);
+      act(() => editor.setState({ hasPendingField: lookup }));
+      expect(lookup).not.toHaveBeenCalled();
+      act(() => editor.setState({ pendingArchiveIds: new Set(["new"]) }));
+      expect(add.getAttribute("aria-busy")).toBe("true");
+    } finally { grant.mockRestore(); vi.unstubAllEnvs(); editor.getState().dispose(); }
+  });
+
+  it("only reveals settled Library actions and holds the existing presentation during selection expansion", async () => {
+    const grant = vi.spyOn(gridApi, "serviceLink").mockResolvedValue("https://metadata.example.test/metadata/{id}/archived");
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const target = (id: string, archived: boolean) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, userMetadata: { archived },
+      source: { mimeType: "image/jpeg", dimensions: { width: 10, height: 10 } } }, overlay: { persisted: { value: archived, reasons: archived ? ["archived"] : [] } } });
+    const first = target("first", true);
+    const second = target("second", false);
+    type Targets = Parameters<typeof ImageActions>[0]["context"]["targets"];
+    let latestTargets: Targets | undefined;
+    const toolbar = (targets: Targets) => <ImageActions actions={["library"]} selectedIds={new Set(targets.map(item => item.id))}
+      context={{ targets, api: true, archive: null }} resolveContext={() => ({ targets: latestTargets ?? targets, api: true, archive: null })} />;
+    try {
+      const view = render(toolbar([{ id: first.id, pending: true }]));
+      expect(screen.queryByRole("button")).toBeNull();
+      await act(async () => view.rerender(toolbar([first])));
+      const remove = screen.getByRole<HTMLButtonElement>("button", { name: "Remove from Library" });
+      expect(remove.disabled).toBe(false);
+      latestTargets = [first, second];
+      fireEvent.click(remove);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+      latestTargets = undefined;
+
+      view.rerender(toolbar([first, { id: second.id, pending: true }]));
+      expect(screen.getByRole("button", { name: "Remove from Library" })).toBe(remove);
+      expect(remove.querySelector('[data-library-icon="remove"]')).not.toBeNull();
+      expect(remove.style.opacity).toBe("1");
+      expect(remove.disabled).toBe(true);
+      fireEvent.click(remove);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+
+      view.rerender(toolbar([first, second]));
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" }).disabled).toBe(false);
+      view.rerender(toolbar([first, { ...second, image: { ...second.image, __availability: "deleted" }, pending: true }]));
+      const unavailable = screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" });
+      expect(unavailable.disabled).toBe(true);
+      expect(unavailable.getAttribute("aria-busy")).toBeNull();
+      expect(unavailable.title).toBe("One or more selected images are unavailable or deleted");
+
+      view.unmount();
+      const cachedGrant = vi.spyOn(gridApi, "serviceLinkAvailable").mockReturnValue(true);
+      try {
+        render(toolbar([first]));
+        expect(screen.getByRole<HTMLButtonElement>("button", { name: "Remove from Library" }).disabled).toBe(false);
+      } finally { cachedGrant.mockRestore(); }
+    } finally { grant.mockRestore(); vi.unstubAllEnvs(); }
+  });
+
   it.each([false, true])("keeps explicit action controls independent of unrelated stores, compact=%s", async compact => {
     shell.compact = compact;
     const enrichment = useEnrichmentStore.getState();

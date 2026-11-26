@@ -4,6 +4,26 @@ import { acknowledgeUploadNavigation, checkUploadAttempt, configureUploadFollowu
 import { observeGridUpload, observeUploadedImage, submitGridUpload } from "@/lib/upload-commands";
 import { useLocalPersistenceStore } from "@/lib/local-batch-storage";
 
+it("reports owned followup transitions but not unrelated metadata activity", async () => {
+  const { createMetadataEditorStore, reportUploadFollowups } = await import("./metadata-editor-store");
+  const editor = createMetadataEditorStore();
+  const save = { id: 1, state: "queued", items: [], excluded: 0, intent: { fieldId: "metadata_description", action: "if-empty", value: "Caption", targetIds: ["upload"] } } as const;
+  editor.setState({ saves: new Map([[1, save]]) });
+  const report = vi.fn();
+  try {
+    report.mockImplementationOnce(() => {
+      editor.setState({ saves: new Map(editor.getState().saves).set(2, { ...save, id: 2 }) });
+      expect(report).toHaveBeenCalledTimes(1);
+      editor.setState({ saves: new Map(editor.getState().saves).set(1, { ...save, state: "finished", message: "Save unavailable" }) });
+    });
+    reportUploadFollowups(editor, [{ id: 1, label: "Filename" }], report);
+    expect(report.mock.calls[0][0][0].pending).toBe(true);
+    expect(report.mock.lastCall?.[0]).toEqual([{ label: "Filename", pending: false, attention: true, summary: "Save unavailable" }]);
+    editor.setState({ saves: new Map() });
+    expect(report).toHaveBeenCalledTimes(2);
+  } finally { editor.getState().dispose(); }
+});
+
 vi.mock("@/lib/upload-commands", () => ({ submitGridUpload: vi.fn(), observeGridUpload: vi.fn(), observeUploadedImage: vi.fn() }));
 const file = (name: string, bytes = name) => Object.assign(new Blob([bytes]), { name }) as File;
 afterEach(async () => {
