@@ -8,7 +8,7 @@ import com.gu.mediaservice.lib.config.GridConfigResources
 import com.gu.mediaservice.lib.elasticsearch.{ElasticSearchAliases, ElasticSearchConfig, ElasticSearchExecutions}
 import com.gu.mediaservice.lib.logging.{LogMarker, MarkerMap}
 import com.gu.mediaservice.model._
-import com.gu.mediaservice.model.leases.DenySyndicationLease
+import com.gu.mediaservice.model.leases.{DenySyndicationLease, LeasesByMedia}
 import com.gu.mediaservice.model.usage._
 import com.sksamuel.elastic4s.ElasticDsl
 import com.sksamuel.elastic4s.ElasticDsl._
@@ -1209,6 +1209,182 @@ class ElasticSearchTest extends ElasticSearchTestBase with Eventually with Elast
         expectedUnderQuotaImages.foreach(imageIds.contains(_) shouldBe true)
       }
       }
+    }
+  }
+
+  describe("search chips against indexed data") {
+    def chip(suffix: String, usageRights: UsageRights = Handout(), uploadedBy: String = testUser,
+             usages: List[Usage] = Nil, softDeletedMetadata: Option[SoftDeletedMetadata] = None): Image =
+      createImage(s"chip-$suffix", usageRights, uploadedBy = uploadedBy, usages = usages, softDeletedMetadata = softDeletedMetadata)
+
+    def withMetadata(image: Image)(update: ImageMetadata => ImageMetadata): Image =
+      image.copy(metadata = update(image.metadata))
+
+    def expectChipMatches(fixtures: Seq[Image], configOverrides: Map[String, Any] = Map.empty)(expectations: (String, Set[String])*): Unit = {
+      val config = new MediaApiConfig(GridConfigResources(
+        Configuration.from(USED_CONFIGS_IN_TEST ++ MOCK_CONFIG_KEYS.map(_ -> NOT_USED_IN_TEST).toMap ++ configOverrides),
+        null,
+        applicationLifecycle
+      ))
+      val search = new ElasticSearch(config, mediaApiMetrics, elasticConfig, () => Nil, mock[Scheduler])
+      try withQuotaImages(fixtures) {
+        expectations.foreach { case (queryText, expected) =>
+          withClue(queryText) {
+            val params = SearchParams(
+              tier = Internal,
+              length = fixtures.size,
+              ids = Some(fixtures.map(_.id).toList),
+              structuredQuery = Parser.run(queryText)
+            )
+            whenReady(search.search(params), timeout, interval) { result =>
+              result.hits.map(_._1) should contain theSameElementsAs expected.toSeq.map(suffix => s"chip-$suffix")
+            }
+          }
+        }
+      } finally search.client.close()
+    }
+
+    it("matches each persistence reason against only the image carrying it") {
+      val now = DateTime.now
+      val edits = Edits(metadata = ImageMetadata())
+      val fixtures = Seq(
+        chip("none"),
+        chip("exports").copy(exports = List(Crop.createFromCropSource(
+          by = Some(testUser),
+          timeRequested = Some(now),
+          specification = CropSpec("http://file/chip-exports", Bounds(0, 0, 100, 100), Some("1:1"), rotation = None)
+        ))),
+        chip("archived").copy(userMetadata = Some(edits.copy(archived = true))),
+        chip("photographer-category", StaffPhotographer("Example Photographer", "Example publication")),
+        chip("illustrator-category", StaffIllustrator("Example Illustrator")),
+        chip("commissioned-agency", CommissionedAgency("Alamy")),
+        chip("leases").copy(leases = LeasesByMedia.build(List(createSyndicationLease(allowed = true, "chip-leases")))),
+        chip("persisted-collection").copy(collections = List(Collection.build(List("chips"), ActionData(testUser, now)))),
+        chip("photoshoot").copy(userMetadata = Some(edits.copy(photoshoot = Some(Photoshoot("Harbour Shoot"))))),
+        chip("labeled").copy(userMetadata = Some(edits.copy(labels = List("featured")))),
+        chip("edited").copy(userMetadata = Some(Edits(metadata = ImageMetadata(title = Some("Edited title")))))
+      )
+
+      expectChipMatches(fixtures)(
+        Seq("exports", "archived", "photographer-category", "illustrator-category", "commissioned-agency",
+          "leases", "persisted-collection", "photoshoot", "labeled", "edited")
+          .map(reason => s"persisted:$reason" -> Set(reason)): _*
+      )
+    }
+
+    it("expands replacement categories to the legacy categories they replace") {
+      val fixtures = Seq(
+        chip("pay-to-use", PayToUse()),
+        chip("chargeable", Chargeable()),
+        chip("staff-photographer", StaffPhotographer("Example Photographer", "Example publication")),
+        chip("commissioned-agency", CommissionedAgency("Alamy")),
+        chip("bylines", Bylines()),
+        chip("pr-and-third-party", PRAndThirdParty(source = "Example PR office")),
+        chip("handout", Handout())
+      )
+      val applicable = Seq("PayToUse", "PublisherPhotography", "PRAndThirdParty").map(name => s"com.gu.mediaservice.model.$name")
+
+      expectChipMatches(fixtures, Map("usageRights" -> Map("applicable" -> applicable)))(
+        "category:pay-to-use" -> Set("pay-to-use", "chargeable"),
+        "category:publisher-photography" -> Set("staff-photographer", "commissioned-agency", "bylines"),
+        "category:pr-and-third-party" -> Set("pr-and-third-party", "handout")
+      )
+    }
+
+    it("matches agency picks only through the configured ingredients") {
+      val fixtures = Seq(
+        withMetadata(chip("pick"))(_.copy(description = Some("Harbour festival topshot"))),
+        withMetadata(chip("not-pick"))(_.copy(description = Some("Harbour festival")))
+      )
+
+      // Quoted so Typesafe config keeps the dotted field name as a single key.
+      expectChipMatches(fixtures, Map("agencyPicks.ingredients" -> Map("\"metadata.description\"" -> Seq("topshot"))))(
+        "is:agency-pick" -> Set("pick")
+      )
+      expectChipMatches(fixtures)("is:agency-pick" -> Set.empty)
+    }
+
+    it("resolves configured top-level field aliases, including existence matching") {
+      val fixtures = Seq(
+        withMetadata(chip("with-person"))(_.copy(
+          subjects = Some(List("sport")),
+          suppliersReference = Some("chips-reference"),
+          peopleInImage = Some(Set("Alex Example"))
+        )),
+        withMetadata(chip("without-person"))(_.copy(subjects = Some(List("news"))))
+      )
+      val aliases = Seq(
+        Map("alias" -> "fixtureSubject", "elasticsearchPath" -> "metadata.subjects", "label" -> "Fixture subject"),
+        Map("alias" -> "fixtureReference", "elasticsearchPath" -> "metadata.suppliersReference", "label" -> "Fixture reference"),
+        Map("alias" -> "fixtureHasPerson", "elasticsearchPath" -> "metadata.peopleInImage", "label" -> "Fixture has person",
+          "matchViaExistence" -> true)
+      )
+
+      expectChipMatches(fixtures, Map("field.aliases" -> aliases))(
+        "fixtureSubject:sport" -> Set("with-person"),
+        "fixtureReference:chips-reference" -> Set("with-person"),
+        "fixtureHasPerson:true" -> Set("with-person"),
+        "fixtureHasPerson:false" -> Set("without-person")
+      )
+    }
+
+    it("excludes soft-deleted images unless is:deleted is requested") {
+      val otherUser = "other-uploader@example.test"
+      val fixtures = Seq(
+        chip("own-live"),
+        chip("own-deleted", softDeletedMetadata = Some(deletionData(testUser))),
+        chip("other-deleted", uploadedBy = otherUser, softDeletedMetadata = Some(deletionData(otherUser)))
+      )
+
+      expectChipMatches(fixtures)(
+        s"uploader:$testUser" -> Set("own-live"),
+        s"is:deleted uploader:$testUser" -> Set("own-deleted"),
+        s"is:deleted uploader:$otherUser" -> Set("other-deleted")
+      )
+    }
+
+    it("searches the syndication platform as Added to Photo Sales") {
+      val fixtures = Seq(
+        chip("syndicated", usages = List(createSyndicationUsage())),
+        chip("digital", usages = List(createDigitalUsage()))
+      )
+
+      expectChipMatches(fixtures)(
+        "usages@platform:\"Added to Photo Sales\"" -> Set("syndicated"),
+        "usages@platform:\"Added to Photo Sales\" usages@status:syndicated" -> Set("syndicated")
+      )
+    }
+
+    it("matches images leased by the requested user") {
+      def leasedBy(suffix: String, user: String): Image =
+        chip(suffix).copy(leases = LeasesByMedia.build(List(
+          createSyndicationLease(allowed = true, s"chip-$suffix").copy(leasedBy = Some(user))
+        )))
+      val fixtures = Seq(
+        leasedBy("leased-by-me", testUser),
+        leasedBy("leased-by-other", "other-leaser@example.test"),
+        chip("not-leased")
+      )
+
+      expectChipMatches(fixtures)(
+        s"leasedBy:$testUser" -> Set("leased-by-me"),
+        s"leasedBy:$testUser persisted:leases" -> Set("leased-by-me")
+      )
+    }
+
+    it("matches single and multi-word supplier names exactly") {
+      val fixtures = Seq(
+        chip("aap", Agency("AAP")),
+        chip("getty-images", Agency("Getty Images")),
+        chip("getty", Agency("Getty")),
+        chip("rex-features", Agency("Rex Features"))
+      )
+
+      expectChipMatches(fixtures)(
+        "supplier:AAP" -> Set("aap"),
+        "supplier:\"Getty Images\"" -> Set("getty-images"),
+        "supplier:\"Rex Features\"" -> Set("rex-features")
+      )
     }
   }
 
