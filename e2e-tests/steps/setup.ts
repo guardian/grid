@@ -66,6 +66,10 @@ export interface TestContext {
   permissionImages?: { id: string; uploadedBy: string }[];
   /** The `q` of each search Kahuna ran since recording started (see recordSearches). */
   searchesRun?: string[];
+  /** The `nonFree` setting a `Given` chose for the searches later steps open. */
+  searchNonFree?: 'true' | 'false';
+  /** The next search Kahuna runs after a metadata link is clicked. */
+  nextSearch?: Promise<URL>;
   /** Rights editor property values a step filled in, keyed by property label. */
   rightsProperties?: Record<string, string>;
   /** Ids of the image copies `seedImage` indexed, deleted by the `After` hook. */

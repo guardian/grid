@@ -4,6 +4,7 @@ import type { SeedLease } from '../../setup/seed-leases.ts';
 import { Given, KAHUNA_APP_URL, Then, When, expect } from '../setup.ts';
 import type { SeedImage, TestContext } from '../setup.ts';
 import { answerDialogs } from '../utils/dialogs.ts';
+import { resultCard, resultCards, searchInfoPanel as infoPanel } from '../utils/search-results.ts';
 import {
   accessOfLabel,
   addLease,
@@ -12,21 +13,6 @@ import {
   pollLeasesOf,
   seedLeasedImage,
 } from './leases.ts';
-
-const results = (page: Page) => page.getByRole('region', { name: 'Matched image search results' });
-
-/**
- * Search results' cards: the list items holding a thumbnail. The pop-out link each holds,
- * shown on hover, sits in a list item of its own, which has none.
- */
-const resultCards = (page: Page) =>
-  results(page).getByRole('listitem').filter({ has: page.getByRole('img') });
-
-/** The card of `imageId`, found by its pop-out link, which is there even while selecting. */
-const resultCard = (page: Page, imageId: string) =>
-  resultCards(page).filter({ has: page.locator(`a[href="/images/${imageId}"]`) });
-
-const infoPanel = (page: Page) => page.getByRole('region', { name: 'Image information' });
 
 const infoPanelRegion = (page: Page, name: string) =>
   infoPanel(page).getByRole('region', { name, exact: true });
