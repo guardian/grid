@@ -89,7 +89,7 @@ deployments:
         AmiId:
           BuiltBy: amigo
           AmigoStage: PROD
-          Recipe: editorial-tools-jammy-java25
+          Recipe: editorial-tools-resolute-java25
         ImagingAmiId:
           BuiltBy: amigo
           AmigoStage: PROD
@@ -226,4 +226,3 @@ deployments:
       - updateLambda
     dependencies:
       - cfn-eu-west-1-image-cache-purger-lambda
-
