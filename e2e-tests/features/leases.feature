@@ -134,7 +134,7 @@ Feature: Viewing and managing an image's leases in the single image view
     Given I am signed in with edit metadata permission
     And I have opened the single image view of an image
     And I have opened the add lease form
-    When I cancel the form
+    When I cancel the add lease form form
     Then the add lease form is hidden
     And no lease is added to the image
   # Evidence: kahuna/public/js/leases/leases.html lines 34-35, 104-106
@@ -145,7 +145,7 @@ Feature: Viewing and managing an image's leases in the single image view
     And I have opened the single image view of an image
     And I have opened the add lease form
     When I choose "<access>" access
-    Then a start and end date range is shown
+    Then the leases start and end data range is shown
     And the end date defaults to the end of the day after tomorrow
     And a notes field is shown
 

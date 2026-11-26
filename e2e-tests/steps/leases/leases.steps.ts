@@ -120,7 +120,7 @@ Then('the form has {string} and {string} buttons', async ({ page }, first: strin
   await expect(region.getByTitle(second, { exact: true })).toBeVisible();
 });
 
-When('I cancel the form', async ({ page }) => {
+When('I cancel the add lease form form', async ({ page }) => {
   await closeLeaseFormButton(leasesRegion(page)).click();
 });
 
@@ -149,7 +149,7 @@ When(
   },
 );
 
-Then('a start and end date range is shown', async ({ page }) => {
+Then('the leases start and end data range is shown', async ({ page }) => {
   const region = leasesRegion(page);
   await expect(datePickerButton(region, 'from')).toBeVisible();
   await expect(datePickerButton(region, 'to')).toBeVisible();
