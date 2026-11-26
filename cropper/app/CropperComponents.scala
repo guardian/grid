@@ -1,5 +1,5 @@
 import com.gu.mediaservice.GridClient
-import com.gu.mediaservice.lib.imaging.MagickImageOperations
+import com.gu.mediaservice.lib.imaging.ImageOperations
 import com.gu.mediaservice.lib.management.{InnerServiceStatusCheckController, Management}
 import com.gu.mediaservice.lib.play.GridComponents
 import controllers.CropperController
@@ -11,7 +11,7 @@ class CropperComponents(context: Context) extends GridComponents(context, new Cr
   final override val buildInfo = utils.buildinfo.BuildInfo
 
   val store = new CropStore(config)
-  val imageOperations = new MagickImageOperations(context.environment.rootPath.getAbsolutePath)
+  val imageOperations = ImageOperations(config, context.environment.rootPath.getAbsolutePath)
 
   val crops = new Crops(config, store, imageOperations)
   val notifications = new Notifications(config)

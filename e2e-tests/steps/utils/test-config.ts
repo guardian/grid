@@ -6,6 +6,10 @@ type ClientConfig = {
   shouldUploadStraightToBucket: boolean;
   usageRightsSummary: boolean
   aiSearchEnabled: boolean;
+  useReaper: boolean;
+  agencyPicksIngredients: Record<string, string[]> | null;
+  recordDownloadAsUsage: boolean;
+  showSendToPhotoSales: boolean;
 };
 
 declare global {

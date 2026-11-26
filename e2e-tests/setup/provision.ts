@@ -17,7 +17,10 @@ import {
 import { KinesisClient, ListShardsCommand } from '@aws-sdk/client-kinesis';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import {
+  ADMIN_API_KEY,
+  ADMIN_API_KEY_NAME,
   API_KEY as API_KEY_PATH,
+  API_KEY_NAME,
   AUTH_STACK_NAME,
   CORE_STACK_NAME,
   DOMAIN,
@@ -116,7 +119,9 @@ export async function seedBuckets(s3: S3Client, props: StackProps): Promise<void
 
   await Promise.all([
     // API key used by the machine authentication provider.
-    putObject(s3, props.KeyBucket, API_KEY_PATH, 'DEV Key'),
+    putObject(s3, props.KeyBucket, API_KEY_PATH, API_KEY_NAME),
+    // Administrator-tier key for cleanup (see ADMIN_API_KEY): the key's name, then its tier.
+    putObject(s3, props.KeyBucket, ADMIN_API_KEY, `${ADMIN_API_KEY_NAME}\nadministrator`),
     // Static config consumed by the services.
     ...['photographers.json', 'rcs-quota.json', 'usage_rights.json'].map((file) =>
       putObject(s3, props.ConfigBucket, file, fs.readFileSync(path.join(devConfig, file))),
@@ -134,7 +139,7 @@ function keyBody(pem: string): string {
   return pem.replace(/-----[^-]+-----|\s/g, '');
 }
 
-export async function seedAuthBuckets(s3: S3Client, props: StackProps): Promise<void> {
+export async function seedAuthBuckets(s3: S3Client, props: StackProps, oidcIssuer = OIDC_ISSUER): Promise<void> {
   const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -148,7 +153,7 @@ export async function seedAuthBuckets(s3: S3Client, props: StackProps): Promise<
     'cookieName=gutoolsAuth-assym',
     `clientId=${OIDC_CLIENT_ID}`,
     `clientSecret=${OIDC_CLIENT_SECRET}`,
-    `discoveryDocumentUrl=${OIDC_ISSUER}/.well-known/openid-configuration`,
+    `discoveryDocumentUrl=${oidcIssuer}/.well-known/openid-configuration`,
     '',
   ].join('\n');
 

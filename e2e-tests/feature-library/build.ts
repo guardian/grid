@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { build } from 'esbuild';
+import { loadCoverage, loadCoverageSummary } from './coverage.ts';
 import { createLibrary } from './library.ts';
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
@@ -12,12 +13,16 @@ export const outputDir = path.resolve(directory, '../dist/feature-library');
 
 /**
  * @param reportDir - Playwright HTML report directory; defaults to e2e-tests/playwright-report.
+ * @param coverageDir - Monocart coverage directory written by the e2e run; defaults to e2e-tests/coverage-reports.
  * @returns The absolute output directory after writing the bundle, assets, manifest and videos.
  * Reuses Grid's logo/fonts, logs missing-media warnings and removes previously generated
  * videos no longer referenced by the snapshot. Source features and report files are untouched.
  * @throws If importing, bundling, copying or writing any required output fails.
  */
-export async function buildLibrary(reportDir = path.resolve(directory, '../playwright-report')): Promise<string> {
+export async function buildLibrary(
+  reportDir = path.resolve(directory, '../playwright-report'),
+  coverageDir = path.resolve(directory, '../coverage-reports'),
+): Promise<string> {
   const { manifest, media, warnings } = await createLibrary({
     featuresDir: path.resolve(directory, '../features'), reportDir,
   });
@@ -44,7 +49,14 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   ].map(([source, destination]) => cp(path.join(fontsDir, source), path.join(outputDir, 'fonts', destination))));
   await rm(path.join(outputDir, 'icons.js'), { force: true });
   await Promise.all([...media].map(([destination, source]) => cp(source, path.join(outputDir, destination))));
-  await writeFile(path.join(outputDir, 'library.json'), JSON.stringify(manifest));
+  const summary = await loadCoverageSummary(coverageDir);
+  await writeFile(path.join(outputDir, 'library.json'), JSON.stringify(summary ? { ...manifest, coverage: summary } : manifest));
+  const loaded = await loadCoverage(path.join(coverageDir, 'features'));
+  const coverage = loaded?.coverage ?? null;
+  for (const [file, data] of [['coverage.json', coverage], ['source-coverage.json', loaded?.sources]] as const) {
+    if (data) await writeFile(path.join(outputDir, file), JSON.stringify(data));
+    else await rm(path.join(outputDir, file), { force: true });
+  }
   // Only prune filenames produced by this exporter, leaving other files in media/ alone.
   for (const file of await readdir(path.join(outputDir, 'media'))) {
     if (/^[a-f0-9]{16}\.(webm|mp4)$/.test(file) && !media.has(`media/${file}`)) {
@@ -53,12 +65,17 @@ export async function buildLibrary(reportDir = path.resolve(directory, '../playw
   }
   for (const warning of warnings) console.warn(warning);
   const scenarios = manifest.features.flatMap((feature) => feature.scenarios);
-  console.log(`Feature library: ${manifest.features.length} features, ${scenarios.length} scenarios, ${media.size} videos.\nBuilt ${outputDir}`);
+  console.log(`Feature library: ${manifest.features.length} features, ${scenarios.length} scenarios, ${media.size} videos.`);
+  console.log(coverage ? `Coverage: ${coverage.features.length} features, ${coverage.scenarios.length} scenarios, ${coverage.functions.length} covered functions.` : 'Coverage: no coverage-reports found.');
+  console.log(`Built ${outputDir}`);
   return outputDir;
 }
 
 // Importing buildLibrary does not trigger a build; only direct CLI execution parses --report.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values } = parseArgs({ options: { report: { type: 'string' } } });
-  await buildLibrary(values.report ? path.resolve(values.report) : undefined);
+  const { values } = parseArgs({ options: { report: { type: 'string' }, coverage: { type: 'string' } } });
+  await buildLibrary(
+    values.report ? path.resolve(values.report) : undefined,
+    values.coverage ? path.resolve(values.coverage) : undefined,
+  );
 }

@@ -101,13 +101,11 @@ class Projector(config: ImageUploadOpsCfg,
         val lastModifiedInstant = s3Source.response().lastModified()
         val extractedS3Meta = S3FileExtractedMetadata(new DateTime(lastModifiedInstant.toEpochMilli).withZone(DateTimeZone.UTC), s3Source.response().metadata().asScala.toMap)
         val finalImageFuture = projectImage(digestedFile, extractedS3Meta, gridClient, onBehalfOfFn)
-        val finalImage = Await.result(finalImageFuture, Duration.Inf)
-
-        Some(finalImage)
+        finalImageFuture.map(Some(_))
       } finally {
         s3Source.close()
       }
-    }
+    }.flatten
   }
 
   private def getSrcFileDigestForProjection(s3Src: ResponseInputStream[GetObjectResponse], imageId: String, tempFile: File) = {

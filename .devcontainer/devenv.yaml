@@ -28,6 +28,7 @@ forwardPorts:
   - 9010
   - 9011
   - 9012
+  - 9014
   - 4566
   - 6080
 
@@ -42,6 +43,12 @@ plugins:
   intellij: []
 
 postCreateCommand:
+  - cmd: "sudo apt-get update && sudo apt-get install -y mkcert libnss3-tools"
+    workingDirectory: "."
+    logLine: "Install-mkcert"
+  - cmd: "mise exec -- mkcert -install"
+    workingDirectory: "."
+    logLine: "Install-local-CA"
   - cmd: "docker build --target dev -f e2e-tests/images/Dockerfile -t grid-e2e-dev ."
     workingDirectory: "."
   - cmd: "npm ci"

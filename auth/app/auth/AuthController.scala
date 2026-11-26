@@ -86,16 +86,9 @@ class AuthController(auth: Authentication, providers: AuthenticationProviders, v
           )
         )
       )
-      case InnerServicePrincipal(identity, attributes) => respond(
-        Json.obj( "inner-service" ->
-          Json.obj(
-            "identity" -> identity,
-            providers.innerServiceProvider.uuidKey.toString -> attributes.get(providers.innerServiceProvider.uuidKey),
-            providers.innerServiceProvider.timestampKey.toString -> attributes.get(providers.innerServiceProvider.timestampKey),
-            providers.innerServiceProvider.signatureKey.toString -> attributes.get(providers.innerServiceProvider.signatureKey),
-          )
-        )
-      )
+      case _: InnerServicePrincipal =>
+        // session does not opt into allowInnerService
+        InternalServerError("Unexpected inner-service principal on session endpoint")
     }
   }
 

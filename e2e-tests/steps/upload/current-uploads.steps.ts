@@ -4,6 +4,7 @@ import { Given, Then, When, expect } from '../setup.ts';
 import { TEST_ACCOUNTS } from '../../setup/constants.ts';
 import { openUploadPageAs } from '../common.steps.ts';
 import { expectNoDeletePermission } from '../utils/api/media-api.assertions.ts';
+import { expectDialog } from '../utils/dialogs.ts';
 import {
   failDelete,
   failIngest,
@@ -220,5 +221,5 @@ When('deleting the image fails', async ({ page, testContext }) => {
 });
 
 Then('I should see an alert explaining the deletion failed', async ({ testContext }) => {
-  await expect.poll(() => testContext.dialogs.join('\n')).toContain('Failed to delete image');
+  await expectDialog(testContext, 'Failed to delete image');
 });

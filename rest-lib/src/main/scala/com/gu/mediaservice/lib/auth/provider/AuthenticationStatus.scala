@@ -1,6 +1,7 @@
 package com.gu.mediaservice.lib.auth.provider
 
-import com.gu.mediaservice.lib.auth.Authentication.{UserPrincipal, Principal}
+import com.gu.mediaservice.lib.auth.ApiAccessor
+import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
 
 // statuses that directly extend this are for users only
 /** Status of a client's authentication */
@@ -21,6 +22,8 @@ case class NotAuthorised(message: String) extends ApiAuthenticationStatus
 /** User authentication token or key (cookie, header, query param) exists but isn't valid -
   * the message and exception will be logged but not leaked to user */
 case class Invalid(message: String, throwable: Option[Throwable] = None) extends ApiAuthenticationStatus
+
+case class ExpiredMachine(apiAccessor: ApiAccessor) extends ApiAuthenticationStatus
 /** User authentication token doesn't exist */
 case object NotAuthenticated extends ApiAuthenticationStatus
 

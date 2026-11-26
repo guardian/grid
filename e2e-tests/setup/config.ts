@@ -1,8 +1,8 @@
 /**
  * Reuses the existing dev config generator (`dev/script/generate-config/service-config.js`)
  * to produce per-service Grid config from live CloudFormation stack resources, then
- * rewrites the LocalStack/Elasticsearch endpoints so that they resolve via the
- * Testcontainers network aliases instead of the Guardian dev domains / localhost.
+ * routes runtime AWS calls through Chekov when enabled, while Elasticsearch
+ * continues to use its Testcontainers network alias.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -17,7 +17,7 @@ import {
   LOCALSTACK_PORT,
   REGION,
   REPO_ROOT,
-  SERVICE_PORTS,
+  SERVICE_CONFIGS,
 } from "./constants.ts";
 
 /** `service-config.js` is CommonJS and lives outside this package, so load it via require. */
@@ -30,7 +30,7 @@ const GENERATE_CONFIG_DIR = path.join(
   "generate-config",
 );
 
-const GRID_SERVICES = Object.keys(SERVICE_PORTS);
+const GRID_SERVICES = Object.keys(SERVICE_CONFIGS);
 
 type StackProps = Record<string, string>;
 
@@ -40,6 +40,34 @@ type StackProps = Record<string, string>;
  * client-side stub. Applied at stack boot, so they are present for every scenario.
  */
 export const E2E_IMAGE_TYPES = ["Photograph", "Illustration", "Composite"];
+
+export const E2E_SEARCH_FIELD_ALIASES = [
+  {
+    alias: 'fixtureSubject',
+    label: 'Fixture subject',
+    elasticsearchPath: 'metadata.subjects',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: ['arts', 'news', 'sport'],
+  },
+  {
+    alias: 'fixtureReference',
+    label: 'Fixture reference',
+    elasticsearchPath: 'metadata.suppliersReference',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: [],
+  },
+  {
+    alias: 'fixtureHasPerson',
+    label: 'Fixture has person',
+    elasticsearchPath: 'metadata.peopleInImage',
+    displaySearchHint: true,
+    displayInAdditionalMetadata: false,
+    searchHintOptions: ['true', 'false'],
+    matchViaExistence: true,
+  },
+];
 
 export const E2E_METADATA_TEMPLATE = {
   templateName: "E2E Agency",
@@ -64,6 +92,16 @@ export const E2E_RIGHTS_TEMPLATE = {
 };
 
 /**
+ * Templates that only set leases, for the lease preview and apply scenarios. Those with
+ * `replace: false` add their lease to an image's existing leases; the other replaces them.
+ */
+export const E2E_LEASE_TEMPLATES = [
+  { templateName: "E2E Add deny syndication lease", replace: false, leaseType: "deny-syndication" },
+  { templateName: "E2E Replace with deny use lease", replace: true, leaseType: "deny-use" },
+  { templateName: "E2E Add allow syndication lease", replace: false, leaseType: "allow-syndication" },
+] as const;
+
+/**
  * media-api derives `usageInstructions` from an image's usageRights category via this map, so
  * an image whose category is `agency` (see the AAP-credited fixture) shows this text.
  */
@@ -86,7 +124,8 @@ function kahunaE2eConfig(): string {
 
   return [
     // The e2e stack has no Bedrock access, so AI search requests would 500.
-    "ai.search.enabled = false",
+    'ai.search.enabled = false',
+    'useReaper = true',
     `links.uploadImagesPermissionSupportEmail = "${E2E_UPLOAD_SUPPORT_EMAIL}"`,
     `imageTypes = ${JSON.stringify(E2E_IMAGE_TYPES)}`,
     "metadata.templates = [",
@@ -99,7 +138,13 @@ function kahunaE2eConfig(): string {
     "  {",
     `    templateName = "${E2E_RIGHTS_TEMPLATE.templateName}"`,
     `    usageRights = ${JSON.stringify(E2E_RIGHTS_TEMPLATE.usageRights)}`,
-    "  }",
+    "  },",
+    ...E2E_LEASE_TEMPLATES.flatMap(({ templateName, replace, leaseType }) => [
+      "  {",
+      `    templateName = "${templateName}"`,
+      `    templateLeases = { replace = ${replace}, leases = [{ leaseType = "${leaseType}" }] }`,
+      "  },",
+    ]),
     "]",
     "",
   ].join("\n");
@@ -116,28 +161,26 @@ function mediaApiE2eConfig(): string {
 }
 
 /**
- * Rewrite the Guardian dev endpoints baked in by `service-config.js` so that the
- * app container reaches the infrastructure containers over the shared network.
+ * Route runtime AWS endpoints and queue URLs through Chekov when enabled.
  */
-function rewriteEndpoints(conf: string): string {
+export function rewriteEndpoints(conf: string, coreStackProps: StackProps, proxy: boolean): string {
   const localstackUrl = `http://${LOCALSTACK_ALIAS}:${LOCALSTACK_PORT}`;
-  // Endpoints baked in by `service-config.js` that must be redirected to the container.
   const guardianLocalstackUrl = `https://${LOCALSTACK_ALIAS}.media.${DOMAIN}`;
   const legacyLocalstackUrl = "http://localhost:4576";
   const localLocalstackUrl = `http://localhost:${LOCALSTACK_PORT}`;
+  const runtimeEndpoint = proxy ? guardianLocalstackUrl : localstackUrl;
 
-  const rewrittenConf = conf
-    .split(guardianLocalstackUrl)
-    .join(localstackUrl)
-    .split(legacyLocalstackUrl)
-    .join(localstackUrl)
-    .split(localLocalstackUrl)
-    .join(localstackUrl);
+  const imageOrigins = proxy
+    ? conf
+      .split(`images.media.${DOMAIN}`)
+      .join(`${coreStackProps.ImageBucket}.s3.${DOMAIN}`)
+      .split(`public.media.${DOMAIN}`)
+      .join(`${coreStackProps.ImageOriginBucket}.s3.${DOMAIN}`)
+    : conf;
 
-  // The S3 client reaches LocalStack over the container network (localstack:4566), but
-  // presigned URLs are handed to the browser, which can only reach LocalStack via the
-  // `localstack.media.<domain>` vanity domain (dev-nginx locally, the Caddy proxy in CI).
-  // Sign against that host so the URLs resolve outside the container network.
+  const rewrittenConf = [guardianLocalstackUrl, legacyLocalstackUrl, localLocalstackUrl, localstackUrl]
+    .reduce((rewritten, endpoint) => rewritten.split(endpoint).join(runtimeEndpoint), imageOrigins);
+
   return `${rewrittenConf}\naws.local.presigningEndpoint="${guardianLocalstackUrl}"\n`;
 }
 
@@ -148,6 +191,7 @@ export function generateServiceConfig(
   configDir: string,
   coreStackProps: StackProps,
   authStackProps: StackProps,
+  proxy = true,
 ): void {
   const ServiceConfig = require(
     path.join(GENERATE_CONFIG_DIR, "service-config.js"),
@@ -191,7 +235,9 @@ export function generateServiceConfig(
     path.join(configDir, "common.conf"),
     [
       'play.http.secret.key = "testcontainers-e2e-application-secret-0123456789"',
-      "enforceUploadImagesPermission = true",
+      'enforceUploadImagesPermission = true',
+      'image.record.download = true',
+      `field.aliases = ${JSON.stringify(E2E_SEARCH_FIELD_ALIASES)}`,
       `usageRights.applicable = ${JSON.stringify([
         "com.gu.mediaservice.model.NoRights",
         "com.gu.mediaservice.model.PayToUse",
@@ -199,6 +245,9 @@ export function generateServiceConfig(
         "com.gu.mediaservice.model.Agency",
         "com.gu.mediaservice.model.PublisherPhotography",
         "com.gu.mediaservice.model.PublisherIllustration",
+        // Kahuna's `by:` chip suggestions read photographers from these two categories.
+        "com.gu.mediaservice.model.StaffPhotographer",
+        "com.gu.mediaservice.model.ContractPhotographer",
       ])}`,
       "",
     ].join("\n"),
@@ -212,7 +261,7 @@ export function generateServiceConfig(
       );
     }
 
-    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`);
+    const rewritten = rewriteEndpoints(`${conf}\n${localAuthConfig}`, coreStackProps, proxy);
     const extras = extraConfig[service];
     const withExtras = extras ? `${rewritten}\n${extras}` : rewritten;
     fs.writeFileSync(path.join(configDir, `${service}.conf`), withExtras);

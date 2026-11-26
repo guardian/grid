@@ -92,7 +92,7 @@ Global / concurrentRestrictions := Seq(
 val awsSdkVersion = "1.12.797"
 val awsSdkV2Version = "2.54.13"
 val elastic4sVersion = "8.19.1"
-val awsKclVersion = "3.5.3"
+val awsKclVersion = "3.5.4"
 val okHttpVersion = "3.12.1"
 
 val bbcBuildProcess: Boolean = System.getenv().asScala.get("BUILD_ORG").contains("bbc")
@@ -118,6 +118,7 @@ lazy val commonLib = project("common-lib").settings(
     "com.gu" %% "thrift-serializer" % "5.0.8",
     "org.scalaz" %% "scalaz-core" % "7.3.8",
     "org.im4java" % "im4java" % "1.4.0",
+    "app.photofox.vips-ffm" % "vips-ffm-core" % "1.9.9",
     "com.gu" % "kinesis-logback-appender" % "2.1.3",
     "net.logstash.logback" % "logstash-logback-encoder" % "5.0",
     logback, // play-logback; needed when running the scripts
@@ -149,6 +150,7 @@ lazy val restLib = project("rest-lib").settings(
     playCore,
     filters,
     pekkoHttpServer,
+    "io.sentry" % "sentry" % "8.58.0",
   ),
 ).dependsOn(commonLib % "compile->compile;test->test")
 
@@ -219,7 +221,7 @@ lazy val thrall = playProject("thrall", 9002)
       // explicit dependencies on kinesis and dynamodb to upgrade the versions used by kcl
       "software.amazon.awssdk" % "kinesis" % awsSdkV2Version,
       "software.amazon.awssdk" % "dynamodb" % awsSdkV2Version,
-      "com.gu" %% "kcl-pekko-stream" % "0.1.2",
+      "com.gu" %% "kcl-pekko-stream" % "0.1.4",
       "org.testcontainers" % "elasticsearch" % "1.19.2" % Test,
       "com.google.protobuf" % "protobuf-java" % "3.19.6"
     ),

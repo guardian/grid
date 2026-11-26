@@ -19,6 +19,8 @@ mappings:
     port: 9007
   - prefix: media-imgops
     port: 9008
+  - prefix: media-imgproxy
+    port: 9016
   - prefix: media-usage
     port: 9009
   - prefix: media-collections
@@ -37,6 +39,8 @@ mappings:
   - prefix: localstack.media
     port: 4566
     client_max_body_size: 20m
+  - prefix: oidc
+    port: 9014
 
   # vanity domains for localstack S3 buckets
   # the localstack container needs to expose port 4572 to the host

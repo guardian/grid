@@ -22,25 +22,44 @@ export function waitForMetadataSave(page: Page): Promise<Response> {
 }
 
 /**
- * Run `save` and check the metadata editor accepted both requests a usage rights save makes:
- * the rights, then the metadata derived from them. This confirms the requests succeeded, not
- * what the server stored as a result.
+ * Run `save` and check the metadata editor accepted both requests a usage rights save makes
+ * for each image: the rights, then the metadata derived from them. This confirms the requests
+ * succeeded, not what the server stored as a result.
  */
 export async function expectUsageRightsSaveAccepted(
   page: Page,
-  imageId: string,
+  imageIds: string[],
   save: () => Promise<void>,
 ): Promise<void> {
   const isRequest = (method: string, path: string) => (response: Response) =>
     response.request().method() === method && new URL(response.url()).pathname === path;
-  const [rights, derivedMetadata] = await Promise.all([
-    page.waitForResponse(isRequest('PUT', `/metadata/${imageId}/usage-rights`)),
-    page.waitForResponse(isRequest('POST', `/metadata/${imageId}/metadata/set-from-usage-rights`)),
+  const requests = imageIds.flatMap((imageId) => [
+    { what: `saving the rights of ${imageId}`, path: `/metadata/${imageId}/usage-rights`, method: 'PUT' },
+    {
+      what: `deriving metadata from the rights of ${imageId}`,
+      path: `/metadata/${imageId}/metadata/set-from-usage-rights`,
+      method: 'POST',
+    },
+  ]);
+  const [responses] = await Promise.all([
+    Promise.all(requests.map(({ method, path }) => page.waitForResponse(isRequest(method, path)))),
     save(),
   ]);
-  expect(rights.ok(), `saving the rights: ${await rights.text()}`).toBeTruthy();
-  expect(derivedMetadata.ok(), `deriving metadata from the rights: ${await derivedMetadata.text()}`)
-    .toBeTruthy();
+  for (const [index, response] of responses.entries()) {
+    expect(response.ok(), `${requests[index].what}: ${await response.text()}`).toBeTruthy();
+  }
+}
+
+/** Wait for media-api to report the image's usage rights category code, once thrall has indexed it. */
+export async function expectUsageRightsCategory(page: Page, imageId: string, category: string): Promise<void> {
+  const imageUrl = `${await getMediaApiUrl(page)}/images/${imageId}`;
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(imageUrl);
+      const { data } = (await response.json()) as { data: { usageRights?: { category?: string } } };
+      return data.usageRights?.category;
+    }, { message: `the usage rights category of ${imageId}` })
+    .toBe(category);
 }
 
 async function mediaApiRootLinks(page: Page): Promise<string[]> {
@@ -136,19 +155,3 @@ export async function expectInUploadHistory(
     })
     .toContain(mediaId);
 }
-
-/** Hold the past-uploads search until the returned function is called. */
-export const holdPastUploads = async (page: Page) => {
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  await page.route(
-    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
-    async (route) => {
-      await released;
-      await route.continue();
-    },
-  );
-  return release;
-};

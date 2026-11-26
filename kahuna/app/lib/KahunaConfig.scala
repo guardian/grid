@@ -22,8 +22,6 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   // can be reached over https from the `hmr.media.*` hostname alongside the app itself (see `dev/nginx-mappings.yml.template`)
   val liveReloadUri: Option[String] = if (isDev) Some(rootUri.replaceFirst("://media\\.", "://hmr.media.")) else None
 
-  val sentryDsn: Option[String] = stringOpt("sentry.dsn").filterNot(_.isEmpty)
-
   val thumbOrigin: String = string("origin.thumb")
   val fullOrigin: String = string("origin.full")
   val cropOrigin: String = string("origin.crops")
@@ -56,10 +54,12 @@ class KahunaConfig(resources: GridConfigResources) extends CommonConfig(resource
   val aiSearchResultLimit: Int = intOpt("ai.search.resultLimit").getOrElse(200)
 
   val frameAncestors: Set[String] = getStringSet("security.frameAncestors")
+  // The Sentry ingest origin is derived from the DSN so the policy stays correct without
+  // committing the org identifier to this public repository.
   val connectSources: Set[String] = getStringSet("security.connectSources") ++ maybeBucketForUIUploads.map { bucket =>
     if (isDev) "https://localstack.media.local.dev-gutools.co.uk"
     else s"https://$bucket.s3.$awsRegion.amazonaws.com"
-  } ++ telemetryUri
+  } ++ telemetryUri ++ sentryConfig.ingestOrigin
   val fontSources: Set[String] = getStringSet("security.fontSources")
   val styleSources: Set[String] = getStringSet("security.styleSources")
   val imageSources: Set[String] = getStringSet("security.imageSources")

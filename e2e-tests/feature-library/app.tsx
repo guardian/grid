@@ -13,6 +13,12 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Feature, LibraryManifest, Recording, Run, RunStatus, Scenario, ScenarioStatus, Step } from './types.ts';
+import { FilesPage } from './files-page.tsx';
+
+type Page = 'library' | 'files';
+/** URL fragments that open a page other than the catalogue. */
+const pageHashes: Partial<Record<string, Page>> = { '#files': 'files' };
+const currentPage = (): Page => pageHashes[location.hash] ?? 'library';
 
 /** A scenario paired with its parent feature and lowercased searchable text. */
 interface Entry {
@@ -104,7 +110,7 @@ function setHash(id: string, replace = false): void {
  * Inputs are an optional library and a loading flag; absent data displays zero totals.
  * @returns Header JSX. "With video" counts scenarios with media, not individual clips.
  */
-function PageHeader({ library, loading = false }: { library?: LibraryManifest; loading?: boolean }) {
+function PageHeader({ library, loading = false, page = 'library' }: { library?: LibraryManifest; loading?: boolean; page?: Page }) {
   const entries = library?.features.flatMap((feature) => feature.scenarios) ?? [];
   const videoCount = entries.filter((scenario) => recordingsFor(scenario).length > 0).length;
   const reportDate = library?.report ? new Date(library.report.startedAt) : undefined;
@@ -113,6 +119,10 @@ function PageHeader({ library, loading = false }: { library?: LibraryManifest; l
     <header className="masthead">
       <a href="./" className="brand" aria-label="Grid feature library" title="Grid feature library"><img src="grid-logo.svg" width="32" height="32" alt="" /></a>
       <span className="masthead-divider" /><span className="masthead-label">Feature library</span>
+      <nav className="masthead-nav" aria-label="Pages">
+        <a href="#" aria-current={page === 'library' ? 'page' : undefined}>Scenarios</a>
+        <a href="#files" aria-current={page === 'files' ? 'page' : undefined}>Files</a>
+      </nav>
       <span className="snapshot"><span className="snapshot-dot" /><span id="report-date" title={reportDate?.toLocaleString()}>
         {loading ? 'Loading snapshot' : reportDate ? `Run ${reportDate.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}` : library ? 'No test report' : 'Unavailable'}
       </span></span>
@@ -122,6 +132,9 @@ function PageHeader({ library, loading = false }: { library?: LibraryManifest; l
       <div className="totals" id="totals" aria-label="Library totals">
         {[[library?.features.length ?? 0, 'Features'], [entries.length, 'Scenarios'], [videoCount, 'With video']].map(([count, label]) =>
           <div className="total" key={label}><strong>{String(count).padStart(2, '0')}</strong><span>{label}</span></div>)}
+        {library?.coverage && <a className="total" href="#files" title={`Browser code covered by the e2e tests: ${library.coverage.lines}% of lines, ${library.coverage.functions}% of functions, ${library.coverage.branches}% of branches`}>
+          <strong>{Math.round(library.coverage.lines)}%</strong><span>Line coverage</span>
+        </a>}
       </div>
     </section>
   </>;
@@ -488,6 +501,12 @@ function FeatureLibrary({ library }: { library: LibraryManifest }) {
 function App() {
   const [state, setState] = useState<LoadState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  const [page, setPage] = useState(currentPage);
+  useEffect(() => {
+    const listener = () => setPage(currentPage());
+    window.addEventListener('hashchange', listener);
+    return () => window.removeEventListener('hashchange', listener);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     setState({ status: 'loading' });
@@ -510,7 +529,10 @@ function App() {
     return () => controller.abort();
   }, [attempt]);
 
-  if (state.status === 'ready') return <FeatureLibrary library={state.library} />;
+  if (state.status === 'ready') {
+    if (page === 'library') return <FeatureLibrary library={state.library} />;
+    return <><PageHeader library={state.library} page={page} /><FilesPage /></>;
+  }
   return <>
     <PageHeader loading={state.status === 'loading'} />
     <main id="detail" tabIndex={-1}><div className="empty-state">

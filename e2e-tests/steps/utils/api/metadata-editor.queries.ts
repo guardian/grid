@@ -1,8 +1,8 @@
 import type { APIRequestContext } from '@playwright/test';
 import { expect } from '../../setup.ts';
-import { API_KEY, SERVICE_PORTS } from '../../../setup/constants.ts';
+import { mediaKeyHeaders, SERVICE_CONFIGS } from '../../../setup/constants.ts';
 
-const METADATA_EDITOR_URL = `http://localhost:${SERVICE_PORTS['metadata-editor']}`;
+const METADATA_EDITOR_URL = `http://localhost:${SERVICE_CONFIGS['metadata-editor'].port}`;
 
 export interface UsageRightsCategory {
   name: string;
@@ -11,7 +11,7 @@ export interface UsageRightsCategory {
 
 export async function usageRightsCategories(request: APIRequestContext): Promise<UsageRightsCategory[]> {
   const response = await request.get(`${METADATA_EDITOR_URL}/usage-rights/categories`, {
-    headers: { 'X-Gu-Media-Key': API_KEY },
+    headers: mediaKeyHeaders(),
   });
   expect(response.ok(), 'fetching the usage rights categories').toBeTruthy();
   return ((await response.json()) as { data: UsageRightsCategory[] }).data;

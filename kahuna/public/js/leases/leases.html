@@ -127,7 +127,8 @@
     <li ng-switch-when="true"
         ng-repeat="lease in ctrl.updatedLeases"
         class="lease__item"
-        ng-class="{'lease__item-preview' : lease.fromTemplate}">
+        ng-class="{'lease__item-preview' : lease.fromTemplate}"
+        ng-attr-aria-description="{{lease.fromTemplate ? 'Preview: added by template' : undefined}}">
         <div class="lease__wrapper" ng-class="ctrl.leaseClass(lease)">
             <div class="lease">
                 <div class="lease__text">
