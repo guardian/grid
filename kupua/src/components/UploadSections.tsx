@@ -5,7 +5,7 @@ import { useUploadJobsStore } from "@/stores/upload-jobs-store";
 import { getGridSessionIdentity } from "@/lib/grid-api-instance";
 import { pushNavigate } from "@/lib/orchestration/search";
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type RefObject } from "react";
-import { useUploadLayoutStore } from "@/stores/upload-layout-store";
+import { recordUploadFormInteraction, useUploadLayoutStore } from "@/stores/upload-layout-store";
 import { UploadBatchSelector, UploadFilePrompt } from "./UploadActivity";
 import { SearchFilters } from "./SearchFilters";
 import { Chevron } from "./Chevron";
@@ -13,6 +13,7 @@ import { buildSearchKey } from "@/lib/image-offset-cache";
 import { stopFollowingUploadBatch } from "@/lib/search-continuity";
 import { addToast } from "@/stores/toast-store";
 import { UPLOAD_SECTION_LABELS } from "@/lib/upload-section-layout";
+import { isNativeInputTarget } from "@/lib/dom-utils";
 
 function useUploadWarning(message: string | undefined, context?: string) {
   const previous = useRef<string | undefined>(undefined);
@@ -110,16 +111,26 @@ export function UploadPageChrome({ scrollRef, showIntro, topOffset = 0 }: {
     const container = scrollRef.current;
     if (!container) return;
     const onFocus = (event: FocusEvent) => {
+      if ((event.target as Element).closest("[data-form-content]")) recordUploadFormInteraction();
       if ((event.target as Element).closest("[data-measured-cell]")) stopFollowingUploadBatch();
     };
     const onPointer = (event: PointerEvent) => {
+      if ((event.target as Element).closest("[data-form-content]")) recordUploadFormInteraction();
       if (event.target === container) stopFollowingUploadBatch();
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.target as Element).closest("[data-form-content]") &&
+          (isNativeInputTarget(event) || !["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"].includes(event.key))) {
+        recordUploadFormInteraction();
+      }
     };
     container.addEventListener("focusin", onFocus);
     container.addEventListener("pointerdown", onPointer);
+    container.addEventListener("keydown", onKey);
     return () => {
       container.removeEventListener("focusin", onFocus);
       container.removeEventListener("pointerdown", onPointer);
+      container.removeEventListener("keydown", onKey);
     };
   }, [scrollRef]);
   useLayoutEffect(() => {

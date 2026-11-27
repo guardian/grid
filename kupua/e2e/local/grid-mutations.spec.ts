@@ -1840,6 +1840,25 @@ test.describe("Unit B isolated continuation", () => {
     await expect(page.locator('[data-fullscreen-preview="active"]')).toBeVisible();
     await page.evaluate(() => document.exitFullscreen());
     await expect(page.locator('[data-fullscreen-preview="active"]')).toHaveCount(0);
+    const oldField = preview.getByRole("textbox", { name: "Description", exact: true });
+    await oldField.focus();
+    await region.hover();
+    await page.mouse.wheel(0, 2500);
+    await expect(oldField).toBeFocused();
+    await expect.poll(() => oldField.evaluate(element => {
+      const bounds = element.getBoundingClientRect(), viewport = element.closest('[role="region"]')!.getBoundingClientRect();
+      return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+    })).toBe(false);
+    const captured = await page.evaluate(async () => {
+      const continuityPath = "/src/lib/search-continuity.ts";
+      const windowPath = "/src/hooks/useDataWindow.ts";
+      return { target: (await import(continuityPath)).captureSearchContinuity("membership").targetId,
+        viewport: (await import(windowPath)).getViewportAnchorId(),
+        focused: document.activeElement?.closest<HTMLElement>("[data-measured-cell]")?.dataset.imageId };
+    });
+    expect(captured.viewport).toBeTruthy();
+    expect(captured.viewport).not.toBe(captured.focused);
+    expect(captured.target).toBe(captured.viewport);
     await page.evaluate(() => {
       const store = (window as CommandWindow).__kupua_store__;
       const source = store.getState().dataSource;
@@ -1917,6 +1936,195 @@ test.describe("Unit B isolated continuation", () => {
       if (composing) await composition.send("Input.imeSetComposition", { text: "", selectionStart: 0, selectionEnd: 0 });
       await composition.detach();
       await page.evaluate(() => (window as any).__u2Arrivals?.cleanup());
+    }
+    for (const arrival of [
+      { id: "local-64", prepend: false, count: 65, grow: false, allowCorrection: false },
+      { id: "local-65", prepend: false, count: 66, grow: true, allowCorrection: true },
+      { id: "local-66", prepend: false, count: 67, grow: true, allowCorrection: false },
+      { id: "local-67", prepend: true, count: 68, grow: false, allowCorrection: false },
+    ]) {
+    await page.evaluate(() => {
+      const source = (window as CommandWindow).__kupua_store__.getState().dataSource;
+      const original = source.searchAfter.bind(source);
+      let release!: () => void;
+      const held = new Promise<void>(resolve => { release = resolve; });
+      const probe = { calls: 0, deliveredAt: 0, release, cleanup: () => {} };
+      source.searchAfter = async (...args) => {
+        const result = await original(...args);
+        if (args[0].recentUploadScope?.combined && ++probe.calls === 1) {
+          await held;
+          probe.deliveredAt = performance.now();
+        }
+        return result;
+      };
+      probe.cleanup = () => { release(); source.searchAfter = original; delete (window as any).__u2Scroll; };
+      (window as any).__u2Scroll = probe;
+    });
+    try {
+      await page.evaluate(async ({ id, prepend }) => {
+        const path = "/src/lib/browsing-context.tsx";
+        const membership = (await import(path)).uploadBatchMembership.getState();
+        const ids = membership.batches.get("local-u2").ids;
+        membership.set("local-u2", prepend ? [id, ...ids] : [...ids, id], undefined, true);
+      }, arrival);
+      await page.waitForFunction(() => (window as any).__u2Scroll.calls === 1);
+      await region.hover();
+      const scrollProbe = await region.evaluateHandle((element, expectedCount) => {
+        const container = element as HTMLElement;
+        const store = (window as CommandWindow).__kupua_store__;
+        const nativeTop = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")!;
+        const previousTop = Object.getOwnPropertyDescriptor(container, "scrollTop");
+        const previousScrollTo = Object.getOwnPropertyDescriptor(container, "scrollTo");
+        const nativeScrollTo = container.scrollTo;
+        const wheels: { at: number; delta: number; trusted: boolean }[] = [];
+        const writes: { at: number; before: number; after: number; owner: string }[] = [];
+        const reverse: { at: number; id: string; pixels: number }[] = [];
+        const forward: { at: number; id: string; pixels: number }[] = [];
+        const replacements: { at: number; before: string[]; after: string[] }[] = [];
+        let frames = 0;
+        let comparisons = 0;
+        let publishedAt = 0;
+        let frame = 0;
+        let previous = new Map<string, number>();
+        let previousScrollTop = container.scrollTop;
+        const owner = () => new Error().stack?.includes("useScrollEffects") ? "scroll-effects" : "other";
+        Object.defineProperty(container, "scrollTop", { configurable: true,
+          get: () => nativeTop.get!.call(container),
+          set: (value: number) => { writes.push({ at: performance.now(), before: nativeTop.get!.call(container), after: value, owner: owner() });
+            nativeTop.set!.call(container, value); } });
+        Object.defineProperty(container, "scrollTo", { configurable: true, value: (...args: unknown[]) => {
+          writes.push({ at: performance.now(), before: container.scrollTop, after: container.scrollTop, owner: owner() });
+          return Reflect.apply(nativeScrollTo, container, args);
+        } });
+        container.scrollTop = container.scrollTop;
+        container.scrollTo({ top: container.scrollTop });
+        if (writes.length !== 2) throw new Error("Form scroll-write detector failed its controls");
+        writes.length = 0;
+        const onWheel = (event: WheelEvent) => wheels.push({ at: performance.now(), delta: event.deltaY, trusted: event.isTrusted });
+        container.addEventListener("wheel", onWheel, { passive: true });
+        const unsubscribe = store.subscribe((state, previous) => {
+          if (!publishedAt && state.uploadSections?.batch === expectedCount && previous.uploadSections?.batch !== expectedCount) {
+            publishedAt = performance.now();
+          }
+        });
+        const sample = () => {
+          frames++;
+          const bounds = container.getBoundingClientRect();
+          const current = new Map<string, number>();
+          const recentWheel = wheels.at(-1);
+          const scrollDelta = container.scrollTop - previousScrollTop;
+          let shared = 0;
+          for (const item of container.querySelectorAll<HTMLElement>("[data-measured-cell][data-image-id]")) {
+            const rect = item.getBoundingClientRect();
+            if (rect.bottom <= bounds.top || rect.top >= bounds.bottom) continue;
+            const id = item.dataset.imageId!;
+            const top = rect.top - bounds.top;
+            const before = previous.get(id);
+            if (before !== undefined && recentWheel && performance.now() - recentWheel.at < 250) {
+              shared++;
+              comparisons++;
+              if (top - before > 2 && reverse.length < 20) reverse.push({ at: performance.now(), id, pixels: top - before });
+              if (before - top > Math.max(0, scrollDelta) + 2 && forward.length < 20) {
+                forward.push({ at: performance.now(), id, pixels: before - top - Math.max(0, scrollDelta) });
+              }
+            }
+            current.set(id, top);
+          }
+          if (recentWheel && performance.now() - recentWheel.at < 250 && previous.size && current.size && !shared &&
+              Math.abs(scrollDelta) < bounds.height - 2 && replacements.length < 20) {
+            replacements.push({ at: performance.now(), before: [...previous.keys()], after: [...current.keys()] });
+          }
+          previous = current;
+          previousScrollTop = container.scrollTop;
+          frame = requestAnimationFrame(sample);
+        };
+        frame = requestAnimationFrame(sample);
+        return { snapshot: () => ({ frames, comparisons, publishedAt, wheels: [...wheels], writes: [...writes], reverse: [...reverse], forward: [...forward], replacements: [...replacements] }),
+          stop: () => {
+            cancelAnimationFrame(frame);
+            unsubscribe();
+            container.removeEventListener("wheel", onWheel);
+            if (previousTop) Object.defineProperty(container, "scrollTop", previousTop); else delete (container as Partial<HTMLElement>).scrollTop;
+            if (previousScrollTo) Object.defineProperty(container, "scrollTo", previousScrollTo); else delete (container as Partial<HTMLElement>).scrollTo;
+          } };
+      }, arrival.count);
+      try {
+        let growth: { id: string; height: number; at: number } | null = null;
+        for (let step = 0; step < 7; step++) {
+          const before = await region.evaluate(element => element.scrollTop);
+          await page.mouse.wheel(0, 120);
+          await expect.poll(() => region.evaluate(element => element.scrollTop)).toBeGreaterThan(before);
+          if (step === 1 && arrival.grow) {
+            if (arrival.allowCorrection) {
+              const revisions = await page.evaluate(async () => {
+                const path = "/src/stores/upload-layout-store.ts";
+                const layout = await import(path);
+                layout.recordUploadFormInteraction();
+                return { form: layout.getUploadFormRevision(), scroll: layout.getUploadScrollRevision() };
+              });
+              expect(revisions.form).toBeGreaterThan(revisions.scroll);
+            }
+            growth = await region.evaluate((element, repeat) => {
+              const bounds = element.getBoundingClientRect();
+              const above = [...element.querySelectorAll<HTMLElement>("[data-measured-cell][data-image-id]")]
+                .filter(item => item.getBoundingClientRect().bottom < bounds.top && !item.contains(document.activeElement))
+                .sort((first, second) => second.getBoundingClientRect().bottom - first.getBoundingClientRect().bottom)[0];
+              if (!above) return null;
+              const measurement = { id: above.dataset.imageId!, height: above.getBoundingClientRect().height, at: performance.now() };
+              (window as any).__kupua_form__.draft(measurement.id, "Growing above the viewport. ".repeat(repeat));
+              return measurement;
+            }, arrival.allowCorrection ? 120 : 240);
+            expect(growth).not.toBeNull();
+          }
+          if (step === 2) {
+            await page.evaluate(() => (window as any).__u2Scroll.release());
+            await expect.poll(() => page.evaluate(() => (window as any).__u2Scroll.deliveredAt)).toBeGreaterThan(0);
+            if (growth) {
+              await expect.poll(() => region.locator(`[data-measured-cell][data-image-id="${growth!.id}"]`)
+                .evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThan(growth.height + 50);
+            }
+          }
+          await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+        }
+        const diagnostic = await scrollProbe.evaluate(probe => probe.snapshot());
+        const deliveredAt = await page.evaluate(() => (window as any).__u2Scroll.deliveredAt as number);
+        console.log("U2 continuous wheel diagnostic", JSON.stringify({ arrival: arrival.prepend ? "before viewport" : arrival.grow ? "offscreen append and above-viewport growth" : "offscreen append", allowCorrection: arrival.allowCorrection, ...diagnostic, deliveredAt, growth }));
+        expect(diagnostic.wheels.length).toBeGreaterThanOrEqual(7);
+        expect(diagnostic.wheels.every(wheel => wheel.trusted && wheel.delta > 0)).toBe(true);
+        expect(diagnostic.wheels.some(wheel => wheel.at < deliveredAt)).toBe(true);
+        expect(diagnostic.wheels.some(wheel => wheel.at > deliveredAt)).toBe(true);
+        expect(diagnostic.comparisons).toBeGreaterThan(0);
+        expect(diagnostic.reverse).toEqual([]);
+        expect(diagnostic.forward).toEqual([]);
+        expect(diagnostic.replacements).toEqual([]);
+        if (!arrival.prepend) {
+          expect(diagnostic.publishedAt).toBeGreaterThan(deliveredAt);
+          expect(diagnostic.publishedAt).toBeLessThan(diagnostic.wheels.at(-1)!.at);
+          if (arrival.allowCorrection) expect(diagnostic.writes.length).toBeGreaterThan(0);
+        }
+      } finally {
+        await scrollProbe.evaluate(probe => probe.stop());
+        await scrollProbe.dispose();
+      }
+      const anchor = await region.evaluate(element => {
+        const bounds = element.getBoundingClientRect();
+        const centre = bounds.top + bounds.height / 2;
+        const cell = [...element.querySelectorAll<HTMLElement>("[data-measured-cell][data-image-id]")]
+          .find(item => { const rect = item.getBoundingClientRect(); return rect.top <= centre && rect.bottom > centre; });
+        return cell ? { id: cell.dataset.imageId!, top: cell.getBoundingClientRect().top - bounds.top } : null;
+      });
+      expect(anchor).not.toBeNull();
+      await expect.poll(() => page.evaluate(() => {
+        const state = (window as CommandWindow).__kupua_store__.getState();
+        return !state.loading ? state.uploadSections?.batch : undefined;
+      })).toBe(arrival.count);
+      const retained = region.locator(`[data-measured-cell][data-image-id="${anchor!.id}"]`);
+      await expect(retained).toBeAttached();
+      expect(Math.abs(await retained.evaluate(element => element.getBoundingClientRect().top
+        - element.closest('[role="region"]')!.getBoundingClientRect().top) - anchor!.top)).toBeLessThanOrEqual(2);
+    } finally {
+      await page.evaluate(() => (window as any).__u2Scroll?.cleanup());
+    }
     }
     await cell.locator(':is(input,textarea,select,button,a[href],[tabindex="0"]):not([disabled]):visible').last().focus();
     await region.evaluate(async element => {

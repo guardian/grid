@@ -23,6 +23,7 @@ import { TABLE_ROW_HEIGHT } from "@/constants/layout";
 import { NEW_IMAGES_POLL_INTERVAL, NEW_IMAGES_POLL_INTERVAL_BG } from "@/constants/tuning";
 import { buildSearchKey, getRetainedSortValues } from "@/lib/image-offset-cache";
 import { getScrollGeometry, registerScrollGeometry } from "@/lib/scroll-geometry-ref";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import type { CountWithTickersResult, ImageDataSource, SortDistribution } from "@/dal/types";
 import type {
   SearchParams,
@@ -984,6 +985,138 @@ describe("sort-around-focus", () => {
 
     expect(state().focusedImageId).toBe("img-500");
     expect(state().sortAroundFocusGeneration).toBeGreaterThan(genBefore);
+  });
+
+  it("does not replace the current upload buffer with an obsolete held placement", async () => {
+    mock = new MockDataSource(3000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    await actions().seek(1500);
+    const current = state().results;
+    const currentOffset = state().bufferOffset;
+    const sections = { batch: 1, other: 2999 };
+    useSearchStore.setState({ uploadSections: sections, params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 2, ids: ["img-500", "img-501"], submittedOrder: true },
+    } } });
+    const original = mock.searchAfter.bind(mock);
+    let releaseFirst!: () => void;
+    let release!: () => void;
+    const heldFirst = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let firstWaiting = false;
+    let waiting = false;
+    const deferred = vi.fn();
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (!args[1] && !args[0].ids) { firstWaiting = true; await heldFirst; }
+      if (args[1]) { waiting = true; await held; }
+      return !args[1] && !args[0].ids ? { ...result, uploadSections: { batch: 2, other: 2998 } } : result;
+    });
+    try {
+      const search = actions().search(null, { continuity: { provenance: "maintenance", targetId: "img-500",
+        placement: { kind: "ratio", ratio: 0 }, focus: "retain" }, onUploadRefreshDeferred: deferred });
+      await waitFor(() => firstWaiting, 3000, "first upload page starts");
+      actions().setFocusedImageId(state().focusedImageId);
+      releaseFirst();
+      await search;
+      await waitFor(() => waiting, 3000, "held upload placement starts");
+      actions().setFocusedImageId(state().focusedImageId);
+      release();
+      await waitFor(() => !state().loading, 3000, "upload placement settles");
+      expect(state().bufferOffset).toBe(currentOffset);
+      expect(state().results).toEqual(current);
+      expect(state().uploadSections).toEqual(sections);
+      expect(deferred).toHaveBeenCalledOnce();
+    } finally { releaseFirst(); release(); }
+  });
+
+  it("publishes an offscreen upload append in a deep window after scrolling", async () => {
+    mock = new MockDataSource(3000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    await actions().seek(1500);
+    const sections = { batch: 2000, other: 1000 };
+    useSearchStore.setState({ uploadSections: sections, params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 2,
+        ids: [...Array.from({ length: 2000 }, (_, index) => `img-${index}`), "img-new"], submittedOrder: true },
+    } } });
+    const visible = { dataset: { imageId: "img-1500" },
+      getBoundingClientRect: () => ({ top: 100, bottom: 200, left: 0, right: 500 }) };
+    registerScrollContainer({ getBoundingClientRect: () => ({ top: 0, bottom: 600, left: 0, right: 1000 }),
+      querySelectorAll: () => [visible] } as unknown as HTMLElement);
+    const original = mock.searchAfter.bind(mock);
+    let releaseFirst!: () => void;
+    let releaseWindow!: () => void;
+    const firstHeld = new Promise<void>(resolve => { releaseFirst = resolve; });
+    const windowHeld = new Promise<void>(resolve => { releaseWindow = resolve; });
+    let firstWaiting = false;
+    let windowWaiting = false;
+    const deferred = vi.fn();
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (!args[1] && !args[0].ids) { firstWaiting = true; await firstHeld; return { ...result, total: 3001, uploadSections: { batch: 2001, other: 1000 } }; }
+      if (args[1]) { windowWaiting = true; await windowHeld; }
+      return result;
+    });
+    try {
+      const search = actions().search(null, { continuity: { provenance: "maintenance", targetId: "img-1500",
+        placement: { kind: "ratio", ratio: 0 }, focus: "retain" }, onUploadRefreshDeferred: deferred });
+      await waitFor(() => firstWaiting, 3000, "first upload page starts");
+      actions().setFocusedImageId(state().focusedImageId);
+      releaseFirst();
+      await search;
+      await waitFor(() => windowWaiting, 3000, "deep upload window starts");
+      releaseWindow();
+      await waitFor(() => !state().loading, 3000, "deep upload window settles");
+      expect(state().uploadSections).toEqual({ batch: 2001, other: 1000 });
+      expect(state().imagePositions.get("img-1500")).toBe(1500);
+      expect(deferred).not.toHaveBeenCalled();
+    } finally { releaseFirst(); releaseWindow(); registerScrollContainer(null); }
+  });
+
+  it.each(["missing", "failed"] as const)("retains the upload window when an obsolete deep target is %s", async outcome => {
+    mock = new MockDataSource(3000);
+    useSearchStore.setState({ dataSource: mock });
+    await actions().search();
+    await actions().seek(1500);
+    const current = state().results;
+    const currentOffset = state().bufferOffset;
+    const sections = { batch: 1, other: 2999 };
+    useSearchStore.setState({ uploadSections: sections, params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 2, ids: ["img-500", "img-501"], submittedOrder: true },
+    } } });
+    const original = mock.searchAfter.bind(mock);
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let waiting = false;
+    const deferred = vi.fn();
+    vi.spyOn(mock, "searchAfter").mockImplementation(async (...args) => {
+      const result = await original(...args);
+      if (!args[1] && !args[0].ids) { waiting = true; await held; return { ...result, uploadSections: { batch: 2, other: 2998 } }; }
+      if (args[0].ids === "img-500") {
+        if (outcome === "failed") throw new Error("Upload image lookup failed");
+        return { ...result, hits: [], sortValues: [] };
+      }
+      return result;
+    });
+    try {
+      const search = actions().search(null, { continuity: { provenance: "maintenance", targetId: "img-500",
+        placement: { kind: "ratio", ratio: 0 }, focus: "retain" }, onUploadRefreshDeferred: deferred });
+      await waitFor(() => waiting, 3000, "first upload page starts");
+      actions().setFocusedImageId(state().focusedImageId);
+      release();
+      await search;
+      await waitFor(() => !state().loading, 3000, "upload fallback settles");
+      expect(state().bufferOffset).toBe(currentOffset);
+      expect(state().results).toEqual(current);
+      expect(state().uploadSections).toEqual(sections);
+      expect(deferred).toHaveBeenCalledOnce();
+      expect(deferred).toHaveBeenCalledWith(outcome === "missing");
+      if (outcome === "failed") expect(state().error).toBe("Upload image lookup failed");
+    } finally { release(); }
   });
 
   it.each([

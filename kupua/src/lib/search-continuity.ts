@@ -9,7 +9,7 @@ import { resolveAnchorVirtIndex } from "@/lib/grid-scroll-anchor";
 import { isTwoTierFromTotal } from "@/lib/two-tier";
 import type { UrlSearchParams } from "@/lib/search-params-schema";
 import type { HistorySnapshot } from "@/lib/history-snapshot";
-import { useUploadLayoutStore } from "@/stores/upload-layout-store";
+import { getUploadFormRevision, getUploadScrollRevision, useUploadLayoutStore } from "@/stores/upload-layout-store";
 
 export type SearchPlacement = { kind: "ratio"; ratio: number; includesHeader?: boolean } | { kind: "start" } | { kind: "centre" };
 
@@ -72,9 +72,12 @@ export function captureSearchContinuity(
   const selection = useSelectionStore.getState();
   const selectedAnchor = sortOnly && !state.params.imageScope && !state.params.recentUploadScope && selection.selectedIds.size > 0 ? selection.anchorId : null;
   const focusTarget = sortOnly && getEffectiveFocusMode() !== "explicit" ? null : state.focusedImageId;
-  const activeId = maintenance && typeof document !== "undefined"
+  const uploadMaintenance = maintenance && state.params.recentUploadScope?.combined && state.params.recentUploadScope.batch;
+  const activeId = maintenance && typeof document !== "undefined" &&
+    (!uploadMaintenance || getUploadFormRevision() > getUploadScrollRevision())
     ? document.activeElement?.closest<HTMLElement>("[data-measured-cell]")?.dataset.imageId : undefined;
-  const targetId = activeId ?? selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
+  const targetId = uploadMaintenance ? activeId ?? getViewportAnchorId() ?? focusTarget
+    : activeId ?? selectedAnchor ?? focusTarget ?? (sortOnly ? null : getViewportAnchorId());
   const focus = maintenance || selectedAnchor ? "retain" : focusTarget ? "target" : sortOnly && state.params.aiQuery ? "retain" : "none";
   const index = resolveAnchorVirtIndex(targetId, state.imagePositions, state.bufferOffset, isTwoTierFromTotal(state.total));
   const placement: SearchPlacement = index !== null && container && container.clientHeight > 0

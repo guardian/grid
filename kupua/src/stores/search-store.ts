@@ -76,12 +76,14 @@ import {
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
 import { beginTraceInteraction, trace, traceInteraction } from "@/lib/perceived-trace";
 import type { SearchContinuity, OwnedSearchContinuity } from "@/lib/search-continuity";
+import { getUploadFormRevision, getUploadScrollRevision } from "@/stores/upload-layout-store";
 import { acceptImageOverlay, acceptImageRead, copyImageRead, getOrderingRevision, hasImageFence, hasImageFences, hasOrderingUncertainty, isImageMetadataCurrent } from "@/lib/image-read-freshness";
 import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
 import { useSelectionStore } from "@/stores/selection-store";
 
 interface SearchOptions {
   activeFormPlacement?: () => SearchContinuity | undefined;
+  onUploadRefreshDeferred?: (retry?: boolean) => void;
   continuity?: SearchContinuity;
   discardOffsetHint?: boolean;
   phantomOnly?: boolean;
@@ -92,6 +94,27 @@ interface SearchOptions {
   sortOnly?: boolean;
   traceAction?: string;
   traceInteractionId?: string;
+}
+
+function uploadWindowUnchanged(state: SearchState, hits: readonly (Image | undefined)[], offset: number, sections?: UploadSections | null): boolean {
+  const container = getScrollContainer();
+  if (!container || !state.uploadSections || !sections) return false;
+  const viewport = container.getBoundingClientRect();
+  if (viewport.bottom <= viewport.top || viewport.right <= viewport.left) return false;
+  const positions: number[] = [];
+  for (const element of container.querySelectorAll<HTMLElement>("[data-image-id]")) {
+    const rect = element.getBoundingClientRect();
+    if (rect.bottom <= viewport.top || rect.top >= viewport.bottom || rect.right <= viewport.left || rect.left >= viewport.right) continue;
+    const index = state.imagePositions.get(element.dataset.imageId ?? "");
+    if (index === undefined || hits[index - offset]?.id !== element.dataset.imageId) return false;
+    if ((index < state.uploadSections.batch) !== (index < sections.batch)) return false;
+    positions.push(index);
+  }
+  if (!positions.length) return false;
+  const first = Math.min(...positions), last = Math.max(...positions);
+  return state.uploadSections.batch === sections.batch ||
+    (state.uploadSections.batch > last && sections.batch > last) ||
+    (state.uploadSections.batch <= first && sections.batch <= first);
 }
 
 /** Aggregatable fields derived from the field registry — built once. */
@@ -1740,6 +1763,8 @@ async function _findAndFocusImage(
     enrichment?: Map<string, EnrichmentFields>;
     startCursor: SortValues | null;
     endCursor: SortValues | null;
+    uploadSections?: UploadSections | null;
+    uploadOffset?: number;
     /** The correct total for the new query. _findAndFocusImage sets this
      *  atomically with the new buffer so the virtualizer never sees a
      *  total/buffer mismatch (which triggers scroll-clamp → seek → flash). */
@@ -1768,6 +1793,7 @@ async function _findAndFocusImage(
   continuity?: OwnedSearchContinuity,
   orderingAttempts = 1,
   retainedTarget?: Image,
+  onUploadRefreshDeferred?: (retry?: boolean) => void,
 ): Promise<void> {
   const { dataSource } = get();
   const recoveryResults = get().results;
@@ -1796,21 +1822,30 @@ async function _findAndFocusImage(
   const combinedSignal = AbortSignal.any
     ? AbortSignal.any([findFocusSignal, timeoutController.signal])
     : findFocusSignal; // Fallback for environments without AbortSignal.any
-  const degrade = () => {
+  const degrade = (failure?: Error) => {
     if (!fallbackFirstPage) {
       set({ sortAroundFocusStatus: null, loading: false, _isInitialLoad: false });
       return;
     }
     const page = fallbackFirstPage;
+    if (continuity?.provenance === "maintenance" && params.recentUploadScope?.combined &&
+        params.recentUploadScope.batch && !presentationCurrent() &&
+        !uploadWindowUnchanged(get(), page.hits, page.uploadOffset ?? 0, page.uploadSections)) {
+      onUploadRefreshDeferred?.(!failure);
+      set({ loading: false, sortAroundFocusStatus: null, _searchContinuity: { ...continuity, phase: "retired" },
+        ...(failure && { error: failure.message }) });
+      return;
+    }
     retainSortValues(buildSearchKey(params), page.hits, page.sortValues, true);
     if (page.enrichment) useEnrichmentStore.getState().setEnrichment(page.enrichment);
     set({
       results: page.hits,
-      bufferOffset: 0,
+      bufferOffset: page.uploadOffset ?? 0,
       total: page.total,
+      uploadSections: page.uploadSections ?? null,
       loading: false,
       _isInitialLoad: false,
-      imagePositions: buildPositions(page.hits, 0),
+      imagePositions: buildPositions(page.hits, page.uploadOffset ?? 0),
       startCursor: page.startCursor,
       endCursor: page.endCursor,
       pitId: get().pitId,
@@ -1829,7 +1864,7 @@ async function _findAndFocusImage(
     console.warn("[sort-around-focus] Timed out after 8s");
     timeoutController.abort();
     if (hasOrderingUncertainty()) set({ error: "Image position is unavailable" });
-    degrade();
+    degrade(new Error("Image position is unavailable"));
   }, 8000);
   const orderingRevision = getOrderingRevision();
   let latestTarget = retainedTarget;
@@ -1839,7 +1874,7 @@ async function _findAndFocusImage(
     if (orderingAttempts === 0) throw new Error("Image ordering changed during restoration. Please try again.");
     clearTimeout(timeoutId);
     await _findAndFocusImage(imageId, params, get, set, fallbackFirstPage, prevNeighbours, hintOffset,
-      phantomOnly, retainExplicitFocus, findFocusSignal, discoveredTotal, continuity, orderingAttempts - 1, latestTarget);
+      phantomOnly, retainExplicitFocus, findFocusSignal, discoveredTotal, continuity, orderingAttempts - 1, latestTarget, onUploadRefreshDeferred);
     return true;
   };
 
@@ -1886,7 +1921,7 @@ async function _findAndFocusImage(
                   // Recurse: find-and-focus the surviving neighbour.
                   // Pass fallbackFirstPage but NOT prevNeighbours (no infinite loop).
                   clearTimeout(timeoutId);
-                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride, discoveredTotal, continuity);
+                  await _findAndFocusImage(nId, params, get, set, fallbackFirstPage, null, null, phantomOnly, retainExplicitFocus, findFocusSignalOverride, discoveredTotal, continuity, 1, undefined, onUploadRefreshDeferred);
                   return;
                 }
               }
@@ -2121,6 +2156,13 @@ async function _findAndFocusImage(
       // Guard: if the timeout fired while _loadBufferAroundImage was
       // running, don't overwrite the fallback state with stale results.
       if (timeoutController.signal.aborted) return;
+      if (continuity?.provenance === "maintenance" && params.recentUploadScope?.combined &&
+          params.recentUploadScope.batch && !presentationCurrent() &&
+          !uploadWindowUnchanged(get(), finalResults, finalBufferOffset, fallbackFirstPage?.uploadSections)) {
+        onUploadRefreshDeferred?.();
+        set({ loading: false, sortAroundFocusStatus: null, _searchContinuity: { ...continuity, phase: "retired" } });
+        return;
+      }
 
       // NOTE: we intentionally do NOT bump _seekGeneration here, in either
       // mode. sortAroundFocusGeneration is the sole scroll trigger (phantom
@@ -2137,6 +2179,7 @@ async function _findAndFocusImage(
         // fallbackFirstPage.total is result.total from the initial search().
         // get().total is a safe fallback (e.g. recursive neighbour-focus call).
         total: fallbackFirstPage?.total ?? discoveredTotal ?? get().total,
+        ...(fallbackFirstPage && { uploadSections: fallbackFirstPage.uploadSections ?? null }),
         loading: false,
         imagePositions: buildPositions(finalResults, finalBufferOffset),
         startCursor: finalStartCursor,
@@ -2179,7 +2222,7 @@ async function _findAndFocusImage(
     // Any failure → degrade gracefully
     console.warn("[sort-around-focus] Failed to find image:", e);
     if (hasOrderingUncertainty()) set({ error: e instanceof Error ? e.message : "Image position is unavailable" });
-    degrade();
+    degrade(e instanceof Error ? e : new Error("Image position is unavailable"));
   } finally {
     clearTimeout(timeoutId);
     if (!fallbackFirstPage && discoveredTotal === undefined && !findFocusSignal.aborted &&
@@ -2731,7 +2774,9 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       // On popstate restore with a frozenUntil, reuse the original freeze
       // timestamp so the ticker correctly counts new images since the
       // user's original search — not since the back/forward navigation.
-      const activeForm = continuity?.provenance === "maintenance" ? options?.activeFormPlacement?.() : undefined;
+      const activeForm = continuity?.provenance === "maintenance" &&
+        getUploadFormRevision() > getUploadScrollRevision()
+        ? options?.activeFormPlacement?.() : undefined;
       if (activeForm?.targetId && continuity) {
         historyFocusIntent = get()._focusIntent;
         Object.assign(continuity, activeForm, { historyFocusIntent });
@@ -2739,7 +2784,19 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
         prevNeighbours = activeForm.neighbours ?? [];
         options = { ...options, phantomOnly: true, retainExplicitFocus: true };
       }
-      set({ uploadSections: result.uploadSections ?? null });
+      const uploadMaintenance = continuity?.provenance === "maintenance" && params.recentUploadScope?.combined && params.recentUploadScope.batch;
+      const focusedInFirstPage = sortAroundFocusId
+        ? result.hits.some((img) => img?.id === sortAroundFocusId)
+        : false;
+      if (uploadMaintenance && !historyPresentationCurrent() &&
+          !(sortAroundFocusId && !focusedInFirstPage && result.total > 0) &&
+          !uploadWindowUnchanged(get(), result.hits, result.uploadOffset ?? 0, result.uploadSections)) {
+        if (_initialSearchDiscovery === discovery) _initialSearchDiscovery = null;
+        options?.onUploadRefreshDeferred?.();
+        set({ loading: false, sortAroundFocusStatus: null, _searchContinuity: { ...continuity, phase: "retired" } });
+        return;
+      }
+      if (!uploadMaintenance) set({ uploadSections: result.uploadSections ?? null });
       const now = options?.frozenUntil ?? new Date().toISOString();
 
       // Extract cursors from sort values
@@ -2747,11 +2804,6 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
       const endCursor = result.sortValues.length > 0
         ? result.sortValues[result.sortValues.length - 1]
         : null;
-
-      // Check if the focused image landed in the first page
-      const focusedInFirstPage = sortAroundFocusId
-        ? result.hits.some((img) => img?.id === sortAroundFocusId)
-        : false;
 
       // -----------------------------------------------------------------
       // Sort-around-focus: if we have a target image that wasn't in the
@@ -2795,7 +2847,9 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           startCursor,
           endCursor,
           total: result.total,
-        }, prevNeighbours, continuity?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity)
+          uploadSections: result.uploadSections,
+          uploadOffset: result.uploadOffset,
+        }, prevNeighbours, continuity?.anchorOffset ?? (options?.discardOffsetHint ? null : get()._focusedImageKnownOffset) ?? null, options?.phantomOnly, options?.retainExplicitFocus, findFocusSignal, undefined, continuity, 1, undefined, options?.onUploadRefreshDeferred)
           .then(() => {
             if (_initialSearchDiscovery === discovery && !findFocusSignal.aborted && discovery?.replacement === null) {
               discovery.resultsPublished = true;
@@ -2857,6 +2911,7 @@ export const useSearchStore = create<SearchState>((rawSet, get, api) => {
           results: result.hits,
           bufferOffset: result.uploadOffset ?? 0,
           total: result.total,
+          uploadSections: result.uploadSections ?? null,
           loading: false,
           took: result.took ?? null,
           fetchDuration: result.fetchDuration ?? null,

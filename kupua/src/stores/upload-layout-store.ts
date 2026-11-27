@@ -1,5 +1,13 @@
 import { create } from "zustand";
 
+let uploadInteractionRevision = 0;
+let uploadScrollRevision = 0;
+let uploadFormRevision = 0;
+export const getUploadScrollRevision = () => uploadScrollRevision;
+export const getUploadFormRevision = () => uploadFormRevision;
+export const recordUploadScroll = () => { uploadScrollRevision = ++uploadInteractionRevision; };
+export const recordUploadFormInteraction = () => { uploadFormRevision = ++uploadInteractionRevision; };
+
 export const useUploadLayoutStore = create<{
   followingBatch: string | null;
   followBatch: (batch: string) => void;

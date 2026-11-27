@@ -11,6 +11,7 @@ import { getEffectiveFocusMode } from "@/stores/ui-prefs-store";
 import { chooseReflowAnchor } from "@/lib/layout-anchor-policy";
 import { isFocusEligibleForLayoutAnchor } from "@/lib/grid-scroll-anchor";
 import { composeUploadLayout } from "@/lib/upload-section-layout";
+import { getUploadFormRevision, getUploadScrollRevision, recordUploadFormInteraction } from "@/stores/upload-layout-store";
 
 export interface MeasuredCells {
   key: string;
@@ -45,16 +46,18 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     const focusRow = focused && source ? source.getItemRow(source.window.findItemIndex(focused)!) : undefined;
     const selection = useSelectionStore.getState();
     const params = useSearchStore.getState().params;
+    const uploadFormCurrent = !params.recentUploadScope?.combined || !params.recentUploadScope.batch ||
+      getUploadFormRevision() > getUploadScrollRevision();
     const activeCell = document.activeElement?.closest<HTMLElement>("[data-measured-cell]");
     const activeBounds = activeCell?.getBoundingClientRect();
     const viewportBounds = element.getBoundingClientRect();
-    const activeId = activeBounds && activeBounds.bottom > viewportBounds.top && activeBounds.top < viewportBounds.bottom
+    const activeId = uploadFormCurrent && activeBounds && activeBounds.bottom > viewportBounds.top && activeBounds.top < viewportBounds.bottom
       ? activeCell?.dataset.imageId : undefined;
     const measuredRow = current.current.readings !== readings
       ? source?.window.rowAtOffset(element.scrollTop + element.clientHeight / 2) : undefined;
     const measuredId = measuredRow ? source?.window.getItemId(measuredRow.firstItemIndex) : undefined;
     const id = resolve(activeId ?? null) ?? resolve(measuredId ?? null) ?? chooseReflowAnchor({ selection: resolve(!params.imageScope && !params.recentUploadScope && selection.selectedIds.size ? selection.anchorId : null),
-      focus: focusRow && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(), focusRow, element.scrollTop, element.clientHeight) ? focused : null,
+      focus: uploadFormCurrent && focusRow && isFocusEligibleForLayoutAnchor(getEffectiveFocusMode(), focusRow, element.scrollTop, element.clientHeight) ? focused : null,
       viewport: getViewportAnchorId });
     anchorId = id;
     const previous = id ? readings.get(id) : undefined;
@@ -179,6 +182,7 @@ export function useMeasuredLayout(parent: RefObject<HTMLDivElement | null>, imag
     observeRef.current();
   });
   const captureInput = (event: FormEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest("[data-form-content]")) recordUploadFormInteraction();
     const element = parent.current;
     const cell = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-measured-cell]") : null;
     const id = cell?.dataset.imageId;

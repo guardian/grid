@@ -28,6 +28,7 @@ import { registerScrollContainer } from "@/lib/scroll-container-ref";
 import { registerScrollGeometry, getItemLayoutRow, getLayoutRow, requireFixedRowGeometry, type LayoutGeometry } from "@/lib/scroll-geometry-ref";
 import { registerVirtualizerReset, registerScrollToFocused, isUserInitiatedNavigation } from "@/lib/orchestration/search";
 import { captureSearchContinuity, saveSearchContinuity, stopFollowingUploadBatch } from "@/lib/search-continuity";
+import { getUploadFormRevision, recordUploadScroll } from "@/stores/upload-layout-store";
 import { EXTEND_THRESHOLD, SCROLL_MODE_THRESHOLD, SEEK_DEFERRED_SCROLL_MS } from "@/constants/tuning";
 import { GRID_ROW_HEIGHT } from "@/constants/layout";
 import { URL_DISPLAY_KEYS, type UrlSearchParams } from "@/lib/search-params-schema";
@@ -218,6 +219,8 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
   const densityPlacementRef = useRef<{ saved: DensityFocusState; focusId: string | null;
     scrollTop: number; rowTop: number; height: number; header: number } | null>(null);
   const densityMountHadReadyPublicationRef = useRef(useSearchStore.getState()._searchContinuity?.phase === "ready");
+  const scrollInputRef = useRef<{ search: number; seek: number } | null>(null);
+  const retiredUploadPlacementRef = useRef<{ search: number; form: number } | null>(null);
 
   // Ref-stabilise the optional centering callback so closures in
   // mount-only effects always see the latest version.
@@ -397,7 +400,6 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     }
   });
 
-  const scrollInputRef = useRef<{ search: number; seek: number } | null>(null);
   const handleScroll = useCallback((event?: Event) => {
     const el = parentRef.current;
     if (!el) return;
@@ -446,9 +448,20 @@ export function useScrollEffects(config: UseScrollEffectsConfig): void {
     const el = parentRef.current;
     if (!el) return;
     const markInput = () => {
+      const before = useSearchStore.getState();
       stopFollowingUploadBatch();
+      const state = useSearchStore.getState();
+      const generation = getSearchGeneration();
+      if (state.params.recentUploadScope?.combined && state.params.recentUploadScope.batch) {
+        recordUploadScroll();
+        const form = getUploadFormRevision();
+        if (state.loading && (retiredUploadPlacementRef.current?.search !== generation || retiredUploadPlacementRef.current.form !== form)) {
+          retiredUploadPlacementRef.current = { search: generation, form };
+          if (state._focusIntent === before._focusIntent) state.setFocusedImageId(state.focusedImageId);
+        }
+      }
       scrollIntentRef.current?.();
-      scrollInputRef.current = { search: getSearchGeneration(), seek: useSearchStore.getState()._seekGeneration };
+      scrollInputRef.current = { search: generation, seek: useSearchStore.getState()._seekGeneration };
     };
     const captureInput = () => { densityPlacementRef.current = null; markInput(); };
     const onWheel = (event: WheelEvent) => {

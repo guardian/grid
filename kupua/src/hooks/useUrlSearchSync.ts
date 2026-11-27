@@ -46,6 +46,7 @@ import { useSelectionStore } from "@/stores/selection-store";
 import { claimTraceInteraction, consumeTraceInteraction } from "@/lib/perceived-trace";
 import { traceActionsForNavigation } from "@/lib/orchestration/perceived-navigation";
 import { useUploadLayoutStore } from "@/stores/upload-layout-store";
+import { getScrollContainer } from "@/lib/scroll-container-ref";
 
 // Track the kupuaKey of the entry we're currently "on". Updated at the
 // end of every effect run. On popstate, history.state already reflects
@@ -100,7 +101,9 @@ export function useUrlSearchSync() {
   const router = useRouter();
   const { setParams, search, loading } = useSearchStore();
   const membershipDeferred = useRef(false);
+  const deferredRefresh = useRef<{ serialized: string; ready: boolean; cleanup: () => void } | null>(null);
   const [membershipCompletion, setMembershipCompletion] = useState(0);
+  useEffect(() => () => deferredRefresh.current?.cleanup(), []);
   useEffect(() => useSearchStore.subscribe((state, previous) => {
     if (state._focusIntent !== previous._focusIntent) useUploadLayoutStore.getState().stopFollowingBatch();
     if (membershipDeferred.current && previous.loading && !state.loading) {
@@ -204,6 +207,15 @@ export function useUrlSearchSync() {
     if (contextChanged) restoreBrowsingDensity(path);
     else admitBrowsingDensityContext(path);
     const serialized = JSON.stringify(searchOnly);
+    if (deferredRefresh.current && deferredRefresh.current.serialized !== serialized) {
+      deferredRefresh.current.cleanup();
+      deferredRefresh.current = null;
+    }
+    const retryingDeferred = deferredRefresh.current?.serialized === serialized && deferredRefresh.current.ready;
+    if (retryingDeferred) {
+      deferredRefresh.current?.cleanup();
+      deferredRefresh.current = null;
+    }
     const sameQuery = serialized === _prevParamsSerialized;
     const currentKey = getCurrentKupuaKey();
     // Origin/detail transitions keep the native list. Other history entries
@@ -219,11 +231,15 @@ export function useUrlSearchSync() {
     const sameQueryHistoryDestination = sameQuery && currentKey !== _lastKupuaKey
       && currentKey !== undefined && pendingPopKey.current === currentKey
       && !nativeDetailTransition;
+    if (sameQueryHistoryDestination && deferredRefresh.current) {
+      deferredRefresh.current.cleanup();
+      deferredRefresh.current = null;
+    }
     const membershipOnly = membershipChanged && searchOnly.orderBy === previousParams.orderBy && currentKey === _lastKupuaKey;
     if (membershipOnly && loading) { membershipDeferred.current = true; return; }
     membershipDeferred.current = false;
     pendingPopKey.current = undefined;
-    if (sameQuery && !sameQueryHistoryDestination) {
+    if (sameQuery && !sameQueryHistoryDestination && !retryingDeferred) {
       // Consume the user-initiated flag even on dedup bail to prevent it
       // leaking into a future effect run. Display-only navigations (image
       // detail open/close) trigger pushNavigate → markUser
@@ -390,6 +406,37 @@ export function useUrlSearchSync() {
     }
 
     search(null, { continuity, ...arrivalState, discardOffsetHint: !!prev.aiQuery && !searchOnly.aiQuery,
+      onUploadRefreshDeferred: membershipOnly && path === "/upload" && recentUploadScope?.combined && previousParams.recentUploadScope
+        ? (retry = true) => {
+          const retainedScope = previousParams.recentUploadScope;
+          const state = useSearchStore.getState();
+          if (unmountedRef.current || state.params.recentUploadScope !== recentUploadScope) return;
+          useSearchStore.setState({ params: { ...state.params, recentUploadScope: retainedScope } });
+          deferredRefresh.current?.cleanup();
+          if (!retry) { deferredRefresh.current = null; return; }
+          const container = getScrollContainer();
+          let timer: ReturnType<typeof setTimeout>;
+          const cleanup = () => {
+            clearTimeout(timer);
+            container?.removeEventListener("scroll", schedule);
+            container?.removeEventListener("wheel", schedule);
+            container?.removeEventListener("touchmove", schedule);
+            container?.removeEventListener("scrollend", finish);
+          };
+          const finish = () => {
+            cleanup();
+            if (deferredRefresh.current?.serialized !== serialized) return;
+            deferredRefresh.current.ready = true;
+            setMembershipCompletion(value => value + 1);
+          };
+          const schedule = () => { clearTimeout(timer); timer = setTimeout(finish, 200); };
+          deferredRefresh.current = { serialized, ready: false, cleanup };
+          container?.addEventListener("scroll", schedule, { passive: true });
+          container?.addEventListener("wheel", schedule, { passive: true });
+          container?.addEventListener("touchmove", schedule, { passive: true });
+          container?.addEventListener("scrollend", finish);
+          schedule();
+        } : undefined,
       activeFormPlacement: membershipOnly && path === "/upload" ? () => {
         const cell = document.activeElement?.closest<HTMLElement>("[data-form-content]")?.closest<HTMLElement>("[data-measured-cell]");
         if (!cell?.dataset.imageId) return;

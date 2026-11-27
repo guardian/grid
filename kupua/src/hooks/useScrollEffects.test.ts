@@ -62,7 +62,9 @@ import { useReturnFromDetail } from "./useReturnFromDetail";
 import { registerScrollGeometry, getScrollGeometry, getLayoutGeometry, getFixedRowCount, type FixedRowGeometry } from "@/lib/scroll-geometry-ref";
 import { scrollFocusedIntoView } from "@/lib/orchestration/search";
 import { buildMeasuredLayout } from "@/lib/windowed-measured-layout";
-import { useUploadLayoutStore } from "@/stores/upload-layout-store";
+import { recordUploadFormInteraction, useUploadLayoutStore } from "@/stores/upload-layout-store";
+import { BrowsingContext, type RecentUploadScope } from "@/lib/browsing-context";
+import { registerScrollContainer } from "@/lib/scroll-container-ref";
 
 let routeParams: UrlSearchParams = { nonFree: "true" };
 let routeLocation: { search: UrlSearchParams; state: unknown } | undefined;
@@ -187,6 +189,89 @@ it("ignores unvalidated route extras without blocking initial search or later qu
     view.rerender();
   });
   expect(search).toHaveBeenCalledTimes(2);
+});
+
+it("retains the displayed upload scope until a deferred refresh is retried", async () => {
+  const previousHistory = window.history.state;
+  window.history.replaceState({ kupuaKey: "upload-retry-origin" }, "");
+  const first: RecentUploadScope = { key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+    batch: { key: "upload:local-arrivals", revision: 1, ids: ["image-400"], submittedOrder: true } };
+  let scope: RecentUploadScope = first;
+  const dataSource = new MockDataSource(3000);
+  const page = vi.spyOn(dataSource, "searchAfter").mockResolvedValue({ hits: [], sortValues: [], total: 3000,
+    uploadSections: { batch: 1, other: 2999 } });
+  useSearchStore.setState({ dataSource, params: { nonFree: "true", recentUploadScope: first },
+    uploadSections: { batch: 1, other: 2999 }, endCursor: [1, 123, "image-999"] });
+  const search = vi.spyOn(useSearchStore.getState(), "search").mockResolvedValue(undefined);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
+  registerScrollContainer(container);
+  const wrapper = ({ children }: PropsWithChildren) => createElement(BrowsingContext.Provider,
+    { value: { path: "/upload", recentUploadScope: scope } }, children);
+  const view = renderHook(() => useUrlSearchSync(), { wrapper });
+  try {
+    expect(search).toHaveBeenCalledOnce();
+    scope = { ...first, batch: { ...first.batch!, revision: 2, ids: ["image-400", "image-401"] } };
+    act(() => view.rerender());
+    expect(search).toHaveBeenCalledTimes(2);
+    const deferred = search.mock.calls[1][1]?.onUploadRefreshDeferred;
+    expect(deferred).toBeDefined();
+    act(() => deferred!());
+    expect(useSearchStore.getState().params.recentUploadScope).toBe(first);
+    vi.setSystemTime(Date.now() + 2100);
+    await act(async () => { await useSearchStore.getState().extendForward(); });
+    expect(page).toHaveBeenCalledOnce();
+    expect(page.mock.calls[0][0].recentUploadScope).toBe(first);
+    expect(useSearchStore.getState().uploadSections).toEqual({ batch: 1, other: 2999 });
+    act(() => { vi.advanceTimersByTime(150); fireEvent.scroll(container); vi.advanceTimersByTime(150); });
+    expect(search).toHaveBeenCalledTimes(2);
+    await act(async () => { vi.advanceTimersByTime(50); });
+    expect(search).toHaveBeenCalledTimes(3);
+    expect(useSearchStore.getState().params.recentUploadScope).toBe(scope);
+    const retryDeferred = search.mock.calls[2][1]?.onUploadRefreshDeferred;
+    expect(retryDeferred).toBeDefined();
+    act(() => retryDeferred!());
+    expect(useSearchStore.getState().params.recentUploadScope).toBe(first);
+    scope = { ...scope, batch: { ...scope.batch!, revision: 3, ids: [...scope.batch!.ids, "image-402"] } };
+    act(() => view.rerender());
+    expect(search).toHaveBeenCalledTimes(4);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(search).toHaveBeenCalledTimes(4);
+    const failedRead = search.mock.calls[3][1]?.onUploadRefreshDeferred;
+    expect(failedRead).toBeDefined();
+    act(() => failedRead!(false));
+    expect(useSearchStore.getState().params.recentUploadScope).toBe(first);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(search).toHaveBeenCalledTimes(4);
+    scope = { ...scope, batch: { ...scope.batch!, revision: 4, ids: [...scope.batch!.ids, "image-403"] } };
+    act(() => view.rerender());
+    expect(search).toHaveBeenCalledTimes(5);
+    const beforeBack = search.mock.calls[4][1]?.onUploadRefreshDeferred;
+    expect(beforeBack).toBeDefined();
+    act(() => beforeBack!());
+    act(() => {
+      window.history.replaceState({ kupuaKey: "upload-retry-destination" }, "");
+      router.notify("BACK");
+      view.rerender();
+    });
+    expect(search).toHaveBeenCalledTimes(6);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(search).toHaveBeenCalledTimes(6);
+    scope = { ...scope, batch: { ...scope.batch!, revision: 5, ids: [...scope.batch!.ids, "image-404"] } };
+    act(() => view.rerender());
+    expect(search).toHaveBeenCalledTimes(7);
+    const afterUnmount = search.mock.calls[6][1]?.onUploadRefreshDeferred;
+    expect(afterUnmount).toBeDefined();
+    view.unmount();
+    act(() => afterUnmount!());
+    expect(useSearchStore.getState().params.recentUploadScope).toBe(scope);
+    await act(async () => { vi.advanceTimersByTime(300); });
+    expect(search).toHaveBeenCalledTimes(7);
+  } finally {
+    view.unmount();
+    registerScrollContainer(null);
+    window.history.replaceState(previousHistory, "");
+  }
 });
 
 it("crop subview history leaves the mounted search buffer untouched", () => {
@@ -3632,9 +3717,142 @@ describe("P1 non-uniform resident continuity", () => {
     view.container.scrollTop = 500;
     view.changeGeometry(build(520));
     expect(view.container.scrollTop).toBe(600);
+    fireEvent.wheel(view.container, { deltaY: 100 });
+    fireEvent(view.container, new Event("scrollend"));
+    act(() => { vi.advanceTimersByTime(500); });
+    view.changeGeometry(build(620));
+    expect(view.container.scrollTop).toBe(700);
+    act(() => { vi.advanceTimersByTime(500); });
+    view.changeGeometry(build(720));
+    expect(view.container.scrollTop).toBe(800);
+    fireEvent.wheel(view.container, { deltaY: 100 });
+    fireEvent(view.container, new Event("scrollend"));
+    recordUploadFormInteraction();
+    view.changeGeometry(build(820));
+    expect(view.container.scrollTop).toBe(900);
     expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);
     useUploadLayoutStore.setState({ followingBatch: "local-different" });
     expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe(targetId);
+  });
+
+  it("uses the viewport after scrolling away from a still-focused upload field", async () => {
+    useSearchStore.setState({ params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 1, ids: ["img-26"], submittedOrder: true },
+    } } });
+    const view = mountDensity(irregularGeometry());
+    frame(); frame();
+    const cell = document.createElement("div");
+    cell.dataset.measuredCell = "true";
+    cell.dataset.imageId = "img-26";
+    const form = document.createElement("div");
+    form.dataset.formContent = "true";
+    const input = document.createElement("input");
+    form.appendChild(input);
+    cell.appendChild(form);
+    view.container.appendChild(cell);
+    input.focus();
+    recordUploadFormInteraction();
+    anchor.viewportId = "img-40";
+    fireEvent.wheel(view.container, { deltaY: 100 });
+    expect(document.activeElement).toBe(input);
+    const continuity = searchContinuity.captureSearchContinuity("membership");
+    expect(continuity.targetId).toBe("img-40");
+    const activeFormPlacement = vi.fn(() => continuity);
+    await act(async () => { await useSearchStore.getState().search(null, { continuity, activeFormPlacement }); });
+    expect(activeFormPlacement).not.toHaveBeenCalled();
+    recordUploadFormInteraction();
+    expect(searchContinuity.captureSearchContinuity("membership").targetId).toBe("img-26");
+  });
+
+  it.each(["append", "insert before viewport"] as const)("publishes only a safe upload %s during scrolling", async arrival => {
+    const state = useSearchStore.getState();
+    const sections = { batch: 60, other: 40 };
+    useSearchStore.setState({ uploadSections: sections, params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 1, ids: ["img-26"], submittedOrder: true },
+    } } });
+    const view = mountDensity(irregularGeometry());
+    frame(); frame();
+    vi.spyOn(view.container, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ width: 1120, height: 600 }));
+    const visible = document.createElement("div");
+    visible.dataset.imageId = "img-26";
+    vi.spyOn(visible, "getBoundingClientRect").mockReturnValue(DOMRect.fromRect({ y: 100, width: 500, height: 300 }));
+    view.container.appendChild(visible);
+    anchor.viewportId = "img-26";
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const original = state.dataSource.searchAfter.bind(state.dataSource);
+    vi.spyOn(state.dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const result = await original(...args);
+      await held;
+      const image = { ...result.hits[0]!, id: "new-upload" };
+      const sort = result.sortValues[0];
+      return { ...result, hits: arrival === "append" ? [...result.hits, image] : [image, ...result.hits],
+        sortValues: arrival === "append" ? [...result.sortValues, sort] : [sort, ...result.sortValues],
+        total: result.total + 1, uploadSections: { batch: 61, other: 40 } };
+    });
+    const deferred = vi.fn();
+    let pending!: Promise<void>;
+    act(() => { pending = useSearchStore.getState().search(null, {
+      continuity: searchContinuity.captureSearchContinuity("membership"), onUploadRefreshDeferred: deferred,
+    }); });
+    try {
+      fireEvent.wheel(view.container, { deltaY: 100 });
+      await act(async () => { release(); await pending; });
+      const published = useSearchStore.getState();
+      expect(published.results.some(image => image?.id === "new-upload")).toBe(arrival === "append");
+      expect(deferred).toHaveBeenCalledTimes(arrival === "append" ? 0 : 1);
+      expect(published.uploadSections).toEqual(arrival === "append" ? { batch: 61, other: 40 } : sections);
+    } finally {
+      release();
+      await pending;
+    }
+  });
+
+  it.each(["scroll", "scroll then edit", "scroll then edit then scroll"] as const)(
+    "honours the newest interaction during a held upload refresh: %s", async interaction => {
+    const state = useSearchStore.getState();
+    useSearchStore.setState({ params: { recentUploadScope: {
+      key: "upload:page:local-arrivals", uploadedBy: "uploader@example.invalid", combined: true,
+      batch: { key: "upload:local-arrivals", revision: 1, ids: ["img-26"], submittedOrder: true },
+    } } });
+    const view = mountDensity(irregularGeometry());
+    frame(); frame();
+    view.container.scrollTop = 1600;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    const original = state.dataSource.searchAfter.bind(state.dataSource);
+    vi.spyOn(state.dataSource, "searchAfter").mockImplementationOnce(async (...args) => {
+      const result = await original(...args);
+      await held;
+      return result;
+    });
+    const continuity = searchContinuity.captureSearchContinuity("membership");
+    const activeFormPlacement = vi.fn(() => searchContinuity.captureSearchContinuity("membership"));
+    let pending!: Promise<void>;
+    act(() => { pending = useSearchStore.getState().search(null, { continuity, activeFormPlacement }); });
+    try {
+      act(() => {
+        fireEvent.wheel(view.container, { deltaY: 100 });
+        const scrollIntent = useSearchStore.getState()._focusIntent;
+        view.container.scrollTop = 2100;
+        fireEvent.scroll(view.container);
+        if (interaction !== "scroll") recordUploadFormInteraction();
+        if (interaction === "scroll then edit then scroll") {
+          fireEvent.wheel(view.container, { deltaY: 100 });
+          expect(useSearchStore.getState()._focusIntent).toBeGreaterThan(scrollIntent);
+        }
+      });
+      await act(async () => { release(); await pending; });
+      frame(); frame();
+      expect(useSearchStore.getState().results).toHaveLength(100);
+      expect(activeFormPlacement).toHaveBeenCalledTimes(interaction === "scroll then edit" ? 1 : 0);
+      expect(view.container.scrollTop).toBe(2100);
+    } finally {
+      release();
+      await pending;
+    }
   });
 
   it("recent-upload sort ignores dormant library selection without clearing it", () => {

@@ -24,6 +24,10 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 27 November 2026 - Respect upload scroll and field intent
+
+Combined-upload maintenance prefers the visible viewport over a field left focused by an earlier interaction and retires captured placement after newer scrolling. Reads that leave visible identities and section boundaries unchanged may publish, including in deep windows. Incompatible obsolete reads retain the current window and its paging scope, then retry with a fresh anchor after scrolling settles. If an obsolete deep lookup fails, the window is retained and the error is reported without automatic replay.
+
 ### 26 November 2026 - Connect crop saving and full-frame crops
 
 **Crop editing.** Crop entry and creation require Allow editing in media-api mode; saved-crop reading is unchanged. A save uses a fresh image grant and the discovered cropper route, then waits for the acknowledged export and a usable rendition before selecting it in Detail. The original detail history entry is preserved. An uncertain write is never replayed. Mobile crop browsing shows the selected crop's author and time without hover.
