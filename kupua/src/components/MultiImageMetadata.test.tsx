@@ -22,6 +22,7 @@ import { MetadataFormField, MetadataTextEditor } from "./MetadataTextEditor";
 import { DetailsDrafts } from "./DetailsDrafts";
 import { FormBatchContext, MetadataBatchArrow, MetadataEditorContext, SelectionSaveIndicator } from "./MetadataEditing";
 import { useMetadataDrafts } from "@/stores/metadata-drafts-store";
+import { useImageActionStore } from "@/stores/image-action-store";
 import { useToastStore } from "@/stores/toast-store";
 import { createMetadataEditorStore, metadataIntent, type MetadataSave } from "@/stores/metadata-editor-store";
 import { MetadataSuggestionInput } from "./MetadataSuggestionInput";
@@ -2363,6 +2364,29 @@ describe("disconnected label editing", () => {
     fireEvent.click(screen.getByText("Select only these 2"));
     expect([...useSelectionStore.getState().selectedIds]).toEqual(ids);
     act(() => useSelectionStore.getState().clear());
+  });
+
+  it("reports Full frame progress and unconfirmed images in the shared selection status", () => {
+    vi.useFakeTimers();
+    const ids = [...images.map(image => image.id), "off-page"];
+    const receipts = [{ id: ids[0], status: "saved" as const }, { id: ids[1], status: "acknowledged" as const },
+      { id: ids[2], status: "rejected" as const }, { id: "existing", status: "skipped" as const, reason: "Already has a full frame" }];
+    useImageActionStore.setState({ fullFrameBatches: [{ id: 1, active: true, receipts }] });
+    useSelectionStore.setState({ selectedIds: new Set([...ids, "existing"]) });
+    try {
+      render(<SelectedEditStatus />);
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.getByRole("progressbar").textContent).toBe("Updating Full frame: 1/3");
+      act(() => useImageActionStore.setState({ fullFrameBatches: [{ id: 1, active: false, receipts }] }));
+      expect(screen.getByRole("button", { name: "2 issues" }).title).toBe("Full frame: 1 not saved · 1 not confirmed");
+      act(() => useImageActionStore.setState({ fullFrameBatches: [{ id: 2, active: false, receipts: [{ id: ids[1], status: "saved" }] },
+        { id: 1, active: false, receipts }] }));
+      expect(screen.getByRole("button", { name: "1 issue" }).title).toBe("Full frame: 1 not saved");
+      act(() => useImageActionStore.setState({ fullFrameBatches: [{ id: 1, active: false, receipts }] }));
+      fireEvent.click(screen.getByText("Select only these 2"));
+      expect([...useSelectionStore.getState().selectedIds].sort()).toEqual(ids.slice(1).sort());
+      expect(useImageActionStore.getState().fullFrameBatches).toEqual([]);
+    } finally { useImageActionStore.setState({ fullFrameBatches: [] }); useSelectionStore.getState().clear(); vi.useRealTimers(); }
   });
 
   it("retains the focused Form after an older membership response, but honours a fresh withdrawal", async () => {

@@ -11,7 +11,7 @@
  *   npx playwright test e2e/local/ui-features.spec.ts --headed
  */
 
-import { test, expect, waitForFixtureSetup, type KupuaHelpers } from "../shared/helpers";
+import { test, expect, allowDisconnectedCropGeometry, waitForFixtureSetup, type KupuaHelpers } from "../shared/helpers";
 import type { Page } from "@playwright/test";
 import { Buffer as ThumbnailBuffer } from "node:buffer";
 import { getDensityChangeButton } from "../shared/density-selection";
@@ -21,7 +21,8 @@ test.describe.configure({ mode: "parallel" });
 
 // Pin to explicit focus mode — tests validate focus ring, Enter-to-open,
 // return-from-detail with focus, and fullscreen entry which are explicit-only.
-test.beforeEach(async ({ kupua }, testInfo) => {
+test.beforeEach(async ({ kupua, page }, testInfo) => {
+  if (testInfo.titlePath.includes("Crop editor dry run")) await allowDisconnectedCropGeometry(page);
   if (!testInfo.titlePath.some(part => part === "Detail close during list restoration" || part === "Reloaded detail gesture return"
     || part === "Hit-tested result input")) {
     await kupua.ensureExplicitMode();
@@ -505,13 +506,12 @@ test.describe("Crop editor dry run", () => {
     };
     page.on("request", onRequest);
     await crop.click();
-    await expect(editor.getByTestId("crop-dry-run")).toContainText('"type": "crop"');
+    await expect(page.getByRole("alert").filter({ hasText: "Crop was not sent" })).toBeVisible();
     page.off("request", onRequest);
     expect(writes).toEqual([]);
     await editor.focus();
     await page.keyboard.press("Delete");
     await expect(crop).toBeDisabled();
-    await expect(editor.getByTestId("crop-dry-run")).toHaveCount(0);
     await editor.getByRole("radio", { name: "video (16:9)" }).click();
     await expect(crop).toBeEnabled();
     const editedWidth = String(Math.floor(Number(await widthInput.inputValue()) / 2));

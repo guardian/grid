@@ -3,25 +3,16 @@ import { attachedEnrichment, useEnrichmentStore, type EnrichmentFields } from "@
 import { useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
 import { getImageReadSequence, isActionAuthorityPending, isImageMetadataCurrent, resolveImageOverlay } from "./image-read-freshness";
-import { BATCH_POLICY } from "./batch-execution";
 import { SELECTION_CAP } from "@/constants/tuning";
 import { humanisePersistedReasons } from "./image-persistence";
 import { isGridSessionInvalidated } from "./grid-api-instance";
 import { getCropSettings, type CropSettings } from "./crop/crop-options";
+import { cropEditingEnabled, imageHasFullFrame } from "./crop/crop-policy";
 
 export type ImageAction = "share" | "full-frame" | "download" | "delete" | "library";
 export const IMAGE_ACTIONS: readonly ImageAction[] = ["share", "full-frame", "download", "delete", "library"];
 export const SHARE_IMAGE_LIMIT = 44;
-
-export function imageHasFullFrame(image: Image): boolean {
-  const dimensions = image.source?.orientedDimensions ?? image.source?.dimensions;
-  return image.exports?.some(crop => {
-    if ((crop.specification?.type ?? crop.type) === "full") return true;
-    const bounds = crop.specification?.bounds as { x: number; y: number; width: number; height: number } | undefined;
-    return Boolean(dimensions && bounds && bounds.x === 0 && bounds.y === 0
-      && bounds.width === dimensions.width && bounds.height === dimensions.height);
-  }) ?? false;
-}
+export const FULL_FRAME_TARGET_LIMIT = 50;
 
 export interface ImageActionTarget {
   id: string;
@@ -37,6 +28,7 @@ export interface ImageActionContext {
   pending?: boolean;
   metadataSaving?: boolean;
   cropSettings?: CropSettings;
+  fullFrameBusy?: boolean;
 }
 
 export interface ImageActionDescription {
@@ -128,6 +120,8 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
     ? blocked(`You can't share all these images at once, please reduce to ${SHARE_IMAGE_LIMIT} or less`)
     : result;
   if (!context.api) return blocked("Available in media-api mode only");
+  if (action === "full-frame" && !cropEditingEnabled(context.api)) return blocked("Editing is disabled");
+  if (action === "full-frame" && context.fullFrameBusy) return blocked("Full frame crops are still saving");
   if (isGridSessionInvalidated()) return blocked("Reload after signing in again");
   const knownUnavailable = (target: ImageActionTarget) => Boolean(target.image?.__availability || target.image?.softDeletedMetadata);
   if (action === "library" && targets.some(knownUnavailable)) {
@@ -137,7 +131,7 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
   if (targets.some(target => !(action === "full-frame" && knownUnavailable(target))
     && (target.pending || !target.image || !target.overlay))) return blocked("Image information is not ready",
       targets.some(target => target.pending && !(action === "full-frame" && knownUnavailable(target))));
-  if (action === "full-frame" && targets.length > BATCH_POLICY.maxTargets) return blocked(`Select at most ${BATCH_POLICY.maxTargets} images`);
+  if (action === "full-frame" && targets.length > FULL_FRAME_TARGET_LIMIT) return blocked(`Select at most ${FULL_FRAME_TARGET_LIMIT} images`);
   if ((action === "library" || action === "delete") && targets.length > SELECTION_CAP) return blocked(`Select at most ${SELECTION_CAP} images`);
   const unavailable = targets.some(target => target.image!.__availability || target.image!.softDeletedMetadata);
   if (action === "full-frame") {
@@ -147,12 +141,12 @@ export function describeImageAction(action: ImageAction, context: ImageActionCon
     const eligibleIds = targets.filter(target => {
       const reason = target.image!.__availability || target.image!.softDeletedMetadata ? "Image unavailable"
         : imageHasFullFrame(target.image!) ? "Already has a full frame"
-        : target.overlay!.valid === false || !target.overlay!.resource?.uri || !target.overlay!.resource.links.some(link => link.rel === "crops") ? "Cannot crop this image" : undefined;
+        : target.overlay!.valid === false || !target.overlay!.resource?.uri || !target.overlay!.resource.links.some(link => link.rel === "crops") ? "Cannot crop" : undefined;
       if (reason) skipped.push({ id: target.id, reason });
       return !reason;
     }).map(target => target.id);
     const skipSummary = targets.length === 1 ? skipped[0]?.reason : [...new Set(skipped.map(item => item.reason))]
-      .map(reason => `${skipped.filter(item => item.reason === reason).length}: ${reason}`).join("; ");
+      .map(reason => `${reason} (${skipped.filter(item => item.reason === reason).length})`).join("; ");
     return { ...result, eligibleIds, skipped, ...(!eligibleIds.length && { reason: skipSummary }) };
   }
   if (unavailable) {

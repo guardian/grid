@@ -12,6 +12,7 @@ import { isCollectionTreeWrite } from "./src/lib/collection-tree-policy.ts";
 import { gridServiceProxyRoutes, isArchiveRequest, isCollectionMembershipRequest, isLabelAddRequest, isLabelRemovalRequest, isLeaseRequest, isLoaderRequest, isMetadataUpdateRequest, isPhotoshootRequest, isUsageRightsRequest } from "./src/lib/grid-mutation-policy.ts";
 import {
   DEPLOYED_TEST_MEDIA_API_BASE_URL,
+  LOCAL_MEDIA_API_ORIGIN,
   shouldEnableDirectBedrockProxy,
 } from "./src/dal/grid-api/proxy-target.ts";
 
@@ -76,14 +77,15 @@ function gridApiWriteGuard(routes: ReturnType<typeof gridServiceProxyRoutes>): P
         server.middlewares.use(prefix, (req, res, next) => {
           const isReadViaPost = prefix === "/api" && isGridApiReadViaPost(req.method, req.url);
           const isRead = req.method === "GET" && (prefix === "/api"
-            || (service === "cropper" && /^\/crops\/[a-zA-Z0-9_-]+$/.test(req.url ?? ""))
+            || (service === "cropper" && (req.url === "/" || /^\/crops\/[a-zA-Z0-9_-]+$/.test(req.url ?? "")))
             || (service === "auth" ? req.url === "/session"
               : service === "collections" ? req.url === "/collections" : service === "metadata" && (req.url === "/"
                 || req.url === "/usage-rights/filtered-categories" || /^\/metadata\/[a-zA-Z0-9_-]+$/.test(req.url ?? ""))));
           const isSelectedWrite = service === "metadata"
             && (isLabelAddRequest(req.method, req.url) || isLabelRemovalRequest(req.method, req.url) || isMetadataUpdateRequest(req.method, req.url) || isArchiveRequest(req.method, req.url) || isPhotoshootRequest(req.method, req.url) || isUsageRightsRequest(req.method, req.url));
           const localTreeWrite = service === "collections" && prefix === "/grid-local-collections" && isCollectionTreeWrite(req.method, req.url);
-          if (!isRead && !isReadViaPost && !isSelectedWrite && !localTreeWrite && !(service === "collections" && isCollectionMembershipRequest(req.method, req.url)) && !(service === "loader" && isLoaderRequest(req.method, req.url)) && !(service === "leases" && isLeaseRequest(req.method, req.url))) {
+          const localCropWrite = service === "cropper" && prefix === "/grid-local-cropper" && req.method === "POST" && req.url === "/crops";
+          if (!isRead && !isReadViaPost && !isSelectedWrite && !localTreeWrite && !localCropWrite && !(service === "collections" && isCollectionMembershipRequest(req.method, req.url)) && !(service === "loader" && isLoaderRequest(req.method, req.url)) && !(service === "leases" && isLeaseRequest(req.method, req.url))) {
             res.writeHead(403, { "Content-Type": "text/plain" });
             res.end(
               "[grid-api-write-guard] Request is not an admitted read or supported operation.",
@@ -216,7 +218,7 @@ return {
       // Proxy Grid media-api requests — avoids CORS (same-origin from browser's view).
       // Deployed TEST mode uses an explicit absolute browser base and does not enter this proxy.
       "/api": {
-        target: "https://api.media.local.dev-gutools.co.uk",
+        target: LOCAL_MEDIA_API_ORIGIN,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ""),

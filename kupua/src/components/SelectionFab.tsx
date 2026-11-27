@@ -191,8 +191,8 @@ function ActionFab({ docked = false, context, selectedIds, clearSelection, detai
             }}
             style={{ maxHeight: placement.maxHeight, width: expandedWidth, maxWidth: "calc(100vw - 32px)", translate: `${placement.shiftX}px 0` }}
             className={`selection-fab-options absolute right-0 grid grid-cols-1 overflow-y-auto overscroll-contain outline-none ${placement.below ? "top-full" : "bottom-full"}`}>
-            {context ? <ImageActions context={context} expanded presentation="floaty" onPrepared={close} />
-              : <SelectionImageActions expanded presentation="floaty" onPrepared={close} />}
+            {context ? <ImageActions context={context} expanded presentation="floaty" inactive={!expanded} onPrepared={close} />
+              : <SelectionImageActions expanded presentation="floaty" inactive={!expanded} onPrepared={close} />}
           </div>
         )}
       </div>

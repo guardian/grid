@@ -635,8 +635,12 @@ html, body { overscroll-behavior-y: none; }
     justify-self: start;
     min-width: 0;
   }
-  .crop-toolbar-actions > button {
+  .crop-toolbar-actions > [data-crop-action-group] {
     grid-area: 1 / 4;
+    justify-self: stretch;
+  }
+  .crop-toolbar-actions > [data-crop-action-group] > button {
+    width: 64px;
     justify-self: stretch;
     padding: 0;
 

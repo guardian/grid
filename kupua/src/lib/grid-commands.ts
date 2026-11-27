@@ -1,7 +1,8 @@
 import { SUBJECTS } from "./metadata-pill-fields";
 import { z } from "zod";
 import { findLink, parseArgoErrorBody } from "@/dal/grid-api/argo";
-import { gridServiceUrl, mediaApiUrl } from "@/dal/grid-api/proxy-target";
+import { gridServiceOrigin, gridServiceUrl, LOCAL_MEDIA_API_BASE_URL, LOCAL_MEDIA_API_ORIGIN, mediaApiUrl } from "@/dal/grid-api/proxy-target";
+import { apiGetImage, SearchAfterApiError } from "@/dal/grid-api-search-adapter";
 import { getGridServiceOrigin, getGridSessionPermissions, invalidateGridSession, isGridSessionInvalidated, serviceLink } from "./grid-api-instance";
 import { addressableLabel, isCollectionMembershipRequest, isLabelRemovalRequest } from "./grid-mutation-policy";
 import { leaseCommandValueSchema, leaseSetKey, storedLeases } from "./lease-change";
@@ -9,6 +10,13 @@ import { editingAllowedAtStartup } from "./editing-preference";
 import { BATCH_POLICY } from "./batch-execution";
 import { copyImageRead, getMetadataWriteWitness, retainsEditGrant } from "./image-read-freshness";
 import { useCollectionStore } from "@/stores/collection-store";
+import { isValidCropRect, originalCropSize } from "./crop/crop-request";
+import { allowsCropRatio, getCropSettings } from "./crop/crop-options";
+import { imageHasFullFrame } from "./crop/crop-policy";
+import { isHostedBuild } from "./hosted-config";
+import { CROP_SAVE_TIMEOUT_MS } from "@/constants/tuning";
+import type { Image } from "@/types/image";
+import type { EnrichmentFields } from "@/stores/enrichment-store";
 
 const addLabelsSchema = z.object({
   operation: z.literal("add-labels"),
@@ -62,7 +70,15 @@ const collectionAction = z.object({ name: z.string(), method: z.string(), href: 
 const archiveSchema = z.object({ operation: z.literal("set-archive"), imageId: addLabelsSchema.shape.imageId, value: z.boolean() }).strict();
 export type ArchiveCommand = z.infer<typeof archiveSchema>;
 const archiveImage = z.object({ data: z.object({ id: z.string(), softDeletedMetadata: z.null().optional(), userMetadata: z.object({ data: z.object({ archived: z.object({ uri: z.string(), data: z.boolean() }) }) }) }) });
-const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema, collectionSchema, membershipSchema, archiveSchema]);
+const cropBounds = z.object({ x: z.int().nonnegative(), y: z.int().nonnegative(), width: z.int().positive(), height: z.int().positive() });
+const cropCommandSchema = z.object({ operation: z.literal("create-crop"), imageId: addLabelsSchema.shape.imageId,
+  request: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("full"), source: z.string() }).strict(),
+    cropBounds.extend({ type: z.literal("crop"), source: z.string(), aspectRatio: z.string().regex(/^\d+:\d+$/).optional() }).strict(),
+  ]),
+}).strict();
+const cropReceiptSchema = z.object({ id: z.string(), date: z.iso.datetime({ offset: true }) });
+const commandSchema = z.discriminatedUnion("operation", [addLabelsSchema, removeLabelSchema, metadataCommandSchema, rightsCommandSchema, leaseCommandSchema, labelListSchema, photoshootSchema, collectionSchema, membershipSchema, archiveSchema, cropCommandSchema]);
 const rightsResourceSchema = z.object({ data: z.object({ usageRights: z.object({ uri: z.string() }),
   metadata: z.object({ data: z.record(z.string(), z.unknown()), actions: z.array(z.object({ name: z.string(), method: z.string(), href: z.string() })) }) }) });
 const metadataResourceSchema = z.object({ data: z.object({ metadata: z.object({
@@ -84,8 +100,8 @@ export type MetadataExpected = Readonly<Record<string, string | string[]>>;
 
 type LabelSteps = Readonly<{ acknowledged: number; rejected: number; notSent: number; uncertain: number }>;
 export type GridCommandResult =
-  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" | "unaddressable-label"; labelSteps?: LabelSteps }
-  | { outcome: "acknowledged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number }
+  | { outcome: "blocked"; reason: "disabled" | "invalid-command" | "unavailable" | "reload-required" | "unaddressable-label"; labelSteps?: LabelSteps; status?: 429 }
+  | { outcome: "acknowledged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string; metadataFromRights?: "acknowledged" | "rejected" | "unknown" | "not-sent"; status?: number; crop?: z.infer<typeof cropReceiptSchema> }
   | { outcome: "unchanged"; expectedLeases?: string; expected?: MetadataExpected; metadataWitness?: string }
   | { outcome: "partial"; expected: MetadataExpected; labelSteps: LabelSteps; status?: number; errorKey?: string; reason?: "reload-required" | "unavailable" }
   | { outcome: "rejected"; status: number; errorKey: string; labelSteps?: LabelSteps }
@@ -161,6 +177,107 @@ async function failure(response: Response, dispatched: boolean): Promise<Extract
 
 export function gridLabelEditingEnabled(): boolean {
   return import.meta.env.VITE_USE_MEDIA_API === "true" && editingAllowedAtStartup;
+}
+
+export type CropReceipt = z.infer<typeof cropReceiptSchema>;
+
+export function showsSavedCrop(image: Image, enrichment: EnrichmentFields | undefined, receipt: CropReceipt): boolean {
+  return !image.softDeletedMetadata && Boolean(enrichment?.resource?.links.some(link => link.rel === "crops"))
+    && Boolean(image.exports?.some(crop => crop.id === receipt.id && crop.date === receipt.date
+      && [...crop.assets ?? [], crop.master].some(asset => (asset?.secureUrl || asset?.file)
+        && asset.dimensions?.width > 0 && asset.dimensions?.height > 0)));
+}
+
+export async function observeSavedCrop(imageId: string, receipt: CropReceipt,
+  waits: readonly number[] = [0, 250, 500, 1000, 2000, 4000, 8000, 16_000, 30_000]) {
+  if (!gridLabelEditingEnabled()) return;
+  const budgetMs = 65_000;
+  const started = performance.now();
+  const budget = AbortSignal.timeout(budgetMs);
+  let elapsed = 0;
+  for (const wait of waits) {
+    elapsed += wait;
+    if (elapsed >= budgetMs || budget.aborted || isGridSessionInvalidated()) return;
+    const delay = started + elapsed - performance.now();
+    if (delay > 0) await new Promise<void>(resolve => setTimeout(resolve, delay));
+    if (budget.aborted || isGridSessionInvalidated()) return;
+    try {
+      const result = await apiGetImage(imageId, AbortSignal.any([budget, AbortSignal.timeout(5000)]));
+      if (result && showsSavedCrop(result.image, result.enrichment, receipt)) return result;
+    } catch (error) {
+      if (error instanceof SearchAfterApiError && (error.status === 401 || error.status === 419)) {
+        invalidateGridSession();
+        return;
+      }
+    }
+  }
+}
+
+type CropDispatch = { onPost?: () => void };
+
+async function createCrop({ imageId, request }: z.infer<typeof cropCommandSchema>, dispatch?: CropDispatch): Promise<GridCommandResult> {
+  const blocked = { outcome: "blocked", reason: "unavailable" } as const;
+  let dispatched = false;
+  try {
+    const base = mediaApiUrl("");
+    const canonicalSource = `${base === LOCAL_MEDIA_API_BASE_URL ? LOCAL_MEDIA_API_ORIGIN : base}/images/${imageId}`;
+    if (request.source !== canonicalSource) return blocked;
+    const signal = AbortSignal.timeout(BATCH_POLICY.commandTimeoutMs);
+    const options = { credentials: "include", redirect: "error", signal } as const;
+    const root = await serviceLink("cropper");
+    const origin = gridServiceOrigin(root);
+    const rootUrl = gridServiceUrl("cropper", origin && `${origin}/`, "/", origin);
+    if (!rootUrl || !isHostedBuild() && (base !== LOCAL_MEDIA_API_BASE_URL || rootUrl !== "/grid-local-cropper/")
+      || isGridSessionInvalidated() || signal.aborted) return blocked;
+    const discovery = await fetch(rootUrl, options);
+    if (!discovery.ok) {
+      if (discovery.status === 429) return { ...blocked, status: 429 };
+      if (discovery.status !== 401 && discovery.status !== 419) return blocked;
+      invalidateGridSession();
+      return { outcome: "blocked", reason: "reload-required" };
+    }
+    const destination = findLink(await discovery.json(), "crop")?.href;
+    const url = gridServiceUrl("cropper", destination, "/crops", origin);
+    if (!url || isGridSessionInvalidated()) return blocked;
+    const fresh = await apiGetImage(imageId, options.signal);
+    const resource = fresh?.enrichment?.resource;
+    if (!fresh || fresh.image.softDeletedMetadata || fresh.enrichment?.valid !== true || resource?.uri !== canonicalSource
+      || !resource.links.some(link => link.rel === "crops" && link.href === `${origin}/crops/${imageId}`)) return blocked;
+    const size = originalCropSize(fresh.image);
+    if (!size || !Number.isSafeInteger(size.width) || !Number.isSafeInteger(size.height) || isGridSessionInvalidated()) return blocked;
+    const bounds = request.type === "crop" ? request : { x: 0, y: 0, ...size };
+    const settings = getCropSettings();
+    if (!isValidCropRect(bounds, size) || (request.type === "full" ? settings.lockedType !== undefined
+      : !allowsCropRatio(settings, request.aspectRatio))) return blocked;
+    if (request.type === "full") {
+      if (!Array.isArray(fresh.image.exports)) return blocked;
+      if (imageHasFullFrame(fresh.image)) return { outcome: "unchanged" };
+    }
+    if (signal.aborted) return blocked;
+    dispatched = true;
+    // Cropper replies only after generating every rendition; large sources can take minutes.
+    const response = fetch(url, { credentials: "include", redirect: "error", signal: AbortSignal.timeout(CROP_SAVE_TIMEOUT_MS), method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
+    dispatch?.onPost?.();
+    const result = await response;
+    if (result.status === 400) {
+      const errorKey = parseArgoErrorBody(await result.json()).errorKey;
+      return ["invalid-source", "image-not-found", "invalid-image", "no-source-image", "invalid-crop", "bad-request"].includes(errorKey)
+        ? { outcome: "rejected", status: result.status, errorKey } : { outcome: "unknown" };
+    }
+    if (!result.ok) return failure(result, true);
+    const receipt = cropReceiptSchema.safeParse(await result.json());
+    const expectedId = `${bounds.x}_${bounds.y}_${bounds.width}_${bounds.height}`;
+    return receipt.success && receipt.data.id === expectedId
+      ? { outcome: "acknowledged", crop: receipt.data } : { outcome: "unknown" };
+  } catch (error) {
+    if (!dispatched && error instanceof SearchAfterApiError && (error.status === 401 || error.status === 419)) {
+      invalidateGridSession();
+      return { outcome: "blocked", reason: "reload-required" };
+    }
+    if (!dispatched && error instanceof SearchAfterApiError && error.status === 429) return { ...blocked, status: 429 };
+    return dispatched ? { outcome: "unknown" } : blocked;
+  }
 }
 
 async function executeLeaseChange(command: LeaseCommand): Promise<GridCommandResult> {
@@ -299,7 +416,7 @@ async function executeCollectionChange(command: z.infer<typeof collectionSchema>
   } catch { return dispatched ? { outcome: "unknown" } : blocked; }
 }
 
-export async function executeGridCommand(input: unknown, observeRights?: ObserveRights, onDerivedDispatch?: DerivedDispatch): Promise<GridCommandResult> {
+export async function executeGridCommand(input: unknown, observeRights?: ObserveRights, onDerivedDispatch?: DerivedDispatch, cropDispatch?: CropDispatch): Promise<GridCommandResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { outcome: "blocked", reason: "invalid-command" };
   const command = parsed.data;
@@ -307,6 +424,7 @@ export async function executeGridCommand(input: unknown, observeRights?: Observe
   if (!gridLabelEditingEnabled()) return { outcome: "blocked", reason: "disabled" };
   if (command.operation === "edit-rights" && !observeRights) return { outcome: "blocked", reason: "unavailable" };
   if (isGridSessionInvalidated()) return { outcome: "blocked", reason: "reload-required" };
+  if (command.operation === "create-crop") return createCrop(command, cropDispatch);
   if (command.operation === "set-archive") {
     const blocked = { outcome: "blocked", reason: "unavailable" } as const;
     let dispatched = false;

@@ -19,6 +19,8 @@ import { HiJoshuaProvider } from "./components/HiJoshua";
 import { executeGridCommand, gridLabelEditingEnabled } from "./lib/grid-commands";
 import { createLabelReadback } from "./lib/image-publication";
 import { createBatchQueue } from "./lib/batch-execution";
+import { configureImageActionQueue } from "./stores/image-action-store";
+import { resumeCropSaves } from "./stores/crop-save-store";
 import { checkBedrockHealth } from "./lib/bedrock-proxy-client";
 import { setAiSearchAvailable } from "./lib/grid-config";
 import { apiAiSearchAvailable } from "./lib/grid-api-instance";
@@ -80,6 +82,9 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 }
 
 const editingQueue = createBatchQueue();
+// Crops go to cropper and never wait behind, or hold up, metadata and label edits.
+configureImageActionQueue(createBatchQueue());
+if (gridLabelEditingEnabled()) resumeCropSaves();
 const metadataEditor = gridLabelEditingEnabled()
   ? createMetadataEditorStore(executeGridCommand, createLabelReadback(useSearchStore.getState().dataSource), editingQueue)
   : createMetadataEditorStore();

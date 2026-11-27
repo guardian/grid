@@ -278,7 +278,8 @@ function derivedIssue(item: MetadataSave["items"][number]): EditIssue | undefine
   return { imageId: item.imageId, field: "Metadata from rights", notSaved: result.metadataFromRights !== "unknown", reload: result.status === 401 || result.status === 419 };
 }
 const noLabels: readonly LabelReceipt[] = [];
-export function SelectionSaveIndicator({ targetKey, compact = false, below = true, detailImageId, desktopCount, renderSlot = status => status, labelTotal = 0, labelConfirmed = 0, labelCount = 0, finishedLabels = noLabels }: { targetKey: string; compact?: boolean; below?: boolean; detailImageId?: string; desktopCount?: number; renderSlot?: (status: React.ReactElement | null) => React.ReactNode; labelTotal?: number; labelConfirmed?: number; labelCount?: number; finishedLabels?: readonly LabelReceipt[] }) {
+export interface ExtraEditStatus { label: string; total: number; confirmed: number; issues: readonly EditIssue[]; inspect: () => void }
+export function SelectionSaveIndicator({ targetKey, compact = false, below = true, detailImageId, desktopCount, renderSlot = status => status, labelTotal = 0, labelConfirmed = 0, labelCount = 0, finishedLabels = noLabels, extra }: { targetKey: string; compact?: boolean; below?: boolean; detailImageId?: string; desktopCount?: number; renderSlot?: (status: React.ReactElement | null) => React.ReactNode; labelTotal?: number; labelConfirmed?: number; labelCount?: number; finishedLabels?: readonly LabelReceipt[]; extra?: ExtraEditStatus }) {
   const editor = useContext(MetadataEditorContext);
   const [inspection, setInspection] = useState(0);
   const includesDetail = useMemo(() => {
@@ -307,8 +308,8 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
     }
     return [id, total, confirmed, count] as const;
   }));
-  const total = metadataTotal + labelTotal;
-  const confirmed = metadataConfirmed + labelConfirmed;
+  const total = metadataTotal + labelTotal + (extra?.total ?? 0);
+  const confirmed = metadataConfirmed + labelConfirmed + (extra?.confirmed ?? 0);
   const busy = total > 0;
   const percent = busy ? 100 * confirmed / total : 0;
   const progressText = `${confirmed} of ${total} confirmed`;
@@ -358,8 +359,8 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
         fields.set(key, affected);
       }
     }
-    return [...[...fields.values()].flatMap(items => [...items.values()]), ...labelIssues.details()];
-  }, [finished, finishedLabels, inspection, detailImageId]);
+    return [...[...fields.values()].flatMap(items => [...items.values()]), ...labelIssues.details(), ...extra?.issues ?? []];
+  }, [finished, finishedLabels, inspection, detailImageId, extra?.issues]);
   const issues = useMemo(() => [...new Set(details.map(issue => issue.imageId))], [details]);
   const operationKey = busy ? "saving" : undefined;
   const [visibleKey, setVisibleKey] = useState<string>();
@@ -391,6 +392,7 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
       }
       for (const save of finished) inspectedPanelIssues.add(save);
       for (const receipt of finishedLabels) inspectedPanelIssues.add(receipt);
+      extra?.inspect();
       setInspection(value => value + 1);
       requestAnimationFrame(() => document.querySelector<HTMLElement>(compact ? '[data-bottom-sheet] button[aria-expanded]' : 'button[aria-label="Deselect"]')?.focus({ preventScroll: true }));
     };
@@ -401,9 +403,11 @@ export function SelectionSaveIndicator({ targetKey, compact = false, below = tru
   if (!visible) return renderSlot(!desktopCount ? null : <span role="status" aria-label={`${desktopCount.toLocaleString()} selected`} aria-live="polite" aria-atomic="true" className="flex items-center px-2 text-grid-accent text-sm whitespace-nowrap shrink-0">
     {desktopCount.toLocaleString()}<span className="status-control-label">&nbsp;selected</span>
   </span>);
-  const fieldId = metadataTotal ? editor.getState().saves.get(saveId)?.intent.fieldId : "labels";
+  const extraCount = extra?.total ? 1 : 0;
+  const fieldId = metadataTotal ? editor.getState().saves.get(saveId)?.intent.fieldId : labelCount ? "labels" : undefined;
   const field = fieldId && pillDisplayField(fieldId);
-  const updating = metadataCount + labelCount > 1 ? `${metadataCount + labelCount} saves: ` : `Updating ${fieldId === "archived" ? "Library" : FIELDS_BY_ID.get(field ?? "")?.label ?? "selection"}: `;
+  const updating = metadataCount + labelCount + extraCount > 1 ? `${metadataCount + labelCount + extraCount} saves: `
+    : `Updating ${fieldId === "archived" ? "Library" : !fieldId && extra ? extra.label : FIELDS_BY_ID.get(field ?? "")?.label ?? "selection"}: `;
   if (!compact) return renderSlot(<span role="progressbar" aria-label="Updating selected images" title={`${updating}${progressText}`}
     aria-valuemin={0} aria-valuemax={total} aria-valuenow={confirmed} aria-valuetext={progressText}
     className="isolate relative inline-flex self-stretch shrink-0 items-center gap-1.5 px-2 overflow-hidden text-white whitespace-nowrap tabular-nums @min-[800px]:w-[184px]">

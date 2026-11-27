@@ -51,6 +51,18 @@ export const test = base.extend<{ kupua: KupuaHelpers }>({
 
 export { expect };
 
+export async function allowDisconnectedCropGeometry(page: Page) {
+  await page.route(/\/src\/lib\/crop\/crop-policy\.ts(?:\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.has("geometry-original")) return route.continue();
+    url.searchParams.set("geometry-original", "");
+    return route.fulfill({ contentType: "application/javascript", body: `
+      export { cropAccess, imageHasFullFrame } from ${JSON.stringify(url.pathname + url.search)};
+      export const cropEditingEnabled = api => api !== false;
+    ` });
+  });
+}
+
 export async function waitForFixtureSetup(
   page: Page,
   setup: JSHandle<{ complete: boolean; error: string | null }>,

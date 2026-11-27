@@ -75,6 +75,7 @@ The detailed entries below remain authoritative for evidence, permissions and li
 | [KUP-048](#kup-048) | Table column sizing writes store state during React update | Reproduced warning with current and committed scrolling modules; unfixed | Independent table-state defect; does not require the scrolling repair |
 | [KUP-052](#kup-052) | Incidental keys reveal unwanted focus rings on pointer-used controls | Operator-observed; UX policy/options pending, no implementation | Independent app-wide interaction polish; preserve keyboard focus visibility |
 | [KUP-056](#kup-056) | Editing-enabled Table uses more renderer time while scrolling | Measured in matched loopback builds; attribution open | Parked performance investigation, not a queue gate |
+| [KUP-057](#kup-057) | Full frame must stay actionable for fully cropped selections in Composer | Recorded improvement; Composer integration not started | Applies only when Composer delivery is connected |
 
 KUP-011 has no closure evidence from continuity work and remains separately scoped.
 
@@ -91,6 +92,13 @@ legacy-category expansion remains accepted lag.
 **Table uses more renderer time for the same scroll and reversal after inline editing changes.** Four matched runs per arm, with the editor closed, reached the same 6,000 px and returned to zero. Median renderer task time increased from 3,405.5 to 3,865.5 ms (+13.5%) over six seconds; the ranges did not overlap. Neither Table arm had a sampled frame interval over 25 ms. This is reduced headroom, not demonstrated visible stutter and not attribution to any single component. [Workload, revision fingerprints and limits](editing-performance-evidence.md#client-batch-progress-and-browsing-26-november).
 
 **Disposition: OPEN, parked.** Compare one candidate at a time, starting with Badges and Labels/Collections cells, under the same workload and achieved movement. Do not drop useful editing controls to improve a synthetic number. Distinct from KUP-048's render-time store update. No Table work is part of queue generalisation.
+
+### Editorial Integration Follow-ups
+
+#### KUP-057
+**Crop full frame should still act on a fully cropped selection when embedded in Composer.** Kupua disables the button when every selected image already has a full frame, as Kahuna does, because creation would be a no-op. In Composer, the same action also sends the selected full frames to the parent. A fully cropped selection must therefore still be sendable, reusing existing exports with zero POSTs.
+
+**Disposition: OPEN, deferred to Composer integration.** Keep the standalone behaviour. When the embedding receiver is verified, enable the action for already cropped targets and deliver existing and newly created full frames together. See the [Step 13 Composer handoff](gradually-growing-teeth.kupua-edits-steps.md#step-13-save-crops-create-full-frame-exports-and-browse-their-results).
 
 #### Earlier Cancellation of Obsolete Window Reads
 

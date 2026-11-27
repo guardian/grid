@@ -14,7 +14,7 @@ import { attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-sto
 import { unwrapEntity } from "./grid-api/argo";
 import type { ImageData, Link } from "./grid-api/types";
 import { MGET_CHUNK_SIZE, MGET_CONCURRENCY } from "@/constants/tuning";
-import { mediaApiUrl } from "./grid-api/proxy-target";
+import { LOCAL_MEDIA_API_BASE_URL, LOCAL_MEDIA_API_ORIGIN, mediaApiUrl } from "./grid-api/proxy-target";
 import { captureImageRead, stampImageRead } from "@/lib/image-read-freshness";
 
 type ImagePageResponse = {
@@ -183,13 +183,19 @@ export async function postImageRead(path: string, body: Record<string, unknown>,
 /** Reads one image through GET /images/:id; undefined when media-api has no visible image with that ID. */
 export async function apiGetImage(id: string, signal?: AbortSignal): Promise<ImageByIdResult | undefined> {
   const issued = captureImageRead();
-  const res = await fetchImageRead(`/images/${encodeURIComponent(id)}`, {}, signal);
+  const path = `/images/${encodeURIComponent(id)}`;
+  const res = await fetchImageRead(path, {}, signal);
   if (res.status === 404) return undefined;
   if (!res.ok) throw await readFailure(res, signal);
-  const json = await readJson(res, signal) as { data?: { id?: unknown }; actions?: unknown; links?: Link[] };
+  const json = await readJson(res, signal) as { uri?: string; data?: { id?: unknown }; actions?: unknown; links?: Link[] };
   if (json.data?.id !== id) return undefined;
   const image = mapApiImageToImage(json);
   const enrichment = extractEnrichment(json)?.[1];
+  const resource = enrichment?.resource;
+  if (resource && !resource.uri && resource.links.some(link => link.rel === "crops")) {
+    const target = mediaApiUrl("");
+    resource.uri = `${target === LOCAL_MEDIA_API_BASE_URL ? LOCAL_MEDIA_API_ORIGIN : target}${path}`;
+  }
   stampImageRead(image, enrichment, issued, "full");
   if (enrichment) attachEnrichment(image, enrichment);
   return { image, enrichment };

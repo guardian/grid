@@ -14,7 +14,8 @@ import { FieldDisclosure } from "./FieldDisclosure";
 import { SuggestionDropdown } from "./SuggestionDropdown";
 import { FieldAddButton } from "./FieldAddButton";
 import { addToast } from "@/stores/toast-store";
-import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, usePendingPillIntents } from "./MetadataEditing";
+import { MetadataEditorContext, panelSaveAdmitted, SelectionSaveIndicator, useMetadataCommit, usePendingPillIntents, type ExtraEditStatus } from "./MetadataEditing";
+import { useImageActionStore, type FullFrameBatch } from "@/stores/image-action-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { addressableLabel, labelEntryToken, parseLabelEntry, replaceLabelToken } from "@/lib/grid-mutation-policy";
 
@@ -39,7 +40,28 @@ export function SelectedEditStatus({ compact = false, below = true, detailImageI
     }
     return { operations, total, confirmed, finished };
   }, [receipts, detailImageId]);
-  return <SelectionSaveIndicator targetKey={key} compact={compact} below={below} detailImageId={detailImageId} renderSlot={renderSlot} desktopCount={compact || detailImageId ? undefined : ids.size} labelTotal={status.total} labelCount={status.operations} labelConfirmed={status.confirmed} finishedLabels={status.finished} />;
+  const fullFrames = useImageActionStore(state => state.fullFrameBatches);
+  const fullFrame = useMemo(() => fullFrameStatus(fullFrames, detailImageId), [fullFrames, detailImageId]);
+  return <SelectionSaveIndicator targetKey={key} compact={compact} below={below} detailImageId={detailImageId} renderSlot={renderSlot} desktopCount={compact || detailImageId ? undefined : ids.size} labelTotal={status.total} labelCount={status.operations} labelConfirmed={status.confirmed} finishedLabels={status.finished} extra={fullFrame} />;
+}
+
+function fullFrameStatus(batches: readonly FullFrameBatch[], detailImageId?: string): ExtraEditStatus | undefined {
+  if (!batches.length) return;
+  let total = 0, confirmed = 0;
+  const issues: ExtraEditStatus["issues"][number][] = [];
+  const superseded = new Set<string>();
+  for (const batch of batches) for (const { id, status, reason } of batch.receipts) {
+    if (detailImageId && id !== detailImageId || superseded.has(id)) continue;
+    superseded.add(id);
+    if (status === "skipped") continue;
+    if (batch.active) {
+      total++;
+      if (status === "saved" || status === "unchanged") confirmed++;
+    } else if (["rejected", "unsent", "uncertain", "acknowledged"].includes(status)) {
+      issues.push({ imageId: id, field: "Full frame", notSaved: status === "rejected" || status === "unsent", reload: reason === "Reload page" });
+    }
+  }
+  return { label: "Full frame", total, confirmed, issues, inspect: () => useImageActionStore.getState().inspectFullFrame() };
 }
 
 

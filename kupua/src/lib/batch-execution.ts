@@ -169,6 +169,7 @@ export function createBatchExecution<T>(
   hooks: { started: (item: T) => void; stopped: (unsent: readonly T[]) => void },
   pacing: BatchPacing,
   concurrency: number = BATCH_POLICY.speed.concurrency,
+  dispatchDeadlineMs: number | null = BATCH_POLICY.dispatchDeadlineMs,
 ) {
   const work = [...items];
   let next = 0;
@@ -220,6 +221,6 @@ export function createBatchExecution<T>(
       hooks.stopped(unsent);
       finish();
     },
-    start() { deadline = setTimeout(stopRemaining, BATCH_POLICY.dispatchDeadlineMs); pump(); },
+    start() { if (dispatchDeadlineMs !== null) deadline = setTimeout(stopRemaining, dispatchDeadlineMs); pump(); },
   };
 }

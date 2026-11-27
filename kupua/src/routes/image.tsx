@@ -9,6 +9,7 @@
 import { createRoute, redirect } from "@tanstack/react-router";
 import { rootRoute } from "./__root";
 import { DEFAULT_SEARCH } from "@/lib/home-defaults";
+import { cropEditingEnabled } from "@/lib/crop/crop-policy";
 
 export const imageRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -28,7 +29,8 @@ export const imageCropRoute = createRoute({
   beforeLoad: ({ params, location }) => {
     throw redirect({
       to: "/search",
-      search: { ...DEFAULT_SEARCH, image: params.imageId, cropping: "true", crop: new URLSearchParams(location.searchStr).get("crop") ?? undefined },
+      search: { ...DEFAULT_SEARCH, image: params.imageId, cropping: cropEditingEnabled() ? "true" : undefined,
+        crop: new URLSearchParams(location.searchStr).get("crop") ?? undefined },
     });
   },
 });

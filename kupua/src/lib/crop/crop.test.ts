@@ -30,6 +30,18 @@ describe("legacy crop params", () => {
     expect(s.options).toEqual([{ key: "longcrop", ratio: 0.2, ratioString: "1:5" }]);
   });
 
+  it("retains a tab's named ratio lock until a nonempty unknown crop type clears it", () => {
+    const storage = new MemoryStorage();
+    apply("cropType=banner&customRatio=banner,3,1&defaultCropType=portrait", storage);
+    apply("", storage);
+    apply("cropType=", storage);
+    expect(getCropSettings(storage)).toMatchObject({ initialType: "banner", lockedType: "banner" });
+    apply("cropType=__clear__", storage);
+    const unlocked = getCropSettings(storage);
+    expect(unlocked).toMatchObject({ initialType: "portrait", lockedType: undefined });
+    expect(unlocked.options).toContainEqual(expect.objectContaining({ key: "banner", ratioString: "3:1" }));
+  });
+
   it("uses defaultCropType without locking, and invalid values clear settings", () => {
     const storage = new MemoryStorage();
     apply("defaultCropType=portrait", storage);

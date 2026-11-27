@@ -378,7 +378,7 @@ dispatched write may have an unknown outcome and cannot be undone by stopping.
 Kahuna crops on a separate `/images/:id/crop` page; Kupua opens the editor over the image
 detail with `cropping=true`, keeping the search context mounted. The legacy path redirects
 there, and Kahuna's crop-type URL params are stored under `kupua.crop.*` sessionStorage keys,
-not Kahuna's. The editor is a dry run on Cropper.js v2 (Kahuna uses v1).
+not Kahuna's. The editor uses Cropper.js v2 (Kahuna uses v1).
 Trade-off: a deep-linked editor has no detail entry below it, so Cancel replaces the URL
 instead of going back.
 
@@ -387,10 +387,77 @@ but browsing exports does not add Back-button stops or change search position. A
 ratio suppresses full-frame shortcuts, including preparation, rather than copying Kahuna's
 shortcut escape from ratio constraints. The ordinary editor still permits a compatible
 full-image frame with the requested ratio tag; server friendly-ratio inference is not copied.
-Known-invalid full-frame batch targets are skipped with the existing per-target activity
-details and a count-only information toast. Kahuna attempts them, receives server rejection
-and logs failures to the console. The trade-off is explicit omission rather than doomed work,
-not permission to export an image rejected by the server. Saving remains disconnected.
+Known-invalid full-frame batch targets are skipped and counted in the confirmation's
+description. Kahuna attempts them, receives server rejection and logs failures to the console.
+The trade-off is explicit omission rather than doomed work, not permission to export an
+image rejected by the server.
+
+Kupua also skips known existing full frames in a mixed batch (operator decision,
+26 November 2026). Kahuna disables the batch only when every target already has one;
+otherwise it submits the whole selection. Kupua avoids regenerating stored assets and
+appending duplicate export records, but the skipped crop keeps its previous creator and
+save time. An intentional save in the manual editor is separate and may repeat the bounds.
+This decision governs creation only, not delivery of existing crops to an embedding parent.
+
+Kahuna sends every full-frame POST at once and reports only through its toast. Kupua runs
+at most 50 targets, two POSTs at a time, through its own crop queue: crops never wait
+behind, or hold up, metadata and label edits. It confirms each
+saved export through a batched read, then reports progress and unsaved or unconfirmed
+images in the selection status bar. An uncertain POST is never retried, and its image is
+locked against further crop saves for two minutes. Trade-off: large selections are slower
+and need more readback requests, but each result is accounted for and server load stays bounded.
+
+**Crop save lifecycle (27 November 2026).** Kahuna leaves the frame editable while a crop
+saves, and its in-page promise is lost when the page is left or reloaded. Kupua owns each
+manual save in a per-image record ([crop-save-store](../../src/stores/crop-save-store.ts)),
+not in the editor:
+
+- **One write per image.** A manual save or full-frame batch target must claim the image
+  first. A second claim is refused, never queued. An `unknown` POST outcome keeps the claim
+  for two minutes, because cropper may still be writing; that lock survives reload, for
+  batch targets as well as manual saves. Claims
+  are per tab: two tabs are not coordinated, and Grid does not enforce exclusion either.
+- **Locked while saving.** The canvas vetoes user selection changes; view projection still
+  applies. Ratio and coordinate controls are disabled and the departure guard is off,
+  because the record holds the frame. A remounted editor reads its frame from the record
+  instead of the single-image draft.
+- **Landing.** The editor open for that image, if any, registers a handler. After readback
+  confirms the acknowledged ID, date and a usable rendition, the save publishes the image
+  (including to a standalone Detail, unless a later read of the image is already shown)
+  and the handler returns to Detail with the crop
+  selected. With no editor open, the publication alone updates Detail and search. A
+  full-frame batch claim disables Crop with a reason but does not lock the editor's frame.
+- **Reload.** Manual saves persist in `sessionStorage` (`kupua.crop.saving`) with the
+  expected bounds ID (`x_y_width_height`), the newest date of any earlier export with that ID,
+  and the receipt once acknowledged. After reload, the tab only reads `GET /images/:id`.
+  Because Grid appends repeat saves, it lands the exact receipt, or else an export with that
+  ID newer than every pre-save copy, with a usable rendition. Landing waits up to ten
+  seconds for a restored editor to mount. A 401/419 invalidates the session and stops
+  waiting. After `CROP_SAVE_TIMEOUT_MS` from submission, it reports "Could not confirm whether the
+  crop was saved" and releases the image. Nothing is resent. Persistence is per tab, like
+  frame drafts.
+- **Ten-minute limit.** Cropper replies only after generating every rendition, so large
+  sources can take minutes; Kahuna waits indefinitely. Kupua waits up to
+  `CROP_SAVE_TIMEOUT_MS` (ten minutes, in [tuning](../../src/constants/tuning.ts)) for the
+  POST, then reports the save as unconfirmed and applies the uncertain lock
+  (`CROP_UNCERTAIN_LOCK_MS`). The same limit bounds reload recovery.
+
+Trade-off: the operator cannot prepare a second frame for the same image until the first
+save settles. In exchange, no locked frame is silently discarded and a reload does not
+invite a duplicate save ([GRID-022](bug-backlog.md#grid-022)). A request lost before reaching
+cropper is reported only after that limit.
+
+**Full-frame presentation.** The selection-toolbar button uses `aria-disabled`, not
+`disabled`, when no target is eligible or a batch is running. It keeps hover feedback and
+focus like Share with URL, and counted reasons appear in the native tooltip. The
+confirmation is not red (Kahuna's is not a warning either) and reserves the wider label's
+width, so the status bar does not shift. Kahuna has no fit logic for its crop toolbar; Kupua
+measures overflow and shortens labels only when the row would otherwise wrap.
+
+On phones, the rights notice sits in the crop footer because the toolbar shares the
+installed app's camera cutout; the mask becomes an icon toggle there. Desktop and
+fullscreen keep Kahuna's placement left of Crop. Short labels ("Restricted", "Over quota")
+appear only when the toolbar or footer would overflow.
 
 Legacy custom-ratio dimensions must be complete positive safe integers; malformed numeric
 prefixes are rejected rather than silently truncated as in Kahuna. Explicitly requested hidden

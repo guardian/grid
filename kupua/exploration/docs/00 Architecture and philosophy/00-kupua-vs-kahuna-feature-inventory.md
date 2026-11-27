@@ -584,7 +584,7 @@ Sources: [image URL builders](../../../src/lib/image-urls.ts),
 [Kahuna rendition selection](../../../../kahuna/public/js/imgops/service.js),
 [canonical delivery plan](<../03 Ce n'est pas une pipe dream/api-build/api-build-00-plan.md>).
 
-### 3.7 Desktop and touch crop framing with reload recovery
+### 3.7 Crop saving, full frames and touch framing
 
 **Kahuna:** provides a backend-connected crop workflow on a separate page, with
 numeric coordinates, ratio presets and responsive labels. Numeric editing and
@@ -628,24 +628,42 @@ crop editing before release.
 
 Dragging a frame along an image edge preserves its size; resizing can continue along
 the other edge after reaching a boundary. Ratio-locked resizing preserves opposite
-anchors and the orthogonal center of side-handle drags. Square crops keep Apply mask
-alongside the dimensions on phones. Ratio labels retain Kahuna's compact treatment
-on narrower desktop widths, and local small-crop warnings pass pointer input through
-their body instead of covering frame controls. Fullscreen stays free of Settings
-menus. The view controls use local inline SVGs without an additional icon dependency.
+anchors and the orthogonal center of side-handle drags. Square crops offer a circular mask: a labelled checkbox on desktop, an icon toggle
+beside the dimensions on phones. The toolbar keeps full labels ("Landscape (5:4)",
+"Restricted use") while they fit and switches to short ones only when the row really
+runs out of room; the phone footer likewise drops " px" only when needed. Local
+small-crop warnings pass pointer input through their body instead of covering frame
+controls. Fullscreen stays free of Settings menus.
 
-**Boundary:** cropping is mock-only. Crop builds, displays and logs an original-pixel
-request; it does not submit it, create or save a crop, or produce an export. Kahuna's
-connected crop/export workflow remains a gap (§8.2).
+**Saving crops.** With Allow editing on in media-api mode, Crop saves to Grid.
+Pay, over-quota and restricted-use notices sit beside Crop in Kahuna's red and orange;
+on phones they move to the bottom bar, away from the camera cutout. While a crop saves,
+the frame, ratio and coordinates are locked and Crop shows a spinner, so nothing can be
+edited that would be thrown away. You can leave to Detail, whose Crop button also spins,
+and come back as often as you like: the editor reopens on the frame being saved. When
+the crop is ready, whichever crop editor is open for that image takes you to Detail with
+the new crop selected; if you are elsewhere, the crop simply appears in the list. Even
+a page reload keeps waiting for it. Large sources may take minutes; Kupua waits up to ten
+minutes (a single tuning setting). If a save cannot be confirmed, a toast says so and nothing is
+retried automatically.
 
-**New endpoints:** **none** for these editor interactions or local draft recovery.
-Backend crop creation is not connected.
+**Full frames.** Crop full frame works from Search selections (up to 50 images) and the
+Detail menu after a confirmation that shows how many images will be cropped. Images that
+already have a full frame, or cannot be cropped, are skipped and counted in the tooltip.
+Progress appears in the selection status bar, and any images that were not saved or not
+confirmed appear there as issues, with Select only these. The button stays inactive while
+a batch is running.
+
+**New endpoints:** **none.** Saving uses Grid's existing cropper; see the Kupua
+crop deviations for technical behaviour that differs from Kahuna.
 
 Sources: [CropEditor](../../../src/components/crop/CropEditor.tsx),
 [CropCanvas](../../../src/components/crop/CropCanvas.tsx),
 [crop viewport](../../../src/lib/crop/crop-viewport.ts),
 [coordinate limits and request mapping](../../../src/lib/crop/crop-request.ts),
 [draft recovery](../../../src/lib/crop/crop-draft.ts),
+[crop saving](../../../src/stores/crop-save-store.ts),
+[full-frame batches](../../../src/stores/image-action-store.ts),
 [Kahuna crop view](../../../../kahuna/public/js/crop/view.html),
 [Kahuna responsive ratio styling](../../../../kahuna/public/js/components/gr-radio-list/gr-radio-list.css).
 
@@ -1298,13 +1316,13 @@ Sources: [Kupua metadata](../../../src/components/ImageMetadata.tsx),
 
 ### 8.2 Upload and crop/export workflows
 
-Kupua supports file upload, local batches and post-upload editing; the [Upload workplan](../gradually-growing-teeth.upload-workplan.md#unit-status) owns its parity limits. Unlike Kahuna, Kupua does not create/save/export crops. Its mock crop editor (§3.7) supports
-desktop and touch framing, numeric precision editing and local reload recovery, but
-only displays the proposed request. Ordinary image-inspection zoom is not an editing tool.
+Kupua supports file upload, local batches and post-upload editing; the [Upload workplan](../gradually-growing-teeth.upload-workplan.md#unit-status) owns its parity limits. Kupua now saves rectangular crops and full frames (§3.7).
+Remaining crop gaps are delivery to Composer and validation against deployed and
+live cropper services. Ordinary image-inspection zoom is not an editing tool.
 
 Sources: [Kahuna upload](../../../../kahuna/public/js/upload),
 [Kahuna crop](../../../../kahuna/public/js/crop),
-[Kupua mock crop editor](../../../src/components/crop/CropEditor.tsx),
+[Kupua crop editor](../../../src/components/crop/CropEditor.tsx),
 [Kupua detail](../../../src/components/ImageDetail.tsx).
 
 ### 8.3 Bulk actions, downloads and sharing selections

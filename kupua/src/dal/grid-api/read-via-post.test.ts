@@ -93,7 +93,7 @@ it("routes advertised local and TEST satellites independently without manual tar
   expect(gridServiceUrl("cropper", `${local}/crops/fixture`, "/crops/fixture", local)).toBe(`${local}/crops/fixture`);
 });
 
-it("forwards only the exact saved-crop GET to the fixed LOCAL cropper", async () => {
+it("forwards only the exact cropper discovery, save and saved-crop routes to LOCAL", async () => {
   vi.stubEnv("VITE_USE_MEDIA_API", "true");
   const { createServer } = await import("vite");
   const received: string[] = [];
@@ -118,12 +118,14 @@ it("forwards only the exact saved-crop GET to the fixed LOCAL cropper", async ()
       } }] });
     await vite.listen();
     const prefix = `${vite.resolvedUrls!.local[0]}grid-local-cropper`;
+    expect(await (await fetch(`${prefix}/`)).json()).toEqual(list);
+    expect(await (await fetch(`${prefix}/crops`, { method: "POST" })).json()).toEqual(list);
     expect(await (await fetch(`${prefix}/crops/fixture`)).json()).toEqual(list);
     for (const [method, path] of [["POST", "/crops/fixture"], ["DELETE", "/crops/fixture"], ["GET", "/management/healthcheck"],
-      ["PUT", "/collections/news"], ["GET", "/crops/fixture/extra"], ["GET", "/crops/fixture?all=true"]]) {
+      ["PUT", "/collections/news"], ["GET", "/crops/fixture/extra"], ["GET", "/crops/fixture?all=true"], ["POST", "/crops?all=true"]]) {
       expect((await fetch(prefix + path, { method })).status, `${method} ${path}`).toBe(403);
     }
-    expect(received).toEqual(["GET /crops/fixture"]);
+    expect(received).toEqual(["GET /", "POST /crops", "GET /crops/fixture"]);
   } finally {
     await vite?.close();
     await new Promise<void>(done => upstream.close(() => done()));

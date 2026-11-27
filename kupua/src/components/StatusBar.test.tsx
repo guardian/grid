@@ -7,7 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.hoisted(() => {
   window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia;
 });
+const inactive = (button: Element) => (button as HTMLButtonElement).disabled || button.getAttribute("aria-disabled") === "true";
 const shell = vi.hoisted(() => ({ compact: false }));
+vi.mock("@/lib/editing-preference", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/editing-preference")>(),
+  editingAllowedAtStartup: true,
+}));
 vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => shell.compact, isCompactNow: () => shell.compact }));
 vi.mock("@tanstack/react-router", () => ({ useSearch: () => ({}) }));
 vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => vi.fn() }));
@@ -156,18 +161,18 @@ describe("StatusBar AI totals", () => {
   it("keeps pending action styling steady while blocking preparation immediately", () => {
     const view = render(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: true }], api: true, archive: true }} />);
     const button = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    expect(inactive(button)).toBe(true);
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect(button.style.opacity).toBe("0.4");
     fireEvent.click(button);
     expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
     view.rerender(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: false }], api: true, archive: true }} />);
-    expect(button.disabled).toBe(true);
+    expect(inactive(button)).toBe(true);
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect(button.style.opacity).toBe("");
   });
 
-  it("does not brighten disabled Full frame while newly selected metadata is pending", () => {
+  it("keeps Full frame disabled during hydration and confirms only missing frames", () => {
     const target = (id: string, full = true) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {},
       source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } },
       exports: full ? [{ specification: { type: "full" } }] : [] },
@@ -175,17 +180,25 @@ describe("StatusBar AI totals", () => {
     const existing = target("existing");
     const view = render(<ImageActions actions={["full-frame"]} context={{ targets: [existing], api: true, archive: true }} />);
     const button = screen.getByRole("button", { name: "Crop full frame" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
+    expect(inactive(button)).toBe(true);
     view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, { id: "new", pending: true }], api: true, archive: true }} />);
-    expect(button.disabled).toBe(true);
+    expect(inactive(button)).toBe(true);
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect(button.style.opacity).toBe("0.4");
     fireEvent.click(button);
     expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
     view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("new", false)], api: true, archive: true }} />);
-    expect(button.disabled).toBe(false);
+    expect(inactive(button)).toBe(false);
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect(button.style.opacity).toBe("");
+    fireEvent.click(button);
+    expect(screen.getByRole("button", { name: "Confirm (1): full frame for 1 image" })).toBeTruthy();
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("other", false)], api: true, archive: true }} />);
+    expect(screen.queryByRole("button", { name: "Confirm (1): full frame for 1 image" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Crop full frame" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm (1): full frame for 1 image" }));
+    expect(useImageActionStore.getState().prepare).toHaveBeenCalledOnce();
   });
 
   it("copies the captured selection and offers to open the same link", async () => {
@@ -287,7 +300,7 @@ describe("StatusBar AI totals", () => {
       expect(screen.queryByRole("button")).toBeNull();
       await act(async () => view.rerender(toolbar([first])));
       const remove = screen.getByRole<HTMLButtonElement>("button", { name: "Remove from Library" });
-      expect(remove.disabled).toBe(false);
+      expect(inactive(remove)).toBe(false);
       latestTargets = [first, second];
       fireEvent.click(remove);
       expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
@@ -297,7 +310,7 @@ describe("StatusBar AI totals", () => {
       expect(screen.getByRole("button", { name: "Remove from Library" })).toBe(remove);
       expect(remove.querySelector('[data-library-icon="remove"]')).not.toBeNull();
       expect(remove.style.opacity).toBe("1");
-      expect(remove.disabled).toBe(true);
+      expect(inactive(remove)).toBe(true);
       fireEvent.click(remove);
       expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
 
@@ -305,7 +318,7 @@ describe("StatusBar AI totals", () => {
       expect(screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" }).disabled).toBe(false);
       view.rerender(toolbar([first, { ...second, image: { ...second.image, __availability: "deleted" }, pending: true }]));
       const unavailable = screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" });
-      expect(unavailable.disabled).toBe(true);
+      expect(inactive(unavailable)).toBe(true);
       expect(unavailable.getAttribute("aria-busy")).toBeNull();
       expect(unavailable.title).toBe("One or more selected images are unavailable or deleted");
 
@@ -368,28 +381,28 @@ describe("StatusBar AI totals", () => {
       expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/search?nonFree=true&ids=second`);
       expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
       act(() => useSelectionStore.setState({ isRangeWalking: true }));
-      expect((share as HTMLButtonElement).disabled).toBe(true);
+      expect(inactive(share)).toBe(true);
       act(() => useSelectionStore.setState({ isRangeWalking: false }));
-      expect((share as HTMLButtonElement).disabled).toBe(false);
+      expect(inactive(share)).toBe(false);
       const remove = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
-      expect(remove.disabled).toBe(true);
+      expect(inactive(remove)).toBe(true);
       act(() => useSearchStore.setState({ results: [{ id: "second", uploadTime: "", uploadedBy: "", metadata: {},
         source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } }],
         imagePositions: new Map([["second", 0]]), bufferOffset: 0 }));
       act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [
         { name: "delete", href: "https://api.example.test/images/second", method: "DELETE" as const },
       ], resource: { links: [{ rel: "download", href: "/download/second" }] } }]]) }));
-      expect(remove.disabled).toBe(false);
+      expect(inactive(remove)).toBe(false);
       const download = screen.getByRole("button", { name: "Download" }) as HTMLButtonElement;
-      expect(download.disabled).toBe(false);
+      expect(inactive(download)).toBe(false);
       const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", action: "overwrite", value: "Desk", targetIds: ["second"] },
         state: "saving", items: [], excluded: 0 };
       act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(["second"]) }], saves: new Map([[1, save]]) }));
-      expect(download.disabled).toBe(true);
+      expect(inactive(download)).toBe(true);
       act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished" }]]) }));
-      expect(download.disabled).toBe(false);
+      expect(inactive(download)).toBe(false);
       act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [] }]]) }));
-      expect(remove.disabled).toBe(true);
+      expect(inactive(remove)).toBe(true);
     } finally {
       archive.mockRestore();
       editor.getState().dispose();

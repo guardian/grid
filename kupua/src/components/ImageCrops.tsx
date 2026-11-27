@@ -57,6 +57,12 @@ export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect
       fullFrames: displayedCrops.filter(crop => (crop.specification?.type ?? crop.type) === "full"),
       crops: displayedCrops.filter(crop => (crop.specification?.type ?? crop.type) !== "full") };
   }, [exportImage?.exports]);
+  const selected = compact && selectedId ? displayedCrops.find(crop => crop.id === selectedId
+    && allowsCropRatio(settings, crop.specification?.aspectRatio)) : undefined;
+  const attribution = selected && (selected.author || selected.date) ? <p className="mt-2 break-words text-xs text-grid-text-dim">
+    {selected.author ? `Cropped by ${selected.author}` : "Cropped"}
+    {selected.date && <> at <time dateTime={selected.date}>{new Date(selected.date).toLocaleString()}</time></>}
+  </p> : null;
   const cropGrid = compact ? displayedCrops.length > 1
     ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2 w-[calc((100%_-_0.5rem)/2)]" : "space-y-2";
   const tileClass = "group block w-full min-w-0 text-left border-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
@@ -116,10 +122,12 @@ export const ImageCrops = memo(function ImageCrops({ image, selectedId, onSelect
     {fullFrames.length > 0 && <section aria-label="Full frame" className="p-2 border-b border-grid-separator">
       <h3 className="mb-1 text-xs font-bold text-grid-text-dim">Full frame</h3>
       <div className={cropGrid}>{fullFrames.map(renderCrop)}</div>
+      {selected && fullFrames.includes(selected) && attribution}
     </section>}
     {crops.length > 0 && <section aria-label="Image crops" className="p-2 border-b border-grid-separator">
       <h3 className="mb-1 text-xs font-bold text-grid-text-dim">Crops</h3>
       <div className={cropGrid}>{crops.map(renderCrop)}</div>
+      {selected && crops.includes(selected) && attribution}
     </section>}
   </>;
 });

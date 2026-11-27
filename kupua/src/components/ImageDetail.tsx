@@ -72,7 +72,7 @@ import { readGridDragCrops, writeGridImageDragData } from "@/lib/grid-drag-data"
 import { setImageDragPreview } from "@/lib/image-drag-preview";
 import { useCropSettings } from "@/hooks/useCropSettings";
 import { allowsCropRatio } from "@/lib/crop/crop-options";
-import { cropAccess } from "@/lib/crop/crop-policy";
+import { cropAccess, cropEditingEnabled, imageHasFullFrame } from "@/lib/crop/crop-policy";
 import { UsagesSection, countDisplayUsages } from "@/components/UsagesSection";
 import { AccordionSection, useIsCompact } from "@/components/PanelLayout";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -85,14 +85,16 @@ import { consumeTraceInteraction, traceInteraction } from "@/lib/perceived-trace
 import type { Image } from "@/types/image";
 import type { EnrichmentFields } from "@/stores/enrichment-store";
 import { acceptEnrichedImage, attachedEnrichment, attachEnrichment } from "@/stores/enrichment-store";
-import { captureImageRead, ensureImageRead, hasImageFence, protectsImageOmission, withholdImageAuthority } from "@/lib/image-read-freshness";
+import { captureImageRead, ensureImageRead, getImageReadSequence, hasImageFence, protectsImageOmission, withholdImageAuthority } from "@/lib/image-read-freshness";
 import { ownStandalonePublication } from "@/lib/image-publication";
+import { useCropSaveStore } from "@/stores/crop-save-store";
+import type { ImageByIdResult } from "@/dal/types";
 import { getImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
 import { useSelectionStore } from "@/stores/selection-store";
 import { useEnrichedImage } from "@/hooks/useEnrichedImage";
 import { ImageActions, FullFrameOptions } from "./ImageActions";
 import { ImageActionFab } from "./SelectionFab";
-import { imageHasFullFrame, type ImageActionContext } from "@/lib/image-actions";
+import type { ImageActionContext } from "@/lib/image-actions";
 import { isGridSessionInvalidated, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 
 const CropEditor = lazy(() => import("@/components/crop/CropEditor").then((m) => ({ default: m.CropEditor })));
@@ -118,7 +120,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   const batchOrigin = path === "/upload" && (searchParams.section === "batch" || searchParams.section !== "other" && !!searchParams.recentUploadScope?.batch?.ids.includes(imageId));
   const inspectionStart = path === "/upload" && !batchOrigin ? uploadSections?.batch ?? 0 : 0;
   const inspectionTotal = path === "/upload" ? batchOrigin ? uploadSections?.batch ?? 0 : uploadSections?.other ?? 0 : total;
-  const cropping = searchParams.cropping === "true";
+  const cropEnabled = cropEditingEnabled();
+  const cropping = cropEnabled && searchParams.cropping === "true";
   const searchKey = useMemo(() => buildSearchKey(searchParams), [searchParams]);
 
   // Mount timestamp — used to suppress stray dblclick events that leak
@@ -320,6 +323,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     const releaseOwner = ownStandalonePublication({
       imageId,
       isCurrent: () => !cancelled,
+      current: () => current,
       read: async signal => {
         const issued = captureImageRead();
         const found = await dataSource.getById(imageId, AbortSignal.any([signal, request.signal]));
@@ -341,7 +345,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     setStandalone({ imageId, image: null, failed: false });
     const issued = captureImageRead();
     const settleAbsence = (readFailed: boolean) => {
-      if (cancelled) return;
+      if (cancelled || readFailed && current && getImageReadSequence(current) > issued) return;
       const availability = getImageAvailability(imageId);
       if (availability) publish(unavailableImage(imageId, availability, current));
       else if (!current || !protectsImageOmission(imageId, issued)) setStandalone({ imageId, image: null, failed: true, readFailed });
@@ -349,6 +353,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     dataSource.getById(imageId, request.signal).then(
       (found) => {
         if (cancelled) return;
+        // A readback published while this read was in flight is newer; keep it.
+        if (current && getImageReadSequence(current) > issued) return;
         if (found) {
           ensureImageRead(found.image, issued, "full", found.enrichment);
           if (found.enrichment) attachEnrichment(found.image, found.enrichment);
@@ -391,7 +397,8 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
     ? latestCrops(image?.exports).find(crop => crop.id === searchParams.crop) : undefined,
   [cropping, cropPolicy.canReadExports, image?.exports, searchParams.crop]);
   const selectedCrop = selectedExport && allowsCropRatio(cropSettings, selectedExport.specification?.aspectRatio) ? selectedExport : undefined;
-  const canCrop = Boolean(image && image.id === imageId && !cropPolicy.creationReason);
+  const canCrop = Boolean(cropEnabled && image && image.id === imageId && !cropPolicy.creationReason);
+  const cropSaving = useCropSaveStore(state => state.saves.get(imageId)?.phase === "saving");
   const cropOwner = useRef({ imageId, canCrop });
   useLayoutEffect(() => {
     cropOwner.current = { imageId, canCrop };
@@ -427,7 +434,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       // it must switch to pushNavigate().
       navigate({
         to: path,
-        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id, crop: undefined }),
+        search: (prev: Record<string, unknown>) => ({ ...prev, image: img.id, crop: undefined, cropping: undefined }),
         replace: true,
         state: withCurrentKupuaKey(),
       });
@@ -535,7 +542,32 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
       state: withCurrentKupuaKey(),
     });
   }, [navigate, path]);
-  useKeyboardShortcut("c", () => { if (!cropping && image) openCrop(); });
+  useKeyboardShortcut("c", openCrop, () => !cropping && canCrop);
+  const savedCropReturn = useRef<{ imageId: string; cropId: string; detailKey: string } | null>(null);
+  const showSavedCrop = useCallback((cropId: string) => {
+    navigate({ to: path, search: (previous: Record<string, unknown>) => ({ ...previous, cropping: undefined, crop: cropId }),
+      replace: true, state: withCurrentKupuaKey({ _cropOriginKupuaKey: undefined }) });
+  }, [navigate, path]);
+  useLayoutEffect(() => {
+    const returned = savedCropReturn.current;
+    if (cropping || !returned) return;
+    savedCropReturn.current = null;
+    if (imageId === returned.imageId && history.state?.kupuaKey === returned.detailKey) showSavedCrop(returned.cropId);
+  }, [cropping, imageId, showSavedCrop]);
+  const finishCropSave = useCallback((result: ImageByIdResult, cropId: string, returnToDetail: boolean) => {
+    if (!cropping || result.image.id !== imageId || isGridSessionInvalidated()) return;
+    setStandalone(previous => previous?.imageId === imageId
+      ? { imageId, image: result.image, enrichment: result.enrichment, failed: false } : previous);
+    if (!returnToDetail) return;
+    const detailKey = history.state?._cropOriginKupuaKey;
+    if (typeof detailKey === "string") {
+      savedCropReturn.current = { imageId, cropId, detailKey };
+      closeCrop();
+    } else {
+      exitMobileFullscreenForCropReturn.current?.();
+      showSavedCrop(cropId);
+    }
+  }, [cropping, imageId, closeCrop, showSavedCrop]);
 
   // Keyboard shortcut: f = toggle fullscreen (via centralised shortcut system)
   // Alt+f works when focus is in an editable field.
@@ -904,7 +936,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
   return (
     <div ref={detailWrapperRef} className={`relative flex flex-col flex-1 min-h-0 ${isCompact ? "bg-black" : "bg-grid-bg"}`} data-detail-image-id={resolvedImage?.id}>
       {cropping && <div className="fixed inset-0 z-50 bg-grid-bg" data-testid="crop-backdrop">
-        {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} actionImage={actionImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} /></Suspense> : cropLoading}
+        {displayImage ? <Suspense fallback={cropLoading}><CropEditor image={displayImage} actionImage={actionImage} previewSrc={cropPreviewSrc} onClose={closeCrop} onHome={goHome} onSaved={finishCropSave} /></Suspense> : cropLoading}
       </div>}
       {/* Top bar — hidden in fullscreen */}
       {(!isFullscreen || isCompact) && (
@@ -925,7 +957,7 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
           <span className="flex-1" />
 
           {!isCompact && displayImage && <ImageActions context={actionContext} presentation="detail" actions={["share", "download", "delete", "library"]} />}
-          {displayImage && (
+          {displayImage && cropEnabled && (
             <>
               <div className="w-px h-5 bg-grid-separator shrink-0" />
               <div className="detail-crop-actions contents wide:inline-flex wide:shrink-0 wide:self-center wide:h-11">
@@ -933,17 +965,19 @@ export function ImageDetail({ imageId, gridContainerRef }: ImageDetailProps) {
                 onClick={openCrop}
                 disabled={!canCrop}
                 aria-label={canCrop ? "Crop image" : "Cannot crop"}
-                title={canCrop ? "Crop image [c]" : "Cannot crop"}
+                aria-busy={cropSaving || undefined}
+                title={canCrop ? cropSaving ? "Saving crop" : "Crop image [c]" : "Cannot crop"}
                 className={`detail-crop shrink-0 min-w-11 h-11 inline-flex items-center justify-center gap-1.5 pl-3 ${suppressFullFrame ? "pr-3" : "pr-1"} text-sm text-grid-text-muted enabled:hover:bg-grid-hover enabled:hover:text-grid-text disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer`}
               >
-                <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                {cropSaving ? <span aria-hidden="true" className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" />
+                  : <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
                   <path d="M6 2v16h16M2 6h16v16" />
-                </svg>
+                </svg>}
                 <span className="hidden @min-[360px]/detail-toolbar:inline whitespace-nowrap">
                   {canCrop ? <>Crop<span className="hidden @min-[640px]/detail-toolbar:inline"> image</span></> : "Cannot crop"}
                 </span>
               </button>
-              {!isCompact && !suppressFullFrame && <FullFrameOptions context={actionContext} />}
+              {!isCompact && !suppressFullFrame && <FullFrameOptions context={actionContext} disabled={!canCrop} />}
               </div>
               <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             </>

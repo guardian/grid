@@ -24,6 +24,33 @@ match ^[ \t]+. Check the source, not just whether the preview looks acceptable.
 Keep test counts, pass reports, timings and session workflow out of entries.
 DO NOT delete or reorder existing entries. -->
 
+### 26 November 2026 - Connect crop saving and full-frame crops
+
+**Crop editing.** Crop entry and creation require Allow editing in media-api mode; saved-crop reading is unchanged. A save uses a fresh image grant and the discovered cropper route, then waits for the acknowledged export and a usable rendition before selecting it in Detail. The original detail history entry is preserved. An uncertain write is never replayed. Mobile crop browsing shows the selected crop's author and time without hover.
+
+**Save lifecycle.** A manual save belongs to the image rather than the editor. While it saves, the frame, ratio and coordinates are locked, and Crop shows a spinner in the editor and in Detail. Leaving and reopening the editor keeps the locked frame. When the crop appears, whichever editor is open for that image returns to Detail with it selected. After a reload, the tab reads the image again and lands the crop when its exact receipt, or a newer export with the expected ID, appears. Nothing is resent. Kupua waits up to `CROP_SAVE_TIMEOUT_MS` (ten minutes, tuning constants) for a POST and for reload recovery, because cropper replies only after generating every rendition. An unconfirmed POST locks further crop saves for that image for `CROP_UNCERTAIN_LOCK_MS`, across reloads. Save failures are toasts, which now render inside native fullscreen.
+
+**Full frame.** Search selections and the Detail menu save full frames after a confirmation that keeps the button's width. Up to 50 targets run through a crop queue separate from metadata and label edits, two POSTs at a time, with throttling (including preflight 429s) applied only to that queue. One batched read confirms saved exports. Progress and unsaved or unconfirmed images appear in the selection status bar, with Select only these and a reload prompt after session expiry. The button is inactive while a batch saves or no target is eligible. Its native tooltip shows the target count or counted reasons such as "Cannot crop (50)". Inactive Full frame and Library buttons keep hover feedback like Share. The Detail chevron follows Crop's eligibility and closes an open menu when that is lost.
+
+**Presentation and freshness.** Rights notices use Kahuna's red and orange left of Crop, moving to the crop footer on phones. The mask has an icon on desktop and becomes an icon toggle on phones. The toolbar and phone footer switch to short labels only when they actually overflow. Crop readbacks never replace a later read already shown in results, the selection or standalone Detail. Detail ignores an older cold read that finishes after a newer publication, unless it reports a deletion.
+
+### 26 November 2026 - Raising local Grid image limits for large-image trials
+
+No code change. Local Grid enforces its own limits, so large-image trials need them lifted locally.
+
+Imgproxy's source-resolution ceiling (megapixels) can be overridden without editing tracked files, from the repository root:
+
+```
+docker compose -f docker-compose.yml -f - up -d --no-deps --force-recreate imgproxy <<'YAML'
+services:
+  imgproxy:
+    environment:
+      IMGPROXY_MAX_SRC_RESOLUTION: "450"
+YAML
+```
+
+The upload size ceiling is nginx's `client_max_body_size` for `loader.media` (20m) in `dev/nginx-mappings.yml`. Raise it and re-run dev-nginx `setup-app` to lift it; do not commit that edit.
+
 ### 26 November 2026 - Copy image share links
 
 **Share with URL.** Search copies a Grid search for the captured selected IDs; Detail copies the open image's link. Both offer to open the same URL in a new tab, whether or not the browser accepts the clipboard write. The selection action retains Kahuna's 44-image limit and explains it at the disabled control. [GRID-034](bug-backlog.md#grid-034) records the request-size and login constraints on raising it. No Grid service or sign-in changes.

@@ -4,13 +4,12 @@ import { attachEnrichment, useEnrichmentStore } from "@/stores/enrichment-store"
 import { _resetMetadataCache, useSelectionStore } from "@/stores/selection-store";
 import { useSearchStore } from "@/stores/search-store";
 import { admitLabelObservation, captureImageRead, releaseLabelObservation, resetImageFreshnessForTests, stampImageRead } from "./image-read-freshness";
-import { useImageActionStore } from "@/stores/image-action-store";
 import { applyLegacyCropParams } from "./crop/crop-options";
-import { useToastStore } from "@/stores/toast-store";
 
-const session = vi.hoisted(() => ({ invalidated: false }));
+const session = vi.hoisted(() => ({ invalidated: false, editing: true }));
 vi.mock("./grid-api-instance", () => ({ isGridSessionInvalidated: () => session.invalidated }));
-afterEach(() => { session.invalidated = false; useToastStore.getState()._clearAll(); });
+vi.mock("./editing-preference", () => ({ get editingAllowedAtStartup() { return session.editing; } }));
+afterEach(() => { session.invalidated = false; session.editing = true; });
 
 function target(id: string): ImageActionTarget {
   return { id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, exports: [],
@@ -67,6 +66,16 @@ describe("image action preparation", () => {
     } finally { vi.unstubAllGlobals(); }
   });
 
+  it("only prepares a full frame when editing is allowed in API mode", () => {
+    const ready = context(target("ready"));
+    expect(prepareImageAction("full-frame", ready)).toBeDefined();
+    expect(describeImageAction("full-frame", { ...ready, fullFrameBusy: true }).reason).toBe("Full frame crops are still saving");
+    expect(prepareImageAction("full-frame", { ...ready, api: false })).toBeUndefined();
+    session.editing = false;
+    expect(describeImageAction("full-frame", ready).reason).toBe("Editing is disabled");
+    expect(prepareImageAction("full-frame", ready)).toBeUndefined();
+  });
+
   it("uses refreshed resident crop information while retaining off-buffer selection metadata", () => {
     const selection = useSelectionStore.getState();
     const search = useSearchStore.getState();
@@ -116,12 +125,10 @@ describe("image action preparation", () => {
     expect(prepared.eligibleIds).toEqual(["ready"]);
     expect(prepared.skipped).toEqual([
       { id: "existing", reason: "Already has a full frame" }, { id: "covering", reason: "Already has a full frame" },
-      { id: "denied", reason: "Cannot crop this image" },
-      { id: "invalid", reason: "Cannot crop this image" },
+      { id: "denied", reason: "Cannot crop" },
+      { id: "invalid", reason: "Cannot crop" },
     ]);
     expect(prepared.commands).toEqual([{ imageId: "ready", method: "POST", resource: "crop", body: { type: "full", source: "https://api.example.test/images/ready" } }]);
-    useImageActionStore.getState().prepare("full-frame", targets);
-    expect(useToastStore.getState().queue.at(-1)?.message).toBe(`Not sent - ${prepared.label}; 1 prepared; 4 skipped`);
     ready.overlay!.resource!.uri = "https://changed.example.test/";
     expect(prepared.commands[0].body).toEqual({ type: "full", source: "https://api.example.test/images/ready" });
   });
@@ -149,7 +156,7 @@ describe("image action preparation", () => {
     expect(describeImageAction("full-frame", context(existing)).reason).toBe("Already has a full frame");
     const second = target("second");
     second.image!.exports = [{ specification: { type: "full" } }];
-    expect(describeImageAction("full-frame", context(existing, second)).reason).toBe("2: Already has a full frame");
+    expect(describeImageAction("full-frame", context(existing, second)).reason).toBe("Already has a full frame (2)");
   });
 
   it("describes single-image denials without implying an underlying selection", () => {

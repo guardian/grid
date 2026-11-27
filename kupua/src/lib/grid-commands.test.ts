@@ -22,6 +22,67 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("Grid command admission", () => {
+  it("does not observe an older generation of the acknowledged crop", async () => {
+    const receipt = { id: "0_0_1200_800", date: "2026-11-26T12:34:56.123Z" };
+    const rendition = { mimeType: "image/jpeg", file: "https://assets.example.test/output.jpg",
+      dimensions: { width: 1200, height: 800 } };
+    const image = (date: string, assets: typeof rendition[]) => Response.json({ data: { id: "fixture", valid: true,
+      exports: [{ id: receipt.id, date, assets }] }, links: [{ rel: "crops", href: "https://cropper.example.test/crops/fixture" }] });
+    const transport = vi.fn()
+      .mockResolvedValueOnce(image("2026-11-26T12:30:00.000Z", [rendition]))
+      .mockResolvedValueOnce(image(receipt.date, []))
+      .mockResolvedValueOnce(image(receipt.date, [rendition]));
+    vi.stubGlobal("fetch", transport);
+    const commands = await import("./grid-commands");
+    const result = await commands.observeSavedCrop("fixture", receipt, [0, 0, 0]);
+    expect(result?.image.exports?.[0]).toMatchObject({ ...receipt, assets: [rendition] });
+    expect(transport.mock.calls.map(([url]) => url)).toEqual(Array(3).fill("/api/images/fixture"));
+  });
+
+  it.each([
+    ["stored", "acknowledged", 1], ["revoked", "blocked", 0], ["already full", "unchanged", 0],
+    ["outcome lost", "unknown", 1], ["rejected", "rejected", 1],
+    ["oriented rectangle", "acknowledged", 1], ["outside oriented bounds", "blocked", 0],
+    ["wrong ratio", "blocked", 0], ["wrong receipt", "unknown", 1], ["expired", "blocked", 0],
+    ["discovery denied", "blocked", 0], ["discovery throttled", "blocked", 0],
+  ] as const)("uses fresh crop authority and never replays a POST: %s", async (scenario, outcome, posts) => {
+    const cropper = "https://cropper.media.local.dev-gutools.co.uk";
+    const source = "https://api.media.local.dev-gutools.co.uk/images/fixture";
+    const rectangle = ["oriented rectangle", "outside oriented bounds", "wrong ratio"].some(value => value === scenario);
+    const request = rectangle ? { type: "crop", source, x: 100, y: 600, width: 500,
+      height: scenario === "outside oriented bounds" ? 601 : 600, aspectRatio: "5:6" } : { type: "full", source };
+    const date = "2026-11-26T12:34:56.123Z";
+    if (scenario === "wrong ratio") {
+      const values = new Map<string, string>();
+      vi.stubGlobal("sessionStorage", { getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) });
+      const { applyLegacyCropParams } = await import("./crop/crop-options");
+      applyLegacyCropParams(new URLSearchParams("cropType=video"));
+    }
+    const transport = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url === "/api") return Response.json({ links: [{ rel: "cropper", href: cropper }] });
+      if (url === "/api/images/fixture" && scenario === "expired") return new Response(null, { status: 401 });
+      if (url === "/api/images/fixture") return Response.json({ data: { id: "fixture", valid: true,
+        exports: scenario === "already full" ? [{ specification: { type: "full" } }] : [],
+        source: { dimensions: { width: 1200, height: 800 }, ...(rectangle && { orientedDimensions: { width: 800, height: 1200 } }) } },
+        links: scenario === "revoked" ? [] : [{ rel: "crops", href: `${cropper}/crops/fixture` }] });
+      if (url === "/grid-local-cropper/" && scenario === "discovery throttled") return new Response(null, { status: 429 });
+      if (url === "/grid-local-cropper/") return scenario === "discovery denied" ? new Response(null, { status: 403 })
+        : Response.json({ links: [{ rel: "crop", href: `${cropper}/crops` }] });
+      if (url !== "/grid-local-cropper/crops" || options?.method !== "POST") throw new Error("Unexpected crop request");
+      expect(JSON.parse(String(options.body))).toEqual(request);
+      if (scenario === "outcome lost") throw new TypeError("Connection lost after dispatch");
+      if (scenario === "rejected") return Response.json({ errorKey: "invalid-crop", errorMessage: "Invalid crop" }, { status: 400 });
+      return Response.json({ id: scenario === "wrong receipt" ? "other" : rectangle ? "100_600_500_600" : "0_0_1200_800", date });
+    });
+    vi.stubGlobal("fetch", transport);
+    const { executeGridCommand } = await import("./grid-commands");
+    const result = await executeGridCommand({ operation: "create-crop", imageId: "fixture", request });
+    expect(result).toMatchObject({ outcome, ...(outcome === "acknowledged" && { crop: { id: rectangle ? "100_600_500_600" : "0_0_1200_800", date } }),
+      ...(scenario === "expired" && { reason: "reload-required" }), ...(scenario === "discovery throttled" && { status: 429 }) });
+    expect(transport.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(posts);
+  });
+
   it("preserves a literal catalog label when completing the middle of a comma list", async () => {
     const { labelEntryToken, replaceLabelToken, parseLabelEntry } = await import("./grid-mutation-policy");
     const input = "Sport, Pa, Finals, Sport";

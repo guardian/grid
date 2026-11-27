@@ -17,7 +17,8 @@
  * immediately. The dismiss button has aria-label.
  */
 
-import { Component, createRef, useEffect, useRef, type MouseEventHandler, type ReactNode } from "react";
+import { Component, createRef, useEffect, useRef, useSyncExternalStore, type MouseEventHandler, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useToastStore } from "@/stores/toast-store";
 import type { ToastItem, ToastCategory } from "@/stores/toast-store";
 import { registerShortcut } from "@/lib/keyboard-shortcuts";
@@ -177,7 +178,14 @@ export function ToastContainer() {
     return () => document.removeEventListener("click", clickAway, true);
   }, [share, dismiss]);
 
-  return <ToastStack queue={queue} />;
+  // Native fullscreen paints only its own element, so toasts must render inside it.
+  const fullscreen = useSyncExternalStore(subscribeFullscreen, () => document.fullscreenElement, () => null);
+  return fullscreen ? createPortal(<ToastStack queue={queue} />, fullscreen) : <ToastStack queue={queue} />;
+}
+
+function subscribeFullscreen(listener: () => void) {
+  document.addEventListener("fullscreenchange", listener);
+  return () => document.removeEventListener("fullscreenchange", listener);
 }
 
 type StackSnapshot = {

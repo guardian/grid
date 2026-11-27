@@ -5,12 +5,13 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "@/types/image";
 import type { AiSearchResult, ImageByIdResult, SearchParams, SortValues } from "@/dal/types";
-import { attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
+import { attachedEnrichment, attachEnrichment, type EnrichmentFields } from "@/stores/enrichment-store";
 import { MockDataSource } from "@/dal/mock-data-source";
 import { ApiDataSource } from "@/dal/api-data-source";
 import { useSearchStore } from "@/stores/search-store";
 import { useEnrichmentStore } from "@/stores/enrichment-store";
 import { ImageDetail } from "./ImageDetail";
+import { ImageCrops } from "./ImageCrops";
 import { SettingsMenu } from "./SettingsMenu";
 import { HiJoshuaProvider } from "./HiJoshua";
 import { useReturnFromDetail } from "@/hooks/useReturnFromDetail";
@@ -20,11 +21,11 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { chooseDetailReturn, type DetailReturnTarget, type DetailEntry } from "@/lib/detail-return";
 import { historySearchContinuity } from "@/lib/search-continuity";
 import { createLabelOperation } from "@/lib/label-operation";
-import { createLabelReadback, publishUnavailableImages } from "@/lib/image-publication";
-import { resetImageFreshnessForTests } from "@/lib/image-read-freshness";
+import { createLabelReadback, hasNewerImageCopy, publishImages, publishUnavailableImages, readForStandalonePublication } from "@/lib/image-publication";
+import { captureImageRead, resetImageFreshnessForTests, stampImageRead } from "@/lib/image-read-freshness";
 import { useSelectionStore, _resetMetadataCache } from "@/stores/selection-store";
 import { useImageActionStore } from "@/stores/image-action-store";
-import { applyLegacyCropParams } from "@/lib/crop/crop-options";
+import { applyLegacyCropParams, getCropSettings } from "@/lib/crop/crop-options";
 
 vi.hoisted(() => {
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
@@ -57,9 +58,16 @@ const fixture = vi.hoisted(() => ({
   swiped: false,
   prepareScroll: vi.fn(),
   cropShortcut: () => {},
+  cropShortcutEnabled: (): boolean => true,
   sessionInvalidated: false,
+  editingAllowed: true,
   sessionListeners: new Set<() => void>(),
   traverse: (_imageId: string) => {},
+}));
+
+vi.mock("@/lib/editing-preference", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/editing-preference")>(),
+  get editingAllowedAtStartup() { return fixture.editingAllowed; },
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -95,8 +103,11 @@ vi.mock("@/hooks/useCursorAutoHide", async (importOriginal) => {
   return { useCursorAutoHide: (active: boolean, surface?: React.RefObject<HTMLElement | null>) =>
     actual.useCursorAutoHide(fixture.realCursor && active, fixture.realCursor ? surface : undefined) };
 });
-vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn((key: string, run: () => void) => {
-  if (key === "c") fixture.cropShortcut = run;
+vi.mock("@/hooks/useKeyboardShortcut", () => ({ useKeyboardShortcut: vi.fn((key: string, run: () => void, enabled?: () => boolean) => {
+  if (key === "c") {
+    fixture.cropShortcut = run;
+    fixture.cropShortcutEnabled = enabled ?? (() => true);
+  }
 }) }));
 vi.mock("@/lib/grid-api-instance", async importOriginal => ({
   ...await importOriginal<typeof import("@/lib/grid-api-instance")>(),
@@ -226,6 +237,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.navigate.mockClear();
     fixture.toggleFullscreen.mockClear();
     fixture.sessionInvalidated = false;
+    fixture.editingAllowed = true;
     fixture.search = { nonFree: "true", orderBy: "-uploadTime" };
     transitions = [];
     history.replaceState({}, "", "/search");
@@ -241,6 +253,7 @@ describe("KUP-004 standalone detail identity", () => {
     fixture.realCarousel = false;
     fixture.fullscreen = false;
     fixture.swiped = false;
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -259,6 +272,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("shares the open image rather than the search selection", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const writeText = vi.fn().mockResolvedValue(undefined);
     fixture.resident = [makeImage("A")];
     useSelectionStore.setState({ selectedIds: new Set(["unrelated-selection"]) });
@@ -273,7 +287,7 @@ describe("KUP-004 standalone detail identity", () => {
       else Reflect.deleteProperty(navigator, "clipboard");
     }
     expect(screen.getByRole("group", { name: "Image actions" }).getAttribute("data-surface")).toBe("detail");
-    expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("title")).toBe("Crop full frame");
+    expect(screen.getByRole<HTMLButtonElement>("button", { name: "Full frame options" }).disabled).toBe(true);
   });
 
   it("shows and drags Original and matched saved crops from the rail and preview without sending actions", async () => {
@@ -340,6 +354,16 @@ describe("KUP-004 standalone detail identity", () => {
     view.rerender(<Detail imageId="A" />);
     expect(screen.getByAltText("Title A").getAttribute("src")).not.toBe(cropAsset.secureUrl);
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it("shows the selected crop author and time in the compact crop palette without hover", async () => {
+    const image = makeCroppableImage("A");
+    const date = "2026-11-12T10:00:00Z";
+    image.exports = [{ id: "saved", author: "Fixture Author", date, specification: { type: "crop" },
+      assets: [{ mimeType: "image/jpeg", dimensions: { width: 100, height: 100 }, file: "/crop.jpg" }] }];
+    render(<ImageCrops image={image} selectedId="saved" onSelect={() => {}} compact canReadExports settings={getCropSettings()} />);
+    expect(await screen.findByText("Cropped by Fixture Author", { exact: false })).toBeTruthy();
+    expect(screen.getByText(new Date(date).toLocaleString()).getAttribute("datetime")).toBe(date);
   });
 
   it("shows the newest repeated crop once without retaining another image's rows", () => {
@@ -432,6 +456,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("hides full-frame creation for a crop covering the full oriented image", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const image = makeCroppableImage("A");
     image.source = { mimeType: "image/jpeg", dimensions: { width: 600, height: 400 }, orientedDimensions: { width: 400, height: 600 } };
     image.exports = [{ id: "existing", specification: { type: "crop", bounds: { x: 0, y: 0, width: 400, height: 600 } } }];
@@ -495,7 +520,8 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("keeps detail navigation behind an owned action popup and closes it on target change", () => {
-    fixture.resident = [makeImage("A"), makeImage("B")];
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    fixture.resident = [makeCroppableImage("A"), makeCroppableImage("B")];
     const view = render(<Detail imageId="A" />);
     const chevron = screen.getByRole("button", { name: "Full frame options" }).querySelector("path")!;
     expect(chevron.getAttribute("d")).toBe("M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z");
@@ -504,10 +530,27 @@ describe("KUP-004 standalone detail identity", () => {
     expect(fireEvent.keyDown(document, { key: "Backspace" })).toBe(true);
     expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("true");
     view.rerender(<Detail imageId="B" />);
-    expect(screen.getByRole("button", { name: "Full frame options" }).getAttribute("aria-expanded")).toBe("false");
+    const options = screen.getByRole<HTMLButtonElement>("button", { name: "Full frame options" });
+    expect(options.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(options);
+    expect(screen.getByRole("button", { name: "Crop full frame" })).toBeTruthy();
+
+    const eligible = fixture.resident[1];
+    const invalid = { ...eligible };
+    attachEnrichment(invalid, { ...attachedEnrichment(eligible), valid: false });
+    fixture.resident = [fixture.resident[0], invalid];
+    view.rerender(<Detail imageId="B" />);
+    expect(options.disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Crop full frame" })).toBeNull();
+
+    fixture.resident = [fixture.resident[0], eligible];
+    view.rerender(<Detail imageId="B" />);
+    expect(options.disabled).toBe(false);
+    expect(options.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("keeps detail Actions inside the header and closes them when the card toggles", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.compact = true;
     fixture.touchCapable = true;
     fixture.resident = [makeImage("A"), makeImage("B")];
@@ -992,16 +1035,41 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("disables Cannot crop and refuses the Crop shortcut for an ineligible image", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const image = makeImage("A");
     attachEnrichment(image, { valid: false, invalidReasons: { no_rights: "No rights to use this image" }, resource: { links: [] } });
     fixture.resident = [image];
     render(<Detail imageId="A" />);
     const button = screen.getByRole("button", { name: "Cannot crop" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+    const options = screen.getByRole<HTMLButtonElement>("button", { name: "Full frame options" });
+    expect(options.disabled).toBe(true);
+    fireEvent.click(options);
+    expect(screen.queryByRole("button", { name: "Crop full frame" })).toBeNull();
     fireEvent.click(button);
     act(() => fixture.cropShortcut());
     expect(fixture.navigate).not.toHaveBeenCalled();
     expect(screen.queryByTestId("crop-backdrop")).toBeNull();
+  });
+
+  it.each([false, true])("ignores crop entry while creation is disabled (API mode: %s)", api => {
+    vi.stubEnv("VITE_USE_MEDIA_API", String(api));
+    fixture.editingAllowed = !api;
+    const image = makeCroppableImage("A");
+    image.exports = [{ id: "saved", specification: { type: "crop" }, assets: [{ mimeType: "image/jpeg",
+      dimensions: { width: 100, height: 100 }, secureUrl: "https://assets.example.test/saved.jpg" }] }];
+    fixture.resident = [image];
+    try {
+      const view = render(<Detail imageId="A" />);
+      expect(screen.queryByRole("button", { name: "Crop image" })).toBeNull();
+      expect(fixture.cropShortcutEnabled()).toBe(false);
+      act(() => fixture.cropShortcut());
+      expect(fixture.navigate).not.toHaveBeenCalled();
+      fixture.search = { image: "A", cropping: "true", crop: "saved" };
+      view.rerender(<Detail imageId="A" />);
+      expect(screen.queryByTestId("crop-backdrop")).toBeNull();
+      expect(screen.getByAltText("Title A").getAttribute("src")).toBe("https://assets.example.test/saved.jpg");
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("does not expose saved crops through a deep link without the advertised crops relation", () => {
@@ -1034,6 +1102,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it.each(["target", "capability"] as const)("cancels deferred Crop when its %s changes during fullscreen exit", async change => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.resident = [makeCroppableImage("A"), makeCroppableImage("B")];
     const pending = deferred<void>();
     const overlays = useEnrichmentStore.getState();
@@ -1056,6 +1125,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("pushes a unique crop entry while preserving its detail and list origins", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.resident = [makeCroppableImage("A")];
     history.replaceState({ kupuaKey: "detail", _detailOriginKupuaKey: "list",
       _detailEntryImageId: "A" }, "", "/search?image=A");
@@ -1068,6 +1138,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("returns to detail from a reloaded crop entry using durable history state", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.resident = [makeImage("A")];
     fixture.search = { image: "A", cropping: "true" };
     history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _detailOriginKupuaKey: "list" }, "", "/search?image=A&cropping=true");
@@ -1080,6 +1151,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it.each([false, true])("admits only editor media on a history crop entry, fullscreen=%s", async fullscreen => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     const image = makeCroppableImage("A");
     image.exports = [{ id: "saved", specification: { type: "crop" }, assets: [{ mimeType: "image/jpeg",
       dimensions: { width: 100, height: 100 }, secureUrl: "https://assets.example.test/saved.jpg" }] }];
@@ -1103,6 +1175,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("keeps Crop cancellable while its image is still loading", () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.resident = [];
     fixture.search = { image: "A", cropping: "true" };
     history.replaceState({ kupuaKey: "crop", _cropOriginKupuaKey: "detail", _detailOriginKupuaKey: "list" }, "", "/search?image=A&cropping=true");
@@ -1114,6 +1187,7 @@ describe("KUP-004 standalone detail identity", () => {
   });
 
   it("preserves app fullscreen and waits for image fullscreen exit before opening Crop", async () => {
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
     fixture.resident = [makeCroppableImage("A")];
     const pending = deferred<void>();
     const exit = vi.fn(() => pending.promise);
@@ -1296,6 +1370,31 @@ describe("KUP-004 standalone detail identity", () => {
       render(<Detail imageId="A" />);
       expect(screen.getByText("Image deleted")).toBeTruthy();
       expect(lookup).toHaveBeenCalledOnce();
+    } finally {
+      view.unmount();
+      resetImageFreshnessForTests();
+    }
+  });
+
+  it("keeps a published crop readback when the cold-detail read issued before it completes later", async () => {
+    const oldRead = deferred<ImageByIdResult | undefined>();
+    vi.spyOn(dataSource, "getById").mockReturnValueOnce(oldRead.promise);
+    const view = render(<Detail imageId="A" />);
+    const fresh = { ...makeImage("A"), metadata: { title: "With saved crop" } };
+    const enrichment = { resource: { links: [] }, actions: [] };
+    const olderIssue = captureImageRead();
+    stampImageRead(fresh, enrichment, captureImageRead(), "full");
+    try {
+      await act(async () => {
+        const result = await readForStandalonePublication("A", async () => ({ image: fresh, enrichment }));
+        publishImages([result!]);
+      });
+      expect(screen.getByTestId("metadata").textContent).toBe("A: With saved crop");
+      await act(async () => oldRead.resolve(found("A")));
+      expect(screen.getByTestId("metadata").textContent).toBe("A: With saved crop");
+      const olderReadback = makeImage("A");
+      stampImageRead(olderReadback, enrichment, olderIssue, "full");
+      expect(hasNewerImageCopy(olderReadback)).toBe(true);
     } finally {
       view.unmount();
       resetImageFreshnessForTests();

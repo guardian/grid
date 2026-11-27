@@ -38,6 +38,8 @@ interface CropCanvasProps {
   onChange: (state: CropCanvasState) => void;
   /** Kahuna's square-crop circle: a mask clips the view, a guide draws a dashed circle. */
   circle?: "mask" | "guide";
+  /** Shows the selection without letting the user move, resize, clear or replace it. */
+  locked?: boolean;
 }
 
 export interface CropCanvasHandle {
@@ -63,7 +65,9 @@ interface Session extends CropViewport {
   last?: Rect;
 }
 
-export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnabled = false, panMode = zoomEnabled, onZoomChange, onAltChange, alt, aspect, initialSelection, onChange, circle }: CropCanvasProps) {
+export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnabled = false, panMode = zoomEnabled, onZoomChange, onAltChange, alt, aspect, initialSelection, onChange, circle, locked = false }: CropCanvasProps) {
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
   const hostRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<Session | null>(null);
   const initialSelectionRef = useRef(initialSelection);
@@ -278,6 +282,10 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnable
       const b = session.box;
       if (cancelled || !b) return;
       if (session.projecting) return;
+      if (lockedRef.current && session.last) {
+        event.preventDefault();
+        return;
+      }
       if (d.width === 0 && d.height === 0) {
         session.last = undefined;
         onChangeRef.current({ status: "ready", selection: null, rendition: session.natural });
@@ -449,6 +457,15 @@ export function CropCanvas({ ref, src, zoomSrc, zoomEnabled = false, touchEnable
     selection.append(guide);
     return () => guide.remove();
   }, [circle, readyTick]);
+
+  useEffect(() => {
+    const selection = sessionRef.current?.selection;
+    if (!selection) return;
+    selection.movable = !locked;
+    selection.resizable = !locked;
+    selection.keyboard = !locked;
+    for (const handle of selection.querySelectorAll<HTMLElement>("cropper-handle")) handle.style.display = locked ? "none" : "";
+  }, [locked, readyTick]);
 
   return <>
     <div ref={hostRef} tabIndex={-1} data-ready={readyOwner === owner} className="relative z-0 w-full h-full outline-none" style={{ visibility: readyOwner === owner ? "visible" : "hidden" }} />

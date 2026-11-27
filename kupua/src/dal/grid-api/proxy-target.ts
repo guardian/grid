@@ -2,6 +2,7 @@ import { hostedServiceUri, isHostedBuild } from "../../lib/hosted-config.ts";
 import { gridServiceProxyRoutes, serviceOrigin } from "../../lib/grid-mutation-policy.ts";
 
 export const LOCAL_MEDIA_API_BASE_URL = "/api";
+export const LOCAL_MEDIA_API_ORIGIN = "https://api.media.local.dev-gutools.co.uk";
 export const DEPLOYED_TEST_MEDIA_API_BASE_URL = "https://api.media.test.dev-gutools.co.uk";
 
 export function resolveMediaApiBaseUrl(configuredBaseUrl: string | undefined): string {

@@ -25,7 +25,7 @@
  */
 
 import { expect, devices, type Page, type Locator } from "@playwright/test";
-import { test } from "../shared/helpers";
+import { allowDisconnectedCropGeometry, test } from "../shared/helpers";
 
 // ---------------------------------------------------------------------------
 // Device emulation -- Pixel 5 sets pointer:coarse via hasTouch
@@ -168,7 +168,10 @@ async function getFirstTouchableCellRect(
 // Setup
 // ---------------------------------------------------------------------------
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, { title }) => {
+  if (title.startsWith("mobile Crop ") || title.startsWith("detail toolbar labels ") || title.startsWith("installed phone keeps navigation ")) {
+    await allowDisconnectedCropGeometry(page);
+  }
   // Navigate; don't call kupua.goto() to avoid the desktop pointer assumption.
   await page.goto("/search?nonFree=true");
   await page.waitForFunction(() => {
@@ -1039,11 +1042,11 @@ test.describe("detail metadata gestures", () => {
     expect(await coordinates()).toEqual(edited);
     await editor.getByRole("button", { name: "Done editing coordinates" }).click();
     await editor.getByRole("radio", { name: "square (1:1)" }).click();
-    const mask = editor.getByRole("checkbox", { name: "Apply mask", exact: true });
+    const mask = editor.getByRole("button", { name: "Apply circular mask", exact: true });
     await expect(mask).toBeVisible();
     expect(await mask.evaluate(input => !!input.closest("footer"))).toBe(true);
-    const maskBounds = (await mask.locator("..").boundingBox())!;
-    const dimensions = (await editor.locator("footer").getByText(/ × .* px$/).boundingBox())!;
+    const maskBounds = (await mask.boundingBox())!;
+    const dimensions = (await editor.locator("footer").getByText(/^[\d,]+ × [\d,]+( px)?$/).boundingBox())!;
     expect(maskBounds.height).toBeGreaterThanOrEqual(44);
     expect(maskBounds.x).toBeGreaterThanOrEqual(dimensions.x + dimensions.width);
     expect(await editor.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);

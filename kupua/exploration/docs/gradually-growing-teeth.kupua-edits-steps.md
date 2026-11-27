@@ -1345,10 +1345,22 @@ subtree-count approximation. Rename/move belongs to step 22, not hidden delete/c
 selected disconnected eligibility/notices boundary is already resolved.
 **Can move earlier:** does not require the metadata/rights editors themselves.
 
-**UI checkpoint:** full-frame action preparation and normal detail Crop-entry gating are
-implemented as described above, together with saved-export selection/URLs, shared ratio
-constraints and KUP-047 enriched notices/eligibility. Submission remains unimplemented;
-an already-open/deep-linked read-only crop is not a live save path.
+**Rectangular-save checkpoint (26 November):** Crop entry and creation require Allow editing
+in media-api mode, without changing saved-export read access. Rectangular submission uses the
+same-ID canonical source and discovered cropper action; acknowledged ID/date and a rendition
+must be observed before selecting the crop. Isolated Chromium verified an adjusted rectangle,
+delayed projection, one POST, public rendition display and detail-to-list history. Deployed and
+live cropper acceptance and Composer are not verified or complete.
+
+**Full-frame checkpoint (26 November):** Search selections and the Detail menu save full frames
+after confirmation, through a crop queue independent of metadata edits: at most 50 targets,
+two POSTs in flight, and batched visibility confirmation. Manual saves lock the frame,
+survive leaving the editor and reload, and wait up to `CROP_SAVE_TIMEOUT_MS` (tuning). Progress and unsaved or
+unconfirmed images report through the selection status bar; there is no separate activity
+strip or cancellation. A bounded trial on the disposable local index confirmed 49 targets
+with exactly one export each. Composer delivery remains blocked on receiver verification.
+
+**Legacy ratio lifetime:** Kahuna writes `cropType`, `customCrop`, and `defaultCropType` to tab session storage from search, image, and crop route params, without checking iframe context. Omitted or empty params leave existing values alone. Kupua mirrors this with `kupua.crop.*` keys. `cropType` is the lock; `customCrop` defines a preset and `defaultCropType` preselects one. A nonempty unknown `cropType` clears the lock without losing the preset or default. A standalone Kahuna tab retained a banner lock on a URL with no crop params. This is compatibility evidence, not a decision to keep tab-wide locking for ordinary Kupua browsing.
 
 Wire server cost/restriction notices and crop eligibility through the common enriched image,
 including standalone detail and fullscreen. The selected read-only UI retains frames when
@@ -1367,6 +1379,20 @@ for that server-to-server contract; see [P25 F7](03%20Ce%20n'est%20pas%20une%20p
 After creation, retain the returned export identity, confirm that export is visible, display its
 renditions and permit selection/navigation/download handoff. Prevent double submission without
 assuming an ambiguous retry is harmless. Do not infer a missing crop from a failed refresh.
+
+**Batch decision (26 November 2026):** skip known existing full frames in mixed selections;
+explicit manual re-saves remain allowed. The skipped export retains its creator and save
+time. See [Kahuna differences](deviations.md#crop-editor-inside-image-detail-31-october-2026)
+and [GRID-022](bug-backlog.md#grid-022).
+
+**Composer handoff to verify:** [Kahuna's iframe bridge](../../../kahuna/public/js/main.js#L268)
+sends `{image, crop}` for a new crop or an explicitly chosen saved crop, and
+`{images: [{image, crop}, ...]}` for successful batch creations. An all-existing selection
+does not run the batch action or produce that message. Test whether the receiver accepts
+one batch with both newly created and already saved full frames, including an all-existing
+selection with zero writes. Deliver only verified available, compatible exports and only
+after an explicit user action. Confirm the receiver's payload and parent-origin contract
+before implementing or documenting this as a second intentional Kahuna deviation.
 
 **Related decisions:** [GRID-022](bug-backlog.md#grid-022) concerns repeat saves that
 regenerate shared assets and duplicate export identities; current display deduplication

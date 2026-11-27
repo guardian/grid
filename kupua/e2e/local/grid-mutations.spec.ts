@@ -699,7 +699,7 @@ test.describe("U3 isolated uploads", () => {
     await page.getByRole("region", { name: "Image results table", exact: true }).locator(`[data-image-id="${ids[0]}"]`).dblclick();
     await expect(page.getByText("Fixture paid-image notice")).toBeVisible();
     await page.getByRole("button", { name: "Crop image", exact: true }).click();
-    await expect(page.getByLabel("Crop notices").getByText("Pay to use", { exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Crop image", exact: true }).getByText("Pay to use", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Back to image", exact: true }).click();
     await page.getByRole("button", { name: "Edit Description", exact: true }).click();
     await page.getByRole("textbox", { name: "Description", exact: true }).fill("Details saved description");
@@ -1146,7 +1146,7 @@ test.describe("U3 isolated uploads", () => {
     }
   });
 
-  test("U4 mixed files keep filename order, duplicate outcomes and compact detail/crop return", async ({ page }, testInfo) => {
+  test("U4 mixed files keep filename order, duplicate outcomes and compact detail return", async ({ page }, testInfo) => {
     await page.route("**/*", route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
     await page.addInitScript(() => { localStorage.setItem("kupua-allow-uploads", "true"); localStorage.removeItem("kupua-allow-editing"); });
     await page.request.post(`${origin}/__upload-control`, { data: { reset: true, multiple: true, maxFileBytes: 20, status: "COMPLETED", visible: true, searchable: true } });
@@ -1264,11 +1264,7 @@ test.describe("U3 isolated uploads", () => {
     await page.getByRole("button", { name: /^Upload activity:/ }).click();
     await expect(page.getByRole("combobox", { name: "Upload batch", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /^Upload activity:/ }).click();
-    await page.getByRole("button", { name: "Crop image", exact: true }).click();
-    const crop = page.getByRole("dialog", { name: "Crop image", exact: true });
-    await expect(crop).toBeVisible();
-    expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
-    await crop.getByRole("button", { name: "Back to image", exact: true }).click();
+    await expect(page.getByRole("button", { name: /^(Crop image|Cannot crop)$/ })).toHaveCount(0);
     await page.goBack();
     await expect(table).toBeVisible();
     expect(new URL(page.url()).searchParams.get("batch")).toBe(batch);
@@ -2013,13 +2009,51 @@ test.describe("Unit B isolated continuation", () => {
   });
 
   test("U1 API browsing returns between filtered search, batch, densities, detail and crop without selection leakage", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("kupua-allow-editing", "true"));
     const kupua = new KupuaHelpers(page);
+    const mediaOrigin = "https://api.media.local.dev-gutools.co.uk";
+    const cropper = "https://cropper.media.local.dev-gutools.co.uk";
+    const cropRendition = `${origin}/__publication-media/embedded-metadata.jpg?crop=fixture`;
+    let saved: { imageId: string; crop: { id: string; date: string; assets: unknown[]; specification: object } } | undefined;
+    let cropPosts = 0;
+    let cropReadbacks = 0;
+    let exposeSavedCrop = false;
+    await page.route(`${origin}/api`, async route => {
+      const response = await route.fetch();
+      const root = await response.json();
+      return route.fulfill({ response, json: { ...root, links: [...root.links, { rel: "cropper", href: cropper }] } });
+    });
+    await page.route(`${origin}/grid-local-cropper/`, route => route.fulfill({ json: { links: [{ rel: "crop", href: `${cropper}/crops` }] } }));
+    await page.route(`${origin}/grid-local-cropper/crops`, route => {
+      expect(route.request().method()).toBe("POST");
+      const { type, source, x, y, width, height, aspectRatio } = route.request().postDataJSON();
+      expect(type).toBe("crop");
+      expect(width).toBe(320);
+      expect(source).toMatch(new RegExp(`^${mediaOrigin.replaceAll(".", "\\.")}/images/local-\\d+$`));
+      cropPosts++;
+      const crop = { id: `${x}_${y}_${width}_${height}`, date: "2026-11-26T12:34:56.123Z",
+        assets: [{ mimeType: "image/jpeg", dimensions: { width, height }, file: cropRendition }],
+        specification: { uri: source, type, aspectRatio, bounds: { x, y, width, height } } };
+      saved = { imageId: new URL(source).pathname.split("/").at(-1)!, crop };
+      return route.fulfill({ json: crop });
+    });
     await page.request.post(`${origin}/__readback-control`, { data: { action: "reset", total: 10_000 } });
-    await page.route(/\/api\/images\/(?:mget|search-after|window|local-\d+)$/, async route => {
+    await page.route((url: URL) => url.origin === origin && /^\/api\/images\/(?:mget|search-after|window|local-\d+)$/.test(url.pathname), async route => {
+      const request = route.request();
+      const singleton = /\/local-\d+$/.test(new URL(request.url()).pathname);
+      if (request.method() !== (singleton ? "GET" : "POST")) return route.fallback();
       const response = await route.fetch();
       const body = await response.json();
       const entities = Array.isArray(body.data) ? body.data : [body];
-      for (const entity of entities) entity.links.push({ rel: "crops", href: `${origin}/crops/${entity.data.id}` });
+      for (const entity of entities) {
+        if (singleton) delete entity.uri;
+        else entity.uri = `${mediaOrigin}/images/${entity.data.id}`;
+        entity.links.push({ rel: "crops", href: `${cropper}/crops/${entity.data.id}` });
+        if (saved && entity.data.id === saved.imageId) {
+          if (singleton) cropReadbacks++;
+          if (exposeSavedCrop) entity.data.exports = [saved.crop];
+        }
+      }
       await route.fulfill({ response, json: body });
     });
     await page.goto(`${origin}/__continuation?density=table`);
@@ -2100,6 +2134,18 @@ test.describe("Unit B isolated continuation", () => {
     expect(new URL(page.url()).searchParams.get("batch")).toBe("local-u1");
     await crop.getByRole("button", { name: "Back to image", exact: true }).click();
     await expect(crop).toBeHidden();
+    await page.getByRole("button", { name: "Crop image", exact: true }).click();
+    await crop.getByRole("spinbutton", { name: "Crop width" }).fill("320");
+    await crop.getByRole("button", { name: "Crop", exact: true }).click();
+    await expect.poll(() => cropReadbacks).toBeGreaterThan(0);
+    await expect(crop.getByRole("button", { name: "Crop", exact: true })).toHaveAttribute("aria-busy", "true");
+    expect(cropPosts).toBe(1);
+    exposeSavedCrop = true;
+    await expect(crop).toBeHidden();
+    expect(cropPosts).toBe(1);
+    expect(saved?.imageId).toBe(batchAnchor.id);
+    await expect.poll(() => new URL(page.url()).searchParams.get("crop")).toBe(saved?.crop.id);
+    await expect(page.getByTestId("detail-image-container").locator('img[fetchpriority="high"]')).toHaveAttribute("src", cropRendition);
     await page.goBack();
     await expect(table).toBeVisible();
     await page.getByRole("button", { name: "Back to search", exact: true }).click();
@@ -2463,22 +2509,48 @@ test.describe("Unit B isolated continuation", () => {
   });
 
   test("image actions share selection targets and fit desktop and mobile", async ({ page }) => {
+    const mediaOrigin = "https://api.media.local.dev-gutools.co.uk";
+    const cropper = "https://cropper.media.local.dev-gutools.co.uk";
+    const dimensions = { width: 700, height: 576 };
+    const source = `${mediaOrigin}/images/local-0`;
+    const crop = { id: "0_0_700_576", date: "2026-11-26T12:34:56.123Z",
+      assets: [{ dimensions, mimeType: "image/jpeg", file: `${origin}/__publication-media/test.jpg` }],
+      specification: { uri: source, type: "full", bounds: { x: 0, y: 0, ...dimensions } } };
+    let cropPosts = 0;
+    let projected = false;
     await page.route(`${origin}/api`, route => route.fulfill({ json: { data: {}, links: [
       { rel: "archive", href: "https://metadata.example.test/metadata/{id}/archived" },
+      { rel: "cropper", href: cropper },
     ] } }));
+    await page.route(`${origin}/grid-local-cropper/`, route => route.fulfill({ json: { links: [{ rel: "crop", href: `${cropper}/crops` }] } }));
+    await page.route(`${origin}/grid-local-cropper/crops`, route => {
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({ type: "full", source });
+      cropPosts++;
+      return route.fulfill({ json: crop });
+    });
+    await page.route(`${origin}/api/images/local-0`, async route => {
+      const response = await route.fetch();
+      const body = await response.json();
+      body.uri = source;
+      body.links.push({ rel: "crops", href: `${cropper}/crops/local-0` });
+      body.data.exports = projected ? [crop] : [];
+      return route.fulfill({ response, json: body });
+    });
     await page.route(/\/api\/images\/(?:mget|search-after|window)$/, async route => {
       const response = await route.fetch();
       const body = await response.json();
       for (const entity of body.data) {
         const imageId = entity.data.id;
         entity.actions = [{ name: "delete", method: "DELETE", href: `${origin}/api/images/${imageId}` }];
-        entity.links.push({ rel: "crops", href: `${origin}/crops/${imageId}` },
+        entity.uri = `${mediaOrigin}/images/${imageId}`;
+        entity.links.push({ rel: "crops", href: `${cropper}/crops/${imageId}` },
           { rel: "download", href: `${origin}/api/images/${imageId}/download` });
         const archived = imageId === "local-1";
         const kept = imageId === "local-2";
         entity.data.persisted = { value: archived || kept, reasons: archived ? ["archived"] : kept ? ["usage"] : [] };
         entity.data.userMetadata.data.archived = { data: archived };
-        entity.data.exports = imageId === "local-1" ? [{ specification: { type: "full" } }] : [];
+        entity.data.exports = imageId === "local-1" ? [{ specification: { type: "full" } }] : imageId === "local-0" && projected ? [crop] : [];
       }
       await route.fulfill({ response, json: body });
     });
@@ -2501,10 +2573,7 @@ test.describe("Unit B isolated continuation", () => {
     await page.keyboard.press("Enter");
     await expect(page.getByRole("link", { name: "Open link" })).toHaveCount(0);
     await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
-    await actions.getByRole("button", { name: "Crop full frame", exact: true }).click();
-    const activity = page.getByRole("complementary", { name: "Image activity", exact: true });
-    await expect(activity).toHaveCount(0);
-    await expect(page.getByText("Not sent - Crop full frame; 1 prepared; 1 skipped (Already has a full frame)", { exact: true })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Crop full frame", exact: true })).toBeDisabled();
     await actions.getByRole("button", { name: "Download", exact: true }).click();
     await expect(page.getByText("Not sent - Download", { exact: true })).toBeVisible();
     await actions.getByRole("button", { name: "Delete", exact: true }).click();
@@ -2539,9 +2608,28 @@ test.describe("Unit B isolated continuation", () => {
     try {
       await page.setViewportSize({ width: 393, height: 852 });
       await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+      await page.evaluate(() => localStorage.setItem("kupua-allow-editing", "true"));
       await page.reload();
       await expect(page.locator("html")).toHaveAttribute("data-shell", "compact");
       await page.evaluate(() => (window as CommandWindow).editorFixture.select(["local-0", "local-1"]));
+      const trigger = page.getByRole("button", { name: "2 selected — actions", exact: true });
+      await trigger.click();
+      await page.getByRole("group", { name: "Selection actions", exact: true }).getByRole("button", { name: "Crop full frame", exact: true }).click();
+      expect(cropPosts).toBe(0);
+      const confirm = page.getByRole("button", { name: "Confirm (1): full frame for 1 image", exact: true });
+      await expect(confirm).toHaveAccessibleDescription("1 skipped");
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Enter");
+      await page.getByRole("button", { name: "Crop full frame", exact: true }).click();
+      expect(cropPosts).toBe(0);
+      await confirm.click();
+      const progress = page.getByRole("progressbar", { name: "Updating selected images" });
+      await expect(progress).toHaveAttribute("aria-valuetext", "0 of 1 confirmed");
+      expect(cropPosts).toBe(1);
+      projected = true;
+      await expect(progress).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /^\d+ issues?$/ })).toHaveCount(0);
+      expect(cropPosts).toBe(1);
       for (const viewport of [{ width: 393, height: 852 }, { width: 852, height: 393 }]) {
         await page.setViewportSize(viewport);
         await touch.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
@@ -2943,7 +3031,6 @@ test.describe("Unit B isolated continuation", () => {
     const detail = page.locator("[data-detail-image-id]");
     await expect(detail.getByText("Image deleted", { exact: true })).toBeVisible();
     await expect(detail.getByTestId("detail-image-container").locator("img")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Crop image", exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Next image", exact: true }).click();
     await expect(detail).toHaveAttribute("data-detail-image-id", "local-2");
     await expect(detail.getByTestId("detail-image-container").locator("img")).toBeVisible();

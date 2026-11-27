@@ -1,11 +1,11 @@
 /**
- * Crop editor — dry run. Rendered by ImageDetail when `cropping=true`.
- *
- * Builds Kahuna's cropper-service request and shows it; nothing is sent.
+ * Crop editor rendered by ImageDetail when `cropping=true`.
  */
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent, type RefObject } from "react";
 import type { Image } from "@/types/image";
+import type { ImageByIdResult } from "@/dal/types";
+import { isCropBusy, onCropLanded, saveCrop, useCropSaveStore } from "@/stores/crop-save-store";
 import { useBlocker } from "@tanstack/react-router";
 import { DetailNavigation } from "@/components/DetailNavigation";
 import { FullscreenCornerButton } from "@/components/NavStrip";
@@ -20,9 +20,9 @@ import { flushCropDraft, queueCropDraft, readCropDraft } from "@/lib/crop/crop-d
 import { gridConfig } from "@/lib/grid-config";
 import {
   buildCropRequest, cropCoordinateLimits, defaultCropRect, editCropRect, isValidCropRect, MIN_RECOMMENDED_CROP_WIDTH, originalCropSize, toOriginalRect,
-  type CropRequest, type Rect,
+  type Rect,
 } from "@/lib/crop/crop-request";
-import { isGridSessionInvalidated, serviceLink, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
+import { isGridSessionInvalidated, subscribeGridSessionInvalidation } from "@/lib/grid-api-instance";
 import type { EnrichedImage } from "@/lib/derive-enriched-image";
 import { cropAccess } from "@/lib/crop/crop-policy";
 import { useKeyboardShortcut } from "@/hooks/useKeyboardShortcut";
@@ -47,9 +47,10 @@ interface CropEditorProps {
   previewSrc?: string;
   onClose: () => void;
   onHome?: () => void;
+  onSaved?: (result: ImageByIdResult, cropId: string, returnToDetail: boolean) => void;
 }
 
-export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: CropEditorProps) {
+export function CropEditor({ image, actionImage, previewSrc, onClose, onHome, onSaved }: CropEditorProps) {
   const isCompact = useIsCompact();
   const api = import.meta.env.VITE_USE_MEDIA_API === "true";
   const sessionInvalidated = useSyncExternalStore(subscribeGridSessionInvalidation, isGridSessionInvalidated, () => false);
@@ -65,8 +66,13 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
   const precisionDrag = useRef<{ pointer: number; x: number; y: number; lastY: number; time: number; velocity: number; decided: boolean; tracking: boolean } | null>(null);
   const { settings, revision } = useCropSettings();
   const original = originalCropSize(image);
-  const draft = useMemo(() => readCropDraft(image.id, original, settings),
-    [image.id, original?.width, original?.height, settings]);
+  const pendingSave = useCropSaveStore(state => state.saves.get(image.id));
+  // Only this image's manual save captured a frame; a batch full-frame claim just disables Crop.
+  const locked = pendingSave?.phase === "saving" && Boolean(pendingSave.manual);
+  const savingFrame = pendingSave?.manual?.frame;
+  const draft = useMemo(() => savingFrame && original && savingFrame.size.width === original.width
+    && savingFrame.size.height === original.height ? savingFrame : readCropDraft(image.id, original, settings),
+  [image.id, original?.width, original?.height, settings, savingFrame]);
   const initialType = draft?.cropKey ?? settings.initialType;
   const [choice, setChoice] = useState({ revision, imageId: image.id, key: initialType });
   const [selectionRevision, setSelectionRevision] = useState(0);
@@ -76,6 +82,8 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
   const canvasRef = useRef<CropCanvasHandle>(null);
   const cropActionRef = useRef<HTMLButtonElement>(null);
   const viewControlsRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLElement>(null);
+  const footerRowRef = useRef<HTMLDivElement>(null);
   const [panMode, setPanMode] = useState(false);
   const [altHeld, setAltHeld] = useState(false);
   const [panHint, setPanHint] = useState(false);
@@ -132,19 +140,12 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
     }
   }, [desktop]);
   const option: CropOption = settings.options.find((o) => o.key === cropKey) ?? settings.options[0];
-  const [sourceTemplate, setSourceTemplate] = useState<string>();
   const [circularMask, setCircularMask] = useState(initialCircularMask);
   // Kahuna: GNM square crops get a circle (avatars/bylines); mask by default.
   const showCircle = gridConfig.staffPhotographerOrganisation === "GNM" && option.key === SQUARE_KEY;
   const circle = showCircle ? (circularMask ? "mask" : "guide") : undefined;
 
-  useEffect(() => {
-    if (api || acceptedImage?.resource?.uri) return;
-    let live = true;
-    void serviceLink("image").then((href) => { if (live) setSourceTemplate(href); });
-    return () => { live = false; };
-  }, [api, acceptedImage?.resource?.uri]);
-  const sourceUri = acceptedImage?.resource?.uri ?? sourceTemplate?.replace("{id}", encodeURIComponent(image.id)) ?? `<media-api>/images/${image.id}`;
+  const sourceUri = acceptedImage?.resource?.uri ?? "";
 
   const src = useMemo(
     () => previewSrc ?? getFullImageUrl(image, {
@@ -211,7 +212,6 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
   const [coordinateDrafts, setCoordinateDrafts] = useState<{ owner: object; values: Partial<Record<keyof Rect, string>> }>();
   const inputDrafts = coordinateDrafts?.owner === owner ? coordinateDrafts.values : {};
   const [canvasState, setCanvasState] = useState<{ owner: object; mediaOwner: object; value: CropCanvasState }>();
-  const [dryRun, setDryRun] = useState<{ state: typeof canvasState; source: string; authority?: EnrichedImage; request: CropRequest }>();
   const state = canvasState?.owner === owner ? canvasState.value : undefined;
   const mediaStatus = canvasState?.mediaOwner === mediaOwner ? canvasState.value.status : "loading";
   const rect = original && state?.status === "ready" && state.selection
@@ -240,7 +240,9 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
       restoredDraft.priorFrameEdits) : null;
   const signature = departureFrame.current?.scope === departureScope ? departureFrame.current.signature
     : inheritedEdits ? JSON.stringify([image.id, cropKey, "prior-frame-edits"]) : initialSignature;
-  const confirmDeparture = useCropDepartureGuard(image.id, signature);
+  // A saving frame is kept by its save record, and a landed one is saved, so leaving loses nothing.
+  const landedHere = useRef(false);
+  const confirmDeparture = useCropDepartureGuard(image.id, locked || landedHere.current ? null : signature);
   const close = useCallback(() => { if (confirmDeparture()) onClose(); }, [confirmDeparture, onClose]);
   const home = useCallback(() => { if (confirmDeparture()) onHome?.(); }, [confirmDeparture, onHome]);
   const onSelection = useCallback((value: CropCanvasState) => {
@@ -354,18 +356,25 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
   };
 
   const selectType = useCallback((key: string) => {
-    if (!settings.options.some((o) => o.key === key)) return;
+    if (locked || !settings.options.some((o) => o.key === key)) return;
     if (key === cropKey && state?.status === "ready" && !state.selection) {
       setSelectionRevision(value => value + 1);
     } else setChoice({ revision, imageId: image.id, key });
-  }, [settings, revision, image.id, cropKey, state]);
+  }, [settings, revision, image.id, cropKey, state, locked]);
 
   const submit = useCallback(() => {
-    if (creationReason || api && isGridSessionInvalidated() || !rect || !original || invalidCoordinates || !isValidCropRect(rect, original)) return;
+    if (isCropBusy(image.id) || creationReason || api && isGridSessionInvalidated() || !rect || !original || invalidCoordinates || !isValidCropRect(rect, original)) return;
     const request = buildCropRequest(sourceUri, rect, option);
-    setDryRun({ state: canvasState, source: sourceUri, authority: acceptedImage, request });
-    console.info("[crop dry run] POST cropper `crop` link", request);
-  }, [rect, original, sourceUri, acceptedImage, creationReason, api, option, canvasState, invalidCoordinates]);
+    const expectedId = `${request.x}_${request.y}_${request.width}_${request.height}`;
+    const priorDate = (acceptedImage ?? image).exports?.filter(crop => crop.id === expectedId && crop.date).map(crop => crop.date!).sort().at(-1) ?? null;
+    const frame = departureFrame.current;
+    saveCrop(image.id, request, { version: 1, imageId: image.id, size: original, cropKey, ratio: option.ratio, rect,
+      ...(frame && { defaultRect: frame.defaultRect, priorFrameEdits: frame.priorFrameEdits }) }, priorDate);
+  }, [rect, original, sourceUri, creationReason, api, option, image, acceptedImage, cropKey, invalidCoordinates]);
+  useEffect(() => onCropLanded(image.id, (result, cropId) => {
+    landedHere.current = true;
+    onSaved?.(result, cropId, true);
+  }), [image.id, onSaved]);
 
   // Kahuna: Esc cancels, Enter crops. Capture phase keeps detail's own keys out.
   useEffect(() => {
@@ -399,7 +408,7 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
         }
       }
       if (e.key === "Tab") {
-        const controls = [...(editorRef.current?.querySelectorAll<HTMLElement>("a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex='0']") ?? [])]
+        const controls = [...(editorRef.current?.querySelectorAll<HTMLElement>("a[href],button:not(:disabled),input:not(:disabled),select:not(:disabled),summary,[tabindex='0']") ?? [])]
           .filter(control => !control.closest("[hidden],[inert]") && control.tabIndex !== -1);
         const first = controls[0];
         const last = controls.at(-1);
@@ -415,7 +424,7 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
           void document.exitFullscreen().catch(() => {});
         } else if (performance.now() >= escapeGuardUntil.current) close();
       }
-      else if (e.key === "Enter" && !t.closest("button,[role='button'],input,select,textarea,[contenteditable]")) {
+      else if (e.key === "Enter" && !t.closest("button,[role='button'],input,select,textarea,summary,[contenteditable]")) {
         e.preventDefault(); e.stopPropagation(); submit();
       }
     };
@@ -430,19 +439,22 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
     const match = [...settings.options].reverse().find((o) => o.key.charAt(0).toLowerCase() === letter);
     if (match) selectType(match.key);
   };
-  const canCrop = !creationReason && !!rect && !invalidCoordinates;
+  const uncertainReason = pendingSave?.phase === "uncertain" ? "A crop may still be saving for this image"
+    : pendingSave && !locked ? "A crop is already being saved for this image" : undefined;
+  const canCrop = !pendingSave && !creationReason && !!rect && !invalidCoordinates;
   const cropAction = (
     <button
       ref={cropActionRef}
       onClick={submit}
       disabled={!canCrop}
-      title={creationReason}
+      aria-busy={locked || undefined}
+      title={locked ? "Saving crop" : creationReason ?? uncertainReason}
       className={`group h-11 inline-flex items-center pl-1 pr-0 whitespace-nowrap ${canCrop ? "cursor-pointer" : "cursor-not-allowed"}`}
     >
       <span className={`h-8 inline-flex items-center gap-1.5 px-3 rounded transition-colors ${canCrop ? "bg-grid-accent text-white group-hover:bg-grid-accent-hover" : "bg-grid-accent/30 text-white/40"}`}>
-        <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+        {locked ? <span aria-hidden="true" className="size-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent" /> : <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
           <path d="M6 2v16h16M2 6h16v16" />
-        </svg>
+        </svg>}
         Crop
       </span>
     </button>
@@ -461,22 +473,30 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
       </button>}
     </div>
   );
-  const maskControl = showCircle && !isFullscreen ? (
-    <label className={`${isCompact ? "min-h-11 shrink-0 gap-1.5 cursor-pointer whitespace-nowrap" : `absolute z-10 ${desktop ? "right-20" : "right-[26px]"} top-1 gap-1`} flex items-center text-xs text-grid-text-muted`}>
-      <input
-        type="checkbox"
-        className={isCompact ? "size-4 shrink-0 accent-grid-accent" : undefined}
-        checked={circularMask}
-        onChange={event => {
-          setCircularMask(event.target.checked);
-          try { localStorage.setItem(CIRCULAR_MASK_KEY, String(event.target.checked)); } catch { /* ignore */ }
-        }}
-      />
-      {isCompact ? "Apply mask" : "Apply circular mask"}
+  const toolbarShort = useShortWhenOverflowing(toolbarRef, !isCompact && !isFullscreen,
+    JSON.stringify([settings.options.map(o => o.key), acceptedImage?.cost, creationReason]));
+  const footerShort = useShortWhenOverflowing(footerRowRef, isCompact && !isFullscreen && !keyboardOpen,
+    JSON.stringify([acceptedImage?.cost, showCircle, String(rect?.width ?? "").length, String(rect?.height ?? "").length]));
+  const wrap = toolbarShort ? "flex-wrap" : "flex-nowrap";
+  const maskIcon = <svg className={isCompact ? "size-5" : "size-4 shrink-0"} viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M162-162q-82-82-82-198t82-198q82-82 198-82t198 82q82 82 82 198t-82 198q-82 82-198 82t-198-82Zm339.5-56.5Q560-277 560-360t-58.5-141.5Q443-560 360-560t-141.5 58.5Q160-443 160-360t58.5 141.5Q277-160 360-160t141.5-58.5ZM678-332q2-6 2-13v-15q0-133-93.5-226.5T360-680h-15q-7 0-13 2 26-88 98.5-145T600-880q116 0 198 82t82 198q0 97-57 169.5T678-332Z" /></svg>;
+  const toggleMask = (value: boolean) => {
+    setCircularMask(value);
+    try { localStorage.setItem(CIRCULAR_MASK_KEY, String(value)); } catch { /* ignore */ }
+  };
+  const maskControl = !showCircle || isFullscreen ? null : isCompact ? (
+    <button type="button" aria-label="Apply circular mask" title="Apply circular mask" aria-pressed={circularMask} onClick={() => toggleMask(!circularMask)}
+      className="group size-11 shrink-0 flex items-center justify-center cursor-pointer">
+      <span className={`size-8 flex items-center justify-center rounded ${circularMask ? "bg-grid-accent text-white group-hover:bg-grid-accent-hover" : "text-grid-text-muted group-hover:bg-grid-hover"}`}>{maskIcon}</span>
+    </button>
+  ) : (
+    <label className={`absolute z-10 ${desktop ? "right-20" : "right-[26px]"} top-1 flex items-center gap-1 text-xs text-grid-text-muted`}>
+      <input type="checkbox" checked={circularMask} onChange={event => toggleMask(event.target.checked)} />
+      {maskIcon}
+      Apply circular mask
     </label>
-  ) : null;
+  );
   const coordinates = (
-    <div className={isCompact ? "grid grid-cols-2 gap-3" : "flex flex-wrap items-baseline gap-x-3 gap-y-2 py-1 min-w-0"} role="group" aria-label="Crop coordinates">
+    <div className={isCompact ? "grid grid-cols-2 gap-3" : `flex ${toolbarShort ? "flex-wrap" : "flex-nowrap shrink-0"} items-baseline gap-x-3 gap-y-2 py-1 min-w-0`} role="group" aria-label="Crop coordinates">
       {([["x", "y"], ["width", "height"]] as const).map(fields => (
         <div key={fields[0]} className={isCompact ? "contents" : "flex items-baseline gap-2"}>
           {fields.map(field => (
@@ -485,6 +505,7 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
               <CoordinateInput
                 field={field}
                 compact={isCompact}
+                locked={locked}
                 value={rect?.[field]}
                 draft={inputDrafts[field]}
                 invalid={invalidCoordinate(field)}
@@ -518,51 +539,61 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
           aria-checked={o.key === option.key}
           title={`${o.key} [${o.key.charAt(0)}]`}
           onClick={() => selectType(o.key)}
+          disabled={locked}
           data-selected={o.key === option.key}
           className={`grid-segment grow border-l border-grid-separator first:border-l-0 capitalize text-center ${isCompact ? "basis-0 min-w-11 min-h-11 px-1 py-1 text-xs wrap-anywhere" : "px-2.5 pt-[5px] pb-2 whitespace-nowrap"}`}
         >
-          {!isCompact && <span className="hidden min-[1295px]:inline">{o.ratioString ? `${o.key} (${o.ratioString})` : o.key}</span>}
-          <span className={isCompact ? undefined : "min-[1295px]:hidden"}>{o.ratioString ?? o.key}</span>
+          {isCompact || toolbarShort ? o.ratioString ?? o.key : o.ratioString ? `${o.key} (${o.ratioString})` : o.key}
         </button>
       ))}
     </div>
   );
+  const footerNotice = isCompact && !isFullscreen;
+  const shortRights = footerNotice || toolbarShort;
+  const noticeBox = `flex items-center gap-1 text-white ${footerNotice ? `min-h-8 rounded px-2 py-0.5 leading-tight ${footerShort ? "" : "whitespace-nowrap"}` : isFullscreen ? "h-8 rounded px-2.5 whitespace-nowrap" : "h-11 px-2.5 whitespace-nowrap"}`;
+  const restrictions = acceptedImage?.usageRights?.restrictions;
+  const rightsNotice = acceptedImage?.cost === "conditional" ? <details className="relative">
+    <summary title={restrictions ? `Restricted use: ${restrictions}` : undefined} className={`${noticeBox} cursor-pointer list-none bg-[orange] [&::-webkit-details-marker]:hidden`}>
+      <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14.4 6 14 4H5v17h2v-7h5.6l.4 2h7V6z" /></svg>
+      {shortRights ? "Restricted" : "Restricted use"}
+      {!footerShort && <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 17h-2v-2h2v2Zm2.07-7.75-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26A2 2 0 1 0 10 9H8a4 4 0 1 1 8 0c0 .88-.36 1.68-.93 2.25Z" /></svg>}
+    </summary>
+    {restrictions && <p className={`absolute z-30 ${footerNotice ? "bottom-full right-0 mb-1" : "right-0 top-full"} max-h-[30dvh] w-[min(15rem,calc(100vw-4rem))] overflow-y-auto border border-grid-separator bg-grid-bg p-2 text-grid-text whitespace-pre-wrap wrap-anywhere`}>{restrictions}</p>}
+  </details> : acceptedImage?.cost === "pay" || acceptedImage?.cost === "overquota" ? <p className={`${noticeBox} bg-[red]`}
+    title={acceptedImage.cost === "overquota" ? "Quota exceeded for this supplier" : undefined}>
+    {acceptedImage.cost === "pay" ? "Pay to use" : shortRights ? "Over quota" : "Quota exceeded for this supplier"}
+  </p> : null;
+  const cropActionGroup = <div data-crop-action-group className="relative flex items-center gap-2">
+    {rightsNotice && !footerNotice && <div className="text-sm">{rightsNotice}</div>}
+    {cropAction}
+  </div>;
   return (
     <div ref={editorRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Crop image" onPointerDownCapture={isCompact ? event => { if (event.isPrimary === false && precisionDrag.current) cancelPrecisionDrag(); } : undefined} style={isCompact && !isFullscreen && viewport ? { top: viewport.top, height: viewport.height, bottom: "auto" } : undefined} className={`fixed inset-0 z-50 flex flex-col text-grid-text outline-none ${isFullscreen ? "bg-black" : "bg-grid-bg"}`} data-testid="crop-editor" data-keyboard-open={keyboardOpen || undefined}>
       {firstLetters.map((l) => <LetterShortcut key={l} letter={l} action={byLetter(l)} />)}
-      <header hidden={isFullscreen} className={`crop-toolbar @container/detail-toolbar relative z-30 ${isFullscreen ? "hidden" : "flex"} items-center px-3 min-h-11 border-b border-grid-separator shrink-0 text-sm ${isCompact ? "h-11 gap-1" : "flex-wrap gap-x-3 gap-y-2"}`}>
+      <header ref={toolbarRef} hidden={isFullscreen} className={`crop-toolbar @container/detail-toolbar relative z-30 ${isFullscreen ? "hidden" : "flex"} items-center px-3 min-h-11 border-b border-grid-separator shrink-0 text-sm ${isCompact ? "h-11 gap-1" : `${wrap} gap-x-3 gap-y-2`}`}>
         <DetailNavigation destination="image" onBack={close} onHome={onHome ? home : undefined} />
         {isCompact && !isFullscreen && <div className="crop-view-controls min-w-22 flex-1 flex justify-center">{viewControls}</div>}
-        <div className="crop-toolbar-actions ml-auto flex flex-wrap items-center justify-end max-w-full">
-          {!isCompact && <div className="mr-1 flex flex-wrap items-center justify-end gap-3 max-w-full">
+        <div className={`crop-toolbar-actions ml-auto flex ${wrap} items-center justify-end max-w-full`}>
+          {!isCompact && <div className={`mr-1 flex ${wrap} items-center justify-end gap-3 max-w-full`}>
             {coordinates}
             <div aria-hidden="true" className="w-px h-5 bg-grid-separator shrink-0" />
             {ratios}
           </div>}
-          {cropAction}
+          {!isFullscreen && cropActionGroup}
           <div className="detail-settings shrink-0"><SettingsMenu /></div>
         </div>
       </header>
-      {(creationReason || acceptedImage && ["pay", "overquota", "conditional"].includes(acceptedImage.cost)) && <div
-        aria-label="Crop notices" className="shrink-0 border-b border-grid-separator bg-grid-bg px-3 py-1 text-sm flex flex-wrap items-center gap-x-4 gap-y-1 max-h-32 overflow-y-auto">
-        {creationReason && <p role="status">{creationReason}</p>}
-        {acceptedImage?.cost === "pay" && <p>Pay to use</p>}
-        {acceptedImage?.cost === "overquota" && <p>Quota exceeded for this supplier</p>}
-        {acceptedImage?.cost === "conditional" && <details>
-          <summary className="cursor-pointer">Restricted use</summary>
-          {acceptedImage.usageRights?.restrictions && <p className="whitespace-pre-wrap wrap-anywhere">{acceptedImage.usageRights.restrictions}</p>}
-        </details>}
-      </div>}
+      {creationReason && <p role="status" className="shrink-0 border-b border-grid-separator bg-grid-bg px-3 py-1 text-sm">{creationReason}</p>}
       <div ref={imageViewportRef} className={`relative flex-1 min-h-0 flex items-center justify-center overflow-hidden ${isFullscreen ? "px-10 pb-10 pt-[50px]" : isCompact ? "p-3" : "p-[26px]"}`}>
         {desktop && isFullscreen && <div className="absolute top-[6px] left-1/2 -translate-x-1/2 z-30 rounded bg-black/80">{viewControls}</div>}
-        {isFullscreen && <div className="absolute top-[6px] right-4 z-20 flex items-center gap-1 text-sm">{cropAction}</div>}
+        {isFullscreen && <div className="absolute top-[6px] right-4 z-20 flex items-center gap-1 text-sm">{cropActionGroup}</div>}
         {desktop && !isFullscreen && <FullscreenCornerButton isFullscreen={false} onClick={toggleFullscreen} shortcut="Alt+f" revealed={touchControlsVisible} />}
         {!isCompact && maskControl}
         {!original || !src ? (
           <p className="text-grid-text-muted">This image cannot be cropped (no dimensions or preview).</p>
         ) : (
           <>
-            <CropCanvas ref={canvasRef} key={image.id} src={src} zoomSrc={zoomSrc} zoomEnabled={desktop && isFullscreen} touchEnabled={isCompact && !isFullscreen} panMode={panMode} onZoomChange={onZoomChange} onAltChange={setAltHeld} alt={image.metadata?.title ?? ""} aspect={option.ratio} circle={circle} onChange={onSelection}
+            <CropCanvas ref={canvasRef} key={image.id} src={src} zoomSrc={zoomSrc} zoomEnabled={desktop && isFullscreen} touchEnabled={isCompact && !isFullscreen} panMode={panMode} onZoomChange={onZoomChange} onAltChange={setAltHeld} alt={image.metadata?.title ?? ""} aspect={option.ratio} circle={circle} locked={locked} onChange={onSelection}
               initialSelection={draft?.cropKey === cropKey ? { rect: draft.rect, size: draft.size } : undefined} />
             {mediaStatus !== "ready" && (
               <p role="status" className="absolute text-grid-text-muted">
@@ -574,11 +605,6 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
         <div className="absolute bottom-4 left-4 right-4 z-20 flex flex-col items-end gap-2 pointer-events-none">
           {panHint && isCompact && <ToastNotice category="success" message="Two-finger pan" icon={<CropPanIcon className="size-4 shrink-0 mt-px" />} onDismiss={() => setPanHint(false)} className="w-max max-w-full self-center pointer-events-none select-none" />}
           <SmallCropWarning key={image.id} width={rect?.width} cleared={state?.status === "ready" && state.selection === null} />
-          {!creationReason && rect && !invalidCoordinates && dryRun && dryRun.state === canvasState && dryRun.source === sourceUri && dryRun.authority === acceptedImage && (
-            <pre className="max-w-md p-3 text-xs bg-black/80 text-white rounded whitespace-pre-wrap pointer-events-auto" data-testid="crop-dry-run">
-              {"Not sent — dry run\n"}{JSON.stringify(dryRun.request, null, 2)}
-            </pre>
-          )}
         </div>
       </div>
       {isCompact && !isFullscreen && <footer className={`shrink-0 bg-grid-bg ${precisionOpen ? "" : "border-t border-grid-separator"} ${keyboardOpen ? "pb-0" : "pb-[env(safe-area-inset-bottom)]"}`}>
@@ -593,9 +619,10 @@ export function CropEditor({ image, actionImage, previewSrc, onClose, onHome }: 
           {coordinates}
         </section>}
         <div hidden={keyboardOpen}>{ratios}</div>
-        <div hidden={keyboardOpen} className={`${keyboardOpen ? "hidden" : "flex"} items-center justify-between gap-3 border-t border-grid-separator px-3`}>
-          <span className="min-w-0 text-xs text-grid-text-muted tabular-nums">{rect ? `${rect.width.toLocaleString()} × ${rect.height.toLocaleString()} px` : "— × — px"}</span>
+        <div ref={footerRowRef} hidden={keyboardOpen} className={`${keyboardOpen ? "hidden" : "flex"} items-center justify-between gap-3 border-t border-grid-separator px-3`}>
+          <span className="shrink-0 whitespace-nowrap text-xs text-grid-text-muted tabular-nums">{rect ? `${rect.width.toLocaleString()} × ${rect.height.toLocaleString()}` : "— × —"}{footerShort ? "" : " px"}</span>
           {maskControl}
+          {rightsNotice && <div className={`text-xs ${footerShort ? "min-w-0" : "shrink-0"}`}>{rightsNotice}</div>}
           <button ref={precisionRef} type="button" aria-label="Edit crop coordinates" title="Edit crop coordinates" aria-expanded={precisionOpen} aria-controls={precisionOpen ? precisionId : undefined} onClick={() => { if (precisionOpen) finishPrecision(); else setPrecisionOpen(true); }} className="size-11 shrink-0 flex items-center justify-center text-grid-text-muted hover:bg-grid-hover cursor-pointer">
             <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></svg>
           </button>
@@ -633,6 +660,30 @@ function useCropDepartureGuard(imageId: string, signature: string | null): () =>
   return confirmDeparture;
 }
 
+/** Full labels until the row really overflows; full again once the measured full width fits. */
+function useShortWhenOverflowing(ref: RefObject<HTMLElement | null>, enabled: boolean, content: string): boolean {
+  const [short, setShort] = useState(false);
+  const fullWidth = useRef(0);
+  useLayoutEffect(() => { setShort(false); }, [content]);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!enabled || !element || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      if (!short) {
+        if (element.scrollWidth > element.clientWidth + 1) {
+          fullWidth.current = element.scrollWidth;
+          setShort(true);
+        }
+      } else if (element.clientWidth >= fullWidth.current) setShort(false);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, enabled, short, content]);
+  return enabled && short;
+}
+
 function SmallCropWarning({ width, cleared }: { width?: number; cleared: boolean }) {
   const [dismissed, setDismissed] = useState(false);
   const adequate = width !== undefined && width >= MIN_RECOMMENDED_CROP_WIDTH;
@@ -658,8 +709,8 @@ function SmallCropWarning({ width, cleared }: { width?: number; cleared: boolean
   );
 }
 
-function CoordinateInput({ field, value, draft, invalid, min, max, onEdit, onBlur, onDone, compact = false }: {
-  field: keyof Rect; value?: number; draft?: string; invalid: boolean; min: number; max: number; onEdit: (value: string) => void; onBlur: () => void; onDone: () => void; compact?: boolean;
+function CoordinateInput({ field, value, draft, invalid, min, max, onEdit, onBlur, onDone, compact = false, locked = false }: {
+  field: keyof Rect; value?: number; draft?: string; invalid: boolean; min: number; max: number; onEdit: (value: string) => void; onBlur: () => void; onDone: () => void; compact?: boolean; locked?: boolean;
 }) {
   const inputId = useId();
   return (
@@ -678,7 +729,7 @@ function CoordinateInput({ field, value, draft, invalid, min, max, onEdit, onBlu
         min={min}
         max={max}
         step={1}
-        disabled={value === undefined}
+        disabled={locked || value === undefined}
         value={draft ?? value ?? ""}
         onChange={event => onEdit(event.target.value)}
         onBlur={onBlur}

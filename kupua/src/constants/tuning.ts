@@ -384,3 +384,21 @@ export const TOAST_QUEUE_MAX = 5;
  */
 export const TOAST_DEFAULT_DURATION_MS = 5_000;
 
+
+// ---------------------------------------------------------------------------
+// Crop saving
+// ---------------------------------------------------------------------------
+
+/**
+ * How long a crop save may take before Kupua stops waiting. Cropper replies to the
+ * POST only after generating every rendition, so very large sources can take minutes.
+ * Bounds both the POST itself (then reported as unconfirmed, never resent) and how
+ * long a reloaded tab keeps reading the image for a crop it can no longer hear back about.
+ */
+export const CROP_SAVE_TIMEOUT_MS = 10 * 60_000;
+
+/**
+ * After an unconfirmed crop POST, cropper may still be writing; further crop saves for
+ * that image are refused for this long. Survives reload in the same tab.
+ */
+export const CROP_UNCERTAIN_LOCK_MS = 2 * 60_000;

@@ -4,12 +4,14 @@ import { getSearchGeneration, useSearchStore } from "@/stores/search-store";
 import { useSelectionStore } from "@/stores/selection-store";
 import { imageRatio, retainResultsGeometry } from "@/lib/result-geometry";
 import type { ImageByIdResult, ImageDataSource } from "@/dal/types";
-import { copyImageRead, getImageAvailability, getOrderingRevision, recordImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
+import { copyImageRead, getImageAvailability, getImageReadSequence, getOrderingRevision, recordImageAvailability, unavailableImage } from "@/lib/image-read-freshness";
 import type { MetadataEditObservation, MetadataEditStandaloneOwner } from "@/lib/metadata-edit-execution";
 import { mountedResultsFitViewport } from "@/lib/scroll-container-ref";
 
 interface StandalonePublicationOwner extends MetadataEditStandaloneOwner {
   publish: (image: Image) => void;
+  /** The image standalone Detail currently shows, if any. */
+  current?: () => Image | undefined;
   publishUnavailable?: (state: NonNullable<Image["__availability"]>) => void;
   token: object;
 }
@@ -21,6 +23,33 @@ export function ownStandalonePublication(owner: Omit<StandalonePublicationOwner,
   const registration = { ...owner, token: {} };
   standaloneOwner = registration;
   return () => { if (standaloneOwner === registration) standaloneOwner = undefined; };
+}
+
+/** True when results, selection or standalone Detail already hold a later read of this image. */
+export function hasNewerImageCopy(image: Image): boolean {
+  const search = useSearchStore.getState();
+  const position = search.imagePositions.get(image.id);
+  const resident = position === undefined ? undefined : search.results[position - search.bufferOffset];
+  const standalone = standaloneOwner?.imageId === image.id && standaloneOwner.isCurrent() ? standaloneOwner.current?.() : undefined;
+  return [resident, useSelectionStore.getState().metadataCache.get(image.id), standalone]
+    .some(copy => copy?.id === image.id && getImageReadSequence(copy) > getImageReadSequence(image));
+}
+
+/** Lets a read issued for another purpose also refresh standalone Detail, if it still shows that image. */
+export function tagStandalonePublication(result: ImageByIdResult | undefined) {
+  const owner = standaloneOwner;
+  if (result && owner?.imageId === result.image.id && owner.isCurrent()) fullOwners.set(result.image, owner.token);
+  return result;
+}
+
+export async function readForStandalonePublication(imageId: string, read: () => Promise<ImageByIdResult | undefined>) {
+  const current = () => standaloneOwner?.imageId === imageId && standaloneOwner.isCurrent() ? standaloneOwner : undefined;
+  if (!current()) return;
+  const result = await read();
+  const owner = current();
+  if (!owner || result?.image.id !== imageId) return;
+  fullOwners.set(result.image, owner.token);
+  return result;
 }
 
 export function createLabelReadback(source: Pick<ImageDataSource, "getByIds">): MetadataEditObservation {

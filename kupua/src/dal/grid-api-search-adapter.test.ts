@@ -698,6 +698,20 @@ describe("returned media links and capabilities", () => {
     expect(attachedEnrichment({ ...image })).toBeUndefined();
   });
 
+  it("resolves the canonical source for a URI-less singleton with a crops link", async () => {
+    const data = { ...makeCanonicalImage(), valid: true };
+    const crops = { rel: "crops", href: "https://cropper.example.test/crops/abc123" };
+    const ui = { rel: "ui:image", href: "https://grid.example.test/images/abc123" };
+    const uri = "https://api.media.local.dev-gutools.co.uk/images/abc123";
+    respond({ data, links: [crops, ui] });
+
+    const result = await apiGetImage(data.id);
+
+    expect(result?.enrichment?.resource).toEqual({ uri, links: [crops] });
+    expect(result?.image.__dragResource).toBeUndefined();
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves media links absent when an entity has none", async () => {
     const data = makeCanonicalImage();
     respond({ ...makeApiResponse(data.id), data: [{ data, links: [{ rel: "usages", href: "https://usages.example.test/x" }] }] });

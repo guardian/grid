@@ -27,18 +27,19 @@ function ImageActionIcon({ action }: { action: Exclude<ImageAction, "library"> }
   return <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={paths[action]} /></svg>;
 }
 
-function ImageActionOptions({ context, resolveContext, actions, label }: {
-  context: ImageActionContext; resolveContext?: () => ImageActionContext; actions: readonly ImageAction[]; label: string;
+function ImageActionOptions({ context, resolveContext, actions, label, disabled = false }: {
+  context: ImageActionContext; resolveContext?: () => ImageActionContext; actions: readonly ImageAction[]; label: string; disabled?: boolean;
 }) {
   const fullFrame = label === "Full frame options";
-  const [open, setOpen] = useState(false);
+  const [expanded, setOpen] = useState(false);
+  const open = expanded && !disabled;
   const ref = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const id = useId();
   const placement = useActionPopupPlacement(trigger, popup, open, true);
   const targetKey = JSON.stringify(context.targets.map(target => target.id));
-  useEffect(() => { setOpen(false); }, [targetKey]);
+  useEffect(() => { setOpen(false); }, [targetKey, disabled]);
   useFocusTrap(popup, open);
   useEffect(() => {
     if (!open) return;
@@ -51,8 +52,8 @@ function ImageActionOptions({ context, resolveContext, actions, label }: {
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
   }, [open]);
   return <div ref={ref} data-image-action-options data-crop-options={fullFrame || undefined} className={`relative flex shrink-0 ${fullFrame ? "self-center h-11" : "self-stretch"}`}>
-    <button ref={trigger} type="button" aria-label={label} title={fullFrame ? "Crop full frame" : label} aria-expanded={open}
-      aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} className={`flex ${fullFrame ? "w-[22px] h-11" : "w-8 h-full"} items-center justify-center hover:bg-grid-hover cursor-pointer`}>
+    <button ref={trigger} type="button" disabled={disabled} aria-label={label} title={disabled ? "Cannot crop" : fullFrame ? "Crop full frame" : label} aria-expanded={open}
+      aria-controls={open ? id : undefined} onClick={() => setOpen(value => !value)} className={`flex ${fullFrame ? "w-[22px] h-11" : "w-8 h-full"} items-center justify-center enabled:hover:bg-grid-hover enabled:cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}>
       {fullFrame ? <Chevron direction={open ? "up" : "down"} />
         : <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" /></svg>}
     </button>
@@ -68,8 +69,8 @@ function ImageActionOptions({ context, resolveContext, actions, label }: {
   </div>;
 }
 
-export function FullFrameOptions({ context }: { context: ImageActionContext }) {
-  return <ImageActionOptions context={context} actions={["full-frame"]} label="Full frame options" />;
+export function FullFrameOptions({ context, disabled }: { context: ImageActionContext; disabled?: boolean }) {
+  return <ImageActionOptions context={context} actions={["full-frame"]} label="Full frame options" disabled={disabled} />;
 }
 
 interface ImageActionsProps {
@@ -83,6 +84,7 @@ interface ImageActionsProps {
   iconOnly?: boolean;
   uploadForm?: boolean;
   selectedIds?: ReadonlySet<string>;
+  inactive?: boolean;
 }
 
 let latestShare = 0;
@@ -130,7 +132,7 @@ export function SelectionImageActions(props: Omit<ImageActionsProps, "context" |
   }} />;
 }
 
-export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true, iconOnly = false, uploadForm = false, selectedIds }: ImageActionsProps) {
+export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS, expanded = false, onPrepared, presentation = "toolbar", showReasons = true, iconOnly = false, uploadForm = false, selectedIds, inactive = false }: ImageActionsProps) {
   const editor = useContext(MetadataEditorContext);
   const commit = useMetadataCommit(uploadForm);
   const pendingArchive = useStore(editor, state => actions.includes("library") ? state.pendingArchiveIds : undefined);
@@ -154,7 +156,8 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
     void serviceLink("archive").then(link => { if (active) setArchive(Boolean(link)); });
     return () => { active = false; };
   }, [archive]);
-  const current = { ...context, archive, cropSettings };
+  const fullFrameBusy = useImageActionStore(state => actions.includes("full-frame") && state.fullFrameBatches.some(batch => batch.active));
+  const current = { ...context, archive, cropSettings, fullFrameBusy };
   const descriptions = new Map(actions.map(action => [action, describeImageAction(action, current)] as const));
   const targetKey = JSON.stringify(current.targets.map(target => target.id));
   const selectionToolbar = selectedIds !== undefined && presentation === "toolbar" && !expanded;
@@ -170,8 +173,12 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
   });
   const deleteReason = descriptions.get("delete")?.reason;
   const [armedDelete, setArmedDelete] = useDeleteConfirmation(targetKey, deleteReason);
+  const fullFrame = descriptions.get("full-frame");
+  const fullFrameKey = JSON.stringify([targetKey, fullFrame?.eligibleIds, fullFrame?.skipped]);
+  const [armedFullFrame, setArmedFullFrame] = useDeleteConfirmation(fullFrameKey, inactive || fullFrame?.reason);
   const activate = (action: ImageAction, trigger: HTMLButtonElement) => {
-    const latest = { ...(resolveContext?.() ?? context), archive };
+    if (inactive) return;
+    const latest = { ...(resolveContext?.() ?? context), archive, cropSettings, fullFrameBusy: useImageActionStore.getState().fullFrameBatches.some(batch => batch.active) };
     const description = describeImageAction(action, latest);
     if (description.reason) return;
     if (action === "share") {
@@ -188,6 +195,11 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
         || description.eligibleIds.some((id, index) => id !== shown.eligibleIds[index])) return;
     }
     if (action === "delete" && armedDelete !== latestKey) { setArmedDelete(latestKey); return; }
+    if (action === "full-frame") {
+      const latestFullFrameKey = JSON.stringify([latestKey, description.eligibleIds, description.skipped]);
+      if (latestFullFrameKey !== fullFrameKey) { setArmedFullFrame(null); return; }
+      if (armedFullFrame !== fullFrameKey) { setArmedFullFrame(fullFrameKey); return; }
+    }
     const disclosure = trigger.closest(".selection-fab, [data-image-action-options]");
     const returnFocus = disclosure?.querySelector<HTMLButtonElement>("button[aria-expanded]") ?? trigger;
     if (action === "library" && editor.getState().connected) {
@@ -197,6 +209,7 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
     }
     if (useImageActionStore.getState().prepare(action, latest, returnFocus)) {
       setArmedDelete(null);
+      setArmedFullFrame(null);
       onPrepared?.();
     }
   };
@@ -207,23 +220,35 @@ export function ImageActions({ context, resolveContext, actions = IMAGE_ACTIONS,
     const retained = settlingLibrary ? lastLibrary.current : action === "library" && !description.libraryIcon
       && (description.pending || libraryBusy) && lastLibrary.current?.key === targetKey ? lastLibrary.current : undefined;
     const icon = retained?.icon ?? description.libraryIcon ?? "add";
-      const confirming = action === "delete" && armedDelete === targetKey && !description.reason;
-      const label = confirming ? `Confirm delete ${current.targets.length} ${current.targets.length === 1 ? "image" : "images"}` : retained?.label ?? description.label;
-      const visibleLabel = presentation === "floaty" ? confirming ? "Confirm delete" : action === "library" ? label : description.shortLabel : label;
-      return <button key={action} type="button" aria-label={label} data-share-trigger={action === "share" ? "" : undefined} disabled={!shareOverLimit && (Boolean(description.reason) || action === "library" && libraryBusy)} aria-disabled={shareOverLimit || undefined} onClick={event => activate(action, event.currentTarget)}
+      const confirmingDelete = action === "delete" && armedDelete === targetKey && !description.reason;
+      const confirmingFullFrame = action === "full-frame" && !inactive && armedFullFrame === fullFrameKey && !description.reason;
+      const confirming = confirmingDelete || confirmingFullFrame;
+      const count = description.eligibleIds.length;
+      const label = confirmingFullFrame ? `Confirm (${count}): full frame for ${count} ${count === 1 ? "image" : "images"}`
+        : confirmingDelete ? `Confirm delete ${current.targets.length} ${current.targets.length === 1 ? "image" : "images"}` : retained?.label ?? description.label;
+      const visibleLabel = confirmingFullFrame ? `Confirm (${count})` : presentation === "floaty" ? confirmingDelete ? "Confirm delete" : action === "library" ? label : description.shortLabel : label;
+      const skipSummary = confirmingFullFrame && description.skipped.length ? `${description.skipped.length} skipped` : undefined;
+      const softDisabled = shareOverLimit || (action === "full-frame" || action === "library") && Boolean(description.reason)
+        && !description.pending && !(action === "library" && libraryBusy);
+      const tooltip = action === "full-frame" && !confirmingFullFrame && !description.reason ? `${label} (${count})` : skipSummary ? `${label}; ${skipSummary}` : label;
+      const alternateLabel = action === "full-frame" ? confirmingFullFrame ? description.label : `Confirm (${count})` : undefined;
+      const stacked = (shown: string, other?: string) => other === undefined ? shown
+        : <span className="inline-grid"><span className="col-start-1 row-start-1">{shown}</span><span aria-hidden="true" className="invisible col-start-1 row-start-1">{other}</span></span>;
+      return <button key={action} type="button" aria-label={label} data-share-trigger={action === "share" ? "" : undefined} disabled={!softDisabled && (Boolean(description.reason) || action === "library" && libraryBusy)} aria-disabled={softDisabled || undefined} onClick={event => activate(action, event.currentTarget)}
+        onKeyDown={event => { if (event.repeat && (event.key === "Enter" || event.key === " ")) event.preventDefault(); }}
         aria-busy={description.pending || action === "library" && libraryBusy || undefined}
         style={description.pending ? { opacity: settledOpacity.current.get(action) ?? 0.4, visibility: settlingLibrary && !retained ? "hidden" : undefined } : undefined}
-        aria-description={description.reason}
-        title={settlingLibrary ? undefined : description.reason ?? label}
-        className={`image-action group/action flex shrink-0 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed cursor-pointer ${shareOverLimit ? "relative text-grid-text-muted/60" : confirming ? "bg-grid-error text-white" : "text-grid-text-muted"}`}>
+        aria-description={description.reason ?? skipSummary}
+        title={settlingLibrary ? undefined : description.reason ?? tooltip}
+        className={`image-action group/action flex shrink-0 items-center justify-center gap-1.5 px-2 text-sm hover:bg-grid-hover disabled:opacity-40 disabled:cursor-not-allowed aria-disabled:cursor-not-allowed cursor-pointer ${softDisabled ? `${shareOverLimit ? "relative " : ""}text-grid-text-muted/60` : confirmingDelete ? "bg-grid-error text-white hover:bg-grid-error" : "text-grid-text-muted"}`}>
         {action !== "library" ? <ImageActionIcon action={action} /> : uploadForm && icon === "remove" ? description.reason && !libraryBusy ? <LibraryIcon variant="added" /> : <>
             <LibraryIcon variant="added" className="group-hover/action:hidden group-focus-visible/action:hidden" />
             <LibraryIcon variant="remove" className="hidden group-hover/action:block group-focus-visible/action:block" />
           </> : <LibraryIcon variant={icon} />}
-        {!iconOnly && <span className={expanded ? "min-w-0 whitespace-normal wrap-anywhere" : "image-action-full"}>{action === "library" && presentation !== "floaty" ? <span className="library-toolbar-label"><span aria-hidden="true" /><span>{visibleLabel}</span></span> : visibleLabel}
+        {!iconOnly && <span className={expanded ? "min-w-0 whitespace-normal wrap-anywhere" : "image-action-full"}>{action === "library" && presentation !== "floaty" ? <span className="library-toolbar-label"><span aria-hidden="true" /><span>{visibleLabel}</span></span> : stacked(visibleLabel, expanded || presentation === "floaty" ? undefined : alternateLabel)}
           {expanded && ((showReasons && presentation !== "floaty") || shareOverLimit) && description.reason && <span className="block text-xs font-normal">{description.reason}</span>}
         </span>}
-        {!iconOnly && !expanded && <span className="image-action-short">{confirming ? "Confirm" : description.shortLabel}</span>}
+        {!iconOnly && !expanded && <span className="image-action-short">{confirmingFullFrame ? stacked(visibleLabel, description.shortLabel) : confirming ? "Confirm" : stacked(description.shortLabel, alternateLabel)}</span>}
         {shareOverLimit && !expanded && <span aria-hidden="true" className="pointer-events-none absolute top-full right-0 z-50 mt-1 hidden w-52 whitespace-normal rounded border border-grid-separator bg-grid-bg p-2 text-left text-xs text-grid-text shadow-lg group-focus-visible/action:block">{description.reason}</span>}
       </button>;
   };
