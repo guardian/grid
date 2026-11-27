@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import type { APIResponse, FileChooser, Locator, Response } from '@playwright/test';
+import type { APIResponse, Dialog, FileChooser, Locator, Response } from '@playwright/test';
 import { test as base, createBdd } from 'playwright-bdd';
 import { DOMAIN } from '../setup/constants.ts';
 import type { ImageSource } from '../setup/image-fixtures.ts';
@@ -19,8 +19,28 @@ export const KAHUNA_APP_URL = `https://media.${DOMAIN}`;
 export interface TestContext {
   response?: APIResponse;
   mediaApiResponse?: Promise<Response>;
-  /** Messages from alerts and confirms, in the order the page raised them. */
+  /** Messages from alerts and confirms, in the order the page raised them (see answerDialogs). */
   dialogs: string[];
+  /** How answerDialogs answers the page's alerts and confirms. Dismisses when unset. */
+  dialogAnswer?: 'accept' | 'dismiss';
+  /** The disposable image copy that "the image" steps refer to. */
+  imageId?: string;
+  /** When a lease access type was chosen in the add lease form. */
+  accessChosenAt?: Date;
+  /** Whether answerDialogs leaves confirms unanswered (see holdingConfirms). */
+  holdingConfirms?: boolean;
+  /** A confirm left unanswered for a later step to answer. */
+  heldConfirm?: Dialog;
+  /** The action that raised `heldConfirm`, which finishes once it is answered. */
+  heldAction?: Promise<unknown>;
+  /** What `watchDuringWrites` showed while each lease write was in flight (see recordShownDuringSaves). */
+  shownDuringWrites?: string[];
+  /** The element recordShownDuringSaves reads during each lease write; the add lease control by default. */
+  watchDuringWrites?: Locator;
+  /** Ids of the images a scenario showed in search results or uploaded, in order. */
+  surfaceImageIds?: string[];
+  /** The metadata template a `Given` chose for a later step to select or apply. */
+  metadataTemplate?: string;
   fileChooser?: Promise<FileChooser>;
   /** The query run on the search page before navigating to the upload page. */
   previousSearchQuery?: string;

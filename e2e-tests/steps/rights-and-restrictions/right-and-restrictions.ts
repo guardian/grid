@@ -17,7 +17,6 @@ import {
 import type { ImageSource } from "../../setup/image-fixtures.ts";
 import type { ImageOverrides } from "../../setup/seed-image.ts";
 import {
-  imageInformation,
   openOnSurface,
   openedImageIds,
   revealEditButton,
@@ -30,7 +29,15 @@ import type { OpenedImage, RightsSurfaceName } from "./surfaces.ts";
 import { usageRightsCategories } from "../utils/api/metadata-editor.queries.ts";
 import { setTestClientConfig } from "../utils/test-config.ts";
 import { TEST_ACCOUNTS } from "../../setup/constants.ts";
-import { switchAccount } from "../utils/auth.ts";
+import {
+  PLAIN_IMAGE,
+  imageInformation,
+} from "../utils/single-image.ts";
+import {
+  chooseMetadataTemplate,
+  expectMetadataTemplate,
+  metadataTemplates,
+} from "../utils/metadata-templates.ts";
 import {
   expectEditPermissionForImage,
   expectUsageRightsCategory,
@@ -43,7 +50,6 @@ const IMAGE_WITHOUT_RIGHTS = findSeededImage(
   "with no usage rights category",
   hasNoUsageRights,
 );
-const SEEDED_IMAGE_ID = IMAGE_WITHOUT_RIGHTS._id;
 
 /** The rights and restrictions section on the scenario's surface (see surfaces.ts). */
 const rightsAndRestrictions = (page: Page) => rightsSurface(page).section(page);
@@ -253,14 +259,6 @@ Given(
   },
 );
 
-Given("I am signed in without edit metadata permission", async ({ page }) => {
-  await switchAccount(page, TEST_ACCOUNTS.restricted);
-});
-
-Given("I am signed in with edit metadata permission", async ({ page }) => {
-  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
-});
-
 Given("the image was uploaded by me", async ({ page, testContext }) => {
   const imageId = findSeededImageId(
     "owned by the restricted account",
@@ -433,7 +431,7 @@ async function expectProperty(
     ).toBeChecked();
   } else if (control.kind === "select") {
     // Angular's ng-options values are internal ("string:AP"), so check the chosen option's text.
-    await expect(control.field.locator("option:checked")).toHaveText(value);
+    await expect(control.field.getByRole("option", { selected: true })).toHaveText(value);
   } else {
     await expect(control.field).toHaveValue(value);
   }
@@ -707,13 +705,9 @@ Then(
   async ({ page }, uploader: string) => {
     await expect(
       usageSummary(page).getByTitle(uploader, { exact: true }),
-    ).toHaveClass(new RegExp(`(?:^|\\s)supplier-${uploader}(?:\\s|$)`));
+    ).toContainClass(`supplier-${uploader}`);
   },
 );
-
-Given("I have opened the single image view of an image", async ({ page }) => {
-  await openImage(page, SEEDED_IMAGE_ID);
-});
 
 /** The seeded fixture in a usage rights category, given by display name or code. */
 async function imageInCategory(
@@ -758,9 +752,10 @@ Given(
 
 Given("the image has no usage rights category", async ({ page, seedImage }) => {
   // A disposable copy, so scenarios that save rights don't change a shared fixture.
-  await openCopies(page, seedImage, [
-    { source: IMAGE_WITHOUT_RIGHTS._source, overrides: { usageRights: {} } },
-  ]);
+  await openImage(
+    page,
+    await seedImage(PLAIN_IMAGE._source, { usageRights: {} }),
+  );
 });
 
 Given(
@@ -804,11 +799,6 @@ Then("the Metadata tab is selected", async ({ page }) => {
   await expect(metadataTab).toBeChecked();
 });
 
-Then("I see a {string} region", async ({ page, testContext }, name: string) => {
-  testContext.region = page.getByRole("region", { name, exact: true });
-  await expect(testContext.region).toBeVisible();
-});
-
 Then("it is headed {string}", async ({ testContext }, heading: string) => {
   expect(
     testContext.region,
@@ -822,11 +812,6 @@ Then("it is headed {string}", async ({ testContext }, heading: string) => {
 // ---------------------------------------------------------------------------
 // Metadata templates driving the rights editor
 // ---------------------------------------------------------------------------
-
-const metadataTemplates = (page: Page) =>
-  page.getByRole("region", { name: "Metadata templates", exact: true });
-const metadataTemplateSelect = (page: Page) =>
-  metadataTemplates(page).getByRole("combobox", { name: "Metadata template" });
 
 /** The display name of the category `E2E_RIGHTS_TEMPLATE` sets, e.g. "Agency - subscription". */
 async function rightsTemplateCategoryName(
@@ -843,45 +828,14 @@ async function rightsTemplateCategoryName(
   return name;
 }
 
-/**
- * Kahuna applies a template's selection once it has fetched the collections tree, which it
- * only requests on the first selection after the page loads. Waiting for that response
- * means an editor that should stay closed is checked after the selection has been handled.
- */
-async function chooseRightsTemplate(page: Page): Promise<void> {
-  const [collections] = await Promise.all([
-    page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return (
-        url.hostname.startsWith("media-collections.") &&
-        url.pathname === "/collections"
-      );
-    }),
-    metadataTemplateSelect(page).selectOption({
-      label: E2E_RIGHTS_TEMPLATE.templateName,
-    }),
-  ]);
-  expect(
-    collections.ok(),
-    "fetching collections for the metadata template",
-  ).toBeTruthy();
-}
-
 Given("metadata templates are configured", async ({ page }) => {
-  // Templates are baked into Kahuna's config at boot, so a stale stack won't list this one.
-  await expect(
-    metadataTemplateSelect(page).getByRole("option", {
-      name: E2E_RIGHTS_TEMPLATE.templateName,
-      exact: true,
-    }),
-    "restart the stack if the rights template is missing",
-  ).toHaveCount(1);
+  await expectMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
 });
 
 When(
   "I choose a metadata template that sets a usage rights category",
   async ({ page }) => {
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
   },
 );
 
@@ -891,14 +845,14 @@ When(
     expect(await usageRightsCategoryCode(request, category)).toBe(
       E2E_RIGHTS_TEMPLATE.usageRights.category,
     );
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
   },
 );
 
 Given(
   "a metadata template's usage rights are being previewed on the image",
   async ({ page }) => {
-    await chooseRightsTemplate(page);
+    await chooseMetadataTemplate(page, E2E_RIGHTS_TEMPLATE.templateName);
     await expect(rightsEditor(page)).toBeVisible();
   },
 );

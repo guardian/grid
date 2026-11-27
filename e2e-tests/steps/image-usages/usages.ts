@@ -9,10 +9,9 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Locator, Page } from '@playwright/test';
 import { defineParameterType } from 'playwright-bdd';
-import { KAHUNA_APP_URL, expect } from '../setup.ts';
 import type { SeedImage } from '../setup.ts';
-import { findSeededImage, hasNoUsageRights } from '../../setup/image-fixtures.ts';
 import { quotedOneOf } from '../utils/parameter-types.ts';
+import { PLAIN_IMAGE, openImage } from '../utils/single-image.ts';
 
 const USAGE_PLATFORMS = ['print', 'digital', 'syndication', 'download', 'derivative', 'replaced'] as const;
 const USAGE_STATUSES = [
@@ -131,16 +130,13 @@ const STATUS_HEADINGS: Partial<Record<UsageStatus, string>> = {
 };
 export const statusHeading = (status: UsageStatus): string => STATUS_HEADINGS[status] ?? status;
 
-const SOURCE_IMAGE = findSeededImage('with no usage rights category', hasNoUsageRights)._source;
-
 /** `usages` as stored on the image with id `media`. */
 export const storedUsages = (usages: SeedUsage[], media: string) => usages.map((u) => ({ ...u, media }));
 
 /** Index a copy of a seeded image with `usages`, open its single image view, and return its id. */
 export async function openImageWithUsages(page: Page, seedImage: SeedImage, usages: SeedUsage[]): Promise<string> {
-  const id = await seedImage(SOURCE_IMAGE, (mediaId) => ({ usages: storedUsages(usages, mediaId) }));
-  await page.goto(`${KAHUNA_APP_URL}/images/${id}`);
-  await expect(page.getByRole('complementary', { name: 'Image information' })).toBeVisible();
+  const id = await seedImage(PLAIN_IMAGE._source, (mediaId) => ({ usages: storedUsages(usages, mediaId) }));
+  await openImage(page, id);
   return id;
 }
 

@@ -4,8 +4,12 @@ import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { KAHUNA_PORT } from '../../setup/constants.ts';
+import { KAHUNA_PORT, TEST_ACCOUNTS } from '../../setup/constants.ts';
+import { openUploadPageAs } from '../common.steps.ts';
 import type { TestImage } from '../setup.ts';
+import { failRequests, holdRequests, holdRequestsUntilReleased } from '../utils/routes.ts';
+import { metadataTemplateSelect } from '../utils/metadata-templates.ts';
+import type { RequestMatch } from '../utils/routes.ts';
 
 
 const FIXTURE_IMAGES = path.join(import.meta.dirname, '..', '..', 'fixtures', 'images');
@@ -64,55 +68,33 @@ export const gifImage = (): TestImage => {
 export const uniqueBatch = (base?: TestImage): string[] =>
   Array.from({ length: BATCH_SIZE }, () => uniqueImage(base).path);
 
+const ingestTransfer: RequestMatch = {
+  url: (url) => url.hostname.startsWith('localstack.'),
+  methods: ['PUT'],
+};
+
 /** Hold the transfer to the ingest bucket open so a job stays in progress while we assert. */
 export const holdIngest = (page: Page, ms = 5_000) =>
-  page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await new Promise((resolve) => setTimeout(resolve, ms));
-      await route.abort();
-    },
-  );
+  holdRequests(page, ingestTransfer, () => new Promise((resolve) => setTimeout(resolve, ms)), {
+    thenAbort: true,
+  });
 
 /** Reject the transfer to the ingest bucket so the job fails. */
 export const failIngest = (page: Page) =>
-  page.route(
-    (url) => url.hostname.startsWith('localstack.'),
-    async (route) => {
-      if (route.request().method() !== 'PUT') return route.fallback();
-      await route.fulfill({ status: 403, body: 'denied' });
-    },
-  );
+  failRequests(page, ingestTransfer, { status: 403, body: 'denied' });
 
 /**
  * Make the image delete fail. Aborting the DELETE surfaces a real rejection
  * that reaches the `image-delete-failure` handler.
  */
 export const failDelete = (page: Page) =>
-  page.route(
-    () => true,
-    async (route) => {
-      if (route.request().method() !== 'DELETE') return route.fallback();
-      await route.abort();
-    },
-  );
+  failRequests(page, { url: () => true, methods: ['DELETE'] }, { abort: true });
 
 /** Hold the past-uploads search until the returned function is called. */
-export const holdPastUploads = async (page: Page) => {
-  let release!: () => void;
-  const released = new Promise<void>((resolve) => {
-    release = resolve;
+export const holdPastUploads = (page: Page) =>
+  holdRequestsUntilReleased(page, {
+    url: (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
   });
-  await page.route(
-    (url) => url.pathname === '/images' && url.searchParams.has('uploadedBy'),
-    async (route) => {
-      await released;
-      await route.continue();
-    },
-  );
-  return release;
-};
 
 /** The collections/labels/keywords/photoshoot section of an image-editor. */
 export const grouping = (job: Locator) =>
@@ -175,7 +157,7 @@ export const uploadPage = (page: Page) => {
     creditSuggestions: metadataEditor.getByRole('option'),
     /* Metadata template controls live in the ui-image-editor wrapper, a sibling of the
        "Image metadata" form but still within the current-uploads region. */
-    metadataTemplateSelect: currentUploads.getByRole('combobox', { name: 'Metadata template' }),
+    metadataTemplateSelect: metadataTemplateSelect(currentUploads),
     /** The delete control on a current upload (labelled "Delete image" for both states). */
     deleteJobButton: currentUploads.getByRole('button', { name: 'Delete image' }),
     /** The deleted-image notice on a re-uploaded image, holding its undelete control and message. */
@@ -189,4 +171,31 @@ export async function batchJobs(page: Page): Promise<Locator[]> {
   const jobs = uploadPage(page).imageEditorJob;
   await expect(jobs).toHaveCount(BATCH_SIZE);
   return jobs.all();
+}
+
+/** The id of the image a finished upload became, read from its "View image" link. */
+export async function uploadedImageId(job: Locator): Promise<string> {
+  const href = await job.getByRole('link', { name: 'View image' }).first().getAttribute('href');
+  const id = href?.split('/').pop();
+  if (!id) throw new Error(`no image link on the upload (href: ${href})`);
+  return id;
+}
+
+/** Upload `paths`, wait for each to become an editable image, and return their ids in page order. */
+export async function uploadImages(page: Page, paths: string[]): Promise<string[]> {
+  await uploadPage(page).fileInput.setInputFiles(paths);
+  const jobs = uploadPage(page).imageEditorJob;
+  await expect(jobs).toHaveCount(paths.length);
+  return Promise.all((await jobs.all()).map(uploadedImageId));
+}
+
+/**
+ * Upload `path` as the full-access account, then return to the upload page as the restricted
+ * one. Uploading the same bytes again surfaces the existing image, which keeps its first
+ * uploader, so the restricted account sees an image it did not upload.
+ */
+export async function uploadAsAnotherUser(page: Page, path: string): Promise<void> {
+  await openUploadPageAs(page, TEST_ACCOUNTS.fullAccess);
+  await uploadImages(page, [path]);
+  await openUploadPageAs(page, TEST_ACCOUNTS.restricted);
 }

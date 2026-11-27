@@ -1,7 +1,15 @@
-import { Given, KAHUNA_APP_URL, expect } from './setup.ts';
+import { Before, Given, KAHUNA_APP_URL, Then, expect } from './setup.ts';
+import { TEST_ACCOUNTS } from '../setup/constants.ts';
 import type { TestAccount } from '../setup/constants.ts';
 import type { Page } from '@playwright/test';
 import { switchAccount } from './utils/auth.ts';
+import { answerDialogs, expectDialog } from './utils/dialogs.ts';
+
+// Before any page loads, so steps can pause the clock and run on Kahuna's timers (see pauseClock)
+// instead of waiting for them. Time passes as normal until a step pauses it.
+Before({ tags: '@fake-clock' }, async ({ page }) => {
+  await page.clock.install();
+});
 
 Given('the application stack is running', async ({ request }) => {
   const response = await request.get('/management/healthcheck');
@@ -17,6 +25,27 @@ Given('I am signed in through pan-domain auth', async ({ page }) => {
   await page.goto(KAHUNA_APP_URL);
   // A missing or expired session would have redirected us to the OIDC provider.
   await expect(page).toHaveURL((url) => url.origin === KAHUNA_APP_URL);
+});
+
+Given('I am signed in without edit metadata permission', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.restricted);
+});
+
+Given('I am signed in with edit metadata permission', async ({ page }) => {
+  await switchAccount(page, TEST_ACCOUNTS.fullAccess);
+});
+
+Then('I see a(n) {string} button', async ({ page }, name: string) => {
+  await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
+});
+
+Then('I do not see a(n) {string} button', async ({ page }, name: string) => {
+  await expect(page.getByRole('button', { name, exact: true })).toBeHidden();
+});
+
+// Only sees dialogs on a page an earlier step called answerDialogs on.
+Then('I am alerted/asked {string}', async ({ testContext }, message: string) => {
+  await expectDialog(testContext, message);
 });
 
 /** From the search page, go to the upload page. */
@@ -42,12 +71,6 @@ export async function openUploadPageAs(page: Page, account: TestAccount): Promis
 }
 
 Given('I have opened the image upload page', async ({ page, testContext }) => {
-  // An unhandled dialog blocks the page, so record every one and answer it. Dismissing a
-  // confirm answers "no", which keeps us on the page under test.
-  page.on('dialog', (dialog) => {
-    testContext.dialogs.push(dialog.message());
-    void dialog.dismiss();
-  });
-
+  answerDialogs(page, testContext);
   await openUploadPage(page);
 });
