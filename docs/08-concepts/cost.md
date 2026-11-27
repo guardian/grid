@@ -12,10 +12,3 @@ Each image in the Grid will have a Usage Right associated with it. By default th
 
 Note that despite the suggestion and the UI descriptions, usage rights do not prevent a user from using the image, they only prevent the [cropping](./crops.md) of the image.
 
-
-## suppliers
-## restrictions
-
-## validity
-
-## quotas
