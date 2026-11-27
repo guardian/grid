@@ -1,0 +1,54 @@
+import type { Page } from '@playwright/test';
+import { SEARCH_CHIP_IMAGE_IDS } from '../../fixtures/elasticsearch/search-chips.ts';
+import { Given, When, Then, KAHUNA_APP_URL, expect } from '../setup.ts';
+import { expectSearchBoxEmpty, isSearchRun, searchBoxEditable, searchBoxReady } from './search-box.ts';
+
+async function openChipFixtureSearch(page: Page, fixtureIds: string[]) {
+    const ids = fixtureIds.join(',');
+    const params = new URLSearchParams({ ids, nonFree: 'true' });
+    const searched = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return isSearchRun(response.request()) && url.searchParams.get('ids') === ids &&
+            (url.searchParams.get('q') ?? '') === '';
+    });
+    await page.goto(`${KAHUNA_APP_URL}/search?${params}`);
+    expect((await searched).status()).toBe(200);
+    await searchBoxReady(page);
+    await expectSearchBoxEmpty(page);
+    await expect(page).toHaveURL((url) => url.searchParams.get('nonFree') === 'true' &&
+        url.searchParams.get('ids') === ids);
+}
+
+Given('I am searching chip fixtures {string} with all usage rights included', async ({ page }, roles: string) => {
+    const ids = roles.split(',').map((role) => {
+        const id = SEARCH_CHIP_IMAGE_IDS[role.trim()];
+        expect(id, `Unknown chip fixture: ${role.trim()}`).toBeTruthy();
+        return id;
+    });
+    await openChipFixtureSearch(page, ids);
+});
+
+When('I search for images using {string}', async ({ page }, query: string) => {
+    const searched = page.waitForResponse((response) =>
+        isSearchRun(response.request()) && new URL(response.url()).searchParams.get('q') === query);
+    await searchBoxEditable(page).fill(query);
+    expect((await searched).status()).toBe(200);
+    await expect(page).toHaveURL((url) => url.searchParams.get('query') === query &&
+        url.searchParams.get('nonFree') === 'true');
+});
+
+Then('the search results should contain exactly chip fixtures {string}', async ({ page }, roles: string) => {
+    const ids = roles.split(',').map((role) => {
+        const id = SEARCH_CHIP_IMAGE_IDS[role.trim()];
+        expect(id, `Unknown chip fixture: ${role.trim()}`).toBeTruthy();
+        return id;
+    });
+    await expect(page.locator('.image-results-count').getByText(`${ids.length} matches`, { exact: true })).toBeVisible();
+    const results = page.locator('.result');
+    await expect(results).toHaveCount(ids.length);
+    for (const id of ids) {
+        await expect(results.filter({
+            has: page.locator(`[id^="id-${id}-result__select__checkbox--"]`),
+        })).toBeVisible();
+    }
+});
