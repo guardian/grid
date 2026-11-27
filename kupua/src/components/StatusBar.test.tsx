@@ -1,0 +1,694 @@
+/** @vitest-environment jsdom */
+
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { Profiler } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.hoisted(() => {
+  window.matchMedia = vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) as unknown as typeof window.matchMedia;
+});
+const inactive = (button: Element) => (button as HTMLButtonElement).disabled || button.getAttribute("aria-disabled") === "true";
+const shell = vi.hoisted(() => ({ compact: false }));
+vi.mock("@/lib/editing-preference", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/editing-preference")>(),
+  editingAllowedAtStartup: true,
+}));
+vi.mock("@/hooks/useShell", () => ({ useIsCompact: () => shell.compact, isCompactNow: () => shell.compact }));
+vi.mock("@tanstack/react-router", () => ({ useSearch: () => ({}) }));
+vi.mock("@/hooks/useUrlSearchSync", () => ({ useUpdateSearchParams: () => vi.fn() }));
+vi.mock("date-fns", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("date-fns")>();
+  return { ...actual, formatDistanceToNow: vi.fn(actual.formatDistanceToNow) };
+});
+
+import { formatDistanceToNow } from "date-fns";
+import { StatusBar } from "./StatusBar";
+import { MetadataEditorContext } from "./MetadataEditing";
+import { createMetadataEditorStore, type MetadataSave } from "@/stores/metadata-editor-store";
+import { labelTargetKey } from "@/stores/label-editor-store";
+import { useSearchStore } from "@/stores/search-store";
+import { gridConfig } from "@/lib/grid-config";
+import { snapshotStore } from "@/lib/history-snapshot";
+import { buildSearchKey } from "@/lib/image-offset-cache";
+import { useCollectionStore } from "@/stores/collection-store";
+import { usePanelStore } from "@/stores/panel-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useSelectionStore } from "@/stores/selection-store";
+import { ImageActionFab, SelectionFab } from "./SelectionFab";
+import { PanelLayout } from "./PanelLayout";
+import { FullFrameOptions, ImageActions, SelectionImageActions } from "./ImageActions";
+import { ToastContainer } from "./ToastContainer";
+import { useToastStore } from "@/stores/toast-store";
+import { useImageActionStore } from "@/stores/image-action-store";
+import { useEnrichmentStore } from "@/stores/enrichment-store";
+import * as gridApi from "@/lib/grid-api-instance";
+
+const ticker = gridConfig.tickerDefinitions[0];
+const resultCount = () => screen.getAllByRole("status")[0].textContent;
+const tickerBadge = () => screen.queryByRole("button", { name: new RegExp(ticker.name) });
+
+describe("StatusBar AI totals", () => {
+  const initial = useSearchStore.getState();
+  const initialHistory = window.history.state;
+  const initialPrefs = useUiPrefsStore.getState();
+  const initialSelection = useSelectionStore.getState();
+
+  beforeEach(() => {
+    vi.spyOn(useImageActionStore.getState(), "prepare");
+    shell.compact = false;
+    sessionStorage.clear();
+    useSearchStore.setState({ _isInitialLoad: false, total: 200, aiPoolTotal: null, tickerCounts: null, newCount: 0 });
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    useToastStore.setState({ queue: [] });
+    vi.mocked(useImageActionStore.getState().prepare).mockRestore();
+    useSearchStore.setState(initial, true);
+    useUiPrefsStore.setState(initialPrefs, true);
+    useSelectionStore.setState(initialSelection, true);
+    snapshotStore.delete("ticker-reload");
+    window.history.replaceState(initialHistory, "");
+  });
+
+  it.each([false, true])("keeps selection controls in their chosen model with touch input, compact=%s", compact => {
+    shell.compact = compact;
+    useUiPrefsStore.setState({ _pointerCoarse: true });
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<><StatusBar /><SelectionFab /></>);
+    expect(screen.queryByRole("button", { name: "Deselect" }) !== null).toBe(!compact);
+    expect(screen.queryByRole("button", { name: "Clear selection (1 selected)" }) !== null).toBe(compact);
+  });
+
+  it("reads 'Best k of N matches' for an AI result and plain matches otherwise", () => {
+    useSearchStore.setState({ aiPoolTotal: 10_216_960 });
+    const view = render(<StatusBar />);
+    expect(resultCount()).toBe("Best 200 of 10,216,960\u00a0matches");
+
+    view.unmount();
+    useSearchStore.setState({ aiPoolTotal: null, total: 13_260 });
+    render(<StatusBar />);
+    expect(resultCount()).toBe("13,260\u00a0matches");
+  });
+
+  it("offers the five image actions only for an explicit desktop selection", () => {
+    const view = render(<StatusBar />);
+    expect(screen.queryByRole("group", { name: "Image actions" })).toBeNull();
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) }));
+    const actions = screen.getByRole("group", { name: "Image actions" });
+    expect([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual([
+      "Share with URL", "Crop full frame", "Download", "Delete", "Add to Library",
+    ]);
+    expect(screen.getByRole("button", { name: "Deselect" })).toBeTruthy();
+    const counter = screen.getByRole("status", { name: "1 selected" });
+    const followingButtons = [...counter.parentElement!.querySelectorAll("button")]
+      .filter(button => Boolean(counter.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING));
+    expect(followingButtons[0]).toBe(screen.getByRole("button", { name: "Deselect" }));
+    view.unmount();
+  });
+
+  it("replaces the desktop selection count only for visible edit progress and restores it on success", () => {
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore();
+    const ids = ["first", "second"];
+    useSelectionStore.setState({ selectedIds: new Set(ids) });
+    const items: MetadataSave["items"] = ids.map(imageId => ({ imageId, state: "unchanged", observation: "observed" }));
+    const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", targetIds: ids, action: "overwrite", value: "Desk" }, state: "saving", excluded: 0, items: items.slice(0, 1) };
+    try {
+      render(<MetadataEditorContext value={editor}><StatusBar /></MetadataEditorContext>);
+      const count = () => screen.queryByRole("status", { name: "2 selected" });
+      const deselect = screen.getByRole("button", { name: "Deselect" });
+      expect(count()?.nextElementSibling?.nextElementSibling).toBe(deselect);
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(ids) }], saves: new Map([[1, save]]) }));
+      expect(count()).toBeTruthy();
+      act(() => vi.advanceTimersByTime(1500));
+      expect(count()).toBeNull();
+      expect(screen.getByRole("progressbar").textContent).toContain("Updating Credit: 1/2");
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished", items }]]) }));
+      expect(count()?.nextElementSibling?.nextElementSibling).toBe(deselect);
+      expect(screen.queryByRole("progressbar")).toBeNull();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it.each([false, true])("shows focused-image save status without selection controls, compact=%s", compact => {
+    shell.compact = compact;
+    vi.useFakeTimers();
+    const editor = createMetadataEditorStore();
+    const ids = ["focused"];
+    const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", targetIds: ids, action: "overwrite", value: "Desk" }, state: "saving", excluded: 0, items: [] };
+    try {
+      render(<MetadataEditorContext value={editor}><PanelLayout rightPanel={<div>Metadata</div>}><StatusBar /></PanelLayout></MetadataEditorContext>);
+      const idle = () => {
+        expect(screen.queryByRole("status", { name: "0 selected" })).toBeNull();
+        expect(screen.queryByRole("region", { name: "Details" })).toBeNull();
+        expect(screen.queryByRole("progressbar")).toBeNull();
+      };
+      idle();
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(ids) }], saves: new Map([[1, save]]) }));
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.getByRole("progressbar").getAttribute("aria-valuemax")).toBe("1");
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished", message: "Rejected" }]]) }));
+      expect(screen.getByRole("button", { name: "1 issue" })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /Deselect|Clear selection|selected .*actions/i })).toBeNull();
+      expect(screen.queryByRole("group", { name: "Image actions" })).toBeNull();
+      const repair: MetadataSave = { ...save, id: 2, state: "finished", items: [{ imageId: ids[0], state: "unchanged", observation: "observed" }] };
+      act(() => editor.setState(state => ({ panelSaves: [{ id: 2, targetKey: labelTargetKey(ids) }, ...state.panelSaves], saves: new Map(state.saves).set(2, repair) })));
+      expect(screen.queryByRole("button", { name: "1 issue" })).toBeNull();
+      idle();
+    } finally { editor.getState().dispose(); vi.useRealTimers(); }
+  });
+
+  it("keeps pending action styling steady while blocking preparation immediately", () => {
+    const view = render(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: true }], api: true, archive: true }} />);
+    const button = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
+    expect(inactive(button)).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.style.opacity).toBe("0.4");
+    fireEvent.click(button);
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+    view.rerender(<ImageActions actions={["delete"]} context={{ targets: [{ id: "pending", pending: false }], api: true, archive: true }} />);
+    expect(inactive(button)).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBeNull();
+    expect(button.style.opacity).toBe("");
+  });
+
+  it("keeps Full frame disabled during hydration and confirms only missing frames", () => {
+    const target = (id: string, full = true) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } },
+      exports: full ? [{ specification: { type: "full" } }] : [] },
+      overlay: { resource: { uri: `https://api.example.test/images/${id}`, links: [{ rel: "crops", href: `https://crop.example.test/crops/${id}` }] } } });
+    const existing = target("existing");
+    const view = render(<ImageActions actions={["full-frame"]} context={{ targets: [existing], api: true, archive: true }} />);
+    const button = screen.getByRole("button", { name: "Crop full frame" }) as HTMLButtonElement;
+    expect(inactive(button)).toBe(true);
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, { id: "new", pending: true }], api: true, archive: true }} />);
+    expect(inactive(button)).toBe(true);
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.style.opacity).toBe("0.4");
+    fireEvent.click(button);
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("new", false)], api: true, archive: true }} />);
+    expect(inactive(button)).toBe(false);
+    expect(button.getAttribute("aria-busy")).toBeNull();
+    expect(button.style.opacity).toBe("");
+    fireEvent.click(button);
+    expect(screen.getByRole("button", { name: "Confirm (1): full frame for 1 image" })).toBeTruthy();
+    expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+    view.rerender(<ImageActions actions={["full-frame"]} context={{ targets: [existing, target("other", false)], api: true, archive: true }} />);
+    expect(screen.queryByRole("button", { name: "Confirm (1): full frame for 1 image" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Crop full frame" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm (1): full frame for 1 image" }));
+    expect(useImageActionStore.getState().prepare).toHaveBeenCalledOnce();
+  });
+
+  it("copies the captured selection and offers to open the same link", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
+    useSelectionStore.setState({ selectedIds: new Set(["share-first", "share-second"]) });
+    render(<><StatusBar /><ToastContainer /></>);
+    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["later-selection"]) }));
+    const url = `${window.location.origin}/search?nonFree=true&ids=share-first,share-second`;
+    expect(writeText).toHaveBeenCalledExactlyOnceWith(url);
+    expect(await screen.findByText("Share link copied to clipboard.")).toBeTruthy();
+    const link = screen.getByRole("link", { name: "Open link" });
+    expect(link.getAttribute("href")).toBe(url);
+    expect(link.getAttribute("target")).toBe("_blank");
+    act(() => useToastStore.getState().add({ category: "warning", message: "Keep this warning", lifespan: "session", durationMs: 0 }));
+    fireEvent.click(screen.getByRole("button", { name: "Share with URL" }));
+    expect(screen.getByRole("link", { name: "Open link" })).toBe(link);
+    await act(async () => {});
+    const replacement = screen.getByRole("link", { name: "Open link" });
+    expect(replacement.getAttribute("href")).toBe(`${window.location.origin}/search?nonFree=true&ids=later-selection`);
+    expect(screen.getAllByRole("alert")[0].contains(replacement)).toBe(true);
+    fireEvent.click(replacement);
+    expect(screen.queryByRole("link", { name: "Open link" })).toBeNull();
+    expect(screen.getByText("Keep this warning")).toBeTruthy();
+  });
+
+  it("blocks Share above 44 images and offers an Open link fallback at the limit", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("Clipboard unavailable"));
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
+    const ids = Array.from({ length: 45 }, (_, index) => `image-${index}`);
+    useSelectionStore.setState({ selectedIds: new Set(ids) });
+    render(<><StatusBar /><ToastContainer /></>);
+    const share = screen.getByRole("button", { name: "Share with URL" });
+    expect(share.getAttribute("aria-disabled")).toBe("true");
+    expect(share.title).toContain("reduce to 44 or less");
+    fireEvent.click(share);
+    expect(writeText).not.toHaveBeenCalled();
+    act(() => useSelectionStore.setState({ selectedIds: new Set(ids.slice(0, 44)) }));
+    expect(share.hasAttribute("aria-disabled")).toBe(false);
+    fireEvent.click(share);
+    const link = await screen.findByRole("link", { name: "Open link" }) as HTMLAnchorElement;
+    expect(new URL(link.href).searchParams.get("ids")?.split(",")).toEqual(ids.slice(0, 44));
+    expect(screen.queryByText("Share link copied to clipboard.")).toBeNull();
+    fireEvent.click(share.parentElement!);
+    expect(screen.queryByRole("link", { name: "Open link" })).toBeNull();
+  });
+
+  it("requires a second Delete activation and disarms when the detail target changes", () => {
+    const target = (id: string) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
+      overlay: { actions: [{ name: "delete", href: `https://api.example.test/images/${id}`, method: "DELETE" as const }] } });
+    const view = render(<ImageActions actions={["delete"]} context={{ targets: [target("first")], api: true, archive: true }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Confirm delete 1 image" })).toBeTruthy();
+    view.rerender(<ImageActions actions={["delete"]} context={{ targets: [target("second")], api: true, archive: true }} />);
+    expect(screen.queryByRole("button", { name: "Confirm delete 1 image" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm delete 1 image" }));
+    expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["second"] }));
+  });
+
+  it("submits only changed Library flags and announces an in-flight save", async () => {
+    const editor = createMetadataEditorStore();
+    const submit = vi.fn<ReturnType<typeof editor.getState>["submit"]>(() => undefined);
+    editor.setState({ connected: true, submit });
+    const grant = vi.spyOn(gridApi, "serviceLink").mockResolvedValue("https://metadata.example.test/metadata/{id}/archived");
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const target = (id: string, archived: boolean) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, userMetadata: { archived },
+      source: { mimeType: "image/jpeg", dimensions: { width: 10, height: 10 } } }, overlay: { persisted: { value: archived, reasons: archived ? ["archived"] : [] } } });
+    try {
+      await act(async () => { render(<MetadataEditorContext value={editor}><ImageActions actions={["library"]} context={{ targets: [target("already", true), target("new", false)], api: true, archive: null }} /></MetadataEditorContext>); });
+      const add = screen.getByRole("button", { name: "Add to Library" });
+      expect(add.querySelector('[data-library-icon="add"]')).not.toBeNull();
+      fireEvent.click(add);
+      expect(submit.mock.calls[0]?.[0]).toMatchObject({ fieldId: "archived", value: "archive", targetIds: ["new"] });
+      const lookup = vi.fn(() => false);
+      act(() => editor.setState({ hasPendingField: lookup }));
+      expect(lookup).not.toHaveBeenCalled();
+      act(() => editor.setState({ pendingArchiveIds: new Set(["new"]) }));
+      expect(add.getAttribute("aria-busy")).toBe("true");
+    } finally { grant.mockRestore(); vi.unstubAllEnvs(); editor.getState().dispose(); }
+  });
+
+  it("only reveals settled Library actions and holds the existing presentation during selection expansion", async () => {
+    const grant = vi.spyOn(gridApi, "serviceLink").mockResolvedValue("https://metadata.example.test/metadata/{id}/archived");
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    const target = (id: string, archived: boolean) => ({ id, image: { id, uploadTime: "", uploadedBy: "", metadata: {}, userMetadata: { archived },
+      source: { mimeType: "image/jpeg", dimensions: { width: 10, height: 10 } } }, overlay: { persisted: { value: archived, reasons: archived ? ["archived"] : [] } } });
+    const first = target("first", true);
+    const second = target("second", false);
+    type Targets = Parameters<typeof ImageActions>[0]["context"]["targets"];
+    let latestTargets: Targets | undefined;
+    const toolbar = (targets: Targets) => <ImageActions actions={["library"]} selectedIds={new Set(targets.map(item => item.id))}
+      context={{ targets, api: true, archive: null }} resolveContext={() => ({ targets: latestTargets ?? targets, api: true, archive: null })} />;
+    try {
+      const view = render(toolbar([{ id: first.id, pending: true }]));
+      expect(screen.queryByRole("button")).toBeNull();
+      await act(async () => view.rerender(toolbar([first])));
+      const remove = screen.getByRole<HTMLButtonElement>("button", { name: "Remove from Library" });
+      expect(inactive(remove)).toBe(false);
+      latestTargets = [first, second];
+      fireEvent.click(remove);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+      latestTargets = undefined;
+
+      view.rerender(toolbar([first, { id: second.id, pending: true }]));
+      expect(screen.getByRole("button", { name: "Remove from Library" })).toBe(remove);
+      expect(remove.querySelector('[data-library-icon="remove"]')).not.toBeNull();
+      expect(remove.style.opacity).toBe("1");
+      expect(inactive(remove)).toBe(true);
+      fireEvent.click(remove);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+
+      view.rerender(toolbar([first, second]));
+      expect(screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" }).disabled).toBe(false);
+      view.rerender(toolbar([first, { ...second, image: { ...second.image, __availability: "deleted" }, pending: true }]));
+      const unavailable = screen.getByRole<HTMLButtonElement>("button", { name: "Add to Library" });
+      expect(inactive(unavailable)).toBe(true);
+      expect(unavailable.getAttribute("aria-busy")).toBeNull();
+      expect(unavailable.title).toBe("One or more selected images are unavailable or deleted");
+
+      view.unmount();
+      const cachedGrant = vi.spyOn(gridApi, "serviceLinkAvailable").mockReturnValue(true);
+      try {
+        render(toolbar([first]));
+        expect(screen.getByRole<HTMLButtonElement>("button", { name: "Remove from Library" }).disabled).toBe(false);
+      } finally { cachedGrant.mockRestore(); }
+    } finally { grant.mockRestore(); vi.unstubAllEnvs(); }
+  });
+
+  it.each([false, true])("keeps explicit action controls independent of unrelated stores, compact=%s", async compact => {
+    shell.compact = compact;
+    const enrichment = useEnrichmentStore.getState();
+    const commits = vi.fn();
+    const target = { id: "detail", image: { id: "detail", uploadTime: "", uploadedBy: "", metadata: {},
+      source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } },
+      overlay: { actions: [{ name: "delete", href: "https://api.example.test/images/detail", method: "DELETE" as const }] } };
+    const context = { targets: [target], api: true, archive: true };
+    try {
+      render(<Profiler id="explicit-actions" onRender={commits}>
+        {compact ? <ImageActionFab docked context={context} /> : <>
+          <ImageActions context={context} actions={["delete"]} />
+          <FullFrameOptions context={context} />
+        </>}
+      </Profiler>);
+      if (compact) fireEvent.click(screen.getByRole("button", { name: "Image actions" }));
+      fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+      const confirm = screen.getByRole("button", { name: "Confirm delete 1 image" });
+      confirm.focus();
+      await act(async () => {});
+      const settled = commits.mock.calls.length;
+      act(() => useSelectionStore.setState(state => ({ selectedIds: new Set(["unrelated"]),
+        metadataRevision: state.metadataRevision + 1, pendingFetchIds: new Set(["unrelated"]), isRangeWalking: true })));
+      act(() => useSearchStore.setState(state => ({ results: [...state.results] })));
+      act(() => useEnrichmentStore.setState({ data: new Map([["unrelated", { valid: false }]]) }));
+      expect(commits).toHaveBeenCalledTimes(settled);
+      expect(document.activeElement).toBe(confirm);
+      fireEvent.click(confirm);
+      expect(useImageActionStore.getState().prepare).toHaveLastReturnedWith(expect.objectContaining({ targetIds: ["detail"] }));
+    } finally { useEnrichmentStore.setState(enrichment, true); }
+  });
+
+  it("keeps selection actions live and rechecks membership at activation", () => {
+    const editor = createMetadataEditorStore();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", Object.create(navigator, { clipboard: { value: { writeText } } }));
+    const enrichment = useEnrichmentStore.getState();
+    const archive = vi.spyOn(gridApi, "serviceLink").mockResolvedValue(undefined);
+    vi.stubEnv("VITE_USE_MEDIA_API", "true");
+    try {
+      useSelectionStore.setState({ selectedIds: new Set(["first"]), isRangeWalking: false });
+      render(<MetadataEditorContext value={editor}><SelectionImageActions actions={["share", "delete", "download"]} /></MetadataEditorContext>);
+      const share = screen.getByRole("button", { name: "Share with URL" });
+      act(() => {
+        useSelectionStore.setState({ selectedIds: new Set(["second"]) });
+        fireEvent.click(share);
+      });
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/search?nonFree=true&ids=second`);
+      expect(useImageActionStore.getState().prepare).not.toHaveBeenCalled();
+      act(() => useSelectionStore.setState({ isRangeWalking: true }));
+      expect(inactive(share)).toBe(true);
+      act(() => useSelectionStore.setState({ isRangeWalking: false }));
+      expect(inactive(share)).toBe(false);
+      const remove = screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement;
+      expect(inactive(remove)).toBe(true);
+      act(() => useSearchStore.setState({ results: [{ id: "second", uploadTime: "", uploadedBy: "", metadata: {},
+        source: { mimeType: "image/jpeg", dimensions: { width: 1200, height: 800 } } }],
+        imagePositions: new Map([["second", 0]]), bufferOffset: 0 }));
+      act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [
+        { name: "delete", href: "https://api.example.test/images/second", method: "DELETE" as const },
+      ], resource: { links: [{ rel: "download", href: "/download/second" }] } }]]) }));
+      expect(inactive(remove)).toBe(false);
+      const download = screen.getByRole("button", { name: "Download" }) as HTMLButtonElement;
+      expect(inactive(download)).toBe(false);
+      const save: MetadataSave = { id: 1, intent: { fieldId: "metadata_credit", action: "overwrite", value: "Desk", targetIds: ["second"] },
+        state: "saving", items: [], excluded: 0 };
+      act(() => editor.setState({ panelSaves: [{ id: 1, targetKey: labelTargetKey(["second"]) }], saves: new Map([[1, save]]) }));
+      expect(inactive(download)).toBe(true);
+      act(() => editor.setState({ saves: new Map([[1, { ...save, state: "finished" }]]) }));
+      expect(inactive(download)).toBe(false);
+      act(() => useEnrichmentStore.setState({ data: new Map([["second", { actions: [] }]]) }));
+      expect(inactive(remove)).toBe(true);
+    } finally {
+      archive.mockRestore();
+      editor.getState().dispose();
+      vi.unstubAllEnvs();
+      useEnrichmentStore.setState(enrichment, true);
+    }
+  });
+
+  it("closes selection actions when membership changes without changing the count", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["first"]), isRangeWalking: false });
+    render(<SelectionFab />);
+    const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    act(() => useSelectionStore.setState({ selectedIds: new Set(["second"]) }));
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps action taps separate from card dragging in the compact header", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    const clock = vi.spyOn(performance, "now");
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
+      const card = screen.getByRole("region", { name: "Details" });
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      const touch = (type: string, vertical: number, time: number) => {
+        clock.mockReturnValue(time);
+        fireEvent[type as "touchStart" | "touchMove" | "touchEnd"](trigger, {
+          touches: type === "touchEnd" ? [] : [{ clientX: 200, clientY: vertical }],
+          changedTouches: [{ clientX: 200, clientY: vertical }],
+        });
+      };
+      touch("touchStart", 500, 1000);
+      touch("touchEnd", 500, 1100);
+      fireEvent.click(trigger);
+      expect(trigger.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByRole("button", { name: "Expand Details" })).toBeTruthy();
+      const peek = card.style.translate;
+      touch("touchStart", 500, 2000);
+      touch("touchMove", 480, 2100);
+      expect(card.style.translate).not.toBe(peek);
+      expect(screen.queryByRole("group", { name: "Selection actions" })).toBeNull();
+      touch("touchMove", 100, 2500);
+      touch("touchEnd", 100, 5000);
+      fireEvent.click(trigger, { detail: 1 });
+      expect(screen.getByRole("button", { name: "Collapse Details" })).toBeTruthy();
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(trigger.closest("button button")).toBeNull();
+      expect(card.contains(trigger)).toBe(true);
+      expect(screen.queryByRole("button", { name: "Close details" })).toBeNull();
+    } finally {
+      clock.mockRestore();
+      usePanelStore.setState({ config: panels });
+    }
+  });
+
+  it("expands the compact floaty to expose the same five image actions", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<SelectionFab />);
+    expect(screen.getByText("Deselect")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1 selected — actions" }).textContent).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
+    const actions = screen.getByRole("group", { name: "Image actions" });
+    expect([...actions.querySelectorAll("button")].map(button => button.getAttribute("aria-label"))).toEqual([
+      "Share with URL", "Crop full frame", "Download", "Delete", "Add to Library",
+    ]);
+    const popup = screen.getByRole("group", { name: "Selection actions" });
+    expect(within(popup).queryByRole("button", { name: "Clear selection" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Clear selection (1 selected)" })).toBeTruthy();
+    expect(within(screen.getByRole("button", { name: "Clear selection (1 selected)" })).getByText("Deselect")).toBeTruthy();
+  });
+
+  it("closes Actions when the header toggles the card and opens below the expanded header", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      fireEvent.click(trigger);
+      expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Expand Details" }));
+      expect(usePanelStore.getState().config.right.visible).toBe(true);
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole("button", { name: "Collapse Details" }));
+      expect(usePanelStore.getState().config.right.visible).toBe(false);
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    } finally { usePanelStore.setState({ config: panels }); }
+  });
+
+  it("preserves header width and the Deselect hit area when expanded", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    render(<SelectionFab />);
+    const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+    const clear = screen.getByRole("button", { name: "Clear selection (1 selected)" });
+    const strip = trigger.parentElement!;
+    const collapsedWidth = Number.parseFloat(strip.style.width);
+    const clearWidth = Number.parseFloat(clear.style.width);
+    expect(collapsedWidth).toBe(112);
+    expect(clearWidth).toBeGreaterThanOrEqual(44);
+    fireEvent.click(trigger);
+    expect(screen.getByRole("group", { name: "Selection actions" }).style.width).toContain("136px");
+    expect(Number.parseFloat(clear.style.width)).toBe(clearWidth);
+    expect(Number.parseFloat(strip.style.width)).toBe(collapsedWidth);
+  });
+
+  it("keeps the expanded selection card nonmodal and lets an outside tap reach the page", () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: true } } });
+    const activate = vi.fn();
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button onClick={activate}>Result control</button></PanelLayout>);
+      expect(screen.getByRole("region", { name: "Details" }).classList.contains("chrome-fade")).toBe(true);
+      expect(screen.queryByTestId("card-scrim")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "1 selected — actions" }));
+      const popup = screen.getByRole("group", { name: "Selection actions" });
+      const last = [...popup.querySelectorAll<HTMLButtonElement>("button:not([disabled])")].at(-1)!;
+      last.focus();
+      expect(fireEvent.keyDown(last, { key: "Tab" })).toBe(true);
+      const behind = screen.getByRole("button", { name: "Result control" });
+      expect(fireEvent.pointerDown(behind)).toBe(true);
+      fireEvent.click(behind);
+      expect(activate).toHaveBeenCalledOnce();
+      expect(screen.queryByRole("group", { name: "Selection actions" })).toBeNull();
+      act(() => behind.focus());
+      expect(document.activeElement).toBe(behind);
+    } finally { usePanelStore.setState({ config: panels }); }
+  });
+
+  it("fits action options above a trigger when the visual viewport has no room below", () => {
+    const original = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("aria-label") === "Full frame options" ? new DOMRect(270, 80, 32, 32) : new DOMRect(110, 112, 192, 140);
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: { width: 320, height: 120, offsetTop: 0, offsetLeft: 0,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() } });
+    try {
+      render(<FullFrameOptions context={{ targets: [{ id: "first" }], api: true, archive: true }} />);
+      fireEvent.click(screen.getByRole("button", { name: "Full frame options" }));
+      const popup = screen.getByRole("group", { name: "Image actions" }).parentElement!;
+      expect(popup.textContent).toBe("Crop full frame");
+      expect(popup.className).toContain("bottom-full");
+      expect(Number.parseFloat(popup.style.maxHeight)).toBeLessThanOrEqual(72);
+    } finally {
+      bounds.mockRestore();
+      if (original) Object.defineProperty(window, "visualViewport", original);
+      else Reflect.deleteProperty(window, "visualViewport");
+    }
+  });
+
+  it("repositions an open floaty while its owning card is still moving", async () => {
+    shell.compact = true;
+    useSelectionStore.setState({ selectedIds: new Set(["selected-image"]) });
+    const panels = usePanelStore.getState().config;
+    usePanelStore.setState({ config: { ...panels, right: { ...panels.right, visible: false } } });
+    const viewport = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    let top = 330;
+    let moving = true;
+    const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute("aria-label") === "1 selected — actions" ? new DOMRect(220, top, 82, 44) : new DOMRect(160, top, 176, 262);
+    });
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: { width: 393, height: 400, offsetTop: 0, offsetLeft: 0,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() } });
+    vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
+    try {
+      render(<PanelLayout rightPanel={<button>Metadata control</button>}><button>Result control</button></PanelLayout>);
+      const card = screen.getByRole("region", { name: "Details" });
+      card.getAnimations = () => [{ playState: moving ? "running" : "finished", pending: false }] as Animation[];
+      const trigger = screen.getByRole("button", { name: "1 selected — actions" });
+      fireEvent.click(trigger);
+      const floaty = trigger.closest(".selection-fab")!;
+      expect(floaty.getAttribute("data-side")).toBe("above");
+      top = 60;
+      await act(async () => { vi.advanceTimersByTime(32); });
+      expect(floaty.getAttribute("data-side")).toBe("below");
+      moving = false;
+      await act(async () => { vi.advanceTimersByTime(32); });
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+      bounds.mockRestore();
+      if (viewport) Object.defineProperty(window, "visualViewport", viewport); else Reflect.deleteProperty(window, "visualViewport");
+      usePanelStore.setState({ config: panels });
+    }
+  });
+
+  it("does not claim a best-of pool for an empty AI result", () => {
+    useSearchStore.setState({ total: 0, aiPoolTotal: 0 });
+    render(<StatusBar />);
+    expect(resultCount()).toBe("0\u00a0matches");
+  });
+
+  it("skips unchanged parent-driven ticker formatting while keeping store updates fresh", () => {
+    useSearchStore.setState({ tickerCounts: { [ticker.name]: { value: 5 } },
+      tickersLastUpdated: new Date(Date.now() - 120_000).toISOString() });
+    const view = render(<StatusBar />);
+    const previousTitle = tickerBadge()?.getAttribute("title");
+    expect(previousTitle?.startsWith(ticker.name)).toBe(true);
+    expect(tickerBadge()?.querySelector(".status-badge-short")?.textContent).toBe("GNM");
+    expect(formatDistanceToNow).toHaveBeenCalled();
+    vi.mocked(formatDistanceToNow).mockClear();
+
+    view.rerender(<StatusBar />);
+    expect(formatDistanceToNow).not.toHaveBeenCalled();
+
+    act(() => useSearchStore.setState({ total: 201, tickerCounts: { [ticker.name]: { value: 6 } },
+      tickersLastUpdated: new Date().toISOString() }));
+    expect(resultCount()).toBe("201\u00a0matches");
+    expect(tickerBadge()?.getAttribute("aria-label")).toBe(`6 ${ticker.name}`);
+    expect(tickerBadge()?.getAttribute("title")).not.toBe(previousTitle);
+    expect(formatDistanceToNow).toHaveBeenCalled();
+  });
+
+  it("shows absolute pool ticker counts, hiding only a ticker equal to the pool", () => {
+    useSearchStore.setState({ aiPoolTotal: 4000, tickerCounts: { [ticker.name]: { value: 200 } } });
+    const view = render(<StatusBar />);
+    expect(tickerBadge()?.getAttribute("aria-label")).toBe(`200 ${ticker.name}`);
+
+    view.unmount();
+    useSearchStore.setState({ tickerCounts: { [ticker.name]: { value: 4000 } } });
+    render(<StatusBar />);
+    expect(tickerBadge()).toBeNull();
+  });
+
+  it("keeps restored arrivals across initial settlement without pairing a pool with a cached total", () => {
+    sessionStorage.setItem("kupua-sb-total", "1234");
+    window.history.replaceState({ kupuaKey: "ticker-reload" }, "");
+    snapshotStore.set("ticker-reload", { searchKey: buildSearchKey({}), anchorImageId: null,
+      anchorIsPhantom: false, anchorOffset: 0, viewportRatio: null,
+      newCountSince: "2026-04-26T10:00:00.000Z", newCount: 134 });
+    useSearchStore.setState({ _isInitialLoad: true, aiPoolTotal: 9000, total: 0 });
+    render(<StatusBar />);
+    expect(resultCount()).toBe("1,234\u00a0matches");
+    expect(screen.getByRole("button", { name: "134 new" })).toBeTruthy();
+    act(() => useSearchStore.setState({ newCount: 134, newCountSince: "2026-04-26T10:00:00.000Z", loading: true }));
+    expect(screen.getByRole("button", { name: "134 new" })).toBeTruthy();
+    act(() => useSearchStore.setState({ newCount: 135 }));
+    expect(screen.getByRole("button", { name: "135 new" })).toBeTruthy();
+    act(() => useSearchStore.setState({ _isInitialLoad: false, total: 1234, aiPoolTotal: null, loading: false }));
+    expect(screen.getByRole("button", { name: "135 new" })).toBeTruthy();
+    act(() => useSearchStore.setState({ newCount: 0 }));
+    expect(screen.queryByRole("button", { name: /new$/ })).toBeNull();
+    expect(sessionStorage.getItem("kupua-sb-new")).toBeNull();
+  });
+
+  it("renders New, then configured tickers in order, then server-only ones, with returned colours", () => {
+    const [org, picks] = gridConfig.tickerDefinitions;
+    useSearchStore.setState({ newCount: 3, tickerCounts: {
+      server: { value: 4, searchClause: "is:server-only", backgroundColour: "#000001" },
+      text: { value: 5, searchClause: "credit:Reuters", backgroundColour: "#000002" },
+      [picks.name]: { value: 2, searchClause: picks.searchClause, backgroundColour: "#abcdef" },
+      [org.name]: { value: 1 },
+    } });
+    render(<StatusBar />);
+    const badges = screen.getAllByRole("button").filter((button) => /^\d/.test(button.textContent ?? ""));
+    expect(badges.map((badge) => badge.getAttribute("aria-label") ?? badge.textContent)).toEqual(["3 new", `1 ${org.name}`, `2 ${picks.name}`, "4 server"]);
+    expect(badges[1].style.backgroundColor).toBe("rgb(0, 86, 137)");
+    expect(badges[2].style.backgroundColor).toBe("rgb(171, 205, 239)");
+  });
+
+  it("hovering Browse prefetches collection counts only when the hidden panel's Collections section is open", () => {
+    const loadCounts = vi.spyOn(useCollectionStore.getState(), "loadCounts").mockResolvedValue();
+    const panels = usePanelStore.getState().config;
+    try {
+      usePanelStore.setState({ config: { ...panels, left: { ...panels.left, visible: false }, sections: { "left-collections": false } } });
+      render(<StatusBar />);
+      const browse = screen.getByRole("button", { name: "Show Browse panel" });
+      fireEvent.mouseEnter(browse);
+      expect(loadCounts).not.toHaveBeenCalled();
+
+      act(() => usePanelStore.setState({ config: { ...panels, left: { ...panels.left, visible: false }, sections: { "left-collections": true } } }));
+      fireEvent.mouseEnter(browse);
+      expect(loadCounts).toHaveBeenCalledWith(useSearchStore.getState().dataSource, "free");
+    } finally {
+      loadCounts.mockRestore();
+      usePanelStore.setState({ config: panels });
+    }
+  });
+});

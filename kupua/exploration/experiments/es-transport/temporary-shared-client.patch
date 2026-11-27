@@ -1,0 +1,59 @@
+diff --git a/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchClient.scala b/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchClient.scala
+index 17321133d..ed166cd0d 100644
+--- a/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchClient.scala
++++ b/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchClient.scala
+@@ -1,6 +1,7 @@
+ package com.gu.mediaservice.lib.elasticsearch
+ 
+ import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker, MarkerMap}
++import com.gu.mediaservice.lib.elasticsearch.diagnostics.LocalTransportDiagnostics
+ import com.sksamuel.elastic4s.ElasticDsl._
+ import com.sksamuel.elastic4s._
+ import com.sksamuel.elastic4s.http.JavaClient
+@@ -48,6 +49,7 @@ trait ElasticSearchClient extends ElasticSearchExecutions with GridLogging {
+     val restClient = org.elasticsearch.client.RestClient
+       .builder(hosts: _*)
+       .setCompressionEnabled(true) // request gzip from ES; reduces response body ~5-6×
++      .setHttpClientConfigCallback(builder => LocalTransportDiagnostics.configure(builder, hosts.toArray))
+       .build()
+     ElasticClient(JavaClient.fromRestClient(restClient))
+   }
+diff --git a/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala b/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala
+index 0d589c20e..d961df49e 100644
+--- a/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala
++++ b/common-lib/src/main/scala/com/gu/mediaservice/lib/elasticsearch/ElasticSearchExecutions.scala
+@@ -1,6 +1,8 @@
+ package com.gu.mediaservice.lib.elasticsearch
+ 
+ import com.gu.mediaservice.lib.logging._
++import com.gu.mediaservice.lib.elasticsearch.diagnostics.LocalTransportDiagnostics
++import scala.util.control.NonFatal
+ import com.sksamuel.elastic4s._
+ import scala.concurrent.{ExecutionContext, Future}
+ import scala.util.{Failure, Success}
+@@ -19,7 +21,15 @@ trait ElasticSearchExecutions extends GridLogging {
+   ): Future[Response[U]] = {
+     val stopwatch = Stopwatch.start
+ 
+-    val result = client.execute(request).transform {
++    val activeClient = client
++    val diagnostic = LocalTransportDiagnostics.begin(message)
++    val submitted = try activeClient.execute(request) catch {
++      case NonFatal(error) =>
++        diagnostic.completed(false)
++        throw error
++    } finally diagnostic.close()
++
++    val result = submitted.transform {
+       case Success(r) =>
+         if (r.isSuccess) {
+           Success(r)
+@@ -35,6 +45,8 @@ trait ElasticSearchExecutions extends GridLogging {
+       case Failure(f) => Failure(f)
+     }
+ 
++    if (diagnostic.isActive) result.onComplete(outcome => diagnostic.completed(outcome.isSuccess))
++
+     result.foreach { r =>
+       val elapsed = stopwatch.elapsed
+       logger.info(combineMarkers(logMarkers, elapsed), s"$message - query returned successfully in ${elapsed.toMillis} ms")

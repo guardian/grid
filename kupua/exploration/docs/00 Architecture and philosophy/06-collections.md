@@ -1,0 +1,432 @@
+# Collections — Architecture
+
+> Permanent reference for how the collections feature works in Kupua.
+> Covers browsing, image membership, root/subcollection creation and leaf deletion.
+> Rename and move are not supported. Implementation history lives in the [changelog](../changelog.md).
+>
+> Companion: [`../01 Research/enrichment-strategy.md §D`](../01%20Research/enrichment-strategy.md)
+> for the full ES data model and sort mechanics.
+
+---
+
+## 1. What it is
+
+A collapsible tree panel showing all Grid collections with subtree image counts.
+Sits in the left panel (Browse panel) ABOVE Filters. Clicking a node injects
+`collection:sport/football` into the CQL query, triggering a filtered search and
+auto-switching the sort to `-dateAddedToCollection`. Clicking a name browses; it never edits membership.
+
+With API editing enabled, Details pills add and remove exact memberships. The Upload arrow copies the source memberships to its captured peers without removing unrelated ones; an empty source offers a confirmed clear. In Search, a row's plus/minus actions use the selection at click time. A same-tab drop adds the images captured at drag start. Hovering during a drag can open the section or a branch, but never submits an edit. Display names retain the tree's case; membership identity uses `pathId`.
+
+Receipts distinguish a rejected change from an uncertain or partially completed one. No blind replay or cross-user atomicity is promised ([GRID-011](../bug-backlog.md#grid-011)). See the [local pressure measurements](../editing-performance-evidence.md#local-collection-membership-pressure-24-november) for why no separate Collections limiter was selected.
+
+---
+
+## 2. Key architecture decisions
+
+1. **CQL-first.** Collections piggybacks on the existing query string — no new
+   search-store field, no new URL param. `collection:pathId` in `?query=` is the
+   only state representation. URL round-trip is automatic; pasting
+   `?query=collection:sport/football` into a fresh tab works.
+
+2. **Tree source = the backend's collections service.** Vite API mode uses the
+  media-api root's `collections` link through shared discovery. Hosted builds
+  retain Kahuna's injected `collectionsUri`. There is no laptop URL override
+  or fallback when discovery fails. Local direct-ES uses `http://localhost:9010`;
+  direct-TEST leaves the tree unavailable. The service returns a pre-nested tree;
+  no client-side tree builder is needed. Requests include credentials. Vite uses a
+  fixed proxy for the exact local Collections origin; supported tree and membership writes are gated at the command boundary by the startup editing preference. Vite uses direct credentialed commands for the exact advertised TEST Collections origin; hosted uses the validated service directly. This routing support is not a shared-environment trial. Direct-ES remains read-only.
+
+3. **Counts = whole-library ES agg in the checkbox's scope.** Terms agg on
+   `collections.pathId` (size 6000, covers PROD's 5,350+ unique values), not scoped
+   to the current search. Scope follows "Free to use only": `nonFree=true` counts
+   all images, otherwise free-only. Fetched lazily when Collections is shown (left
+  panel open and section expanded) or hover-prefetched from Browse. Counts are cached
+  per scope and service until invalidated. Membership edits invalidate both scopes once per save group when changes are acknowledged (including partial writes), or an uncertain change is observed. Only positive totals are displayed. The tree alone
+   loads at boot; resolving its address does not fetch counts.
+
+4. **Subtree counts via pathId-splitting** (not tree walk). Splits each pathId on
+   `/` to generate ancestor prefixes — mirrors ES's `hierarchyAnalyzer`
+   tokenization. Handles orphaned subcollections (present in ES but missing from
+   the service tree). Trade-off: ~4% overcount when docs belong to multiple sibling
+   subcollections (negligible on PROD).
+
+5. **Auto-sort is atomic.** When a `collection:` chip appears/disappears, the sort
+   change is merged into the same `navigate()` call (in `useUpdateSearchParams()`)
+   → single URL update → single `search()` call. Eliminates the two-search race
+   that the previous reactive-effect approach caused. Module-scope
+   `_preSortBeforeCollection` remembers the pre-collection sort for revert.
+
+6. **`dateAddedToCollection` sort works globally** — not restricted to collection
+   context. Images without any collection membership have `missing: "_last"` and
+   land in the null zone. The scrubber tooltip, ticks, and null-zone boundary all
+   work via the standard distribution infrastructure.
+
+7. **Graceful absence.** Missing discovery or tree fetch failure → `status: 'absent'`
+  → Collections section hidden entirely. This optional-data failure does not select
+  a different environment or prevent image browsing.
+
+8. **Exclusive filtering.** Only one collection filter active at a time (Kahuna
+   parity). Clicking a new node replaces any existing `collection:` term.
+   Clicking the active node is a no-op.
+
+---
+
+## 3. Data flow
+
+```
+┌─────────────────────┐    ┌──────────────────────┐
+│ Collections service │    │ Elasticsearch        │
+│ GET /collections    │    │ terms agg on         │
+│ (pre-nested tree)   │    │ collections.pathId   │
+└────────┬────────────┘    └──────────┬───────────┘
+         │                            │
+         └──────────┐    ┌────────────┘
+                    ▼    ▼
+         ┌────────────────────────┐
+         │ collection-store.ts    │
+         │ (Zustand + persist)    │
+         │ tree + counts + status │
+         └───────────┬────────────┘
+                     │
+         ┌───────────┴───────────────────────┐
+         ▼                                   ▼
+┌──────────────────┐              ┌────────────────────┐
+│ CollectionTree   │              │ ImageGrid          │
+│ (left panel)     │              │ (badge colours via │
+│ click → CQL edit │              │  buildColourMap)   │
+└────────┬─────────┘              └────────────────────┘
+         │
+         ▼
+┌──────────────────────────────────────────────────────┐
+│ useUpdateSearchParams()  (useUrlSearchSync.ts)       │
+│ • Detects collection chip appearing/disappearing     │
+│ • Atomically adjusts sort in same navigate() call    │
+│ • Module-scope _preSortBeforeCollection for revert   │
+└──────────────────────────────────────────────────────┘
+         │
+         ▼
+┌────────────────────────────┐
+│ URL (?query=, ?orderBy=)   │
+│ → search-store.search()    │
+└────────────────────────────┘
+```
+
+---
+
+## 4. Store shape (`collection-store.ts`)
+
+```ts
+interface CollectionStoreState {
+  tree: CollectionNode | null;
+  countsByScope: Partial<Record<"all" | "free", Record<string, number>>>; // pathId → subtree count
+  countServiceUri: string | null;            // resolved service, before any Vite proxy rewrite
+  status: "idle" | "loading" | "ready" | "absent";
+  loadCollections(): Promise<void>;           // tree only
+  loadCounts(dataSource, scope): Promise<void>; // cached/in-flight scopes are no-ops
+}
+```
+
+Persisted to `sessionStorage` (survives reload, not cross-tab). Status resets to
+`"idle"` on reload so the tree refetches; counts persist per rights scope together
+with the resolved Collections service address, normalized without a trailing slash.
+Changing that address clears both scopes. Older caches without an address are
+discarded once. An unchanged address preserves cached counts, including successful
+empty results, across reloads and toggles. A failed count fetch is not cached.
+
+Tree loading and lazy count loading resolve the same existing service configuration
+before accepting cached counts. API discovery still shares the single root request;
+there is no extra discovery request, polling or expiry timer. In-flight counts are
+deduplicated by service and scope; an old service's late result cannot replace the
+current service's counts. Hosted mode uses Kahuna's injected address for this identity.
+
+The service address is an environment marker, not an index identity. Replacing data
+behind unchanged addresses can still leave stale counts. During development, reset
+only this tab's counts in its browser console, then reload:
+
+```javascript
+const key = "kupua-collection-store";
+const saved = JSON.parse(sessionStorage.getItem(key));
+if (saved?.state) {
+  saved.state.countsByScope = {};
+  sessionStorage.setItem(key, JSON.stringify(saved));
+  location.reload();
+}
+```
+
+Browser **Empty Cache and Reload** does not clear `sessionStorage`. Normal PROD and
+TEST hostnames have separate browser storage even though the storage key is identical.
+
+**Boot:** `useCollectionStore.getState().loadCollections()` in `main.tsx`
+(fire-and-forget, same pattern as `fetchQuotas()`).
+
+**Pure exports:**
+- `buildColourMap(root)` — pathId → cssColour map for grid cell badge colours.
+- `buildSubtreeCounts(directCounts)` — pathId-splitting subtree accumulator.
+
+---
+
+## 5. CollectionNode type
+
+```ts
+interface CollectionNode {
+  uri: string;
+  data: {
+    basename: string;
+    children: CollectionNode[];
+    fullPath: string[];
+    cssColour?: string;           // optional hex, e.g. "#e84c4c"
+    data?: {                      // OPTIONAL — some nodes lack inner data
+      path: string[];
+      pathId: string;             // "sport/football" — canonical ES key
+      description: string;
+      actionData: { author: string; date: string };
+    };
+  };
+  links: unknown[];
+  actions: unknown[];
+}
+```
+
+**Critical invariant:** Always null-check `node.data.data?.pathId`. Nodes without
+inner `data` exist in both TEST and PROD (e.g. "Travel/Web"). These nodes are
+non-clickable (no filter action) but visible in the tree.
+
+**API response shape:** The collections service returns
+`{ data: { basename: "root", children: [...] }, actions: [...] }` — the root is a
+bare object, not a full CollectionNode. `fetchCollectionTree()` synthesises a proper
+root wrapper so consumers see a uniform `CollectionNode` at every level.
+
+---
+
+## 6. CQL integration
+
+**ES query path:** `collection:pathId` → `cql.ts` maps to
+`term: { "collections.pathHierarchy": value.toLowerCase() }`. The
+`hierarchyAnalyzer` on that field uses a `path_hierarchy` tokenizer + `lowercase`
+filter at index time. `term` queries are not analysed, so the value must arrive
+pre-lowercased. Tree-sourced pathIds are already lowercase; the `.toLowerCase()` is
+defensive against hypothetical manual input.
+
+**CQL shorthand:** `~` is registered as a shorthand for `collection:` in the parser
+(same pattern as `#` → `label:`). Both forms are interchangeable. The canonical
+representation in the query bar is `collection:pathId` (the `~` is expanded).
+
+**Query string manipulation:** `cql-query-edit.ts` provides AST-based helpers:
+- `findFieldTerm(query, key, value)` — structural match (no false positives from
+  partial overlaps like `credit:Getty` inside `credit:GettyImages`).
+- `upsertFieldTerm(query, key, value, negated)` — splice into query by AST position.
+- `removeAllFieldTerms(query, key)` — strip all terms for a given field key.
+
+---
+
+## 7. Auto-sort mechanism
+
+**Location:** `useUrlSearchSync.ts`, inside `useUpdateSearchParams()` callback.
+
+**Logic:** Before `navigate()` fires, the callback inspects the previous and next
+query strings for `collection:` presence (via `/(?:^|\s)collection:/` regex):
+
+| Prev has `collection:` | Next has `collection:` | Action |
+|---|---|---|
+| No | Yes | Remember `orderBy` in `_preSortBeforeCollection`; set `orderBy = -dateAddedToCollection` |
+| Yes | No | If `orderBy === -dateAddedToCollection`, revert to `_preSortBeforeCollection` |
+| Yes | Yes | No action (chip replaced, sort stays) |
+| No | No | No action |
+
+**Guard:** If `orderBy` is already `-dateAddedToCollection` when the chip appears
+(e.g. back-navigation to a URL with both), the current sort is NOT captured as the
+revert target — that would lock in the collection sort as the fallback. Leaving
+`_preSortBeforeCollection` as-is means revert falls back to default sort.
+
+**User override respected:** If the user manually changes sort while viewing a
+collection (sort ≠ `-dateAddedToCollection`), chip removal does not revert (the
+`if (merged.orderBy === COLLECTION_SORT)` guard skips).
+
+---
+
+## 8. `dateAddedToCollection` sort — ES mechanics
+
+**Sort clause** (`sort-builders.ts`):
+```ts
+[
+  { "collections.actionData.date": { order: dir, missing: "_last" } },
+  { uploadTime: dir },
+  { id: "asc" },
+]
+```
+
+- `missing: "_last"` — images with no collection membership sort at the end
+  regardless of direction.
+- `uploadTime` secondary — enables null-zone pagination (images without collection
+  dates still have an uploadTime for deterministic `search_after` ordering).
+- `id` tiebreaker — standard.
+
+**Null zone:** Images without any `collections.actionData.date` form the null zone.
+The existing null-zone infrastructure (`detectNullZoneCursor`, `remapNullZoneSortValues`,
+`fetchNullZoneDistribution`) handles this generically — no collection-specific code
+needed.
+
+**Scrubber integration:**
+- `DATE_SORT_ES_FIELDS["dateAddedToCollection"] = "collections.actionData.date"` →
+  distribution fetch fires, ticks render, tooltip shows formatted dates.
+- `NULL_ZONE_LABEL_OVERRIDES["dateAddedToCollection"] = "collection date"` → boundary
+  mark reads "No collection date".
+- `SORT_LABEL_MAP.dateAddedToCollection` accessor: reads max `actionData.date` across
+  all collection memberships (matches ES sort behaviour for non-nested objects).
+
+**`parseSortField` and `reverseSortClause`:** Both handle the object-form clause
+`{ order, missing }` in addition to bare string values. Required because this is the
+only sort field currently using explicit `missing`.
+
+---
+
+## 9. CollectionTree component
+
+**Renders when** `status === 'ready'`. Returns `null` when `status === 'absent'`.
+Shows "Loading collections…" during `'idle'` / `'loading'`.
+
+**Visual spec (each node row):**
+
+```
+┌─┬────┬──────────────────────────────────┬──────┐
+│▌│ ▼  │ Collection name                  │ 1.2k │
+└─┴────┴──────────────────────────────────┴──────┘
+  ▲  ▲                                      ▲
+  │  │                                      └─ subtree count (formatCount)
+  │  └─ chevron (parent) or spacer (leaf)
+  └─ colour stripe (5px, cssColour or transparent)
+```
+
+- **Row height:** `h-8` (32px) — uniform, required for sticky offset maths.
+- **Click target:** Entire row div (not just the text span). `cursor-pointer` when
+  `pathId` is non-null.
+- **Active row:** Opaque `color-mix(accent 20%, grid-bg)` background.
+- **Node text:** `<span>` with `overflow-clip text-ellipsis whitespace-nowrap`
+  (not `truncate` — `overflow: hidden` creates a scroll port that traps wheel events).
+- **Expand state:** Local `useState<Set<string>>`, collapsed by default, not persisted.
+
+**Sticky rows:** Depth-0 expanded nodes get `position: sticky; top: 0; z-index: 20`.
+Background is opaque (prevents scrolled content showing through). Hover state uses
+four-state className logic with `color-mix()` arbitrary values.
+
+**Depth-0 only** for v1. Full-depth sticky stacking (depth × 32px offset) is
+designed but not needed until users report orientation loss in deep trees.
+
+---
+
+## 10. Image display
+
+**Grid cell badges** (`ImageGrid.tsx`):
+- Collection leaf name (`path.at(-1)`) rendered as a coloured pill in the label strip.
+- Colour: looked up from `buildColourMap(tree)` (computed once via `useMemo`).
+  Fallback: `#555` (Kahuna's default for colourless collections).
+- Tooltip: full breadcrumb path (`path.join(' ▸ ')`).
+- Hover: `brightness-125` filter (works on any inline background colour).
+
+**Detail panel** (`field-registry.tsx`):
+- `detailGroup: "collections"` — own section with divider above labels.
+- `detailListStyle: "links"` — renders as stacked clickable `ValueLink` items
+  (full breadcrumb path, one per line), not pills. Click injects `collection:pathId`.
+- `detailItemLabel` maps each pathId to a breadcrumb string for display.
+
+**Multi-image reconciliation:**
+- `multiSelectBehaviour: "chip-array"` — same reconciliation as labels.
+- `pillVariant: "default"` (neutral grey, not accent-blue) — collections have their
+  own colour identity from the tree.
+
+**Cell date line** (`getCellDateLine` in `ImageGrid.tsx`):
+- `dateAddedToCollection` sort: shows `Added: [date]` using max `actionData.date`
+  across all memberships (matches ES sort order). No per-collection scoping — see
+  §12 for rationale.
+
+---
+
+## 11. Typeahead / autocomplete
+
+`typeahead-fields.ts` has a `collection` resolver that reads from
+`useCollectionStore.getState()`. When the tree is ready, it flattens all pathIds via
+`flattenCollectionPathIds()` and filters by typed value. No ES call needed.
+
+---
+
+## 12. Explicit non-goals and deferred work (Phase 2)
+
+- **Tree restructuring:** rename, move, cascade and drag-to-reparent are not supported.
+- **Dual counts** (global + in-current-search, like `Getty (31/47)`) — worth
+  user-testing demand first.
+- **Per-collection date on cells** — only differs from max-date when image belongs to
+  multiple collections AND the filtered one isn't the most recent. For parent-level
+  filters (e.g. `~sport` matching images in `sport/football`), there's no direct
+  `sport` entry in `image.collections` anyway. Not worth the complexity.
+- **Cmd/Ctrl-A in collection** — same concerns as general select-all (scale).
+- Plain browse replaces other collection filters. Shift-click adds an inclusive collection chip; Alt/Option-click adds an exclusion. Modified clicks preserve unrelated filters and other collection chips.
+- **Port 9010 SSH tunnel** — graceful-absence covers absence; add tunnel when needed.
+- **Full-depth sticky stacking** — designed (depth × 32px, z-index 20 - depth),
+  not implemented. Depth-0 only for now.
+
+### Editing in Browse and Settings
+
+Browsing a parent includes photos filed in descendants, but membership commands target only the exact row. A photo can independently belong to `Sport`, `Sport/Football`, or both. Removing `Sport` leaves `Sport/Football` intact, so that photo can still appear while browsing `Sport`.
+
+**Browse Add follows Kahuna:** submit all selected photos, including existing direct members, without a duplicate prompt. Each permitted repeat POST refreshes the filing date; this can affect Added to collection ordering in other collections because sorting uses the latest membership date across paths. Add shows the selection size, not a count of new links. Upload's copy-memberships arrow remains fill-only; it is not an instruction to re-date the target batch. Remove uses known direct-member counts (e.g. **Remove 2/5 photos**), omits known zero, and avoids a numeric claim for unknown memberships. Opening the menu does not fetch permissions or membership lists. The command independently checks grants and current records; a repeat POST acknowledgement does not prove that its returned date has appeared in search.
+
+**Tree policy:** eligible leaf deletion, including leaves with photos, requires a path-specific confirmation. There is no membership cleanup, descendant deletion or supported undo by recreating a path. New segments are trimmed; punctuation and the exact existing parent path are preserved. Validation checks immediate siblings including structural rows and names that differ only by casing or outer whitespace. Ambiguous case-split paths cannot authorize deletion. Each command checks session, origin and a fresh full-tree action before one write. It refreshes the tree once afterward; rejection, uncertain submission, failed refresh and an observed change are distinct. An error does not clear the working tree or replay the write. Reload Browse's page if the receipt says readback failed.
+
+**Root collections:** Settings → Admin appears with current image evidence of the `delete-usages` capability; no image evidence means no Admin. This uses the crops/usages permission, not image-delete permission. Root submission checks authority again without executing the Usage action. The chooser starts empty and lists eligible root leaves only. This is a Kupua gate, not backend enforcement.
+
+In compact Browse the popup moves and fades with the drawer during a dismiss swipe and returns on cancellation or snap-back. An outside tap closes the popup first, then Browse on the next tap, including over expanded Details. Dismissing Browse does not collapse Details.
+
+Compact Search Browse has per-row dots or a touch hold on the name. Wide Browse has **Edit collections** for tree commands, and ordinary selection plus/minus controls for membership. Hover/focus uses cached counts without fetching; accessible names retain the target. Creation expands the intended parent and focuses the observed child; deletion focuses the surviving parent and retains the current search filter. Structural rows without node data are not edit targets.
+
+### Wired browser trial (25 November 2026)
+
+Verified all-local Grid (`runAll`, local ES/LocalStack/Collections, fixed local advertised root action) and used one unique disposable branch. Through the real Vite UI, Admin created a root from an outer-spaced name. In 390 × 844 touch emulation and wide desktop Edit mode, created same-named leaves under different parents, rejected case-only duplicates and corrected the draft in place. Nested create focused the child, Cancel sent no deletion, confirmed deletion returned focus to the surviving parent, and deleting the active filter did not change the query. Cleared the query for Admin privilege evidence. Admin Cancel returned focus to the chooser without a DELETE; confirm sent one DELETE, reset the chooser and a fresh local tree read confirmed the root absent. No trial records left in the tree.
+
+Controlled in-browser fetch fixtures on the open compact leaf simulated 403 rejection, transport loss and an acknowledged DELETE followed by a failed GET. Each showed the corresponding receipt, retained the prior row and attempted one write; these writes were intercepted, not sent to Grid. A deferred simulated 403 after switching to another node did not transplant the old draft or error. Observers were restored or discarded with the test document. This was DOM-driven Chrome testing, not physical phone keyboard/scroll verification, a concurrent Grid race, or proof of shared-stage transport.
+
+---
+
+### Local browser trial (24 November 2026)
+
+Conducted in the real local hosted browser (direct service calls) and compact Vite Browse (actual preview). Verified all-local Grid `runAll`, not `runMinimal`, local ES/LocalStack/Collections listeners, local Collections configuration pointing at loopback-backed LocalStack, and fixed local API/service origins. No proxy changes, shared service contacts or direct ES writes. One unique disposable root and one previously unfiled local photo; sequential service requests with no automatic write retries.
+
+| Check | Observation |
+|---|---|
+| Root and child creation; stale leaf action | Root and nested creates returned 200; path with spaces and `&` supported a grandchild. After child creation the full tree stopped offering root removal. The previously advertised canonical root removal returned 400 `invalid-tree-operation` and the parent survived. Not a check/delete race test. |
+| Names | Slash and double quote rejected (400). Leading and trailing spaces preserved by Grid; the spaced fixture was removable. Exact and case-only collisions returned 200, including the split between structural and real rows recorded in [GRID-030](../bug-backlog.md#grid-030). |
+| Empty leaf | 202, followed by absence from a fresh tree. |
+| Populated leaf | Added one exact membership and observed it on the canonical photo and in an exact-ID plus collection search (count one). Deleted the leaf (202); fresh tree omitted it, membership source and canonical photo retained it, and the same search still counted one. Recreating the same path returned 200 and surfaced the old membership without re-adding the photo. |
+| Compact UI stress | 24 open/name/preview/cancel cycles on the disposable parent, rotating exact duplicate, case-only duplicate, slash, quote, blank and valid names. Duplicate/invalid/not-sent messages matched, each new draft was empty and focused, Cancel restored row focus, search URL unchanged. In-page fetch observer recorded zero collection-tree writes and was removed. Simulated DOM interaction in compact Chrome; not a physical phone keyboard trial. |
+| Cleanup | Removed the fixture image membership through its advertised action (200), verified source list empty, deleted tree records child-first (four 202 responses), verified root absent. Immediate canonical image/search still had the membership, unlike the source. A later read, with no further writes, confirmed the root and canonical membership absent, source empty and search count zero. |
+
+The 24 November service trial did not exercise wired Kupua commands. It informed the selected populated-leaf policy; the subsequent wired UI trial is recorded above.
+
+**Deletion history (local Git):** `ef88b0742a` (December 2015) withheld the tree's delete action for nodes with children. `82ff09977a` (March 2016) added a server recheck specifically because the UI's tree could be out of sync. `3ae9708f63` (September 2018) added Kahuna confirmation because people accidentally deleted collections beside the add-subcollection button. A search of the local controller, store, tests and Git history found no former photo-count guard, cascade or reversal, nor a statement that preserving photo memberships was intended as undo. This is not evidence about unrecorded discussions or the number of affected photos in production.
+
+## 13. PROD scale context
+
+- 5,341 nodes, 5,320 with pathId, max depth 7, median ~4.
+- ~20,526 hierarchy tokens (from pathId splitting).
+- 33 root sections.
+- All design decisions made with this in mind, not the sparse TEST tree.
+
+---
+
+## 14. Files
+
+| File | Role |
+|------|------|
+| `src/stores/collection-store.ts` | Zustand store: tree, counts, status, boot |
+| `src/stores/collection-store.test.ts` | Unit tests (subtree counts, colour map) |
+| `src/components/CollectionTree.tsx` | Tree UI, click handler, expand/collapse |
+| `src/hooks/useUrlSearchSync.ts` | Auto-sort logic (module-scope state) |
+| `src/dal/adapters/elasticsearch/cql.ts` | `collection:` → ES `term` query |
+| `src/dal/adapters/elasticsearch/cql-query-edit.ts` | AST-based query manipulation |
+| `src/dal/adapters/elasticsearch/sort-builders.ts` | `dateAddedToCollection` clause |
+| `src/lib/sort-context.ts` | Scrubber distribution + null-zone label |
+| `src/lib/field-registry.tsx` | `collections` field def + sort dropdown entry |
+| `src/lib/typeahead-fields.ts` | Collection autocomplete resolver |
+| `src/lib/format-count.ts` | Shared count formatter |
+| `src/main.tsx` | Boot: `loadCollections()` call |
+| `e2e/local/collections.spec.ts` | Playwright e2e tests (8 tests) |

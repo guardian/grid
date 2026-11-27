@@ -1,0 +1,14 @@
+# Dashboard *-log.js files are the committed, lossless history.
+# JSON and Markdown are local exports, never authoritative inputs.
+audit-log.json
+perceived-log.json
+density-log.json
+campaign-log.json
+audit-log.md
+perceived-log.md
+
+# Ignore temp files written during a run.
+.metrics-tmp.jsonl
+.latest-report-path
+.playwright-report.json
+

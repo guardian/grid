@@ -1,8 +1,9 @@
 package controllers
 
-import com.gu.mediaservice.lib.auth.Authentication.{Principal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Authentication.{MachinePrincipal, Principal, UserPrincipal}
+import com.gu.mediaservice.lib.auth.Permissions.DeleteImage
 import com.gu.mediaservice.lib.auth.provider._
-import com.gu.mediaservice.lib.auth.{Authentication, Authorisation, SimplePermission}
+import com.gu.mediaservice.lib.auth.{ApiAccessor, Authentication, Authorisation, SimplePermission}
 import com.gu.mediaservice.lib.aws.{Embedder, S3, ThrallMessageSender, UpdateMessage}
 import com.gu.mediaservice.lib.config.{CommonConfig, ServiceHosts}
 import com.gu.mediaservice.lib.logging.LogMarker
@@ -20,11 +21,65 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.mockito.MockitoSugar
 import play.api.libs.ws.WSClient
 import play.api.mvc.Security.AuthenticatedRequest
-import play.api.mvc.{Request, Result}
+import play.api.mvc.{ControllerComponents, Request, RequestHeader, Result}
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
+
+trait MediaApiTestSupport extends MockitoSugar {
+  private implicit val controllerExecutionContext: ExecutionContext = ExecutionContext.global
+
+  private case class ControllerDeps(config: MediaApiConfig, components: ControllerComponents, auth: Authentication, authorisation: Authorisation)
+
+  private def controllerDeps(principal: Principal, privileged: Boolean): ControllerDeps = {
+    val config = mock[MediaApiConfig]
+    when(config.domainRoot).thenReturn("example.test")
+    when(config.serviceHosts).thenReturn(ServiceHosts.guardianPrefixes)
+    when(config.rootUri).thenReturn("https://media.example.test")
+    when(config.aiSearchEmbeddingCacheMaxSize).thenReturn(10)
+
+    val components = stubControllerComponents()
+    val userProvider = mock[UserAuthenticationProvider]
+    when(userProvider.loginLink).thenReturn(DisableLoginLink)
+    when(userProvider.authenticateRequest(any[RequestHeader])).thenReturn(principal match {
+      case user: UserPrincipal => Authenticated(user)
+      case _ => NotAuthenticated
+    })
+    val apiProvider = mock[MachineAuthenticationProvider]
+    when(apiProvider.authenticateRequest(any[RequestHeader])).thenAnswer { invocation =>
+      principal match {
+        case machine: MachinePrincipal =>
+          val request = invocation.getArgument[RequestHeader](0)
+          if (ApiAccessor.hasAccess(machine.accessor, request, config.services)) Authenticated(machine)
+          else NotAuthorised("Method not allowed for this tier")
+        case _ => NotAuthenticated
+      }
+    }
+    val innerProvider = mock[InnerServiceAuthenticationProvider]
+    when(innerProvider.authenticateRequest(any[RequestHeader])).thenReturn(NotAuthenticated)
+    val auth = new Authentication(config, AuthenticationProviders(
+      userProvider, apiProvider, innerProvider
+    ), components.parsers.default, controllerExecutionContext)
+    val permissionProvider = mock[AuthorisationProvider]
+    when(permissionProvider.hasPermissionTo(DeleteImage, principal)).thenReturn(privileged)
+    val authorisation = new Authorisation(permissionProvider, controllerExecutionContext)
+    ControllerDeps(config, components, auth, authorisation)
+  }
+
+  protected def mediaApiFor(principal: Principal, search: ElasticSearch, imageResponse: ImageResponse, privileged: Boolean = false,
+                            embedder: Embedder = null, configure: MediaApiConfig => Unit = _ => ()): MediaApi = {
+    val deps = controllerDeps(principal, privileged)
+    configure(deps.config)
+    new MediaApi(deps.auth, null, null, search, imageResponse, deps.config, null, deps.components,
+      null, null, null, deps.authorisation, embedder)
+  }
+
+  protected def imageQueryControllerFor(principal: Principal, search: ElasticSearch, imageResponse: ImageResponse, privileged: Boolean = false): ImageQueryController = {
+    val deps = controllerDeps(principal, privileged)
+    new ImageQueryController(deps.auth, search, imageResponse, deps.config, deps.authorisation, deps.components)
+  }
+}
 
 class MediaApiTest extends AnyFunSpec with Matchers with MockitoSugar with ScalaFutures with Fixtures {
   private implicit val ec: ExecutionContext = ExecutionContext.parasitic

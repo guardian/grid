@@ -1,0 +1,593 @@
+# AI Search — Semantic Image Retrieval Without a Mode
+
+> ⚠️ **Partly superseded (U9-B, 27 September 2026).** This document describes kupua's
+> *direct-ES* AI search, which remains the direct/local mode. In media-api mode AI now
+> goes through one `GET /api/images` with `useAISearch=true` and a separate `aiQuery`
+> (no browser Bedrock or ES), gated by the root `ai-search` link; failure is quiet empty
+> absence. Both modes publish the prefilter pool total and tickers with the hits, so the
+> `total === hits.length` invariant describes the loaded set, not the status-bar pool.
+> §3.1's server hybrid description is also superseded. The
+> [workplan](../ai-search-catching-up-workplan.md) and the API build plan's U9-B note are
+> the current source of truth until this guide is amended.
+
+> **Audience:** Staff Engineers reviewing the approach, future agents, and
+> anyone inheriting this codebase.
+>
+> **§0–§2** are accessible to anyone familiar with web UIs.
+> **§3–§6** require understanding of Elasticsearch, the kupua DAL, and the
+> search store's buffer architecture.
+> **§7** is honest about the parts that aren't as clean as they should be.
+
+---
+
+## §0 Why This Architecture Exists
+
+Kupua supports semantic image search backed by an image-embedding model
+(Cohere Embed V4, 256 dimensions, stored at `embedding.cohereEmbedV4.image`
+on every indexed image). The user types a natural-language description —
+"tigers in snow", "moody outdoor portraits at sunset" — and gets back the
+~200 visually closest images ranked by cosine similarity.
+
+The same capability exists in kahuna. The difference is in shape:
+
+| | kahuna | kupua |
+|---|---|---|
+| AI is | a **mode** the user toggles into | a **chip** added to the search |
+| Filter chips when AI is on | disabled, UI removed | composed as KNN pre-filters |
+| Sort options when AI is on | locked to relevance | Relevance and Uploaded enabled; others visible but disabled |
+| Tickers, "is:" filters, counts | not shown | shown, scoped to the AI result set |
+| Free-text BM25 when AI is on | mutually exclusive | becomes a pre-filter inside the KNN query |
+
+This is the central design principle: **AI is not a mode.** A user typing
+"tigers in snow" while a `credit:PA` chip is active expects to get
+PA-credited tigers in snow, not to lose their filters. A user changing
+sort from Relevance to "newest first" expects the same 200 results
+re-ordered, not a new search.
+
+The cost of this principle is most of the complexity in this document.
+A separate AI mode is structurally simpler — different UI, different code
+path, no integration. Composing AI search with every other feature means
+every other feature has to keep working when the result set is a
+fixed ≤200 IDs ranked by something other than a re-runnable query.
+
+Collection filters are the deliberate exception to composition. AI and
+`collection:`/`+collection:`/`~` queries cannot coexist; collection wins pasted
+or runtime conflicts and AI is cleared in the same navigation.
+
+---
+
+## §1 The Pipeline
+
+```
+ User types in the AI box        ┌─────────────────────────┐
+   │                              │  Browser (Kupua SPA)    │
+   │  URL: ?query=credit:PA       │                         │
+   │       &aiQuery=tigers in snow│                         │
+   ▼                              │                         │
+ ┌────────────────────────┐       │  Store sees aiQuery     │
+ │ Vite dev middleware    │       │  → DAL.searchByAi()     │
+ │ /bedrock/embed         │◄──────┤                         │
+ │                        │       │  1. text → embedding    │
+ │ → AWS Bedrock          │       │  2. KNN + pre-filter    │
+ │   Cohere Embed V4      │       │  3. ≤200 hits           │
+ │   256-dim float vector │       │                         │
+ └──────────┬─────────────┘       │                         │
+            │  vector             │                         │
+            ▼                     │                         │
+ ┌────────────────────────┐       │                         │
+ │ Vite proxy /es         │◄──────┤  Decorate aggregation   │
+ │                        │       │  params with result IDs │
+ │ → Elasticsearch        │       │  → tickers/filters scope│
+ │   knn query with       │       │    to those 200 hits    │
+ │   knn.filter = the     │       │                         │
+ │   rest of the search   │       │                         │
+ └────────────────────────┘       └─────────────────────────┘
+```
+
+Three independent components:
+
+1. **Embedding service** — converts query text to a 256-dim float vector.
+   Runs as Vite dev middleware in `scripts/bedrock-embed-proxy.mjs`. Talks
+   to AWS Bedrock with the `media-service` profile. Graceful-absent: when
+   credentials are missing the proxy reports `{available: false}` and the
+   entire AI feature disappears from the UI.
+
+2. **Vector search** — `searchByAi` on the DAL builds a single ES `_search`
+   request. The shape depends on the `vecWeight` URL param (§3.1): pure
+   KNN (default), pure BM25, or a hybrid blend of both. In all modes, the
+   rest of the search (CQL chips, date range, free-text, syndication
+   state) is composed as a pre-filter.
+
+3. **In-memory result set** — the store treats the ≤200 returned hits as
+   the entire result set. No PIT, no pagination, no polling. Every
+   downstream feature (sort, tickers, filters, focus restoration) operates
+   on this in-memory buffer.
+
+---
+
+## §2 URL Shape: `aiQuery` Is Its Own Param
+
+```
+?query=credit:PA &aiQuery=tigers in snow &nonFree=true &orderBy=-relevance
+```
+
+An optional `vecWeight` parameter controls hybrid blending (§3.1):
+
+```
+?aiQuery=tigers in snow &vecWeight=0.4
+```
+
+The AI query is a top-level URL parameter alongside `query`, `nonFree`,
+`orderBy`, and the rest. It is not a chip inside the CQL `query=` string.
+
+This is enforced everywhere: detection is `!!params.aiQuery`. There are no
+regular expressions parsing AI text out of other strings. The CQL parser
+never sees `aiQuery:`. The store branches on a single boolean. The DAL
+reads one field.
+
+The earlier instinct — encoding `aiQuery` as a CQL-style chip inside
+`query=` for URL-truthfulness — failed in practice. Two structured
+concepts in one flat string forced every consumer to regex-parse them
+back out: the CQL string had to be stripped before parsing, present-checks
+needed to handle both quoted and unquoted forms (CQL normalises single-word
+values), and each bug added another regex variant in a different file.
+Promoting it to its own param deleted ~170 lines of parsing logic across
+five files. The URL is still readable; the AI input is in a separate
+React widget anyway (§5), so the loss of "everything-in-one-string" was
+imaginary.
+
+**Consequence for routing:** [`search-params-schema.ts`](../../src/lib/search-params-schema.ts)
+declares `aiQuery: z.string().optional()` and
+`vecWeight: z.string().optional()`. TanStack Router provides typed
+access throughout. The router and URL synchronisation layer
+([`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts)) treat
+`aiQuery` and `vecWeight` exactly like any other filter param.
+
+---
+
+## §3 The Result-Set Shape
+
+### 3.1 vecWeight — Hybrid Blending
+
+`searchByAi` supports three ranking modes controlled by the `vecWeight`
+URL parameter (a float in [0, 1], default 1.0 when absent). This mirrors
+Kahuna/media-api's hybrid search (PR #4738, merged 22 May 2026):
+
+| `vecWeight` | Mode | ES query shape |
+|---|---|---|
+| 1.0 (default / absent) | Pure KNN | `knn` clause with `knn.filter` |
+| 0.0 | Pure BM25 | `multi_match` on AI text, pre-filter in `bool.filter` |
+| 0 < w < 1 | Hybrid | Probe query for `max_score`, then `bool.should[multi_match(boost), knn]` |
+
+**Hybrid path detail:**
+
+1. **Probe:** A `size:0` BM25 `multi_match` query fires against the AI
+   text to discover the maximum BM25 score for this query. One extra ES
+   round-trip (~30-50ms). Not cached — `max_score` depends on index state.
+2. **Normalisation:** KNN scores are cosine similarity in [0, 1]. BM25
+   scores are unbounded. The probe's `max_score` is used as a scaling
+   factor: `scalingFactor = 1 / maxScore`.
+3. **Boost math:** `multiMatchBoost = ((1 - vecWeight) / vecWeight) * scalingFactor`.
+   This brings BM25 into roughly [0, 1] so the `vecWeight` ratio
+   genuinely controls the blend.
+4. **Main query:** `bool { should: [multi_match(boost: multiMatchBoost), knn], filter: [preFilter] }`.
+
+The pre-filter (CQL chips, dates, etc.) applies in all three modes.
+The Bedrock embedding call is skipped entirely when `vecWeight=0`
+(pure BM25 — no vector needed).
+
+`vecWeight` is URL-only with no UI control. Users manually type
+`&vecWeight=0.4` to experiment. The default (1.0) preserves the
+pre-existing pure-KNN behaviour — identical to before this feature
+was added.
+
+**Divergence from media-api's hybrid (as of main, June 2026 — `HybridResult.scala`).**
+The server-side hybrid search (PR #4764) uses a meaningfully different algorithm:
+two searches run in parallel (lexical + semantic); each side's missing score is
+filled in client-side using cosine similarity (`VectorUtils`) rather than via a
+probe query; scores are normalised using theoretical min-max bounds rather than
+`maxScore`-based scaling; results are fused in `fuseAndRank`. The server also
+defaults `vecWeight` to **0.8**, not 1.0. Kupua's probe-based approach produces
+correct but less thorough hybrid results — lexical-only hits don't get a semantic
+score, so they rank below any hit that appeared in both queries regardless of their
+actual vector proximity. If hybrid mode becomes a first-class feature in kupua,
+aligning with `HybridResult.scala`'s algorithm (two parallel ES calls + client-side
+cosine similarity) would improve result quality. Not worth doing until there is UI
+for `vecWeight`.
+
+**Update (merged into main, July 2026 — PRs #4785/#4787/#4788/#4789).**
+`aiSearchResponseFromResults` in `MediaApi.scala` no longer hardcodes
+`maybeExtraCounts = None`. `ElasticSearch.scala`'s AI/hybrid search path now
+runs a parallel `countMatchingFilterWithExtraCounts` query — `size:0`,
+`trackTotalHits`, same ticker aggregations as normal search — against the
+**whole filtered set** (not just the top-`k` semantic hits), and returns real
+`extraCounts` (ticker badges) plus a real `total` ("Best k of N matches") in
+one round trip (`4ba78c76c` "Add GNM-owned, agency picks and filtered matches
+to AI search", `31db1d738` "Calculate aggregations against the full filtered
+set, not top k"). Separately, `k` is now `Math.min(params.length,
+config.aiSearchResultLimit)` instead of always 200 (`171f578b1` "Respect
+length param"). This is architecturally the same fix as kupua's own §6
+decorator, done server-side — see §6.3 for what this means for kupua's
+approach.
+
+### 3.2 Result shape
+
+ES returns a ranked list of at most `k=200` hits, scored by cosine
+similarity (pure KNN), BM25 (pure lexical), or a blend of both
+(hybrid). The DAL's
+[`searchByAi`](../../src/dal/es-adapter.ts) maps this into a
+`SearchAfterResult` with three load-bearing properties:
+
+```typescript
+{
+  hits,                          // Image[] (≤200), with __aiScore attached
+  total: hits.length,            // KEY INVARIANT — equals buffer size
+  sortValues: synthetic,         // [k - i, img.id] — never used for ES pagination
+  pitId: null,                   // no PIT to manage
+}
+```
+
+The store treats this exactly like the first page of a normal search:
+results are placed at `bufferOffset: 0`, `imagePositions` is rebuilt,
+cursors are recorded. The branch is not a parallel code path — it is
+the normal store path with three things suppressed:
+
+| Normal search does | AI branch suppresses by |
+|---|---|
+| Open a PIT for cursor stability | Returns `pitId: null`; store sees null and never calls `openPit` |
+| Trigger extend/seek when the user scrolls past edges | `bufferOffset + results.length >= total` already short-circuits; with `total === hits.length` this is true from the start |
+| Fetch a position map for >1k results | The position-map fetch is gated on total > 1000 |
+| Start a new-images poll for "n new images since you searched" | Skipped in the AI branch — relevance ranking doesn't change as new images upload |
+| Use `sortValues` from the last hit as a `search_after` cursor | Synthetic `[k - i, img.id]` values would produce zero hits if fed back to ES; protected only by the `total === hits.length` invariant making the call impossible |
+
+The synthetic sort values are the architectural weak point. They exist so
+the store's cursor-shaped API doesn't have to special-case AI results;
+they survive the round-trip into `imagePositions` and out the other side
+into Back-navigation restoration without anyone noticing. They are safe
+only as long as the `total === hits.length` invariant holds. If a future
+feature changes the buffer architecture to mix "re-runnable query" results
+with "fixed ID set" results, the synthetic cursors leak into real ES calls
+and silently return zero hits. §7 records this as the trigger condition
+for the SearchContext refactor.
+
+**The `__aiScore` field.** Each hit carries a kupua-internal `__aiScore`
+field (cosine similarity in `[0, 1]`, double-underscore = not from ES
+`_source`). The store does not use it for routing; it is consumed only
+by `resortAiBuffer` (§4) when the user picks Relevance.
+
+---
+
+## §4 Sort Handling — Auto-Switch and In-Memory Re-Sort
+
+When AI is active, sorting is deliberately bounded:
+
+- A virtual **Relevance** option is prepended to the sort dropdown
+  ([`SearchFilters.tsx`](../../src/components/SearchFilters.tsx),
+  `SortControls`). It maps to the URL value `-relevance`.
+- Uploaded remains enabled. Ordinary and special sort options stay visible but
+   disabled so the restriction is explicit.
+- The default-sort indicator dot tracks `-relevance` as the default when
+  AI is active, `-uploadTime` otherwise.
+
+Two coordinated mechanisms make this work:
+
+### 4.1 Auto-switch with revert
+
+[`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts) applies one pure
+AI/collection transition policy. When `aiQuery` appears in a navigation:
+
+1. If the user's current sort isn't already `-relevance`, save it and
+   force the sort to `-relevance`.
+2. When `aiQuery` later disappears, if the sort is still `-relevance`,
+   revert to whatever was saved.
+
+The user never has to remember to set or unset Relevance. Entering a collection
+from AI clears AI atomically and later leaving the collection restores the
+ordinary sort that preceded AI.
+
+### 4.2 Client-side re-sort, no ES round-trip
+
+Switching sort while AI is active is a *sort-only URL change* in the
+existing taxonomy. [`useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts)
+short-circuits this case:
+
+```typescript
+if (isSortOnly && !!searchOnly.aiQuery) {
+  useSearchStore.getState().resortAiBuffer(searchOnly.orderBy ?? "-relevance");
+  return; // skip the normal search() call
+}
+```
+
+[`resortAiBuffer`](../../src/stores/search-store.ts) sorts the in-memory
+`results` array by `__aiScore` (Relevance) or `uploadTime`. No Bedrock call and
+no ES call. The virtualizer re-renders the same images, preserving an available
+focus/selection anchor or resetting to top when no anchor applies.
+
+If the AI producer is still pending, its eventual completion retains the captured
+query scope and relevance scores but adopts the current supported sort when that
+scope still matches. The existing generation guard rejects a genuinely superseded
+query. Sort changes neither discard the only pending result nor request it again.
+
+### 4.3 Continuity and placement ownership
+
+User-initiated AI entry, query/filter changes, re-sort and exit consume the shared
+`search-continuity.ts` capture from effect 7's pre-passive layout phase. Target,
+placement and focus treatment are chosen together; URL sync no longer separately
+chooses an AI target or relies on a detached numeric ratio. The existing focus signal
+owns placement, and the existing search signal owns asynchronous AI discovery.
+
+The pending handoff lives in `_searchContinuity`. Re-sort replaces only its placement
+owner, without a new search generation, network request or discovery cancellation.
+Completion adopts the latest same-query handoff and publishes finite membership,
+positions, pool metadata and result-owned enrichment together. Ready placement waits
+for density geometry and is consumed once; newer post-publication input can retire it
+without changing focus/selection or cancelling discovery. Missing finite-AI targets
+still reset to top, with no ordinary neighbour walk. No-target AI re-sort retains
+the hidden bookmark, unlike the ordinary no-selection phantom-sort exception.
+
+Exit prioritizes remembered detail identity, even off-screen, otherwise the browsed
+centre without creating focus (L39). Ordinary lookup resolves that identity under
+the destination query/order and discards the AI rank hint; synthetic AI tuples are
+not ordinary cursors. Existing ordinary missing-target fallback remains unchanged.
+History retains its numeric-ratio/legacy-argument bridge, including unresolved B14;
+clearing the adopted record cannot resurrect its aborted closure owner. A resident
+history re-sort consumes the snapshot ratio once; final AI arrival retains legacy
+start placement. Input-retired re-sort placement remains retired at discovery
+completion without suppressing result/focus/selection publication. This adoption
+does not redesign history or layout policy. Independent review and final local gates
+pass within the ledger's recorded verification boundary; no live or performance
+equivalence is implied.
+
+---
+
+## §5 UI Surface — A Separate Widget, Not a CQL Chip
+
+[`AiSearchInput.tsx`](../../src/components/AiSearchInput.tsx) is an
+expandable input that lives inside the search-bar border, between CQL
+and the global clear button. It is a normal React component with normal
+React state, not a CQL chip.
+
+Key behaviours:
+
+- **Gating.** The widget renders `null` when
+  [`aiSearchAvailable`](../../src/lib/grid-config.ts) is false. The
+  `subscribeAiSearchAvailable` mini-store lets the widget re-render once
+  the startup probe resolves (Bedrock health in direct mode, the root
+  `ai-search` link in API mode).
+- **Collapsed → expanded.** Sparkles toggle expands the input with
+  content-aware width (auto-sized to typed text length, capped). Clicking
+  sparkles while expanded stashes the text in module-level state and
+  collapses. Clicking sparkles again restores the stashed text and
+  expands. Inner ✕ clears the text without collapsing.
+- **Local state decoupled from URL.** The input's own state is the source
+  of truth for what the user sees while typing; debounced writes to the
+  URL flow through `updateSearch({ aiQuery })`. A `selfCausedRef` flag
+  prevents the URL-sync effect from clobbering keystrokes mid-typing.
+- **Auto-collapse-when-empty.** Blurring an empty widget collapses it,
+  so accidental clicks don't leave a permanent sparkles input in the bar.
+- **Escape collapses and stashes.** Same as toggle-off.
+
+### Why not a real CQL chip
+
+A CQL chip approach was explored and abandoned for three independent
+reasons, any one of which is fatal:
+
+1. **Cursor placement is impossible.** CQL chips are atomic ProseMirror
+   nodes — the caret cannot be placed inside a committed chip. Editing
+   means deleting the chip and re-typing.
+2. **Shadow-root styling fights the editor.** Tagging the AI chip with
+   `data-ai-chip` via a `MutationObserver` on the CQL shadow root
+   produced an observer-feedback loop with the editor's own
+   `MutationObserver` (both observing, both mutating) and crashed the
+   browser tab.
+3. **No "composition mode" API.** CQL has no concept of a chip that's
+   visually present but not yet committed. The chip either exists in
+   editor state and affects the URL, or it doesn't — leaving no clean
+   way to model "I'm typing my AI query."
+
+A standalone widget loses CQL niceties (undo/redo continuity, Tab
+navigation through chips) but gains the ability to actually be edited.
+[`SearchBar.tsx`](../../src/components/SearchBar.tsx) is the only place
+that knows about both the CQL editor and the AI widget; the two don't
+talk to each other.
+
+---
+
+## §6 Aggregations, Tickers, Filters — Scoping to the Result Set
+
+Tickers (GNM-owned, agency picks), the Filters panel (credit, supplier,
+keywords aggregations), and "is:" filter counts (deleted, under-quota)
+all run the same ES aggregation infrastructure as in normal search. When
+AI is active they need to aggregate over **the 200 hits** rather than
+over the full 9M-document corpus, otherwise the numbers reflect nothing
+the user can see.
+
+### 6.1 Mechanism: the decorator
+
+[`src/lib/ai-search-params.ts`](../../src/lib/ai-search-params.ts)
+exports a single helper:
+
+```typescript
+export function decorateParamsForAggregations(
+  params: SearchParams,
+  resultIds: readonly string[],
+): SearchParams | null {
+  if (!params.aiQuery) return params;
+   if (resultIds.length === 0) return null;
+   return { ...params, ids: [...resultIds].sort().join(",") };
+}
+```
+
+The decorator is a no-op when `aiQuery` isn't set. When it is, it sets
+`params.ids`, which `buildQuery` already translates into a
+`{ terms: { id: [...] } }` clause — a mechanism that existed for
+collection-scoped searches and other "give me exactly these IDs" cases.
+ES then aggregates over exactly those documents. Sorting IDs keeps the membership
+cache key stable across in-memory reorder. `null` means a known-empty AI result set,
+not absent membership: callers publish empty data without invoking the DAL. Ordinary
+empty `ids` parameters retain their existing meaning.
+
+### 6.2 Where it is wired
+
+Three callsites in the store
+([`search-store.ts`](../../src/stores/search-store.ts)) decorate before
+calling the DAL:
+
+- The AI branch fires `countWithTickers(decorated)` after nonempty results land,
+   asynchronously, so tickers refresh once. Empty completion publishes empty ticker
+   and facet data and cancels forced base work started while AI was pending.
+- `fetchAggregations` decorates its `callParams` before static/named-filter/usage
+   aggregations and isolated dynamic fields; known-empty scope clears them locally.
+- `fetchExpandedAgg` decorates before fetching the larger top-N for an
+   individual aggregation, or publishes an empty field result without a request.
+
+Expanded facets retain one active request. Its field/scope/controller owns both
+publication and loading finalization; collapse, search and base reset invalidate it.
+Ordinary facet presentation and completed expanded-cache reuse are unchanged.
+
+Every other caller of an aggregation method on the DAL is either
+already-correct for AI (e.g. typeahead, which is intentionally
+world-scoped) or unreachable in AI mode (extend/seek/poll, blocked by
+the `total === hits.length` invariant). The audit lives in
+`exploration/docs/zz Archive/ai-search-aggregation-problem.md`.
+
+### 6.3 Why this is the wrong shape, and why it ships anyway
+
+The decorator violates the "AI is not a mode" principle at the level of
+discipline: every new aggregation call site must remember to call it.
+The store still knows, at three places, that AI exists. The proper shape
+is an opaque `SearchContext` returned by every search variant and
+accepted by every aggregation method, with `searchByAi` returning a
+`{ kind: "id-set", ids }` context and normal search returning a
+`{ kind: "query", params }` context — so the type system prevents the
+mistake instead of code review catching it. That design is documented
+in `exploration/docs/zz Archive/ai-searchContext-future-abstraction.md` and the
+AGENTS.md backlog blocks any second alternative-ranking algorithm on
+implementing it.
+
+For one algorithm, the decorator is the right size (~25 lines, three
+call sites, one breadcrumb comment). For two, it would not be.
+
+**Note (main, July 2026 — PRs #4785/#4787):** media-api's own AI/hybrid search
+endpoint now solves this same problem server-side — `extraCounts` and `total`
+are computed against the full filtered set in one round trip (§3.1). Kupua's
+`searchByAi` still talks directly to ES, not to media-api, so this doesn't
+change anything today. But if AI search is ever migrated onto the
+media-api-routed path (Phase 3 direction), the server can hand back
+`extraCounts`/`total` for free — retiring the decorator for *this* concern
+without needing the full SearchContext refactor. Cheaper partial win worth
+considering at that point; doesn't retire the synthetic-`sortValues` problem
+(§3.2, §9.2), which still needs SearchContext.
+
+---
+
+## §7 Focus, Back-Navigation, and Density Switching
+
+The "Never Lost" principle (`02-focus-and-position-preservation.md`) is
+upheld for AI search through one targeted addition: the AI branch
+mirrors the `focusedInFirstPage` logic from the normal path under the
+name `focusedInAiResults`. Because all results live in memory, the check
+is a single `Array.some` over the 200 hits — no ES round-trip is needed.
+
+| Scenario | Behaviour |
+|---|---|
+| AI search → click image → image detail → Back | If the focused image is in the 200 hits, focus is restored and the scroller jumps to it. If it isn't (rare — possible if the result set re-ranked between searches), the nearest-neighbour fallback handles it. |
+| AI search → switch grid to table | Works as-is. Table is a density level on the same virtualizer; with `total === hits.length` we are inside Scroll Tier — kupua's simplest case. |
+| Keyboard traversal within AI results | Works as-is. `useListNavigation` operates on the in-memory buffer via `useDataWindow`, which is pagination-agnostic. |
+| AI chip removed while a result is focused | The standard `_findAndFocusImage` path re-locates the image in the full BM25 result set via the index-wide `ids` lookup. |
+
+The implementation is in the AI branch of `search()`: it computes
+`focusedInAiResults` before calling `set()`, then either bumps
+`sortAroundFocusGeneration` (scroll-to-image) or `_scrollReset`
+(scroll-to-top), matching exactly what the normal first-page path does.
+
+---
+
+## §8 Graceful Absence
+
+Kupua is required to function with no AI capability at all — local Docker
+setups have no AWS access, Playwright runs have no Bedrock, fresh clones
+have no credentials. AI search must disappear cleanly in all of these.
+
+| Layer | Behaviour when Bedrock is unavailable |
+|---|---|
+| `scripts/bedrock-embed-proxy.mjs` | `/bedrock/health` returns `{available: false}` after one info log. `/bedrock/embed` returns 503 with no error spam. No crash. |
+| [`bedrock-proxy-client.ts`](../../src/lib/bedrock-proxy-client.ts) | `checkBedrockHealth()` never throws; any failure resolves to `false`. |
+| `aiSearchAvailable` global | Stays `false` (its initial value). `subscribeAiSearchAvailable` listeners receive `false` once the probe resolves. |
+| `AiSearchInput` | Renders `null` — no widget appears in the search bar. |
+| If a 503 happens mid-session (creds expired during typing) | Direct mode: the AI branch's catch block surfaces a red toast: "AI search unavailable — Bedrock proxy returned an error. Remove the aiQuery chip or try again." The chip stays in the URL so the user can retry; it is not auto-removed. |
+| API mode (U9-B) | A failed root read or missing `ai-search` link keeps the widget hidden for the session. A non-2xx, unreadable or unreachable AI response publishes an empty, error-free result with no toast. |
+
+The startup probe is fire-and-forget in
+[`main.tsx`](../../src/main.tsx) — kupua boots whether Bedrock answers
+or not.
+
+---
+
+## §9 What Is Imperfect
+
+Recorded here, not hidden:
+
+1. **The decorator is a discipline-enforced abstraction.** Three places
+   in the store know about AI aggregations. The principled fix is
+   `SearchContext` (see `zz Archive/ai-searchContext-future-abstraction.md`); it is
+   gated in AGENTS.md behind the arrival of a second alternative-ranking
+   algorithm (image-to-image similarity, collection-based search). Until
+   then the decorator stays. Media-api now solves the ticker/total half of
+   this problem server-side for its own AI endpoint (§3.1, §6.3,
+   PRs #4785/#4787) — relevant only if/when kupua's AI search moves onto
+   the media-api-routed path; doesn't change anything while `searchByAi`
+   talks directly to ES.
+
+2. **Synthetic `sortValues` are protected only by an invariant.**
+   `[k - i, img.id]` is not a real ES cursor. It works because
+   `total === hits.length` blocks every code path that would feed it
+   back to ES. The same SearchContext refactor that retires the
+   decorator also retires the synthetic cursors: an `{ kind: "id-set" }`
+   context is type-incompatible with `search_after`, so the leak becomes
+   a compile error.
+
+3. **`__aiScore` is an optional field on the `Image` interface.** This
+   muddies the type — `Image` is now "ES data, plus maybe a kupua hint".
+   The pragmatic alternative (a `Map<imageId, number>` in the store) was
+   rejected to avoid an indirection on every render of relevance-sorted
+   results. SearchContext is the right time to extract a proper
+   `RankingMetadata` field.
+
+4. **The embed call is not cancellable mid-flight.** The `signal` passed
+   into `searchByAi` is forwarded to the ES `_search` call but not to
+   `getEmbedding`. A user typing fast can fire several `/bedrock/embed`
+   requests; old ones complete and are discarded. Cost is wasted Bedrock
+   tokens, not correctness. Threading `signal` through is ~5 lines when
+   the cost matters.
+
+5. **Production has no embedding service.** The Bedrock proxy is Vite
+   dev middleware — it does not exist when kupua is built for
+   deployment. A production AI search needs either a media-api
+   `/embeddings/query` endpoint, a dedicated Lambda, or an edge
+   function. None of those are built; the dev-time proxy validates the
+   UX and the data path.
+
+These are documented gaps, not unknowns. Each one has a known trigger
+condition for being addressed.
+
+---
+
+## §10 File Map
+
+| File | Role |
+|---|---|
+| [`scripts/bedrock-embed-proxy.mjs`](../../scripts/bedrock-embed-proxy.mjs) | Vite middleware: `/bedrock/health`, `/bedrock/embed`. AWS SDK + LRU cache. |
+| [`src/lib/bedrock-proxy-client.ts`](../../src/lib/bedrock-proxy-client.ts) | Browser-side fetch wrappers, graceful-absent. |
+| [`src/lib/grid-config.ts`](../../src/lib/grid-config.ts) | `aiSearchAvailable` flag + subscriber. |
+| [`src/components/AiSearchInput.tsx`](../../src/components/AiSearchInput.tsx) | The widget. |
+| [`src/components/SearchBar.tsx`](../../src/components/SearchBar.tsx) | Reads/writes `aiQuery`, hosts the AI widget alongside CQL. |
+| [`src/components/SearchFilters.tsx`](../../src/components/SearchFilters.tsx) | `SortControls` — prepends Relevance when AI is active. |
+| [`src/lib/search-params-schema.ts`](../../src/lib/search-params-schema.ts) | `aiQuery: z.string().optional()`, `vecWeight: z.string().optional()`. |
+| [`src/hooks/useUrlSearchSync.ts`](../../src/hooks/useUrlSearchSync.ts) | Auto-switch to/from Relevance; client-side re-sort short-circuit. |
+| [`src/dal/types.ts`](../../src/dal/types.ts) | `searchByAi?` optional on `ImageDataSource`; `aiQuery?` on `SearchParams`. |
+| [`src/dal/es-config.ts`](../../src/dal/es-config.ts) | `KNN_FIELD` (overridable via `VITE_ES_KNN_FIELD`). |
+| [`src/dal/es-adapter.ts`](../../src/dal/es-adapter.ts) | `searchByAi`: text → embedding → KNN/hybrid/BM25 depending on `vecWeight` (§3.1). |
+| [`src/lib/ai-search-params.ts`](../../src/lib/ai-search-params.ts) | The decorator. Single AI-detection point on the aggregation side. |
+| [`src/stores/search-store.ts`](../../src/stores/search-store.ts) | AI branch in `search()`; `resortAiBuffer`; decorator calls in `fetchAggregations` / `fetchExpandedAgg`. |
+| [`src/types/image.ts`](../../src/types/image.ts) | `__aiScore?: number` on `Image`. |
