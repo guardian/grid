@@ -20,7 +20,7 @@ object ImageOperations extends GridLogging {
     val implementation = config.stringDefault(ImplementationConfigKey, MagickOption)
     logger.info(s"Using $implementation image operations")
     implementation match {
-      case VipsOption => new VipsImageOperations()
+      case VipsOption => new VipsImageOperations(playPath)
       case MagickOption => new MagickImageOperations(playPath)
       case other => throw new IllegalArgumentException(
         s"Unknown $ImplementationConfigKey '$other'; expected one of: $VipsOption, $MagickOption")

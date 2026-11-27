@@ -69,6 +69,7 @@ jobs:
           sudo apt-get -y update
           sudo apt-get -y install graphicsmagick
           sudo apt-get -y install exiftool
+          sudo apt-get -y install libvips-dev
       - name: Setup Java
         uses: guardian/setup-scala@v2
       - name: SBT

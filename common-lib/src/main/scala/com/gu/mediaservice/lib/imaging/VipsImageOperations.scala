@@ -9,17 +9,28 @@ import com.gu.mediaservice.lib.imaging.im4jwrapper.ImageMagick.ctx
 import com.gu.mediaservice.lib.logging.{GridLogging, LogMarker}
 import com.gu.mediaservice.model._
 
+import java.awt.color.{ColorSpace, ICC_Profile}
 import java.io._
 import java.lang.foreign.Arena
 import scala.concurrent.Future
+import scala.util.Try
 
 
-class VipsImageOperations extends GridLogging with ImageOperations {
+class VipsImageOperations(playPath: String) extends GridLogging with ImageOperations {
 
   Vips.init()
   VipsHelper.cache_set_max(0)
 
   private val thumbnailBackground: java.util.List[java.lang.Double] = java.util.List.of(0x33.toDouble, 0x33.toDouble, 0x33.toDouble)
+
+  private val profileLocations = Map(
+    "RGB" -> s"$playPath/srgb.icc",
+    "CMYK" -> s"$playPath/cmyk.icc",
+    "Greyscale" -> s"$playPath/grayscale.icc"
+  )
+
+  private def outputProfile(optimised: Boolean): String =
+    if (optimised) s"$playPath/facebook-TINYsRGB_c2.icc" else profileLocations("RGB")
 
   def cropImage(
                  sourceFile: File,
@@ -47,10 +58,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
 
         val cropped = rotated.extractArea(bounds.x, bounds.y, bounds.width, bounds.height)
 
-        // If we saw and ICC profile than we will need to transform
-        val correctedForICCProfile = correctForICCProfile(cropped)
-
-        val master = correctedForICCProfile
+        val master = correctForICCProfile(cropped)
 
         val outputFile = createTempFileInTempDir("crop", fileType, tempDir)
         saveImageToFile(master, fileType, qual, outputFile, quantise = false, keep = None)
@@ -154,10 +162,17 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     Future {
       val arena = Arena.ofConfined()
       try {
+        val image = VImage.newFromFile(arena, browserViewableImage.file.getAbsolutePath)
+        val inputProfile = decodedColourModel(image).flatMap(profileLocations.get).map { profile =>
+          VipsOption.String("input-profile", profile)
+        }.toSeq
+        val options: Seq[VipsOption] = Seq(
+          VipsOption.Boolean("no-rotate", true),
+          VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL),
+          VipsOption.String("output-profile", outputProfile(optimised = true))
+        ) ++ inputProfile
         val thumbnail = VImage.thumbnail(arena, browserViewableImage.file.getAbsolutePath, width,
-          VipsOption.Boolean("auto-rotate", false),
-          VipsOption.Enum("intent",VipsIntent.INTENT_PERCEPTUAL),
-          VipsOption.String("export-profile", "srgb")
+          options: _*
         )
 
         val inMemoryCopy = thumbnail.copyMemory()
@@ -194,7 +209,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
         val outputFile = createTempFileInTempDir("transformed", optimisedMimeType, tempDir)
         val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
 
-        val correctedForICCProfile = correctForICCProfile(image)
+        val correctedForICCProfile = correctForICCProfile(image, optimised = true)
 
         saveImageToFile(correctedForICCProfile, optimisedMimeType, 85.0, outputFile, quantise = false)
         (outputFile, optimisedMimeType)
@@ -215,18 +230,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
       try {
         val image = VImage.newFromFile(arena, sourceFile.getAbsolutePath)
 
-        val interpretationRawValue = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
-        // TODO better way to go straight from int to enum?
-        val maybeInterpretation = VipsInterpretation.values().toSeq.find(_.getRawValue == interpretationRawValue)
-        maybeInterpretation match {
-          case Some(VipsInterpretation.INTERPRETATION_B_W) => Some("Greyscale")
-          case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
-          case Some(VipsInterpretation.INTERPRETATION_LAB) => Some("LAB")
-          case Some(VipsInterpretation.INTERPRETATION_LABS) => Some("LAB")
-          case Some(VipsInterpretation.INTERPRETATION_RGB16) => Some("RGB")
-          case Some(VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
-          case _ => None
-        }
+        decodedColourModel(image)
       } catch {
         case e: Exception =>
           logger.error(logMarker, "Error during identifyColourModel", e)
@@ -290,7 +294,7 @@ class VipsImageOperations extends GridLogging with ImageOperations {
 
   def saveImageToFile(image: VImage, mimeType: MimeType, qual: Double, outputFile: File, quantise: Boolean = false, keep: Option[Int] = None): File = {
     logger.info(s"Saving image as $mimeType to file: " + outputFile.getAbsolutePath + s" as ${mimeType.name}")
-    val k = keep.getOrElse(VipsRaw.VIPS_FOREIGN_KEEP_NONE)
+    val k = keep.getOrElse(VipsRaw.VIPS_FOREIGN_KEEP_ICC)
     mimeType match {
       case Jpeg =>
         image.jpegsave(outputFile.getAbsolutePath,
@@ -328,18 +332,45 @@ class VipsImageOperations extends GridLogging with ImageOperations {
     }
   }
 
-  private def correctForICCProfile(image: VImage)(implicit arena: Arena): VImage = {
-    val needsICCTransform = VipsHelper.image_get_typeof(arena, image.getUnsafeStructAddress, "icc-profile-data") != 0
-    if (needsICCTransform) {
-      image.iccTransform("srgb",
-        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL) // Helps with CMYK; see https://github.com/libvips/libvips/issues/1110
-      )
-    } else {
-      // LAB gets corrupted by a needless icc_transform but we will ignore this and hope it improves upstream
-      image.iccTransform("srgb",
-        VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL)
-      )
+  private def decodedColourModel(image: VImage): Option[String] = {
+    val interpretation = VipsHelper.image_get_interpretation(image.getUnsafeStructAddress)
+    VipsInterpretation.values().find(_.getRawValue == interpretation) match {
+      case Some(VipsInterpretation.INTERPRETATION_B_W | VipsInterpretation.INTERPRETATION_GREY16) => Some("Greyscale")
+      case Some(VipsInterpretation.INTERPRETATION_CMYK) => Some("CMYK")
+      case Some(VipsInterpretation.INTERPRETATION_LAB | VipsInterpretation.INTERPRETATION_LABS) => Some("LAB")
+      case Some(VipsInterpretation.INTERPRETATION_RGB | VipsInterpretation.INTERPRETATION_RGB16 | VipsInterpretation.INTERPRETATION_sRGB) => Some("RGB")
+      case _ => None
     }
+  }
+
+  private def correctForICCProfile(image: VImage, optimised: Boolean = false): VImage = {
+    // Source metadata can describe the original TIFF rather than the already-transformed image.
+    val model = decodedColourModel(image)
+    val embeddedModel = Option(image.getBlob("icc-profile-data"))
+      .flatMap(profile => Try(ICC_Profile.getInstance(profile.getBytes).getColorSpaceType).toOption)
+      .flatMap {
+        case ColorSpace.TYPE_RGB => Some("RGB")
+        case ColorSpace.TYPE_CMYK => Some("CMYK")
+        case ColorSpace.TYPE_GRAY => Some("Greyscale")
+        case ColorSpace.TYPE_Lab => Some("LAB")
+        case _ => None
+      }
+    val useEmbedded = model.isDefined && model == embeddedModel
+    val source = if (useEmbedded) {
+      image
+    } else {
+      val withoutProfile = image.copy()
+      withoutProfile.remove("icc-profile-data")
+      // Unprofiled LAB is already device-independent; treating its samples as RGB corrupts the colours.
+      if (model.exists(profileLocations.contains)) withoutProfile
+      else withoutProfile.colourspace(VipsInterpretation.INTERPRETATION_sRGB)
+    }
+    source.iccTransform(outputProfile(optimised),
+      VipsOption.Boolean("embedded", useEmbedded),
+      VipsOption.String("input-profile", model.flatMap(profileLocations.get).getOrElse(profileLocations("RGB"))),
+      VipsOption.Enum("intent", VipsIntent.INTENT_PERCEPTUAL),
+      VipsOption.Int("depth", 8)
+    )
   }
 
   private def createTempFileInTempDir(prefix: String, fileType: MimeType, tempDir: File): File = {
