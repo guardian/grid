@@ -2029,7 +2029,8 @@ test.describe("Unit B isolated continuation", () => {
       const { type, source, x, y, width, height, aspectRatio } = route.request().postDataJSON();
       expect(type).toBe("crop");
       expect(width).toBe(320);
-      expect(source).toMatch(new RegExp(`^${mediaOrigin.replaceAll(".", "\\.")}/images/local-\\d+$`));
+      expect(source.startsWith(`${mediaOrigin}/images/local-`)).toBe(true);
+      expect(source.slice(`${mediaOrigin}/images/local-`.length)).toMatch(/^\d+$/);
       cropPosts++;
       const crop = { id: `${x}_${y}_${width}_${height}`, date: "2026-11-26T12:34:56.123Z",
         assets: [{ mimeType: "image/jpeg", dimensions: { width, height }, file: cropRendition }],
